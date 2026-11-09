@@ -15,11 +15,30 @@ echo "Using project $COMPOSE_PROJECT_NAME; cleanup is manual to preserve evidenc
 docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml config --quiet
 docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml up -d --build --wait frontend api postgres
 docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml ps
-# Confirm actual HTTP response from the local UI. API auth is not exposed to browsers.
-if command -v curl >/dev/null 2>&1; then
-  curl --fail --silent --show-error --max-time 15 http://127.0.0.1:5173/ >/dev/null
-else
-  echo "curl not found; UI HTTP smoke skipped" >&2
-fi
+# --wait does not prove HTTP readiness for services without healthchecks.
+# Require curl rather than silently skipping the core runtime assertion.
+command -v curl >/dev/null 2>&1 || {
+  echo "curl required for rootless HTTP smoke; refusing to skip" >&2
+  exit 2
+}
+for url in http://127.0.0.1:5173/ http://127.0.0.1:8000/api/v1/health/live; do
+  ready=0
+  i=0
+  while [ "$i" -lt 30 ]; do
+    if curl --fail --silent --max-time 3 "$url" -o /dev/null; then
+      ready=1
+      break
+    fi
+    i=$((i + 1))
+    sleep 2
+  done
+  [ "$ready" -eq 1 ] || {
+    echo "Rootless HTTP readiness failed: $url" >&2
+    exit 1
+  }
+done
+docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml exec -T postgres pg_isready -U aiops -d aiops
+# The audit is intentionally strict about configured image users. Upstream
+# PostgreSQL may fail this gate despite dropping privileges at runtime.
 sh deploy/scripts/audit-rootless-compose.sh
 echo "Rootless baseline smoke completed. Manually inspect logs and remove the project when finished."
