@@ -133,8 +133,22 @@ jobs:
       - name: Probe baseline services and verify actual mounts
         run: |
           set -eu
-          curl --fail --silent --show-error --max-time 15 http://127.0.0.1:5173/ -o /dev/null
-          curl --fail --silent --show-error --max-time 15 http://127.0.0.1:8000/api/v1/health/live -o /dev/null
+          # Compose --wait only waits for declared healthchecks. UI/API have none:
+          # retry the actual HTTP probes instead of racing their process startup.
+          for url in http://127.0.0.1:5173/ http://127.0.0.1:8000/api/v1/health/live; do
+            ready=0
+            for i in $(seq 1 30); do
+              if curl --fail --silent --max-time 3 "$url" -o /dev/null; then
+                ready=1
+                break
+              fi
+              sleep 2
+            done
+            if [ "$ready" -ne 1 ]; then
+              echo "HTTP readiness timed out: $url" >&2
+              exit 1
+            fi
+          done
           docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml exec -T postgres pg_isready -U aiops -d aiops
           pg_id=$(docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml ps -q postgres)
           actual=$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/var/lib/postgresql/data"}}{{.Source}}{{end}}{{end}}' "$pg_id")
