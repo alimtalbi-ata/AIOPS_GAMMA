@@ -55,3 +55,7 @@ Build an AI Site Reliability Engineer (AI SRE): observe, predict, normalize, ded
 
 ## Release bar
 No production claim without a real multi-tenant isolation test, replay/duplicate tests, fault injection, ITSM idempotency, runbook allowlist, HITL receipt binding, rollback qualification, and full audit trail.
+
+## Reference-only SRE/AI DevOps catalogs (2026-11-09)
+
+Added [docs/SRE-REFERENTIALS.md](SRE-REFERENTIALS.md) based on two curated user-provided GitHub directories. This adds a **selection and review process only**; zero third-party skills/agents/MCP servers installed, no changed execution privileges, and no external integrations qualified. Follow up in #2–#6.

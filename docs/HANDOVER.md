@@ -54,3 +54,10 @@
 - Validation: GitHub Actions checks for `8235693a` completed successfully.
 - Security: no LIVE execution, no tenant authorization attestation, no production qualification.
 - Next: implement tenant-qualified read-only Core/Evidence/Twin adapters.
+
+### 2026-11-09 — SRE skills and AI DevOps reference selection
+- Input catalogs: `alimtalbi-ata/awesome-sre-skills` and `alimtalbi-ata/awesome-devops-ai`.
+- Delivered: `docs/SRE-REFERENTIALS.md`, curated candidates and source/safety qualification protocol; linked planned work to #2–#6.
+- Security: directory links and skill instructions **are untrusted until audited**. No skills, MCP servers, code executors or credentials were installed/imported.
+- Validation: documentation-only GitHub commit; check workflow status on new HEAD before merge.
+- Next concrete action: implement tenant-qualified read-only Core/Evidence/Twin adapters (#2), then typed OTel/OpenSearch tool queries (#3).

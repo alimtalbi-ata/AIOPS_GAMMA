@@ -19,3 +19,7 @@ Tracking: GitHub Issues in this repository. Every workstream requires acceptance
 - One GitHub Issue per independently testable deliverable; link code PRs and attach CI.
 - Issue states: open = backlog/in progress; closed = acceptance evidence attached. Labels may refine this when configured.
 - Review weekly or at each milestone; this document does not create an automatic schedule.
+
+## External SRE reference review (research input)
+
+Two curated research directories now inform implementation criteria: [awesome-sre-skills](https://github.com/alimtalbi-ata/awesome-sre-skills) and [awesome-devops-ai](https://github.com/alimtalbi-ata/awesome-devops-ai). See [SRE-REFERENTIALS](SRE-REFERENTIALS.md) for priority, selection, qualification and exclusions. First candidates: typed OpenSearch/OTel read-only investigation, SLO/error budgets, incident/postmortem templates, K8s diagnostic shadow mode and sandbox/Policy controls. **None are installed or approved for LIVE.**
