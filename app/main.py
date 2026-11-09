@@ -222,3 +222,14 @@ async def itsm_sync_preview(
         return plan_incident_sync(req, principal.tenant_id)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
+
+
+# GLPI ticket snapshot: fixed server-side tenant/entity binding, GET only.
+from app.reused.glpi_read import read_glpi_incident
+
+
+@app.get("/api/v1/itil4/glpi/incidents/{ticket_id}/snapshot")
+async def glpi_incident_snapshot(
+    ticket_id: int, principal: Principal = Depends(internal_principal)
+):
+    return await read_glpi_incident(principal.tenant_id, ticket_id)
