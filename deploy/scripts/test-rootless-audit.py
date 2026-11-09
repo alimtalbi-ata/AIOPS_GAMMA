@@ -23,7 +23,7 @@ class RootlessAuditTests(unittest.TestCase):
 case "$*" in
   *SecurityOptions*) echo '["name=rootless"]' ;;
   *DockerRootDir*) echo "$GAMMA_HOME/docker-data" ;;
-  "compose "* "ps --all -q") echo mock-postgres ;;
+  *"ps --all -q") echo mock-postgres ;;
   *".Name"*) echo /mock-postgres ;;
   *".State.Running"*) echo true ;;
   *".HostConfig.Privileged"*) echo false ;;
