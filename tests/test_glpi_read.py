@@ -143,6 +143,9 @@ async def test_upstream_non_json_rejected(monkeypatch):
     "https://glpi.internal?redirect=https://evil.invalid",
     "https://glpi.internal#fragment",
     "https://localhost",
+    "https://glpi.internal:invalid",
+    "https://glpi.internal:99999",
+    "https://glpi.internal:0",
 ])
 async def test_unsafe_glpi_origin_rejected_before_network(monkeypatch, origin):
     tenant = uuid4()
