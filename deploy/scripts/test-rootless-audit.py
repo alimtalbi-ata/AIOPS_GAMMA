@@ -100,6 +100,20 @@ esac
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("BIND SOURCE NOT DIRECTORY", result.stderr)
 
+    def test_group_writable_bind_rejected(self):
+        mount = self.home / "data" / "postgres"
+        mount.chmod(0o770)
+        result = self.audit()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("BIND GROUP/OTHER WRITABLE", result.stderr)
+
+    def test_world_writable_bind_rejected(self):
+        mount = self.home / "data" / "postgres"
+        mount.chmod(0o777)
+        result = self.audit()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("BIND GROUP/OTHER WRITABLE", result.stderr)
+
     def test_named_volume_rejected(self):
         result = self.audit(mount="NAMED_VOLUME")
         self.assertNotEqual(result.returncode, 0)
