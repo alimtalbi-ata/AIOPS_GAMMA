@@ -109,3 +109,11 @@
 - Validation: GitHub Actions Python checks **passed** for `f6bbb894` (run 42675633942); check CI for new HEAD.
 - Security: fixed HTTPS origin is necessary but insufficient; deployment still needs egress/DNS allowlisting and GLPI service-account RBAC validation.
 - Next: inspect new HEAD CI, then stage real GLPI contract tests when a qualified environment is available.
+
+### 2026-11-09 — GLPI bounded-response tests (#4)
+- Branch / preceding commit: `feat/observability-foundation` / `1be8f073`.
+- PR / issue: draft #1 / #4.
+- Delivered: negative mock tests for oversized GLPI response bodies, invalid JSON, and array responses instead of an incident object.
+- Validation: Python checks passed on `29ae65c9` (run 42675826400); new HEAD CI must be verified.
+- Security: GLPI reads remain disabled by default and strictly read-only; staging version/ACL and service-token lifecycle remain unqualified.
+- Next: confirm new CI, then stage API-contract and entity-permission tests.
