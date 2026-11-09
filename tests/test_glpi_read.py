@@ -133,3 +133,33 @@ async def test_upstream_non_json_rejected(monkeypatch):
     with pytest.raises(HTTPException) as exc:
         await glpi_read.read_glpi_incident(tenant, 12)
     assert exc.value.status_code == 502
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("origin", [
+    "http://glpi.internal",
+    "https://user:password@glpi.internal",
+    "https://glpi.internal/other/path",
+    "https://glpi.internal?redirect=https://evil.invalid",
+    "https://glpi.internal#fragment",
+    "https://localhost",
+])
+async def test_unsafe_glpi_origin_rejected_before_network(monkeypatch, origin):
+    tenant = uuid4()
+    for name, value in {
+        "enable_glpi_reads": True,
+        "glpi_tenant_id": str(tenant),
+        "glpi_entity_id": "8",
+        "glpi_read_url": origin,
+        "glpi_session_token": "test-session",
+        "glpi_app_token": "test-app",
+    }.items():
+        monkeypatch.setattr(glpi_read.settings, name, value)
+
+    def no_network(*args, **kwargs):
+        raise AssertionError("Invalid GLPI origin must not trigger a network call")
+
+    monkeypatch.setattr(glpi_read.httpx, "AsyncClient", no_network)
+    with pytest.raises(HTTPException) as exc:
+        await glpi_read.read_glpi_incident(tenant, 12)
+    assert exc.value.status_code == 503
