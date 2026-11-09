@@ -22,6 +22,28 @@ jobs:
           docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml config --quiet
       - name: Check rootless preflight shell syntax
         run: sh -n deploy/scripts/check-rootless-home.sh
+      - name: Assert rootless bind mounts and non-root users
+        env:
+          POSTGRES_PASSWORD: ci-placeholder-not-a-secret
+          INTERNAL_API_KEY: ci-placeholder-not-a-secret
+          GAMMA_HOME: /home/runner/gamma-home
+        run: |
+          docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml config --format json > compose-rendered.json
+          python3 - <<'PY'
+          import json, os
+          with open("compose-rendered.json", encoding="utf-8") as f:
+              services = json.load(f)["services"]
+          home = os.environ["GAMMA_HOME"]
+          for name in ("postgres", "opensearch"):
+              mounts = services[name]["volumes"]
+              assert len(mounts) == 1, (name, mounts)
+              assert mounts[0]["type"] == "bind", (name, mounts)
+              assert mounts[0]["source"].startswith(home + "/data/"), (name, mounts)
+          for name in ("api", "outbox-relay"):
+              assert services[name]["user"] == "10001:10001"
+          assert services["frontend"]["security_opt"] == ["no-new-privileges:true"]
+          print("Compose rootless static contract: OK")
+          PY
   ui-image:
     runs-on: ubuntu-latest
     steps:
