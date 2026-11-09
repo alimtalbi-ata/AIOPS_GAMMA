@@ -77,3 +77,7 @@ curl -X POST http://127.0.0.1:8000/api/v1/observability/llm/kpis/preview \\
 ## Design produit — AI SRE centré incidents
 
 Le [blueprint UX evidence-first](docs/PRODUCT-UX-DESIGN.md) définit le futur Command Center, l'Incident Workbench, les panneaux RCA avec preuves contradictoires, l'espace KPI Sentinel/ArgusLM et les garde-fous Policy/HITL. Il s'inspire de quatre articles sur les workflows LLM fiables, la corrélation AIOps, la recherche de code structurée et la gestion des incidents. **C'est une spécification UX ; les nouvelles vues ne sont pas encore implémentées dans la console.**
+
+## Investigation RCA — prévisualisation sécurisée
+
+`POST /api/v1/incidents/investigation/preview` valide des hypothèses et leurs références de preuves horodatées, avec contrôle du tenant. **Aucun agent n'est exécuté et les preuves ne sont pas vérifiées auprès des sources.** Voir [INVESTIGATION-PREVIEW](docs/INVESTIGATION-PREVIEW.md) et [PRODUCT-UX-DESIGN](docs/PRODUCT-UX-DESIGN.md).
