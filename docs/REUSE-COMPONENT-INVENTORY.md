@@ -62,3 +62,7 @@
 - Maintenir `AIOPS_GAMMA` en PR draft jusqu'à validation explicite des gates.
 
 Voir [TARGET-ARCHITECTURE-2026](TARGET-ARCHITECTURE-2026.md), [AI-SRE-PLATFORM](AI-SRE-PLATFORM.md) et [ROADMAP](ROADMAP.md).
+
+## Gate supplémentaire de réutilisation : double packaging
+
+Un candidat n'est promu de « réutilisable » à « intégré » qu'après preuve de démarrage **Docker Compose** et **Kubernetes/Helm**, à partir d'une image OCI épinglée, avec healthchecks/probes, secrets, volumes, observabilité, isolation tenant, sécurité réseau et tests de contrat. Pour les composants déjà fournis avec des charts/Compose upstream, préférer les dépendances versionnées à une copie. Un moteur disponible uniquement sous forme de script/CLI doit être enveloppé dans un service/job conteneurisé avec la même API et les mêmes restrictions dans les deux environnements. Voir [DEPLOYMENT-CONTRACT](DEPLOYMENT-CONTRACT.md).
