@@ -93,3 +93,7 @@ Le [plan d'architecture AI SRE / ITIL 4](docs/TARGET-ARCHITECTURE-2026.md) défi
 ## Packaging initial Compose / Kubernetes
 
 Les premiers manifests sont disponibles dans [`deploy/`](deploy/README.md) : surcharge Docker Compose pour la stack existante, chart Helm `gamma` (UI + API), Secrets externes et validation statique en CI. **Ce n'est pas encore une stack intégrée complète** : Core/Temporal, OpenSearch/Cortex, Sentinel, ArgusLM et moteur RCA nécessitent leurs déploiements et tests séparés. Le proxy API côté navigateur, l'authentification SSO et la qualification staging ne sont pas livrés.
+
+## Installation monorépertoire et rootless
+
+La cible impose une installation sous une racine configurable `GAMMA_HOME`, sans écriture dans `/bin`, `/sbin`, `/var` ou `/tmp` **sur l'hôte**, avec Docker Engine rootless et workloads Kubernetes non-root. Voir le [contrat rootless](docs/ROOTLESS-SINGLE-DIRECTORY.md), l'[overlay Compose expérimental](deploy/compose/compose.rootless.yaml) et le [précontrôle](deploy/scripts/check-rootless-home.sh). Les images et le runtime peuvent nécessiter des dépendances Linux internes ou des prérequis système : la conformité totale n'est pas encore démontrée.
