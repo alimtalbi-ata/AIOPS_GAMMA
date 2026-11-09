@@ -32,6 +32,8 @@ async def test_cross_tenant_denied_before_network(monkeypatch):
     ({"id": 12}, 502),
     ({"id": 12, "entities_id": 8, "type": 2}, 502),
     ({"id": 12, "entities_id": 8, "type": True}, 502),
+    ({"id": 12, "entities_id": 8, "type": 1, "status": "2"}, 502),
+    ({"id": True, "entities_id": 8, "type": 1}, 502),
     ([{"id": 12, "entities_id": 8}], 502),
 ])
 async def test_entity_binding_and_safe_projection(monkeypatch, payload, status):
@@ -69,3 +71,12 @@ async def test_entity_binding_and_safe_projection(monkeypatch, payload, status):
         assert result["entity_id"] == 8
         assert result["read_only"] is True
         assert "name" not in result
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("ticket_id", [0, -1, True, "12"])
+async def test_invalid_ticket_id_rejected_before_network(monkeypatch, ticket_id):
+    monkeypatch.setattr(glpi_read.settings, "enable_glpi_reads", True)
+    with pytest.raises(HTTPException) as exc:
+        await glpi_read.read_glpi_incident(uuid4(), ticket_id)
+    assert exc.value.status_code == 422
