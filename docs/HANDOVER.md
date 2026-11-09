@@ -1,0 +1,56 @@
+# AIOPS_GAMMA — Handover / session recovery
+
+**Snapshot: 2026-11-09.** Read this first when taking over work, after a session interruption, or when changing developer/agent.
+
+## Current working state
+- Repo: https://github.com/alimtalbi-ata/AIOPS_GAMMA
+- Active draft PR: https://github.com/alimtalbi-ata/AIOPS_GAMMA/pull/1
+- Branch: `feat/observability-foundation`; `main` does **not** contain the feature branch.
+- Last verified pre-documentation commit: `8235693a1be7c28c49fa5ad8262f0d2209ccc49c`; its GitHub Actions checks passed. **Recheck HEAD and CI before changing or merging.**
+- Working language: French for operator/product communication; code/docs may be English.
+- Main docs: `docs/PROJECT-STATUS.md`, `docs/ROADMAP.md`, `docs/AI-SRE-PLATFORM.md`, `docs/THREE-SOURCE-INTEGRATION.md`, `docs/OPERATIONS.md`, `docs/DECISIONS.md`.
+
+## Resume procedure
+1. Read latest PR discussion, issues, branch HEAD, `git status`, CI and relevant docs.
+2. Verify what actually exists in the three source repos; do not assume deployment/runtime availability from static source.
+3. Select one GitHub issue and identify acceptance criteria, ownership boundaries and test strategy.
+4. Make an incremental branch/PR update; avoid unreviewed copying of large upstream projects or credentials.
+5. Run `pytest`, frontend build, migration and integration checks as applicable; inspect GitHub Actions on the **new HEAD**.
+6. Update status, decisions and this handover with delivered code, SHA, tests, known failures, next issue and security qualifications.
+7. Leave PR draft until reviewed and safe; do not auto-merge or enable LIVE remediation.
+
+## Immediate priorities
+1. Authenticated, tenant-qualified read-only Core/Evidence/Twin/GLPI adapters; strict fixed origins, no redirects, timeouts, bounded JSON, no secrets in frontend.
+2. Real OpenTelemetry/Data Prepper/OpenSearch/Cortex contract and mapping tests.
+3. Persistent correlation, deduplication and idempotent canonical Core/ITSM reconciliation.
+4. Evidence-grounded RCA with critic, contradictory evidence and UNKNOWN outcomes.
+5. Versioned approved runbooks, dry-run and deterministic policy/HITL; only then qualified effect execution.
+
+## Known gaps and blockers
+- Existing Core, Evidence, Policy, Twin and GLPI service endpoints/auth contracts not independently runtime-qualified.
+- No production OIDC/mTLS or tenant-specific RBAC/DLS; shared internal key and X-Tenant-Id only safe behind a trusted gateway.
+- Demo console uses synthetic data.
+- Metrics API returns 501; OpenSearch query mapping must be checked against actual upstream pipeline.
+- Policy preview is not an authorization token. LIVE mutation prohibited.
+- Integration/e2e tests against deployed upstream systems not run.
+
+## Handover note template (append in future updates)
+```md
+### YYYY-MM-DD — workstream / PR
+- Branch / commit:
+- Issue / PR:
+- Delivered:
+- Validation (exact commands, CI URL, pass/fail):
+- Decisions and security impact:
+- Not done / blockers:
+- Next concrete action:
+```
+
+## First handover entry
+### 2026-11-09 — three-source AI SRE foundation
+- Branch / commit: `feat/observability-foundation` / `8235693a` (before documentation update)
+- PR: #1 (draft)
+- Delivered: FastAPI + React console, PostgreSQL inbox/outbox and evidence, feature-flagged OpenSearch log adapter, safe correlation preview, policy preview, source-reuse documentation.
+- Validation: GitHub Actions checks for `8235693a` completed successfully.
+- Security: no LIVE execution, no tenant authorization attestation, no production qualification.
+- Next: implement tenant-qualified read-only Core/Evidence/Twin adapters.
