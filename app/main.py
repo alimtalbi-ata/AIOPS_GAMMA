@@ -250,3 +250,17 @@ async def llm_kpi_preview(
         return calculate_llm_kpis(req, principal.tenant_id)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
+
+
+# Typed evidence-linked investigation preview. No agent or tool execution.
+from app.reused.investigation import InvestigationPreview, evaluate_investigation
+
+
+@app.post("/api/v1/incidents/investigation/preview")
+async def investigation_preview(
+    req: InvestigationPreview, principal: Principal = Depends(internal_principal),
+):
+    try:
+        return evaluate_investigation(req, principal.tenant_id)
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
