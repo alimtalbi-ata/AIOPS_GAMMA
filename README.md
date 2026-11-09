@@ -89,3 +89,7 @@ Le [plan d'architecture AI SRE / ITIL 4](docs/TARGET-ARCHITECTURE-2026.md) défi
 ## Déploiement cible : Docker Compose et Kubernetes
 
 **Exigence d'architecture** : tous les composants de la plateforme exploités par GAMMA devront être livrés en images OCI et déployables via **Docker Compose (local/démo/intégration)** et **Kubernetes/Helm (staging/production)**. Les services externes peuvent être raccordés par connecteur. Le [contrat de déploiement](docs/DEPLOYMENT-CONTRACT.md) définit la matrice, les profils, les critères CI, les secrets, les volumes et les garde-fous. Cette exigence est une cible à implémenter, pas une certification des manifests existants.
+
+## Packaging initial Compose / Kubernetes
+
+Les premiers manifests sont disponibles dans [`deploy/`](deploy/README.md) : surcharge Docker Compose pour la stack existante, chart Helm `gamma` (UI + API), Secrets externes et validation statique en CI. **Ce n'est pas encore une stack intégrée complète** : Core/Temporal, OpenSearch/Cortex, Sentinel, ArgusLM et moteur RCA nécessitent leurs déploiements et tests séparés. Le proxy API côté navigateur, l'authentification SSO et la qualification staging ne sont pas livrés.
