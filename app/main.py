@@ -130,3 +130,33 @@ async def list_evidence(
              "source_type": e.source_type, "source_ref": e.source_ref,
              "summary": e.summary, "observed_at": e.observed_at.isoformat()}
             for e in rows]
+
+
+# Reused pure impact estimator from the existing AIOps platform.
+# This endpoint does not authorize LIVE operations or remediation.
+from pydantic import BaseModel, Field
+from app.reused.impact import estimate_impact
+
+
+class ImpactRequest(BaseModel):
+    direct_impact: float = Field(ge=0, le=1)
+    redundant_paths: int = Field(ge=0)
+    total_paths: int = Field(ge=0)
+
+
+@app.post("/api/v1/topology/impact/estimate")
+async def impact_estimate(
+    req: ImpactRequest, principal: Principal = Depends(internal_principal)
+):
+    try:
+        estimate = estimate_impact(
+            req.direct_impact, req.redundant_paths, req.total_paths
+        )
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return {
+        "state": estimate.state,
+        "score": estimate.score,
+        "source": estimate.source,
+        "live_remediation_authorized": False,
+    }
