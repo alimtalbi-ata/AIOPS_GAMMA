@@ -12,6 +12,7 @@ case "$GAMMA_HOME" in
 esac
 [ -d "$GAMMA_HOME" ] || { echo "Create GAMMA_HOME as your user before running" >&2; exit 2; }
 [ -w "$GAMMA_HOME" ] || { echo "GAMMA_HOME is not writable" >&2; exit 2; }
+[ "$(stat -c %u "$GAMMA_HOME")" = "$(id -u)" ] || { echo "GAMMA_HOME must be owned by current user" >&2; exit 2; }
 resolved=$(cd "$GAMMA_HOME" && pwd -P)
 [ "$resolved" = "$GAMMA_HOME" ] || { echo "GAMMA_HOME must be canonical (no symlinks or ..)" >&2; exit 2; }
 command -v docker >/dev/null 2>&1 || { echo "Docker CLI missing" >&2; exit 2; }
@@ -25,5 +26,15 @@ case "$data_root" in
   "$GAMMA_HOME"/docker-data|"$GAMMA_HOME"/docker-data/*) ;;
   *) echo "Docker data-root ($data_root) is outside GAMMA_HOME/docker-data; refusing" >&2; exit 2 ;;
 esac
+# Reject symlinked data roots and existing bind targets escaping GAMMA_HOME.
+for path in "$GAMMA_HOME/docker-data" "$GAMMA_HOME/data" "$GAMMA_HOME/data/postgres" "$GAMMA_HOME/data/opensearch"; do
+  [ -e "$path" ] || [ -L "$path" ] || continue
+  [ -d "$path" ] || { echo "Not a directory: $path" >&2; exit 2; }
+  real=$(cd "$path" && pwd -P)
+  case "$real" in
+    "$GAMMA_HOME"|"$GAMMA_HOME"/*) ;;
+    *) echo "Directory escapes GAMMA_HOME: $path -> $real" >&2; exit 2 ;;
+  esac
+done
 echo "Rootless daemon and in-tree Docker data-root detected; directory preflight passed."
 echo "Still verify Docker data-root, per-image UID ownership and all bind mounts before starting."
