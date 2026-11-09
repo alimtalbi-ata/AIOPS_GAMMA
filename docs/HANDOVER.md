@@ -125,3 +125,11 @@
 - Validation: GitHub Actions Python checks **passed** on `3ea5ef51` (run 42676495843). Documentation HEAD CI should be rechecked.
 - Security: no staging secrets, no real GLPI tests and no activation. Deployment must provide trusted gateway identity, egress ACL and read-only GLPI service-account RBAC.
 - Next: obtain an approved GLPI staging environment, pin API version and run the qualification matrix; keep PR draft pending review.
+
+### 2026-11-09 — GLPI snapshot cache policy (#4)
+- Branch / prior commit: `feat/observability-foundation` / `9f74501f`.
+- PR / issue: draft #1 / #4.
+- Delivered: `Cache-Control: no-store` on successful authenticated GLPI incident snapshots, route-level regression test, adapter documentation.
+- Validation: Python checks passed on `4ba36e94` (run 42676822911); verify new HEAD CI.
+- Security: cache headers complement but do not replace gateway caching and logging policies. No staging GLPI qualification or ITSM mutation.
+- Next: confirm CI and arrange GLPI staging RBAC/API tests; keep PR draft.
