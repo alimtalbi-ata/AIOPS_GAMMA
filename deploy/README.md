@@ -50,3 +50,9 @@ docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/co
 ```
 
 Do not run `up` as proof of rootless compliance without checking the [rootless installation contract](../docs/ROOTLESS-SINGLE-DIRECTORY.md).
+
+## Non-root UI increment
+
+The UI now uses `nginxinc/nginx-unprivileged:1.27-alpine`, explicitly runs as UID/GID `101:101`, and listens on **8080** internally. The root Compose mapping is `127.0.0.1:5173:8080`; Helm's UI service also targets 8080 and declares a non-root pod security context. CI now builds the UI image, asserts its configured user, and runs `nginx -t` as UID 101 with dropped capabilities. The CI workflow also validates the rootless Compose overlay configuration and shell syntax.
+
+The rootless preflight now **refuses** a Docker daemon whose `DockerRootDir` is outside `$GAMMA_HOME/docker-data`. It does not configure Docker for you. It must run against the intended rootless daemon; verify `DOCKER_HOST` and the context first. Full runtime smoke tests, bind-mount ownership, PostgreSQL/OpenSearch startup, read-only root filesystems and Kubernetes staging remain pending.
