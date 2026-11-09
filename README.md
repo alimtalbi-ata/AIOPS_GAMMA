@@ -73,3 +73,7 @@ curl -X POST http://127.0.0.1:8000/api/v1/observability/llm/kpis/preview \\
 ```
 
 **Limites :** aucun connecteur live Sentinel/ArgusLM, aucun historique horodaté, aucune mesure SLO de production, aucune autorisation de remédiation. L'API ne doit pas être exposée directement au public. Voir [statut du projet](docs/PROJECT-STATUS.md), [roadmap](docs/ROADMAP.md), [adaptateur GLPI](docs/GLPI-READ-ADAPTER.md) et [qualification staging](docs/GLPI-STAGING-QUALIFICATION.md).
+
+## Design produit — AI SRE centré incidents
+
+Le [blueprint UX evidence-first](docs/PRODUCT-UX-DESIGN.md) définit le futur Command Center, l'Incident Workbench, les panneaux RCA avec preuves contradictoires, l'espace KPI Sentinel/ArgusLM et les garde-fous Policy/HITL. Il s'inspire de quatre articles sur les workflows LLM fiables, la corrélation AIOps, la recherche de code structurée et la gestion des incidents. **C'est une spécification UX ; les nouvelles vues ne sont pas encore implémentées dans la console.**
