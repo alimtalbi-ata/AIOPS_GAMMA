@@ -141,3 +141,11 @@
 - Validation: Python checks for `e86e0041` were in progress (run 42677594572) when checked; inspect CI on latest HEAD before treating it as validated.
 - Security: no credentials committed; GLPI read remains feature-flagged off by default and requires staging RBAC/API qualification.
 - Next: confirm CI; arrange approved GLPI staging service account and execute `docs/GLPI-STAGING-QUALIFICATION.md`.
+
+### 2026-11-09 — shared HTTPS origin port validation (#2/#4)
+- Branch / preceding commit: `feat/observability-foundation` / `bf7b4c7e`.
+- PR / issues: draft #1 / #2, #4.
+- Delivered: reject malformed, zero and out-of-range ports in the shared `validate_origin` guard before network access; add regression tests for both canonical and GLPI adapters.
+- Validation: Python checks for `a278e2a7` were in progress when checked (run 42677740871); recheck CI on the latest HEAD.
+- Security: validation remains necessary but insufficient without infrastructure DNS/egress allowlists, TLS and tenant RBAC. No staging GLPI qualification or ITSM writes.
+- Next: confirm new HEAD CI; execute approved GLPI staging qualification matrix when infrastructure is available.
