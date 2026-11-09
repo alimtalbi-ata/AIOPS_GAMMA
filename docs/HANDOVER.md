@@ -200,3 +200,10 @@
 - User requirement: **every GAMMA-operated platform component** must support both Docker Compose and Kubernetes/Helm from versioned OCI images; externally managed GLPI/SSO/SaaS may remain external, but their connectors must be deployable in both environments.
 - Delivered: `docs/DEPLOYMENT-CONTRACT.md` with component matrix, profiles, target folder structure, OCI packaging, CI stages, network/tenant/secrets/volume constraints and acceptance checklist; linked from target architecture, reuse inventory, roadmap and README.
 - Status: documentation-only decision. No new Compose/Helm manifests or staging qualification claimed. Keep draft PR #1; check latest HEAD CI.
+
+### 2026-11-09 — initial Compose/Helm deployment manifests
+- Branch: `feat/observability-foundation`, PR #1 draft. Existing root Compose and API/UI Dockerfiles reused.
+- Delivered: `deploy/compose/compose.yaml`, `deploy/compose/.env.example`, `deploy/helm/gamma` (Chart, values, API/UI Deployments/Services, optional Ingress, scoped ingress NetworkPolicies), `deploy/README.md`, `.github/workflows/deployment-contract.yml` (static Compose/Helm checks).
+- Safety: existing API internal key and DB DSN are Kubernetes Secret refs; default feature flags off; API runs non-root; no namespace-wide deny that could disrupt unrelated pods.
+- Known blockers: UI nginx currently serves static SPA only (no authenticated `/api` proxy); chart does not provide full database/Temporal/Core/observability/KPI stack; probes are TCP-only; no tested image digests, staging TLS/SSO, full network egress or production readiness. Do not claim complete platform deployment.
+- Validation: new HEAD CI pending; Compose/Helm syntax and runtime staging tests not independently executed in this session. Check workflow results and fix failures before promotion.
