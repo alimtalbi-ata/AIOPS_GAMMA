@@ -14,7 +14,12 @@ services:
       - type: bind
         source: ${GAMMA_HOME:?set absolute GAMMA_HOME}/data/postgres
         target: /var/lib/postgresql/data
+    # Upstream postgres entrypoint initializes ownership and permissions before
+    # dropping privileges to its postgres account. CAP_DROP ALL alone prevents
+    # chown/chmod on fresh bind mounts. These caps apply only inside the
+    # container user namespace when the daemon is genuinely rootless.
     cap_drop: [ALL]
+    cap_add: [CHOWN, FOWNER, DAC_OVERRIDE]
   opensearch:
     volumes:
       - type: bind
