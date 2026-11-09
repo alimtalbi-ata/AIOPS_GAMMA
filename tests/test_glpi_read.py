@@ -26,10 +26,12 @@ async def test_cross_tenant_denied_before_network(monkeypatch):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("payload,status", [
-    ({"id": 12, "entities_id": 8, "status": 2}, 200),
-    ({"id": 13, "entities_id": 7}, 502),
-    ({"id": 12, "entities_id": 9}, 502),
+    ({"id": 12, "entities_id": 8, "type": 1, "status": 2}, 200),
+    ({"id": 13, "entities_id": 7, "type": 1}, 502),
+    ({"id": 12, "entities_id": 9, "type": 1}, 502),
     ({"id": 12}, 502),
+    ({"id": 12, "entities_id": 8, "type": 2}, 502),
+    ({"id": 12, "entities_id": 8, "type": True}, 502),
     ([{"id": 12, "entities_id": 8}], 502),
 ])
 async def test_entity_binding_and_safe_projection(monkeypatch, payload, status):
