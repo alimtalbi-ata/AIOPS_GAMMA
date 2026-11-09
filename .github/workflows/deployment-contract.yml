@@ -1,4 +1,4 @@
-name: Deployment contract (static)
+name: Deployment contract (static + UI runtime)
 on:
   push:
   pull_request:
@@ -59,6 +59,23 @@ jobs:
         run: |
           test "$(docker image inspect gamma-ui:ci --format '{{.Config.User}}')" = "101:101"
           docker run --rm --cap-drop ALL --security-opt no-new-privileges --user 101:101 --entrypoint nginx gamma-ui:ci -t
+      - name: Smoke test running UI with dropped capabilities
+        run: |
+          set -eu
+          docker run -d --name gamma-ui-smoke --cap-drop ALL --security-opt no-new-privileges --user 101:101 -p 127.0.0.1:18080:8080 gamma-ui:ci
+          trap 'docker logs gamma-ui-smoke || true; docker rm -f gamma-ui-smoke || true' EXIT
+          for i in $(seq 1 30); do
+            if curl --fail --silent --show-error --max-time 2 http://127.0.0.1:18080/ -o ui-response.html; then
+              grep -qi '<html' ui-response.html
+              docker inspect --format '{{.State.Running}}' gamma-ui-smoke | grep -qx true
+              docker inspect --format '{{.HostConfig.Privileged}}' gamma-ui-smoke | grep -qx false
+              test "$(docker inspect --format '{{.Config.User}}' gamma-ui-smoke)" = "101:101"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Non-root UI did not respond over HTTP" >&2
+          exit 1
   helm:
     runs-on: ubuntu-latest
     steps:
