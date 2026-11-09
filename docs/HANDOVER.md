@@ -289,3 +289,8 @@
 - `3783aeca`: both GitHub Actions workflows succeeded, including the PostgreSQL logical backup/restore rehearsal under `GAMMA_HOME/backups`.
 - Updated optional dedicated-host `smoke-rootless.sh` to require curl, retry UI/API HTTP readiness, check `pg_isready`, then run the strict rootless runtime audit.
 - No rootless host was available or tested; upstream PostgreSQL configured-root user still blocks strict audit until resolved. New commit CI pending.
+
+### 2026-11-09 — PostgreSQL runtime UID assertion
+- Both workflows passed on `18ae32ee`.
+- Added a CI runtime assertion that PostgreSQL PID 1's effective UID is nonzero in the single-directory bind-mount job, and fixed Compose capability comment formatting.
+- This checks the running process, not the upstream image's configured user. The strict rootless audit still intentionally rejects an unspecified/root configured user; no rootless Docker host test has been run. New CI pending.
