@@ -18,8 +18,22 @@ for id in $ids; do
   [ "$running" = true ] || { echo "NOT RUNNING: $name" >&2; failed=1; }
   [ "$privileged" = false ] || { echo "PRIVILEGED: $name" >&2; failed=1; }
   [ -n "$user" ] && [ "$user" != 0 ] && [ "$user" != root ] || {
-    echo "UNQUALIFIED CONFIG USER: $name ($user) — inspect image runtime UID" >&2; failed=1;
+    echo "UNQUALIFIED CONFIG USER: $name ($user) — explicit non-root image user required" >&2; failed=1;
   }
+  # Config.User and the running process UID are independent security facts.
+  # Collect both; never treat a non-root process as a waiver for root config.
+  if [ "$running" = true ]; then
+    runtime_uid=$(docker exec "$id" sh -c "awk '/^Uid:/ {print \$2}' /proc/1/status") || {
+      echo "RUNTIME UID UNAVAILABLE: $name" >&2
+      failed=1
+      runtime_uid=
+    }
+    case "$runtime_uid" in
+      ''|*[!0-9]*) echo "INVALID RUNTIME UID: $name ($runtime_uid)" >&2; failed=1 ;;
+      0) echo "ROOT RUNTIME UID: $name" >&2; failed=1 ;;
+      *) echo "Runtime PID 1 UID: $name ($runtime_uid)" ;;
+    esac
+  fi
   mounts=$(docker inspect --format '{{range .Mounts}}{{if eq .Type "bind"}}{{.Source}}{{println}}{{else}}NAMED_VOLUME{{println}}{{end}}{{end}}' "$id")
   oldifs=$IFS
   IFS='
