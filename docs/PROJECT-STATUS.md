@@ -16,7 +16,7 @@ Build an AI Site Reliability Engineer (AI SRE): observe, predict, normalize, ded
 - Backend: FastAPI, SQLAlchemy/PostgreSQL, tenant-filtered optional OpenSearch log search, inbox/outbox, CMDB service bindings, evidence cache, relay, Alembic migration, read-only impact/correlation previews, advisory policy preview.
 - Frontend: React/TypeScript observability console, synthetic demo content; **not authenticated production data**.
 - Deployment: Docker Compose dev stack; optional demo OpenSearch, feature flags default off. Existing upstream telemetry deployment is not provisioned or validated by Gamma.
-- CI: Python tests + frontend build. GitHub Actions for commit `8235693a` reported success on 2026-11-09; future commits require their own validation.
+- CI: Python tests + frontend build. GitHub Actions **Python checks** passed for `73ab1335` (run `42679137227`, 2026-11-09). Subsequent documentation commits require their own HEAD CI verification; frontend and staging qualification must be evaluated separately.
 
 ## Capability matrix
 
@@ -25,11 +25,11 @@ Build an AI Site Reliability Engineer (AI SRE): observe, predict, normalize, ded
 | Console visual prototype | Prototype | React, synthetic examples only |
 | Alert ingestion + idempotent inbox/outbox | Prototype | PG models/API; live integration and delivery contract unqualified |
 | Log query | Feature-flagged prototype | Query DSL tenant filter; no verified OpenSearch DLS/production index mappings |
-| Metrics and traces end-to-end | Not integrated | Metrics endpoint intentionally returns 501 |
+| Metrics and traces end-to-end | Not integrated | General PromQL metrics endpoint intentionally returns 501; no qualified Cortex/OTel connection |\n| LLM KPI preview (Sentinel/ArgusLM) | Implemented, non-authoritative | Strict tenant-bound caller-supplied samples; P50/P95/P99, TTFT, throughput, cost estimate, anomalies; **no live connectors, storage or dashboard** |
 | Correlation/deduplication | Read-only preview | Exact source IDs, symptom/service/CI/time; no durable incident clustering |
 | CMDB impact | Unverified estimate | No live Twin/GLPI authority validation |
 | Canonical Core/Temporal | Existing in `aiops`, not connected | Read-only authenticated adapters pending |
-| ITSM ticket sync | Not integrated | GLPI ownership remains in `aiops` |
+| ITSM ticket sync | Advisory preview only | Enterprise priority matrix and idempotency proposal; no ticket mutation |\n| GLPI incident snapshots | Disabled-by-default prototype | HTTPS GET-only, tenant/entity checks, bounded body, no-store; staging API/RBAC not qualified |
 | RCA AI/Critic | Not integrated | Evidence model and conceptual design only |
 | Policy | Advisory preview | **Never grants LIVE execution** |
 | Autonomous remediation | Not implemented | Requires independent policy/HITL, approved recipes, fencing, audit, rollback, verification |
@@ -70,3 +70,11 @@ Added `docs/ITIL4-GOVERNANCE.md` and a typed, authenticated **preview-only** ITI
 ## ITSM synchronization proposal (2026-11-09)
 - New [ITSM-SYNC-CONTRACT](ITSM-SYNC-CONTRACT.md) describes enterprise-owned priority matrices and safe incident sync proposals with stable logical idempotency keys.
 - Implemented as a **pure internal preview** only; not a vendor connector, not a durable exactly-once guarantee, and no ITSM writes.
+
+
+## Latest GLPI and KPI delivery snapshot (2026-11-09)
+
+- **GLPI:** [GLPI-READ-ADAPTER](GLPI-READ-ADAPTER.md) implements a single-tenant, entity-bound read-only incident snapshot behind a feature flag (off by default). Regression tests cover missing configuration, tenant denial, invalid URL/port, upstream redirects/errors, oversized or malformed responses and cache policy. [GLPI-STAGING-QUALIFICATION](GLPI-STAGING-QUALIFICATION.md) is a **test plan only**, not executed proof. The ITSM incident sync remains [preview-only](ITSM-SYNC-CONTRACT.md).
+- **LLM KPI:** reviewed `alimtalbi-ata/sentinel-llm` and `alimtalbi-ata/arguslm-llm`; implemented `app/reused/llm_kpi.py` and `POST /api/v1/observability/llm/kpis/preview` with strict input validation, tenant equality and unit-labelled KPI projections. See [LLM-KPI-CONTRACT](LLM-KPI-CONTRACT.md). These are **caller-supplied preview samples**, not trusted production observations.
+- **Validation:** Python checks passed on `73ab1335` ([run 42679137227](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/42679137227)). New documentation HEAD CI and all real upstream staging tests remain to be confirmed.
+- **Immediate next gate:** trusted source-specific tenant/model ACL mapping, fixed-origin read-only data retrieval, timestamped metric provenance and sample coverage, then SLO/dashboard qualification. No autonomous remediation or ITSM writes.
