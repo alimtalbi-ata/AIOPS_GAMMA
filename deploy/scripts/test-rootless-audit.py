@@ -86,6 +86,20 @@ esac
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("OUT-OF-TREE BIND", result.stderr)
 
+    def test_symlink_bind_escape_rejected(self):
+        external = self.base / "outside"
+        external.mkdir()
+        escaped = self.home / "data" / "indirect"
+        escaped.symlink_to(external, target_is_directory=True)
+        result = self.audit(mount=str(escaped))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("BIND ESCAPES DATA ROOT", result.stderr)
+
+    def test_missing_bind_source_rejected(self):
+        result = self.audit(mount=str(self.home / "data" / "missing"))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("BIND SOURCE NOT DIRECTORY", result.stderr)
+
     def test_named_volume_rejected(self):
         result = self.audit(mount="NAMED_VOLUME")
         self.assertNotEqual(result.returncode, 0)
