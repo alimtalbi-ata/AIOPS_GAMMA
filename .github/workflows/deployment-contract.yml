@@ -114,6 +114,39 @@ jobs:
         run: |
           docker compose -f docker-compose.yml -f deploy/compose/compose.yaml logs --no-color --tail=100 || true
           docker compose -f docker-compose.yml -f deploy/compose/compose.yaml down --volumes --remove-orphans || true
+  single-directory-runtime:
+    runs-on: ubuntu-latest
+    env:
+      POSTGRES_PASSWORD: ci-only-test-password
+      INTERNAL_API_KEY: ci-only-test-internal-key
+      COMPOSE_PROJECT_NAME: gamma-bind-ci
+      GAMMA_HOME: ${{ github.workspace }}/gamma-home
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare user-owned data directory
+        run: |
+          mkdir -p "$GAMMA_HOME/data/postgres" "$GAMMA_HOME/data/opensearch"
+          test "$(stat -c %u "$GAMMA_HOME")" = "$(id -u)"
+      - name: Start baseline stack with single-directory bind mounts
+        run: |
+          docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml up -d --build --wait postgres api frontend
+      - name: Probe baseline services and verify actual mounts
+        run: |
+          set -eu
+          curl --fail --silent --show-error --max-time 15 http://127.0.0.1:5173/ -o /dev/null
+          curl --fail --silent --show-error --max-time 15 http://127.0.0.1:8000/api/v1/health/live -o /dev/null
+          docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml exec -T postgres pg_isready -U aiops -d aiops
+          pg_id=$(docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml ps -q postgres)
+          actual=$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/var/lib/postgresql/data"}}{{.Source}}{{end}}{{end}}' "$pg_id")
+          test "$actual" = "$GAMMA_HOME/data/postgres"
+          test "$(docker inspect --format '{{.HostConfig.Privileged}}' "$pg_id")" = false
+          echo "Single-directory baseline bind-mount smoke passed (non-rootless Docker runner)"
+      - name: Capture logs and clean up
+        if: always()
+        run: |
+          docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml logs --no-color --tail=100 || true
+          docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml down --remove-orphans || true
+          # No forced recursive deletion: preserve permission evidence on failure.
   helm:
     runs-on: ubuntu-latest
     steps:
