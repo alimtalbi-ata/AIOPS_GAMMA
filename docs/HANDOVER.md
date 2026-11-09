@@ -85,3 +85,11 @@
 - Validation: tests added; GitHub Actions on latest HEAD still to be confirmed. No GLPI staging integration performed.
 - Security: GLPI legacy API and service session token are provisional; no cross-tenant credential registry, no session lifecycle, no CMDB mapping or ITSM mutation.
 - Next: version-pinned GLPI staging contract tests, ACL-backed tenant/entity registry, CI qualification and secret management before enabling the adapter.
+
+### 2026-11-09 — GLPI CI recovery and API boundary tests (#4)
+- Branch / last pre-handover commit: `feat/observability-foundation` / `aa661474`.
+- PR / issue: draft #1 / #4.
+- Delivered: incident-only GLPI ticket attestation (`type=1`), strict identifier/status validation, upstream decoding error handling, negative tests, and route-level auth/tenant denial tests.
+- Validation: GitHub Actions Python checks **passed** for `b69374ac` (run 42674584843). Recheck CI for new HEAD; no live GLPI staging tests.
+- Security: read-only and disabled by default; internal header authentication requires a trusted gateway; GLPI entity match is not an RBAC proof.
+- Next: verify new HEAD CI, then run staging contract/RBAC tests with a scoped GLPI service account before any activation.
