@@ -254,3 +254,8 @@
 - On `1aa47f90`, Python checks and Deployment contract (including real non-root UI HTTP smoke) succeeded.
 - Added a separate GitHub-hosted CI job that starts PostgreSQL + API, waits for readiness, probes API health, inspects configured API user and privilege state, then captures logs and removes containers/volumes.
 - New job result pending. The test is **not** a Docker rootless runtime validation and does not cover the optional OpenSearch profile or Kubernetes end-to-end.
+
+### 2026-11-09 — bind-mounted baseline CI smoke
+- On `4d9f1e40`, both GitHub workflows succeeded, including the PostgreSQL+API Compose runtime job and the non-root UI runtime smoke.
+- Added a CI job for full baseline UI/API/PostgreSQL with `GAMMA_HOME/data/postgres` bind mount, HTTP probes and actual mount inspection. It runs on the GitHub-hosted Docker daemon, **not** rootless. CI result on this new commit pending.
+- The rootless-engine data-root, PostgreSQL UID ownership and full-stack K8s deployment still need dedicated runtime qualification.
