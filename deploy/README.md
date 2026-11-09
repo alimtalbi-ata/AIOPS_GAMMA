@@ -106,3 +106,7 @@ A separate GitHub Actions job now starts `postgres` and `api` using the standard
 ## Single-directory bind-mount runtime regression
 
 A new GitHub-hosted CI job starts the **UI + API + PostgreSQL** baseline with the rootless Compose overlay and a real PostgreSQL bind mount under the runner's `GAMMA_HOME/data/postgres`. It probes both HTTP endpoints, checks PostgreSQL readiness, inspects the actual mounted host path, and retains filesystem evidence rather than force-deleting it on failure. This detects many UID/mount errors, but **the GitHub-hosted Docker daemon is not rootless**, and the job does not enforce the strict `check-rootless-home.sh` preflight. It does not qualify OpenSearch, host filesystem confinement or Kubernetes.
+
+## PostgreSQL initialization capabilities
+
+The first bind-mounted baseline runtime CI run failed: upstream `postgres:16-alpine` needs to `chmod` and `chown` its fresh data directory and runtime socket directory before dropping to the PostgreSQL account. The rootless overlay now retains `cap_drop: [ALL]` but adds `CHOWN`, `FOWNER`, and `DAC_OVERRIDE` **only for PostgreSQL**. On a verified rootless Docker daemon these are namespaced capabilities, not host-root privileges. This is a compatibility exception, not a claim of fully non-root PostgreSQL initialization. Validate actual runtime UID, bind ownership and host containment on a dedicated rootless host before production.
