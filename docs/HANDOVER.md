@@ -233,3 +233,9 @@
 - Confirmed on HEAD `ff995e86`: Python checks and Deployment contract (static) both successful.
 - Added `deploy/scripts/smoke-rootless.sh` for **manual** rootless baseline UI/API/Postgres startup, localhost UI HTTP probe and runtime mount/privilege audit; CI syntax-checks the shell scripts.
 - The smoke script has **not been executed** against a real rootless host; upstream PostgreSQL configured UID and bind-mount ownership are unresolved and may cause an intentional audit failure. No OpenSearch/Temporal/Sentinel/ArgusLM/K8s end-to-end validation. Keep PR draft.
+
+### 2026-11-09 — harden rootless filesystem guardrails
+- Both Python and static Deployment contract workflows succeeded for `5f73d88e`.
+- Strengthened preflight: require GAMMA_HOME ownership and reject symlink escapes in Docker data-root and persistent bind directories.
+- Runtime audit now checks stopped containers as well; added offline mocked-Docker preflight tests to CI.
+- No real rootless host or Kubernetes staging test executed. The new CI results must be checked before declaring them green.
