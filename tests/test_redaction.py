@@ -19,5 +19,5 @@ def test_oversize_redaction_fail_closed():
 
 
 def test_idempotent_and_none():
-    assert redact_text(redact_text("password=verySecret123")) == "[REDACTED]"
+    assert redact_text(redact_text("password=verySecret123")) == "password=[REDACTED]"
     assert redact_text(None) is None
