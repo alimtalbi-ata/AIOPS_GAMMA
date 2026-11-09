@@ -12,8 +12,13 @@ Required environment settings:
 - `GLPI_SESSION_TOKEN=<service session token>`
 - `GLPI_APP_TOKEN=<application token>`
 
-A trusted internal gateway must authenticate the principal, strip client-supplied identity headers and enforce its own tenant authorization. The service token must have **read-only** permissions restricted to the configured GLPI entity. The adapter compares the returned `entities_id` and ticket `id` to server-owned values, and emits only a minimal safe projection (no ticket descriptions, names, user identities or raw vendor payload).
+A trusted internal gateway must authenticate the principal, strip client-supplied identity headers and enforce its own tenant authorization. The service token must have **read-only** permissions restricted to the configured GLPI entity. The adapter compares the returned `entities_id`, ticket `id`, and GLPI ticket `type=1` (incident) to server-owned values, and emits only a minimal safe projection (no ticket descriptions, names, user identities or raw vendor payload).
 
 Transport is GET-only, TLS-verified, redirect-disabled, proxy-environment-disabled, time-bounded and response-size-bounded. Network egress/DNS allowlisting, token rotation and audit logging remain infrastructure responsibilities. GLPI permission enforcement must be validated in staging; a matching entity field is **not** a substitute for GLPI RBAC. Do not activate against production until service-account scope, version-specific payloads, and multi-entity inheritance behavior are verified.
 
 Remaining: GLPI version-pinned contract tests, service-session lifecycle/expiry, ACL-backed multi-tenant credential registry, CI matching, reconciliation and evidence links, staging integration tests, and secret management. No ITSM writes are authorized.
+
+## CI and staging qualification
+- The GitHub Actions run for `d505bfca` (run 42671763231) reported **failure**; job details were unavailable via the connector. Diagnose before merging; the follow-up type-validation commits do not establish a green build.
+- Validate GLPI API version, session-token expiry, entity inheritance, denial of out-of-scope tickets, and actual RBAC against a staging instance.
+- No live GLPI calls or runtime tests have been executed in this handover.
