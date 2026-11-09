@@ -81,3 +81,7 @@ Le [blueprint UX evidence-first](docs/PRODUCT-UX-DESIGN.md) définit le futur Co
 ## Investigation RCA — prévisualisation sécurisée
 
 `POST /api/v1/incidents/investigation/preview` valide des hypothèses et leurs références de preuves horodatées, avec contrôle du tenant. **Aucun agent n'est exécuté et les preuves ne sont pas vérifiées auprès des sources.** Voir [INVESTIGATION-PREVIEW](docs/INVESTIGATION-PREVIEW.md) et [PRODUCT-UX-DESIGN](docs/PRODUCT-UX-DESIGN.md).
+
+## Architecture cible et composants réutilisables
+
+Le [plan d'architecture AI SRE / ITIL 4](docs/TARGET-ARCHITECTURE-2026.md) définit les responsabilités, flux, contrats, zones de sécurité et jalons de déploiement. L'[inventaire des composants réutilisables](docs/REUSE-COMPONENT-INVENTORY.md) recense les candidats dans les dépôts GitHub accessibles : aiops (Core/Policy/Evidence/GLPI), observability-stack (OTel/OpenSearch/Cortex), sentinel-llm, arguslm-llm, HolmesGPT, Aurora, Akmatori et IncidentFox. **Plan cible uniquement : aucun connecteur supplémentaire ni service LIVE déployé par cette documentation.**
