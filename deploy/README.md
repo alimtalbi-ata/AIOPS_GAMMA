@@ -77,3 +77,16 @@ sh deploy/scripts/audit-rootless-compose.sh
 The runtime audit is read-only and checks actual running container configuration, mounts and privileged mode; it intentionally **fails** if a service uses an unspecified/root-configured user or named volumes. PostgreSQL/OpenSearch upstream UID compatibility and filesystem ownership must be remediated rather than bypassing the audit. The audit does not assert network isolation, health or absence of writes to container-internal paths.
 
 The earlier static CI check initially failed because `opensearch` was excluded by its `observability-demo` profile. CI now explicitly enables `relay` and `observability-demo` when asserting their rendered service configuration.
+
+## Opt-in baseline rootless smoke (disposable host only)
+
+The last static deployment workflow and Python workflow both passed on commit `ff995e86`. A new **manual**, non-destructive smoke script is available: `deploy/scripts/smoke-rootless.sh`. It checks the rootless engine/data-root, prepares only `GAMMA_HOME/data` directories, starts the core Compose UI/API/PostgreSQL services, probes the local UI over HTTP, and invokes the runtime mount/privilege audit. It **does not** install Docker or change system directories, and it intentionally leaves containers running for inspection. Set real local secrets in the environment first.
+
+```bash
+export GAMMA_HOME="$HOME/aiops-gamma"
+export POSTGRES_PASSWORD='set-a-strong-test-password'
+export INTERNAL_API_KEY='set-a-strong-test-api-key'
+sh deploy/scripts/smoke-rootless.sh
+```
+
+**Expected unresolved gate:** upstream PostgreSQL's image may declare an empty/root config user even when its entrypoint drops privileges, so the strict runtime audit may fail until its image/UID and init permissions are qualified. OpenSearch is not started by this baseline script. The test has **not** been run on an actual rootless host by this change; treat any result as unverified until executed and logged.
