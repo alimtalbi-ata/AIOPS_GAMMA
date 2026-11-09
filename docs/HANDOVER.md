@@ -239,3 +239,8 @@
 - Strengthened preflight: require GAMMA_HOME ownership and reject symlink escapes in Docker data-root and persistent bind directories.
 - Runtime audit now checks stopped containers as well; added offline mocked-Docker preflight tests to CI.
 - No real rootless host or Kubernetes staging test executed. The new CI results must be checked before declaring them green.
+
+### 2026-11-09 — offline preflight test fixture correction
+- CI on `00f2e586`: Python passed, Helm passed, UI image passed, Compose static validation passed; offline preflight unit test failed because `tempfile.TemporaryDirectory()` created the positive test root under `/tmp`, which the production preflight deliberately forbids.
+- Moved the fixture to the CI user's home directory (and included stderr in assertion). This is a test correction, **not** a relaxation of the forbidden system path contract.
+- Await CI on new HEAD. Actual rootless Docker Compose runtime smoke remains unexecuted.
