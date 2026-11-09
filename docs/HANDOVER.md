@@ -166,3 +166,10 @@
 - Validation: implementation commit `73ab1335` passed Python checks ([run 42679137227](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/42679137227)). Recheck CI for the **documentation HEAD**; no live Sentinel, ArgusLM or GLPI staging tests.
 - Security/ownership: KPI input is caller-supplied and non-authoritative, model ID not independently ACL-verified, ITSM remains system-of-record, no LIVE actions or ticket writes. GLPI read-only disabled by default.
 - Next: qualified tenant-scoped Sentinel/ArgusLM source adapters, provenance and timestamped KPI history, SLO dashboards after data validation; execute GLPI staging qualification independently. Keep PR draft.
+
+### 2026-11-09 — evidence-first platform UX design
+- Branch / prior commit: `feat/observability-foundation` / `213886cb`; PR #1 remains draft.
+- Delivered: `docs/PRODUCT-UX-DESIGN.md` inspired by four user-provided DEV articles. Specifies incident-centric navigation, KPI provenance and sample quality, evidence-based RCA, structured code search, ITSM ownership, safe Policy/HITL and UX0–UX5 acceptance gates. Linked from README and ROADMAP.
+- Validation: prior documentation HEAD `fe1e6279` CI status must be checked separately; current UX work is documentation-only and requires CI on latest HEAD.
+- Security: no new frontend functionality, live telemetry, staging qualifications, ITSM writes, untrusted agent tools or LIVE execution.
+- Next: implement UX0/UX1 in React with explicit synthetic and non-authoritative KPI states, then test frontend build and accessibility; keep PR draft.
