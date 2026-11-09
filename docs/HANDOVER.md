@@ -223,3 +223,8 @@
 - Previous commit `51fc0364`: Python checks passed; deployment contract failed only in Compose rootless overlay validation; UI image and Helm jobs passed.
 - Root cause from job logs: duplicate `services.api.security_opt` entry after overlay merge (`no-new-privileges:true`). Removed duplicate security_opt from optional rootless overlay; base security overlay retains it for API and frontend.
 - CI extended to assert rendered Compose JSON bind mounts under GAMMA_HOME and non-root API/relay users. No real rootless runtime smoke test yet. Check new HEAD workflow before declaring CI green.
+
+### 2026-11-09 — rootless Compose audit and profile-aware CI fix
+- CI on `02694b30`: Python, UI image, Helm and Compose YAML checks passed; static contract assertion failed with `KeyError: 'opensearch'` because Compose omits services behind disabled profiles. CI now enables `--profile relay --profile observability-demo` for assertions.
+- Added `deploy/scripts/audit-rootless-compose.sh`, a read-only inspection of running containers for configured non-root users, privileged mode and bind mounts under GAMMA_HOME. It deliberately fails on named volumes or unspecified users, and requires a real rootless Docker host.
+- No rootless Docker host was available through GitHub connector; do not claim live smoke testing, complete compliance or CI success until workflow results confirm.
