@@ -126,3 +126,7 @@ After verifying bind-mount persistence, the `single-directory-runtime` job write
 ## Strict rootless smoke readiness gates
 
 The opt-in `deploy/scripts/smoke-rootless.sh` now **requires** `curl`, retries both UI and API HTTP probes (up to roughly 60 seconds each), and checks PostgreSQL readiness before invoking the strict runtime audit. It never silently skips HTTP validation. The upstream PostgreSQL image may still fail the audit because its configured container user is empty/root even though its entrypoint drops to `postgres` at runtime; do not bypass that failure or claim full rootless compliance without a qualified image/runtime UID design. The successful GitHub-hosted logical backup/restore job does not use a rootless Docker daemon.
+
+## Rootless runtime identity evidence
+
+The opt-in rootless audit now inspects **both** the image/container configured user (`docker inspect .Config.User`) and the running PID 1 UID from `/proc/1/status` via `docker exec`. It fails closed if the process UID cannot be read, is invalid or zero; it also **continues to reject** an empty/root configured user even when PID 1 is non-root. This makes the upstream PostgreSQL identity mismatch visible instead of treating runtime privilege dropping as proof of a compliant non-root image. This audit is only run on a dedicated rootless host, not the GitHub-hosted Docker CI runner.
