@@ -49,3 +49,7 @@ Two curated research directories now inform implementation criteria: [awesome-sr
 ## UX design track (inspiration from production AIOps patterns)
 
 [PRODUCT-UX-DESIGN](PRODUCT-UX-DESIGN.md) maps Command Center → Signal Explorer → Incident Workbench → RCA Evidence → LLM KPI → Runbook/Change → Audit/Learning. UX0–UX5 are proposed increments, not shipped screens. Prioritize UX0/UX1 (clear demo/provenance states and KPI preview) before adding live-looking graphs. Never treat a UX approval as authorization for ITSM writes or LIVE remediation.
+
+## AI SRE investigation evaluation track
+
+The fifth design reference, [AI SRE complete guide (2026)](https://dev.to/siddharth_singh_409bd5267/ai-sre-the-complete-guide-for-engineering-teams-in-2026-51ba), informs the [UX blueprint](PRODUCT-UX-DESIGN.md) without qualifying vendor claims. Before autonomous remediation, prioritize: (1) an allowlisted read-only multi-step investigation loop; (2) source-cited hypothesis/contradiction and UNKNOWN handling; (3) human-adjudicated RCA accuracy and time-to-RCA benchmarking; (4) reviewable postmortem drafts; (5) bounded tool/model cost and security audits. **None of these new AI SRE effectiveness KPIs are implemented by the existing Sentinel/ArgusLM model-performance preview.** Start with one service and one alert source in shadow mode. L4 execution remains a separate Policy/HITL release gate.
