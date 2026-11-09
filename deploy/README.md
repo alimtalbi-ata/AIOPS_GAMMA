@@ -60,3 +60,20 @@ The rootless preflight now **refuses** a Docker daemon whose `DockerRootDir` is 
 ## Compose CI regression fix
 
 The original CI failure was caused by duplicate `no-new-privileges:true` entries after merging `deploy/compose/compose.yaml` and `compose.rootless.yaml`. The rootless overlay now inherits this option from the base security overlay for API/frontend and adds only its own UID/capability/bind-mount settings. CI also inspects the rendered Compose JSON for expected bind mounts and UID values. **Static validation is not a live rootless runtime test.**
+
+## Runtime audit (rootless host required)
+
+On a dedicated host with a configured rootless Docker daemon whose data-root is `$GAMMA_HOME/docker-data`, first validate the optional profiles explicitly:
+
+```bash
+export GAMMA_HOME="$HOME/aiops-gamma"
+export COMPOSE_PROJECT_NAME=aiops-gamma
+sh deploy/scripts/check-rootless-home.sh
+# Rootless runtime smoke test must be done on a qualified disposable host.
+# After starting the approved Compose services:
+sh deploy/scripts/audit-rootless-compose.sh
+```
+
+The runtime audit is read-only and checks actual running container configuration, mounts and privileged mode; it intentionally **fails** if a service uses an unspecified/root-configured user or named volumes. PostgreSQL/OpenSearch upstream UID compatibility and filesystem ownership must be remediated rather than bypassing the audit. The audit does not assert network isolation, health or absence of writes to container-internal paths.
+
+The earlier static CI check initially failed because `opensearch` was excluded by its `observability-demo` profile. CI now explicitly enables `relay` and `observability-demo` when asserting their rendered service configuration.
