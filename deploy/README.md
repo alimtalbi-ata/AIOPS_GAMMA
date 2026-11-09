@@ -114,3 +114,7 @@ The first bind-mounted baseline runtime CI run failed: upstream `postgres:16-alp
 ### PostgreSQL UID transition
 
 A subsequent CI run got past filesystem setup but PostgreSQL failed with `failed switching to 'postgres': operation not permitted`. The upstream entrypoint also requires `SETUID` and `SETGID` to drop from its initialization account to the postgres account. The rootless overlay now grants those two capabilities **only to PostgreSQL**, in addition to `CHOWN`, `FOWNER` and `DAC_OVERRIDE`. These permissions are container-scoped and must be assessed against a verified rootless engine before acceptance; the CI runtime runner is not rootless.
+
+## PostgreSQL bind persistence regression
+
+The `single-directory-runtime` CI job now writes a sentinel record to PostgreSQL, stops and removes **only the PostgreSQL container**, recreates it against the same `GAMMA_HOME/data/postgres` bind mount, and verifies that the record and the expected mount path survive. This is a container-recreation durability smoke, not a backup/restore test or a crash-consistency guarantee. It still runs on the GitHub-hosted Docker daemon, **not rootless**.
