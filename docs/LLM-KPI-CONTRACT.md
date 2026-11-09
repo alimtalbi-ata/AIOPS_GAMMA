@@ -28,6 +28,29 @@
 
 Missing values are `null`, never estimated as 0. Cost is `null` for partial coverage. P95/P99 over small samples are technically calculable but **not statistically stable**; dashboards must show sample size and data freshness before any SLO decision. `degraded` counts in neither success nor error rate and remains included in the request denominator.
 
+## Example preview contract
+
+Request (synthetic example; never send raw prompts or responses):
+
+```json
+{
+  "tenant_id": "00000000-0000-0000-0000-000000000001",
+  "model_id": "demo/model",
+  "observations": [
+    {"status": "ok", "latency_ms": 100, "ttft_ms": 20, "tps": 50, "input_tokens": 10, "output_tokens": 5, "estimated_cost_usd": 0.01},
+    {"status": "error", "latency_ms": 300, "ttft_ms": 60, "tps": 0, "input_tokens": 20, "output_tokens": 0, "estimated_cost_usd": 0.02}
+  ],
+  "sentinel_anomalies_total": 2,
+  "sentinel_events_processed_total": 20
+}
+```
+
+Expected selected fields: `sample_count=2`, `success_rate_pct=50`, `error_rate_pct=50`, `latency_p50_ms=200`, `latency_p95_ms=290`, `ttft_p95_ms=58`, `mean_tps=25`, `estimated_cost_usd=0.03`, `cost_coverage=1`, `sentinel_anomaly_rate_pct=10`. The output includes `data_source="caller_supplied_preview"`, `authoritative=false`, and `production_qualified=false`.
+
+**API safety:** `X-Internal-Api-Key` and `X-Tenant-Id` must be set by a trusted internal gateway. A different `tenant_id` in the request is rejected; no inference should be made about another tenant. The model identifier is only syntactically validated at this stage, **not** independently authorized against an external model registry. Maximum 1,000 observations per request. Non-finite/negative measurements, TTFT exceeding latency, invalid status and unknown fields are rejected. The preview does not enforce a common timestamp/window or verify the authenticity of Sentinel counters.
+
+**Measurement caveats:** The current `total_input_tokens`/`total_output_tokens` sum known values when at least one sample provides a count; this is a **partial observed sum**, not a complete workload total when coverage is incomplete. `mean_tps` is an unweighted arithmetic mean of observed request-level throughput, not total tokens divided by wall-clock duration. `success_rate_pct + error_rate_pct` may be below 100% because degraded samples are in the denominator. Do not derive an uptime SLA from these preview statuses.
+
 ## Next integration steps and acceptance gates
 1. Establish authenticated **server-side** source bindings and tenant-scoped Prometheus/Cortex query APIs for Sentinel. Validate actual metric names, Prometheus histogram units and counter resets; do not scrape raw cross-tenant `/metrics` from browsers.
 2. Build a trusted read-only ArgusLM connector returning a whitelisted metric projection; require tenant mapping and model ACLs (ArgusLM monitoring API shown here is not tenant scoped).
