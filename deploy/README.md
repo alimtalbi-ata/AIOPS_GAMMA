@@ -36,3 +36,17 @@ Do not use the placeholder digest values above literally. Ingress is disabled by
 - Do not expose `X-Internal-Api-Key` to a browser; add a server-side authenticated gateway before exposing API.
 - CI should lint Helm and validate Compose config. Real Compose smoke tests and Kubernetes staging tests remain separate required gates.
 - Keep PR draft; no LIVE remediation or GLPI writes.
+
+## Single-directory rootless experiment (not yet qualified)
+
+The optional `deploy/compose/compose.rootless.yaml` replaces PostgreSQL/OpenSearch named volumes with bind mounts under `$GAMMA_HOME/data` and adds privilege restrictions. **It is not sufficient alone**: upstream image UID, permissions, Docker daemon data-root and nginx non-root behavior need tests. The preflight script checks a canonical owned directory and detects a rootless daemon, but does not provision dependencies or modify the host.
+
+```bash
+export GAMMA_HOME="$HOME/aiops-gamma"
+mkdir -p "$GAMMA_HOME/data/postgres" "$GAMMA_HOME/data/opensearch"
+sh deploy/scripts/check-rootless-home.sh
+# Only after preparing correct UID/GID and validating rootless Docker data-root:
+docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml config
+```
+
+Do not run `up` as proof of rootless compliance without checking the [rootless installation contract](../docs/ROOTLESS-SINGLE-DIRECTORY.md).
