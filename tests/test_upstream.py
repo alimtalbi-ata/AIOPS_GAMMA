@@ -11,6 +11,8 @@ from app.reused import upstream
     "http://example.com", "https://user:pw@example.com",
     "https://example.com/api", "https://example.com?x=1",
     "https://localhost", "https://example.com#fragment",
+    "https://example.com:invalid", "https://example.com:99999",
+    "https://example.com:0",
 ])
 def test_reject_unsafe_origins(url):
     with pytest.raises(ValueError):
