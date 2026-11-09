@@ -118,3 +118,7 @@ A subsequent CI run got past filesystem setup but PostgreSQL failed with `failed
 ## PostgreSQL bind persistence regression
 
 The `single-directory-runtime` CI job now writes a sentinel record to PostgreSQL, stops and removes **only the PostgreSQL container**, recreates it against the same `GAMMA_HOME/data/postgres` bind mount, and verifies that the record and the expected mount path survive. This is a container-recreation durability smoke, not a backup/restore test or a crash-consistency guarantee. It still runs on the GitHub-hosted Docker daemon, **not rootless**.
+
+## CI-only PostgreSQL logical backup/restore rehearsal
+
+After verifying bind-mount persistence, the `single-directory-runtime` job writes a logical `pg_dump` to `$GAMMA_HOME/backups/ci-postgres.sql` (directory mode 0700, file mode 0600), checks file ownership, **drops only its disposable CI sentinel table**, restores the dump through `psql -v ON_ERROR_STOP=1`, and verifies the restored record. This destructive rehearsal is CI-only: do **not** copy the DROP TABLE step into a production runbook. A successful CI result does not yet demonstrate point-in-time recovery, encrypted/off-host backups, retention, disaster recovery, or actual rootless-engine operation.
