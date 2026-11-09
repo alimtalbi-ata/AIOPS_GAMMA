@@ -40,7 +40,24 @@ for id in $ids; do
 '
   for mount in $mounts; do
     case "$mount" in
-      "$GAMMA_HOME"/data/*) ;;
+      "$GAMMA_HOME"/data/*)
+        # A lexical prefix is insufficient: a bind source may traverse a
+        # symlink and resolve outside the user-owned installation directory.
+        if [ ! -d "$mount" ]; then
+          echo "BIND SOURCE NOT DIRECTORY: $name $mount" >&2
+          failed=1
+        else
+          canonical=$(cd "$mount" && pwd -P) || {
+            echo "BIND SOURCE UNRESOLVABLE: $name $mount" >&2
+            failed=1
+            canonical=
+          }
+          case "$canonical" in
+            "$GAMMA_HOME"/data/*) ;;
+            *) echo "BIND ESCAPES DATA ROOT: $name $mount -> $canonical" >&2; failed=1 ;;
+          esac
+        fi
+        ;;
       NAMED_VOLUME) echo "NAMED VOLUME: $name" >&2; failed=1 ;;
       *) echo "OUT-OF-TREE BIND: $name $mount" >&2; failed=1 ;;
     esac
