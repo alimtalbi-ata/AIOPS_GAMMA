@@ -249,3 +249,8 @@
 - CI on `c9b5b60c`: Python checks and Deployment contract both passed.
 - Added a GitHub Actions UI runtime test that starts the built image as UID 101 with all capabilities dropped, checks HTTP on localhost:18080, verifies running/unprivileged state, and cleans up the test container.
 - CI result on new HEAD pending. This is **not** Docker Engine rootless and does not validate PostgreSQL/OpenSearch, full-stack startup or Kubernetes staging.
+
+### 2026-11-09 — PostgreSQL + API Compose runtime smoke
+- On `1aa47f90`, Python checks and Deployment contract (including real non-root UI HTTP smoke) succeeded.
+- Added a separate GitHub-hosted CI job that starts PostgreSQL + API, waits for readiness, probes API health, inspects configured API user and privilege state, then captures logs and removes containers/volumes.
+- New job result pending. The test is **not** a Docker rootless runtime validation and does not cover the optional OpenSearch profile or Kubernetes end-to-end.
