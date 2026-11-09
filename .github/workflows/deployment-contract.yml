@@ -28,7 +28,7 @@ jobs:
           INTERNAL_API_KEY: ci-placeholder-not-a-secret
           GAMMA_HOME: /home/runner/gamma-home
         run: |
-          docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml config --format json > compose-rendered.json
+          docker compose --profile relay --profile observability-demo -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml config --format json > compose-rendered.json
           python3 - <<'PY'
           import json, os
           with open("compose-rendered.json", encoding="utf-8") as f:
