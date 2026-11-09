@@ -188,3 +188,10 @@
 - Validation: Python checks green on previous `9bcbf777` (run 42681053786); recheck CI on new HEAD. No external telemetry or staging tests performed.
 - Security: references resolve only within caller-supplied request; **not** source attestation or confirmed RCA. No tool calls, persistence, ITSM mutation or LIVE remediation.
 - Next: qualify trusted source-bound evidence, investigation step receipts and human-adjudicated RCA process KPI fixtures before UI live-data claims.
+
+### 2026-11-09 — target architecture and repository reuse inventory
+- Branch / preceding commit: `feat/observability-foundation` / `84130232`; PR #1 remains draft.
+- Reviewed: 20 accessible repositories inventoried; trees of 10 technical repositories inspected, with primary code/docs examined for aiops, observability-stack, aurora, holmesgpt, akmatori, incidentfox, sentinel and arguslm.
+- Delivered: `docs/TARGET-ARCHITECTURE-2026.md` (domain ownership, target topology, contracts, four operational flows, deployment zones, P0–P6 gates) and `docs/REUSE-COMPONENT-INVENTORY.md` (path-level candidates, priorities, reuse/avoid decisions, integration qualification).
+- Validation: documents-only changes; latest HEAD CI must be checked. No staging integrations, license audit, live credentials or autonomous execution performed.
+- Next: freeze upstream SHAs/licenses, approve one investigation engine, qualify tenant-authenticated read-only source contracts and validate staging GLPI independently.
