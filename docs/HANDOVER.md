@@ -284,3 +284,8 @@
 - `6d9e3468` passed Python and all Deployment contract jobs, including PostgreSQL sentinel persistence across container recreation with a bind mount under `GAMMA_HOME`.
 - Added CI-only logical `pg_dump` to `GAMMA_HOME/backups`, checked 0700/0600 permissions and ownership, dropped disposable sentinel table, restored via `psql`, and verified the sentinel record.
 - New CI result pending. This is not a rootless host certification or a production backup strategy.
+
+### 2026-11-09 — backup/restore green, rootless smoke hardened
+- `3783aeca`: both GitHub Actions workflows succeeded, including the PostgreSQL logical backup/restore rehearsal under `GAMMA_HOME/backups`.
+- Updated optional dedicated-host `smoke-rootless.sh` to require curl, retry UI/API HTTP readiness, check `pg_isready`, then run the strict rootless runtime audit.
+- No rootless host was available or tested; upstream PostgreSQL configured-root user still blocks strict audit until resolved. New commit CI pending.
