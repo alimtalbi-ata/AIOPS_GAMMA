@@ -12,6 +12,11 @@ spec:
       labels: {app.kubernetes.io/name: gamma-ui, app.kubernetes.io/instance: {{ .Release.Name }}}
     spec:
       automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile: {type: RuntimeDefault}
       containers:
         - name: ui
           image: {{ .Values.ui.image | quote }}
