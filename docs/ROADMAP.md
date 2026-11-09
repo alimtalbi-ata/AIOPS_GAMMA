@@ -61,3 +61,7 @@ The target [AI SRE architecture](TARGET-ARCHITECTURE-2026.md) and [GitHub reuse 
 ## Mandatory deployment parity gate
 
 All GAMMA-operated components must ship as versioned OCI images with **both Docker Compose and Kubernetes/Helm** deployment paths. Compose supports local/demo/integration; Kubernetes supports staging/production. Require CI Compose smoke tests, Helm lint/template/schema/policy checks, staging multi-tenant tests, observability, secrets, persistent backup and rollback before promotion. Externally managed GLPI/SSO/SaaS endpoints remain external dependencies; their GAMMA connectors must deploy in both environments. See [DEPLOYMENT-CONTRACT](DEPLOYMENT-CONTRACT.md). This is a new required gate, **not a claim that all packaging is implemented**.
+
+## Mandatory rootless single-directory qualification
+
+Every self-hosted GAMMA component must support a configurable `GAMMA_HOME` directory for application artifacts and persistent data, no writes to host system directories, rootless Docker/Podman operation in Compose, and non-root restricted workloads in Kubernetes. Per-component UID/permissions, persistent mounts, rootless daemon data-root, upstream images, K8s CSI/runtime exceptions and backup/restore must be qualified before release. See [ROOTLESS-SINGLE-DIRECTORY](ROOTLESS-SINGLE-DIRECTORY.md). The current overlay is opt-in and **not yet production qualified**.
