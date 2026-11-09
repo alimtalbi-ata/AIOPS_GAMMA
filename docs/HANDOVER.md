@@ -294,3 +294,8 @@
 - Both workflows passed on `18ae32ee`.
 - Added a CI runtime assertion that PostgreSQL PID 1's effective UID is nonzero in the single-directory bind-mount job, and fixed Compose capability comment formatting.
 - This checks the running process, not the upstream image's configured user. The strict rootless audit still intentionally rejects an unspecified/root configured user; no rootless Docker host test has been run. New CI pending.
+
+### 2026-11-09 — strict dual-identity rootless audit
+- `0ac0fceb`: both Python and deployment workflows succeeded, including PostgreSQL PID 1 non-root assertion on a non-rootless runner.
+- Rootless audit now checks both configured container user and live PID 1 UID, failing closed on unavailable/invalid/root UID without waiving an unspecified configured user. PostgreSQL's upstream configured-user mismatch remains an open rootless gate.
+- New CI pending; no actual rootless Docker daemon qualification performed.
