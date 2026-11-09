@@ -154,7 +154,20 @@ jobs:
           actual=$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/var/lib/postgresql/data"}}{{.Source}}{{end}}{{end}}' "$pg_id")
           test "$actual" = "$GAMMA_HOME/data/postgres"
           test "$(docker inspect --format '{{.HostConfig.Privileged}}' "$pg_id")" = false
-          echo "Single-directory baseline bind-mount smoke passed (non-rootless Docker runner)"
+          # A real write/read across container recreation, not just a health probe.
+          compose="docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml"
+          $compose exec -T postgres psql -v ON_ERROR_STOP=1 -U aiops -d aiops -c 'CREATE TABLE IF NOT EXISTS gamma_ci_persistence (id integer PRIMARY KEY, note text NOT NULL);'
+          $compose exec -T postgres psql -v ON_ERROR_STOP=1 -U aiops -d aiops -c "INSERT INTO gamma_ci_persistence (id, note) VALUES (1, 'survived-recreate') ON CONFLICT (id) DO UPDATE SET note = EXCLUDED.note;"
+          $compose stop postgres
+          $compose rm -f postgres
+          $compose up -d --wait postgres
+          persisted=$($compose exec -T postgres psql -At -v ON_ERROR_STOP=1 -U aiops -d aiops -c 'SELECT note FROM gamma_ci_persistence WHERE id = 1;')
+          test "$persisted" = survived-recreate
+          new_pg_id=$($compose ps -q postgres)
+          test "$new_pg_id" != "$pg_id"
+          actual_after=$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/var/lib/postgresql/data"}}{{.Source}}{{end}}{{end}}' "$new_pg_id")
+          test "$actual_after" = "$GAMMA_HOME/data/postgres"
+          echo "Single-directory baseline bind-mount and PostgreSQL recreation persistence smoke passed (non-rootless Docker runner)"
       - name: Capture logs and clean up
         if: always()
         run: |
