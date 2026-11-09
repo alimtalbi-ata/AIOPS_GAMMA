@@ -269,3 +269,8 @@
 - On `f7956bb1`, Python, Helm, UI, Compose static and normal API/PostgreSQL runtime succeeded; single-directory bind mount still failed.
 - New log: `error: failed switching to 'postgres': operation not permitted`. Previous `CHOWN`/`FOWNER`/`DAC_OVERRIDE` adjustment resolved the initial chmod/chown errors but prevented the upstream entrypoint's UID/GID transition.
 - Added `SETUID` and `SETGID` to PostgreSQL-only `cap_add` while retaining `cap_drop: ALL`. Await fresh CI; rootless host certification remains open.
+
+### 2026-11-09 — baseline bind-mount startup reached readiness probes
+- On `baf5be68`, Python, Helm, Compose static, UI and regular PostgreSQL/API jobs succeeded. The single-directory baseline job **started all three containers successfully**, including PostgreSQL on the bind mount.
+- The probe step failed immediately with `curl: (56) Recv failure: Connection reset by peer` just after startup. Since UI/API have no Compose healthchecks, `up --wait` does not guarantee their HTTP readiness; changed the CI job to retry both HTTP probes for up to approximately 60 seconds before failing.
+- New CI pending. This does not qualify a rootless Docker daemon; no live PostgreSQL restart/persistence test yet.
