@@ -157,7 +157,7 @@ jobs:
           # Upstream image starts with an empty configured user, then switches
           # to postgres. Verify the *running server* is not UID 0; this does
           # not waive the strict configured-user audit on a rootless host.
-          server_uid=$(docker exec "$pg_id" sh -c "awk '/^Uid:/ {print \\$2}' /proc/1/status")
+          server_uid=$(docker exec "$pg_id" sh -c "awk '/^Uid:/ {print \$2}' /proc/1/status")
           test "$server_uid" != 0
           test -n "$server_uid"
           echo "PostgreSQL PID 1 runtime UID: $server_uid (configured user may differ)"
