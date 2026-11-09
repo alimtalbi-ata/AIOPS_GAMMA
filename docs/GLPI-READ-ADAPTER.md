@@ -27,3 +27,6 @@ Remaining: GLPI version-pinned contract tests, service-session lifecycle/expiry,
 - GLPI redirects (301/302), expired or rejected sessions (401/403), missing tickets (404), rate limiting (429), and upstream server failures (5xx) are **not** retried or followed; they yield a generic HTTP 502 response without propagating vendor payloads or credentials.
 - Non-JSON 200 responses are rejected. The upstream GET uses a bounded timeout and body size, and the client does not honor environment proxy variables.
 - Tests use HTTPX mock transport; these are simulated failures, **not** evidence of a real GLPI deployment's behavior. A staging test plan must verify session expiry, entity ACL, inherited entity access, API version and actual upstream response shapes.
+
+## Staging activation gate
+Follow [GLPI staging qualification](GLPI-STAGING-QUALIFICATION.md) before enabling the adapter. The matrix is a **plan**, not an executed test report. Do not treat passing mock-based CI as production RBAC or API compatibility attestation.
