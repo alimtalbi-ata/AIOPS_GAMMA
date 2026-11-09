@@ -1,0 +1,26 @@
+global:
+  imagePullPolicy: IfNotPresent
+  # Use immutable image digests in staging/production.
+api:
+  image: ghcr.io/alimtalbi-ata/aiops-gamma-api:replace-with-pinned-tag
+  replicas: 1
+  port: 8000
+  internalApiKeySecret: gamma-api-credentials
+  internalApiKeySecretKey: internal-api-key
+  databaseUrlSecret: gamma-database
+  databaseUrlSecretKey: url
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {cpu: "1", memory: 512Mi}
+ui:
+  image: ghcr.io/alimtalbi-ata/aiops-gamma-ui:replace-with-pinned-tag
+  replicas: 1
+  port: 80
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {cpu: 500m, memory: 256Mi}
+ingress:
+  enabled: false
+  className: ""
+  host: gamma.example.invalid
+  tlsSecret: ""
