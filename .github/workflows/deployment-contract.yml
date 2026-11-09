@@ -21,7 +21,10 @@ jobs:
           mkdir -p "$GAMMA_HOME/data/postgres" "$GAMMA_HOME/data/opensearch"
           docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml config --quiet
       - name: Check rootless preflight shell syntax
-        run: sh -n deploy/scripts/check-rootless-home.sh
+        run: |
+          sh -n deploy/scripts/check-rootless-home.sh
+          sh -n deploy/scripts/audit-rootless-compose.sh
+          sh -n deploy/scripts/smoke-rootless.sh
       - name: Assert rootless bind mounts and non-root users
         env:
           POSTGRES_PASSWORD: ci-placeholder-not-a-secret
