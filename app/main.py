@@ -192,3 +192,19 @@ async def canonical_snapshot(resource: str, principal: Principal = Depends(inter
     if resource not in ALLOWED_RESOURCES:
         raise HTTPException(404, "Unknown upstream resource")
     return await fetch_canonical(resource, principal.tenant_id)
+
+
+# ITIL 4 practice-specific, read-only projection. ITSM remains authority.
+from app.reused.itil import ITILPreviewRequest, preview_itil_workflow
+
+
+@app.post("/api/v1/itil4/workflow/preview")
+async def itil_workflow_preview(
+    req: ITILPreviewRequest, principal: Principal = Depends(internal_principal)
+):
+    if req.incident.tenant_id != principal.tenant_id:
+        raise HTTPException(403, "Cross-tenant incident rejected")
+    try:
+        return preview_itil_workflow(req.incident, req.problem, req.change)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc

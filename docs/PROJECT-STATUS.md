@@ -63,3 +63,6 @@ Added [docs/SRE-REFERENTIALS.md](SRE-REFERENTIALS.md) based on two curated user-
 ## Canonical read adapter prototype (2026-11-09)
 
 A new feature-flagged, fail-closed HTTPS GET snapshot adapter is available for Core/Evidence/Twin with strict resource allowlist, 256 KiB maximum response, timeout, no redirects, and required tenant-id echo. **Not a production-qualified integration:** upstream paths/tenant ACL/OIDC/mTLS/network egress are unverified; flag remains OFF. See [CANONICAL-READ-ADAPTER](CANONICAL-READ-ADAPTER.md) and issue #2.
+
+## ITIL 4 enterprise architecture (2026-11-09)
+Added `docs/ITIL4-GOVERNANCE.md` and a typed, authenticated **preview-only** ITIL incident/problem/change/CI workflow projection. No ITSM tickets, problem records, RFCs or CMDB mutations are performed; enterprise-specific ITSM rules and change authority must be qualified.
