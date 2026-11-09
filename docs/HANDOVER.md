@@ -309,3 +309,8 @@
 - `00468b2d`: both Python and deployment CI workflows passed, including mocked Docker rootless audit tests.
 - Extended mocked audit regression cases to reject privileged containers, stopped containers, bind mounts outside `GAMMA_HOME/data`, and Docker named volumes.
 - CI on the new commit is pending; these are simulated contract tests, not rootless-engine runtime qualification.
+
+### 2026-11-09 — rootless bind source canonicalization
+- `bac40a8e`: Python and deployment workflows passed, including expanded mocked rootless audit checks.
+- Strict audit now resolves each bind source with `pwd -P` and rejects symlink escapes and missing directories; added offline regression tests.
+- New CI pending. No real rootless Docker host test has been performed.
