@@ -22,3 +22,8 @@ Remaining: GLPI version-pinned contract tests, service-session lifecycle/expiry,
 - Historical run `42671763231` on `d505bfca` failed, but later run `42674584843` on `b69374ac` **passed**. Recheck CI on the latest HEAD after each change; this does not qualify live GLPI behavior.
 - Validate GLPI API version, session-token expiry, entity inheritance, denial of out-of-scope tickets, and actual RBAC against a staging instance.
 - Route-level tests cover missing internal authentication, invalid tenant identity and cross-tenant denial. No live GLPI calls or staging integration tests have been executed in this handover.
+
+## Failure-mode contract
+- GLPI redirects (301/302), expired or rejected sessions (401/403), missing tickets (404), rate limiting (429), and upstream server failures (5xx) are **not** retried or followed; they yield a generic HTTP 502 response without propagating vendor payloads or credentials.
+- Non-JSON 200 responses are rejected. The upstream GET uses a bounded timeout and body size, and the client does not honor environment proxy variables.
+- Tests use HTTPX mock transport; these are simulated failures, **not** evidence of a real GLPI deployment's behavior. A staging test plan must verify session expiry, entity ACL, inherited entity access, API version and actual upstream response shapes.
