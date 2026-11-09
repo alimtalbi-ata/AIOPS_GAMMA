@@ -1,0 +1,114 @@
+"""Advisory, side-effect-free KPI aggregation for trusted LLM telemetry.
+
+Normalizes ArgusLM-style request observations and Sentinel-style anomaly
+counters without inventing measurements or crossing tenant boundaries.
+This is not a live ingestion connector or a monitoring authorization service.
+"""
+from __future__ import annotations
+
+import math
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+
+class LLMObservation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    latency_ms: float | None = Field(default=None, ge=0)
+    ttft_ms: float | None = Field(default=None, ge=0)
+    output_tokens: int | None = Field(default=None, ge=0)
+    input_tokens: int | None = Field(default=None, ge=0)
+    tps: float | None = Field(default=None, ge=0)
+    estimated_cost_usd: float | None = Field(default=None, ge=0)
+    status: str = Field(pattern=r"^(ok|error|degraded)$")
+
+    @field_validator("latency_ms", "ttft_ms", "tps", "estimated_cost_usd")
+    @classmethod
+    def finite_values(cls, value: float | None) -> float | None:
+        if value is not None and not math.isfinite(value):
+            raise ValueError("Non-finite KPI value")
+        return value
+
+    @model_validator(mode="after")
+    def validate_timing(self):
+        if (self.latency_ms is not None and self.ttft_ms is not None
+                and self.ttft_ms > self.latency_ms):
+            raise ValueError("TTFT exceeds request latency")
+        return self
+
+
+class LLMKPIRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tenant_id: UUID
+    model_id: str = Field(min_length=1, max_length=128, pattern=r"^[a-zA-Z0-9][a-zA-Z0-9_./:-]*$")
+    observations: list[LLMObservation] = Field(min_length=1, max_length=1000)
+    sentinel_anomalies_total: int | None = Field(default=None, ge=0)
+    sentinel_events_processed_total: int | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def validate_sentinel(self):
+        if (self.sentinel_anomalies_total is not None
+                and self.sentinel_events_processed_total is not None
+                and self.sentinel_anomalies_total > self.sentinel_events_processed_total):
+            raise ValueError("Anomalies cannot exceed processed events")
+        return self
+
+
+def _percentile(values: list[float], percentile: float) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    rank = (len(ordered) - 1) * percentile
+    low = math.floor(rank)
+    high = math.ceil(rank)
+    return round(ordered[low] + (ordered[high] - ordered[low]) * (rank - low), 3)
+
+
+def _mean(values: list[float]) -> float | None:
+    return round(sum(values) / len(values), 3) if values else None
+
+
+def calculate_llm_kpis(request: LLMKPIRequest, authorized_tenant: UUID) -> dict:
+    if request.tenant_id != authorized_tenant:
+        raise ValueError("Cross-tenant KPI aggregation rejected")
+
+    rows = request.observations
+    latencies = [x.latency_ms for x in rows if x.latency_ms is not None]
+    ttfts = [x.ttft_ms for x in rows if x.ttft_ms is not None]
+    throughputs = [x.tps for x in rows if x.tps is not None]
+    costs = [x.estimated_cost_usd for x in rows if x.estimated_cost_usd is not None]
+    failures = sum(x.status == "error" for x in rows)
+    successful = sum(x.status == "ok" for x in rows)
+    total = len(rows)
+    anomalies = request.sentinel_anomalies_total
+    processed = request.sentinel_events_processed_total
+
+    return {
+        "tenant_id": str(authorized_tenant),
+        "model_id": request.model_id,
+        "sample_count": total,
+        "success_rate_pct": round(100 * successful / total, 3),
+        "error_rate_pct": round(100 * failures / total, 3),
+        "latency_p50_ms": _percentile(latencies, 0.5),
+        "latency_p95_ms": _percentile(latencies, 0.95),
+        "latency_p99_ms": _percentile(latencies, 0.99),
+        "ttft_p95_ms": _percentile(ttfts, 0.95),
+        "mean_tps": _mean(throughputs),
+        "total_input_tokens": sum(x.input_tokens for x in rows if x.input_tokens is not None)
+        if any(x.input_tokens is not None for x in rows) else None,
+        "total_output_tokens": sum(x.output_tokens for x in rows if x.output_tokens is not None)
+        if any(x.output_tokens is not None for x in rows) else None,
+        "estimated_cost_usd": round(sum(costs), 6) if len(costs) == total else None,
+        "cost_coverage": round(len(costs) / total, 3),
+        "sentinel_anomaly_rate_pct": (
+            round(100 * anomalies / processed, 3)
+            if anomalies is not None and processed is not None and processed > 0 else None
+        ),
+        "sentinel_anomalies_total": anomalies,
+        "sentinel_events_processed_total": processed,
+        "data_source": "caller_supplied_preview",
+        "authoritative": False,
+        "production_qualified": False,
+    }
