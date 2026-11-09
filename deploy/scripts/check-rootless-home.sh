@@ -19,5 +19,11 @@ docker info --format '{{json .SecurityOptions}}' | grep -q rootless || {
   echo "Docker daemon is not confirmed rootless; refusing" >&2
   exit 2
 }
-echo "Rootless daemon detected; directory preflight passed."
+# Rootless alone does not ensure the engine stores images/volumes under GAMMA_HOME.
+data_root=$(docker info --format '{{.DockerRootDir}}')
+case "$data_root" in
+  "$GAMMA_HOME"/docker-data|"$GAMMA_HOME"/docker-data/*) ;;
+  *) echo "Docker data-root ($data_root) is outside GAMMA_HOME/docker-data; refusing" >&2; exit 2 ;;
+esac
+echo "Rootless daemon and in-tree Docker data-root detected; directory preflight passed."
 echo "Still verify Docker data-root, per-image UID ownership and all bind mounts before starting."
