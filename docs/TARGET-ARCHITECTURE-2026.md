@@ -106,3 +106,7 @@ Les flèches représentent des **contrats à qualifier** ; pas des intégrations
 ## 7. État réel au 2026-11-09
 
 GAMMA a une UI React de démonstration, une API FastAPI, des prévisualisations de corrélation, ITIL, remédiation, KPI LLM et investigation, un adaptateur GLPI read-only désactivé par défaut et une intégration OpenSearch optionnelle. Les prévisualisations utilisent des données fournies par l'appelant et ne constituent pas une collecte/attestation live. Pas de SSO/RBAC production qualifié, pas d'exécution autonome, pas de KPI d'efficacité AI SRE mesuré en production.
+
+## 8. Contrainte de déploiement obligatoire — Docker Compose ET Kubernetes
+
+**Décision validée par le propriétaire de la plateforme** : tout composant exploité par GAMMA doit être conteneurisé en image OCI versionnée et posséder une voie de déploiement Docker Compose **et** Kubernetes/Helm. Les dépendances externes (GLPI, SSO, SaaS) peuvent rester hors cluster : leurs connecteurs et configurations sont déployés dans les deux environnements. Compose est la référence locale/démo/intégration ; Kubernetes est la cible staging/production. Les deux partagent contrats API, variables, images, télémétrie, isolation tenant et garde-fous, sans supposer une identité de stockage ou de haute disponibilité. **Voir [DEPLOYMENT-CONTRACT](DEPLOYMENT-CONTRACT.md)** pour la matrice des services, structure cible, CI et critères de recette. Un composant sans validation Compose + Helm/K8s reste non qualifié.
