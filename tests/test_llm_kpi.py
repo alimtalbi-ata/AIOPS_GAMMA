@@ -1,0 +1,123 @@
+"""KPI preview tests grounded in Sentinel and ArgusLM measurement units."""
+from uuid import uuid4
+
+import pytest
+from fastapi import HTTPException
+from fastapi.testclient import TestClient
+from pydantic import ValidationError
+
+from app.main import app
+from app.reused.llm_kpi import LLMKPIRequest, calculate_llm_kpis
+from app.settings import settings
+
+
+def request(tenant, **overrides):
+    values = {
+        "tenant_id": tenant,
+        "model_id": "provider/model",
+        "observations": [
+            {"status": "ok", "latency_ms": 100, "ttft_ms": 20,
+             "tps": 50, "input_tokens": 10, "output_tokens": 5,
+             "estimated_cost_usd": 0.01},
+            {"status": "error", "latency_ms": 300, "ttft_ms": 60,
+             "tps": 0, "input_tokens": 20, "output_tokens": 0,
+             "estimated_cost_usd": 0.02},
+        ],
+        "sentinel_anomalies_total": 2,
+        "sentinel_events_processed_total": 20,
+    }
+    values.update(overrides)
+    return LLMKPIRequest(**values)
+
+
+def test_kpis_and_units():
+    tenant = uuid4()
+    result = calculate_llm_kpis(request(tenant), tenant)
+    assert result["sample_count"] == 2
+    assert result["success_rate_pct"] == 50
+    assert result["error_rate_pct"] == 50
+    assert result["latency_p50_ms"] == 200
+    assert result["latency_p95_ms"] == 290
+    assert result["ttft_p95_ms"] == 58
+    assert result["mean_tps"] == 25
+    assert result["total_input_tokens"] == 30
+    assert result["total_output_tokens"] == 5
+    assert result["estimated_cost_usd"] == 0.03
+    assert result["sentinel_anomaly_rate_pct"] == 10
+    assert result["authoritative"] is False
+
+
+def test_incomplete_cost_is_unknown_not_zero():
+    tenant = uuid4()
+    result = calculate_llm_kpis(request(tenant, observations=[
+        {"status": "ok", "estimated_cost_usd": 0},
+        {"status": "degraded"},
+    ]), tenant)
+    assert result["estimated_cost_usd"] is None
+    assert result["cost_coverage"] == 0.5
+    assert result["latency_p95_ms"] is None
+    assert result["total_output_tokens"] is None
+
+
+def test_zero_processed_events_yields_unknown_anomaly_rate():
+    tenant = uuid4()
+    result = calculate_llm_kpis(request(tenant,
+        sentinel_anomalies_total=0, sentinel_events_processed_total=0), tenant)
+    assert result["sentinel_anomaly_rate_pct"] is None
+
+
+def test_reject_cross_tenant():
+    tenant = uuid4()
+    with pytest.raises(ValueError, match="Cross-tenant"):
+        calculate_llm_kpis(request(tenant), uuid4())
+
+
+@pytest.mark.parametrize("invalid", [
+    {"status": "ok", "latency_ms": -1},
+    {"status": "ok", "latency_ms": 10, "ttft_ms": 20},
+    {"status": "ok", "tps": float("inf")},
+    {"status": "ok", "estimated_cost_usd": float("nan")},
+    {"status": "unknown"},
+    {"status": "ok", "raw_prompt": "secret"},
+])
+def test_reject_invalid_observations(invalid):
+    with pytest.raises(ValidationError):
+        request(uuid4(), observations=[invalid])
+
+
+def test_reject_invalid_sentinel_counters():
+    with pytest.raises(ValidationError):
+        request(uuid4(), sentinel_anomalies_total=21,
+                sentinel_events_processed_total=20)
+
+
+def test_kpi_route_requires_internal_auth(monkeypatch):
+    monkeypatch.setattr(settings, "internal_api_key", "test-secret")
+    tenant = uuid4()
+    with TestClient(app) as client:
+        response = client.post("/api/v1/observability/llm/kpis/preview",
+                               json=request(tenant).model_dump(mode="json"))
+    assert response.status_code == 401
+
+
+def test_kpi_route_blocks_cross_tenant(monkeypatch):
+    monkeypatch.setattr(settings, "internal_api_key", "test-secret")
+    tenant = uuid4()
+    with TestClient(app) as client:
+        response = client.post("/api/v1/observability/llm/kpis/preview",
+                               json=request(tenant).model_dump(mode="json"),
+                               headers={"X-Internal-Api-Key": "test-secret",
+                                        "X-Tenant-Id": str(uuid4())})
+    assert response.status_code == 422
+
+
+def test_kpi_route_success(monkeypatch):
+    monkeypatch.setattr(settings, "internal_api_key", "test-secret")
+    tenant = uuid4()
+    with TestClient(app) as client:
+        response = client.post("/api/v1/observability/llm/kpis/preview",
+                               json=request(tenant).model_dump(mode="json"),
+                               headers={"X-Internal-Api-Key": "test-secret",
+                                        "X-Tenant-Id": str(tenant)})
+    assert response.status_code == 200
+    assert response.json()["data_source"] == "caller_supplied_preview"
