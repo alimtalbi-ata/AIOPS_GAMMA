@@ -181,3 +181,10 @@
 - Validation: Python checks passed for prior HEAD `9bcbf777` (run 42681053786). Recheck latest documentation HEAD.
 - Not implemented: investigation agent, process KPI telemetry, live source connectors, automated postmortem, or production execution. No vendor performance claims independently verified.
 - Next: build bounded investigation-run schema and offline evaluation fixtures; keep separate from the Sentinel/ArgusLM model-performance KPI preview.
+
+### 2026-11-09 — evidence-linked RCA investigation preview
+- Branch / preceding commit: `feat/observability-foundation` / `02cfea8f`; draft PR #1.
+- Delivered: `app/reused/investigation.py`, authenticated `POST /api/v1/incidents/investigation/preview`, strict source/time/ref validation, cross-tenant denial, offline tests and `docs/INVESTIGATION-PREVIEW.md`.
+- Validation: Python checks green on previous `9bcbf777` (run 42681053786); recheck CI on new HEAD. No external telemetry or staging tests performed.
+- Security: references resolve only within caller-supplied request; **not** source attestation or confirmed RCA. No tool calls, persistence, ITSM mutation or LIVE remediation.
+- Next: qualify trusted source-bound evidence, investigation step receipts and human-adjudicated RCA process KPI fixtures before UI live-data claims.
