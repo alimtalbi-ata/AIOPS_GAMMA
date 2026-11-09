@@ -53,7 +53,20 @@ for id in $ids; do
             canonical=
           }
           case "$canonical" in
-            "$GAMMA_HOME"/data/*) ;;
+            "$GAMMA_HOME"/data/*)
+              # Docker rootless bind sources must be owned by the invoking
+              # user; group/world-writable sources are rejected. Postgres
+              # may change ownership *inside* the user namespace, so this
+              # remains a deliberately strict host-side acceptance gate.
+              owner=$(stat -c %u "$canonical") || { echo "BIND OWNER UNKNOWN: $name $canonical" >&2; failed=1; owner=; }
+              mode=$(stat -c %a "$canonical") || { echo "BIND MODE UNKNOWN: $name $canonical" >&2; failed=1; mode=; }
+              [ "$owner" = "$(id -u)" ] || { echo "BIND NOT USER OWNED: $name $canonical (uid=$owner)" >&2; failed=1; }
+              # GNU stat octal permission bits; ignore special bits here,
+              # reject any group/other write bit in the low three digits.
+              case "$mode" in
+                *[2367][0-7]|*[0-7][2367]) echo "BIND GROUP/OTHER WRITABLE: $name $canonical (mode=$mode)" >&2; failed=1 ;;
+              esac
+              ;;
             *) echo "BIND ESCAPES DATA ROOT: $name $mount -> $canonical" >&2; failed=1 ;;
           esac
         fi
