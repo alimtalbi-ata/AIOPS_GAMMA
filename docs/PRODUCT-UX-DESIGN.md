@@ -105,3 +105,47 @@ Tool strategy:
 
 ### Non-goals of this design iteration
 No new live API calls, autonomous agent, code execution, production KPI feed, GLPI ticket write, or assertion that Sentinel/ArgusLM are deployed in Gamma.
+
+## Fifth reference — autonomous read-only AI SRE investigation
+
+Reference: [AI SRE: The Complete Guide for Engineering Teams in 2026](https://dev.to/siddharth_singh_409bd5267/ai-sre-the-complete-guide-for-engineering-teams-in-2026-51ba), Siddharth Singh, DEV (2026). This is a design input, **not** independent verification of the article's market statistics or vendor claims.
+
+### What changes in Gamma's product experience
+
+- **Investigation run as a first-class object:** an operator opens an incident and sees the investigation's current stage: alert intake → context gathering → hypotheses → evidence tests → RCA synthesis → optional recommendation → postmortem draft. Each stage has timestamps, source links, status, and an explicit stop/UNKNOWN outcome.
+- **Read-only agent tool gateway:** an agent may select from allowlisted, tenant-authorized, bounded metric/log/trace/deployment/topology and repository-read tools. Every invocation displays tool name, scope, query template, elapsed time, result freshness and evidence reference. No arbitrary shell, kubectl write, credential exposure, or direct infrastructure mutation.
+- **Hypothesis comparison:** show supporting evidence, contradictory observations, ruled-out hypotheses, missing evidence and human reviewer feedback. Correlation is not presented as proven causality.
+- **Postmortem draft:** prefill impact, customer timeline, contributing factors, detection and response milestones, source citations, follow-up owners and action items. Label DRAFT until human review; never automatically close ITSM.
+- **Autonomy ladder:** L0 observe, L1 triage, L2 investigate read-only, L3 propose runbook/PR under review, L4 execute only after independent enterprise Policy/HITL and backend safety gates. The current platform does **not** implement L4.
+- **Provider independence:** record provider/model/version, token usage, estimated USD and evaluation metadata per investigation; permit approved provider selection without allowing models to bypass tool authorization.
+
+### AI SRE quality and operational KPI scoreboard
+
+| KPI | Definition | Qualification |
+| --- | --- | --- |
+| Time to first actionable hypothesis | hypothesis timestamp minus alert received timestamp | Source-qualified timestamps; show median/P95 and sample count |
+| Time to evidence-backed RCA | reviewed RCA timestamp minus alert received timestamp | Distinguish AI draft from human-confirmed finding |
+| RCA accuracy | human-adjudicated correct RCA / adjudicated investigations | Blinded review, explicit unknown/unresolved class, confidence intervals for small samples |
+| Evidence citation validity | resolvable, tenant-authorized source refs / all claimed refs | Deterministic link and time-window validation |
+| Alert noise reduction | (raw alerts - correlated incident groups) / raw alerts | Same tenant/window, track false merges and missed incidents |
+| Investigation tool safety | rejected unsafe tool requests, cross-tenant denials, timeouts | Security events, not a performance success score |
+| Human escalation rate | investigations escalated / eligible investigations | Track policy reasons and missing evidence; do not optimize to zero |
+| Investigation cost | complete estimated model/tool cost per run | Label estimated vs billed, track coverage and model version |
+| Postmortem completeness | required fields supported by valid evidence / required fields | Human-reviewed, no fabricated causal conclusions |
+
+These **AI SRE process KPIs are proposed**, not implemented by the existing LLM request KPI preview API. The existing Sentinel/ArgusLM KPI contract measures model performance, not RCA correctness or MTTR.
+
+### Read-only pilot acceptance plan
+
+1. Select **one authorized service and one alert source** with an agreed evaluation window and baseline. Use historical replay and shadow mode first.
+2. Run multi-step investigations with bounded time, tool-call and model-cost budgets; no writes. Require tenant ACL tests, timeout behavior and redaction.
+3. Compare each RCA against independently adjudicated human outcomes; capture false positives, false merges, UNKNOWN, citations and operator effort.
+4. Review the evidence quality and estimated costs before expanding service scope. Suggestions and PR drafts remain human reviewed; L4 requires a separate production qualification decision.
+
+### UI acceptance additions
+
+- Incident drawer gains an **Investigation Steps** timeline and explicit read-only tool receipts.
+- RCA drawer gains side-by-side hypotheses with supporting/contradictory evidence and a human review state.
+- KPI area separates **Model performance** (TTFT/TPS/cost) from **AI SRE effectiveness** (time-to-RCA, citation validity, adjudicated accuracy).
+- Postmortem drawer exports a **reviewable draft** with immutable citations and an unresolved-questions section.
+- An action control must never become enabled merely because an LLM claims high confidence.
