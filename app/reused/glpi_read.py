@@ -17,7 +17,7 @@ from app.settings import settings
 
 async def read_glpi_incident(tenant_id: UUID, ticket_id: int) -> dict:
     """Read an incident only after verifying a server-owned tenant/entity binding."""
-    if ticket_id <= 0:
+    if type(ticket_id) is not int or ticket_id <= 0:
         raise HTTPException(422, "Invalid GLPI ticket id")
     if not settings.enable_glpi_reads:
         raise HTTPException(503, "GLPI reads disabled")
@@ -61,7 +61,8 @@ async def read_glpi_incident(tenant_id: UUID, ticket_id: int) -> dict:
                 or payload["id"] != ticket_id
                 or type(payload.get("entities_id")) is not int
                 or payload["entities_id"] != entity
-                or type(payload.get("type")) is not int or payload["type"] != 1):
+                or type(payload.get("type")) is not int or payload["type"] != 1
+                or (payload.get("status") is not None and type(payload["status"]) is not int)):
             raise HTTPException(502, "GLPI ticket/entity attestation failed")
         # Explicit projection avoids leaking vendor custom fields or PII.
         return {
@@ -73,5 +74,5 @@ async def read_glpi_incident(tenant_id: UUID, ticket_id: int) -> dict:
             "type": 1,
             "read_only": True,
         }
-    except (httpx.RequestError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+    except (httpx.RequestError, httpx.DecodingError, json.JSONDecodeError, UnicodeDecodeError) as exc:
         raise HTTPException(502, "GLPI upstream unavailable") from exc
