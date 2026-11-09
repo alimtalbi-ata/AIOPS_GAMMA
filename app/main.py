@@ -136,6 +136,7 @@ async def list_evidence(
 # This endpoint does not authorize LIVE operations or remediation.
 from pydantic import BaseModel, Field
 from app.reused.impact import estimate_impact
+from app.reused.policy import RemediationProposal, evaluate as evaluate_policy
 
 
 class ImpactRequest(BaseModel):
@@ -160,3 +161,11 @@ async def impact_estimate(
         "source": estimate.source,
         "live_remediation_authorized": False,
     }
+
+
+@app.post("/api/v1/policy/remediation/preview")
+async def remediation_preview(
+    proposal: RemediationProposal, principal: Principal = Depends(internal_principal)
+):
+    """Advisory policy evaluation only. Never authorizes effect execution."""
+    return evaluate_policy(proposal)

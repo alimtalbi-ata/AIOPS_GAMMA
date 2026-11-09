@@ -14,6 +14,7 @@ from sqlalchemy import or_, select
 
 from app.db import session_factory
 from app.models import OutboxEvent
+from app.reused.redaction import redact_text
 
 log = logging.getLogger(__name__)
 MAX_ATTEMPTS = 10
@@ -60,7 +61,7 @@ async def dispatch_once(client: httpx.AsyncClient, endpoint: str, token: str) ->
             except (httpx.HTTPError, ValueError) as exc:
                 event.attempts += 1
                 event.next_attempt_at = now + retry_delay(event.attempts)
-                event.last_error = str(exc)[:1000]
+                event.last_error = (redact_text(str(exc)) or "")[:1000]
                 log.warning("Outbox delivery failed for %s (attempt %s)", event.id, event.attempts)
             return True
 
