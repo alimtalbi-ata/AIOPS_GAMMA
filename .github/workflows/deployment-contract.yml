@@ -1,0 +1,26 @@
+name: Deployment contract (static)
+on:
+  push:
+  pull_request:
+jobs:
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Compose baseline + secure override
+        env:
+          POSTGRES_PASSWORD: ci-placeholder-not-a-secret
+          INTERNAL_API_KEY: ci-placeholder-not-a-secret
+        run: docker compose -f docker-compose.yml -f deploy/compose/compose.yaml config --quiet
+  helm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+      - name: Helm lint and template
+        run: |
+          helm lint deploy/helm/gamma
+          helm template gamma deploy/helm/gamma --namespace gamma > /tmp/gamma-rendered.yaml
+          test -s /tmp/gamma-rendered.yaml
