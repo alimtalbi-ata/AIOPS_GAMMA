@@ -90,3 +90,7 @@ sh deploy/scripts/smoke-rootless.sh
 ```
 
 **Expected unresolved gate:** upstream PostgreSQL's image may declare an empty/root config user even when its entrypoint drops privileges, so the strict runtime audit may fail until its image/UID and init permissions are qualified. OpenSearch is not started by this baseline script. The test has **not** been run on an actual rootless host by this change; treat any result as unverified until executed and logged.
+
+## Additional rootless safeguards
+
+The rootless preflight now checks the directory owner and rejects existing symlinked data paths escaping `GAMMA_HOME`. The runtime audit includes stopped containers (`docker compose ps --all`) rather than silently ignoring them. CI runs mocked-Docker preflight tests for canonical roots and symlink escapes; these tests do not require or emulate a real Docker daemon.
