@@ -27,7 +27,7 @@ case "$*" in
   *".Name"*) echo /mock-postgres ;;
   *".State.Running"*) echo true ;;
   *".HostConfig.Privileged"*) echo false ;;
-  *".Config.User"*) printf '%s\\n' "${MOCK_CONFIG_USER:-999:999}" ;;
+  *".Config.User"*) printf '%s\\n' "${MOCK_CONFIG_USER-999:999}" ;;
   *".Mounts"*) echo "$GAMMA_HOME/data/postgres" ;;
   "exec mock-postgres "*) printf 'Uid:\\t%s\\t%s\\t%s\\t%s\\n' "${MOCK_RUNTIME_UID:-999}" "${MOCK_RUNTIME_UID:-999}" "${MOCK_RUNTIME_UID:-999}" "${MOCK_RUNTIME_UID:-999}" | awk '/^Uid:/ {print $2}' ;;
   *) echo "unexpected mocked docker call: $*" >&2; exit 9 ;;
