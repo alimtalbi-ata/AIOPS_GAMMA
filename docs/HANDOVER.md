@@ -274,3 +274,8 @@
 - On `baf5be68`, Python, Helm, Compose static, UI and regular PostgreSQL/API jobs succeeded. The single-directory baseline job **started all three containers successfully**, including PostgreSQL on the bind mount.
 - The probe step failed immediately with `curl: (56) Recv failure: Connection reset by peer` just after startup. Since UI/API have no Compose healthchecks, `up --wait` does not guarantee their HTTP readiness; changed the CI job to retry both HTTP probes for up to approximately 60 seconds before failing.
 - New CI pending. This does not qualify a rootless Docker daemon; no live PostgreSQL restart/persistence test yet.
+
+### 2026-11-09 — PostgreSQL bind persistence after recreation
+- On `18f2e8a6`, Python and all Deployment contract jobs passed, including UI/API/PostgreSQL baseline bind-mount runtime smoke.
+- Extended `single-directory-runtime` to create/write a PostgreSQL sentinel table, remove/recreate its container, verify the persisted value and assert the bind path remains under `GAMMA_HOME`.
+- Await new CI result. This is not an actual rootless-engine test, nor does it establish backup/restore, image digest pinning or full Kubernetes parity.
