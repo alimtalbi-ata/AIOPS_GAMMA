@@ -25,10 +25,10 @@ case "$*" in
   *DockerRootDir*) echo "$GAMMA_HOME/docker-data" ;;
   *"ps --all -q") echo mock-postgres ;;
   *".Name"*) echo /mock-postgres ;;
-  *".State.Running"*) echo true ;;
-  *".HostConfig.Privileged"*) echo false ;;
+  *".State.Running"*) echo "${MOCK_RUNNING:-true}" ;;
+  *".HostConfig.Privileged"*) echo "${MOCK_PRIVILEGED:-false}" ;;
   *".Config.User"*) printf '%s\\n' "${MOCK_CONFIG_USER-999:999}" ;;
-  *".Mounts"*) echo "$GAMMA_HOME/data/postgres" ;;
+  *".Mounts"*) printf '%s\\n' "${MOCK_MOUNT-$GAMMA_HOME/data/postgres}" ;;
   "exec mock-postgres "*) printf 'Uid:\\t%s\\t%s\\t%s\\t%s\\n' "${MOCK_RUNTIME_UID:-999}" "${MOCK_RUNTIME_UID:-999}" "${MOCK_RUNTIME_UID:-999}" "${MOCK_RUNTIME_UID:-999}" | awk '/^Uid:/ {print $2}' ;;
   *) echo "unexpected mocked docker call: $*" >&2; exit 9 ;;
 esac
@@ -37,12 +37,15 @@ esac
         )
         docker.chmod(0o755)
 
-    def audit(self, config_user="999:999", runtime_uid="999"):
+    def audit(self, config_user="999:999", runtime_uid="999", privileged="false", running="true", mount=None):
         env = dict(
             os.environ,
             GAMMA_HOME=str(self.home),
             MOCK_CONFIG_USER=config_user,
             MOCK_RUNTIME_UID=runtime_uid,
+            MOCK_PRIVILEGED=privileged,
+            MOCK_RUNNING=running,
+            MOCK_MOUNT=mount if mount is not None else str(self.home / "data" / "postgres"),
             PATH=str(self.fakebin) + os.pathsep + os.environ["PATH"],
         )
         return subprocess.run(
@@ -67,6 +70,26 @@ esac
         result = self.audit(runtime_uid="0")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("ROOT RUNTIME UID", result.stderr)
+
+    def test_privileged_container_rejected(self):
+        result = self.audit(privileged="true")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("PRIVILEGED", result.stderr)
+
+    def test_stopped_container_rejected(self):
+        result = self.audit(running="false")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("NOT RUNNING", result.stderr)
+
+    def test_out_of_tree_bind_rejected(self):
+        result = self.audit(mount="/var/unsafe-postgres")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("OUT-OF-TREE BIND", result.stderr)
+
+    def test_named_volume_rejected(self):
+        result = self.audit(mount="NAMED_VOLUME")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("NAMED VOLUME", result.stderr)
 
     def test_invalid_process_uid_rejected(self):
         result = self.audit(runtime_uid="invalid")
