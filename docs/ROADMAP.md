@@ -57,3 +57,7 @@ The fifth design reference, [AI SRE complete guide (2026)](https://dev.to/siddha
 ## Architecture and reuse delivery gates
 
 The target [AI SRE architecture](TARGET-ARCHITECTURE-2026.md) and [GitHub reuse inventory](REUSE-COMPONENT-INVENTORY.md) prioritize canonical `aiops` Core/Policy/Evidence/GLPI and `observability-stack` as P0 integration boundaries, then Sentinel/ArgusLM read-only KPI sources and one qualified investigation engine. Implementation gates: P0 ownership/license review; P1 OIDC/tenant contracts; P2 telemetry/KPI connectors; P3 correlation/GLPI staging; P4 shadow investigation; P5 verified KPI/SLO UX; P6 separately approved execution. Do not treat architecture docs as completed integration.
+
+## Mandatory deployment parity gate
+
+All GAMMA-operated components must ship as versioned OCI images with **both Docker Compose and Kubernetes/Helm** deployment paths. Compose supports local/demo/integration; Kubernetes supports staging/production. Require CI Compose smoke tests, Helm lint/template/schema/policy checks, staging multi-tenant tests, observability, secrets, persistent backup and rollback before promotion. Externally managed GLPI/SSO/SaaS endpoints remain external dependencies; their GAMMA connectors must deploy in both environments. See [DEPLOYMENT-CONTRACT](DEPLOYMENT-CONTRACT.md). This is a new required gate, **not a claim that all packaging is implemented**.
