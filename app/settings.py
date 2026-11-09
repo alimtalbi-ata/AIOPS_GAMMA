@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     core_read_url: str = ""
     evidence_read_url: str = ""
     twin_read_url: str = ""
+    enable_glpi_reads: bool = False
+    glpi_read_url: str = ""
+    glpi_tenant_id: str = ""
+    glpi_entity_id: str = ""
+    glpi_session_token: str = ""
+    glpi_app_token: str = ""
     max_query_hours: int = 24
 
 
