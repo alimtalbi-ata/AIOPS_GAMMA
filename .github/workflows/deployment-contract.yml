@@ -1,4 +1,4 @@
-name: Deployment contract (static + UI runtime)
+name: Deployment contract (static + runtime smoke)
 on:
   push:
   pull_request:
@@ -76,6 +76,44 @@ jobs:
           done
           echo "Non-root UI did not respond over HTTP" >&2
           exit 1
+  api-postgres-runtime:
+    runs-on: ubuntu-latest
+    env:
+      POSTGRES_PASSWORD: ci-only-test-password
+      INTERNAL_API_KEY: ci-only-test-internal-key
+      COMPOSE_PROJECT_NAME: gamma-api-pg-ci
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start PostgreSQL and API in Compose
+        run: |
+          set -eu
+          docker compose -f docker-compose.yml -f deploy/compose/compose.yaml up -d --build --wait postgres api
+      - name: Verify database readiness and API HTTP health
+        run: |
+          set -eu
+          docker compose -f docker-compose.yml -f deploy/compose/compose.yaml exec -T postgres pg_isready -U aiops -d aiops
+          for i in $(seq 1 30); do
+            if curl --fail --silent --show-error --max-time 2 http://127.0.0.1:8000/api/v1/health/live -o api-health.json; then
+              python3 -c 'import json; assert json.load(open("api-health.json"))["status"] == "ok"'
+              docker compose -f docker-compose.yml -f deploy/compose/compose.yaml ps
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "API did not respond to health probe" >&2
+          exit 1
+      - name: Inspect runtime security configuration
+        run: |
+          set -eu
+          api_id=$(docker compose -f docker-compose.yml -f deploy/compose/compose.yaml ps -q api)
+          test "$(docker inspect --format '{{.Config.User}}' "$api_id")" = gamma
+          test "$(docker inspect --format '{{.HostConfig.Privileged}}' "$api_id")" = false
+          test "$(docker inspect --format '{{.State.Running}}' "$api_id")" = true
+      - name: Capture logs and remove test containers
+        if: always()
+        run: |
+          docker compose -f docker-compose.yml -f deploy/compose/compose.yaml logs --no-color --tail=100 || true
+          docker compose -f docker-compose.yml -f deploy/compose/compose.yaml down --volumes --remove-orphans || true
   helm:
     runs-on: ubuntu-latest
     steps:
