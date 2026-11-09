@@ -28,8 +28,12 @@ def validate_origin(origin: str) -> str:
     try:
         u = urlsplit(origin)
         host = u.hostname or ""
+        # Force port parsing here: urlsplit accepts malformed port strings
+        # until .port is accessed, which otherwise fails later in HTTPX.
+        port = u.port
         if (u.scheme != "https" or not host or u.username or u.password
-                or u.path not in ("", "/") or u.query or u.fragment):
+                or u.path not in ("", "/") or u.query or u.fragment
+                or (port is not None and port <= 0)):
             raise ValueError("Invalid HTTPS upstream origin")
         # Literal loopback/private IPs still need HTTPS. DNS egress allowlisting
         # must be enforced by infrastructure, not inferred from this check.
