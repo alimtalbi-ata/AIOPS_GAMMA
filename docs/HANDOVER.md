@@ -195,3 +195,8 @@
 - Delivered: `docs/TARGET-ARCHITECTURE-2026.md` (domain ownership, target topology, contracts, four operational flows, deployment zones, P0–P6 gates) and `docs/REUSE-COMPONENT-INVENTORY.md` (path-level candidates, priorities, reuse/avoid decisions, integration qualification).
 - Validation: documents-only changes; latest HEAD CI must be checked. No staging integrations, license audit, live credentials or autonomous execution performed.
 - Next: freeze upstream SHAs/licenses, approve one investigation engine, qualify tenant-authenticated read-only source contracts and validate staging GLPI independently.
+
+### 2026-11-09 — mandatory dual deployment architecture
+- User requirement: **every GAMMA-operated platform component** must support both Docker Compose and Kubernetes/Helm from versioned OCI images; externally managed GLPI/SSO/SaaS may remain external, but their connectors must be deployable in both environments.
+- Delivered: `docs/DEPLOYMENT-CONTRACT.md` with component matrix, profiles, target folder structure, OCI packaging, CI stages, network/tenant/secrets/volume constraints and acceptance checklist; linked from target architecture, reuse inventory, roadmap and README.
+- Status: documentation-only decision. No new Compose/Helm manifests or staging qualification claimed. Keep draft PR #1; check latest HEAD CI.
