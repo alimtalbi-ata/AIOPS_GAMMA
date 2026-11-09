@@ -304,3 +304,8 @@
 - `421a2b0a`: Python and deployment workflows both passed.
 - Added offline tests for `audit-rootless-compose.sh` using mocked Docker: non-root configured/runtime UID success; root/empty configured user and root/invalid runtime UID failures.
 - Wired these tests into deployment Compose CI. These tests do **not** run Docker rootless and do not establish PostgreSQL rootless compatibility. New CI pending.
+
+### 2026-11-09 — extended rootless audit regression coverage
+- `00468b2d`: both Python and deployment CI workflows passed, including mocked Docker rootless audit tests.
+- Extended mocked audit regression cases to reject privileged containers, stopped containers, bind mounts outside `GAMMA_HOME/data`, and Docker named volumes.
+- CI on the new commit is pending; these are simulated contract tests, not rootless-engine runtime qualification.
