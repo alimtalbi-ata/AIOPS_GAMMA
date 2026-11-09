@@ -23,6 +23,17 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+  outbox-relay:
+    build: .
+    profiles: [relay]
+    command: ["python", "-m", "app.outbox_relay"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://aiops:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/aiops
+      CORRELATION_WEBHOOK_URL: ${CORRELATION_WEBHOOK_URL:-}
+      CORRELATION_WEBHOOK_TOKEN: ${CORRELATION_WEBHOOK_TOKEN:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
   opensearch:
     image: opensearchproject/opensearch:2.19.4
     profiles: [observability-demo]
