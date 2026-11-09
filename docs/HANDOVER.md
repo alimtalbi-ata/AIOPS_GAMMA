@@ -218,3 +218,8 @@
 - Updated `frontend/Dockerfile` to unprivileged Nginx UID/GID 101; `frontend/nginx.conf` listens on 8080; root Compose maps host 5173 to container 8080; Helm UI uses port 8080 and enforces runAsNonRoot/101/seccomp.
 - Rootless preflight now rejects Docker data-root outside `GAMMA_HOME/docker-data`; CI validates rootless overlay Compose config, preflight syntax, builds UI image, checks UID and Nginx configuration.
 - Limitations: no actual rootless daemon startup or Kubernetes staging qualification performed in this session; CI on new HEAD to check. No proof of all-container single-directory installation or full read-only root filesystems. PR #1 remains draft.
+
+### 2026-11-09 — CI fix for rootless Compose overlay
+- Previous commit `51fc0364`: Python checks passed; deployment contract failed only in Compose rootless overlay validation; UI image and Helm jobs passed.
+- Root cause from job logs: duplicate `services.api.security_opt` entry after overlay merge (`no-new-privileges:true`). Removed duplicate security_opt from optional rootless overlay; base security overlay retains it for API and frontend.
+- CI extended to assert rendered Compose JSON bind mounts under GAMMA_HOME and non-root API/relay users. No real rootless runtime smoke test yet. Check new HEAD workflow before declaring CI green.
