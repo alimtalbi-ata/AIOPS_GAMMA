@@ -60,7 +60,8 @@ async def read_glpi_incident(tenant_id: UUID, ticket_id: int) -> dict:
         if (not isinstance(payload, dict) or type(payload.get("id")) is not int
                 or payload["id"] != ticket_id
                 or type(payload.get("entities_id")) is not int
-                or payload["entities_id"] != entity):
+                or payload["entities_id"] != entity
+                or type(payload.get("type")) is not int or payload["type"] != 1):
             raise HTTPException(502, "GLPI ticket/entity attestation failed")
         # Explicit projection avoids leaking vendor custom fields or PII.
         return {
@@ -69,7 +70,7 @@ async def read_glpi_incident(tenant_id: UUID, ticket_id: int) -> dict:
             "ticket_id": ticket_id,
             "entity_id": entity,
             "status": payload.get("status") if type(payload.get("status")) is int else None,
-            "type": payload.get("type") if type(payload.get("type")) is int else None,
+            "type": 1,
             "read_only": True,
         }
     except (httpx.RequestError, json.JSONDecodeError, UnicodeDecodeError) as exc:
