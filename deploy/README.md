@@ -130,3 +130,7 @@ The opt-in `deploy/scripts/smoke-rootless.sh` now **requires** `curl`, retries b
 ## Rootless runtime identity evidence
 
 The opt-in rootless audit now inspects **both** the image/container configured user (`docker inspect .Config.User`) and the running PID 1 UID from `/proc/1/status` via `docker exec`. It fails closed if the process UID cannot be read, is invalid or zero; it also **continues to reject** an empty/root configured user even when PID 1 is non-root. This makes the upstream PostgreSQL identity mismatch visible instead of treating runtime privilege dropping as proof of a compliant non-root image. This audit is only run on a dedicated rootless host, not the GitHub-hosted Docker CI runner.
+
+## Bind-mount path canonicalization
+
+The strict rootless runtime audit now resolves every bind source under `$GAMMA_HOME/data` with `pwd -P` and rejects missing/non-directory paths and symlinks resolving outside the data root. Lexical path-prefix checks alone are not sufficient. Offline mocked-Docker regression tests cover both rejection paths. This is a path-integrity check, not a defense against concurrent filesystem changes or a substitute for a dedicated rootless host test.
