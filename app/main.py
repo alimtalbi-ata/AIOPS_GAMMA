@@ -1,7 +1,7 @@
 from datetime import timedelta
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Response
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -230,6 +230,8 @@ from app.reused.glpi_read import read_glpi_incident
 
 @app.get("/api/v1/itil4/glpi/incidents/{ticket_id}/snapshot")
 async def glpi_incident_snapshot(
-    ticket_id: int, principal: Principal = Depends(internal_principal)
+    ticket_id: int, response: Response, principal: Principal = Depends(internal_principal)
 ):
+    # Incident metadata must not be retained by shared gateways or browsers.
+    response.headers["Cache-Control"] = "no-store"
     return await read_glpi_incident(principal.tenant_id, ticket_id)
