@@ -101,3 +101,11 @@
 - Validation: GitHub Actions Python checks **passed** on `f814455f` (run 42674884849). New HEAD CI remains to be checked.
 - Security: no redirects, no vendor error body propagation, no retries or ITSM mutations. Staging and RBAC qualification still blocked on real GLPI access.
 - Next: confirm CI on new HEAD; qualify API version, token expiry and entity scope in staging.
+
+### 2026-11-09 — GLPI origin validation regression tests (#4)
+- Branch / commit before this handover: `feat/observability-foundation` / `eaf1de53`.
+- PR / issue: draft #1 / #4.
+- Delivered: negative tests verifying invalid GLPI origins are rejected before constructing an HTTP client (HTTP, embedded credentials, paths, query strings, fragments, localhost).
+- Validation: GitHub Actions Python checks **passed** for `f6bbb894` (run 42675633942); check CI for new HEAD.
+- Security: fixed HTTPS origin is necessary but insufficient; deployment still needs egress/DNS allowlisting and GLPI service-account RBAC validation.
+- Next: inspect new HEAD CI, then stage real GLPI contract tests when a qualified environment is available.
