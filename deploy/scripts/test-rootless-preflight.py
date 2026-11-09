@@ -10,7 +10,7 @@ SCRIPT = pathlib.Path(__file__).with_name("check-rootless-home.sh")
 
 class RootlessPreflightTests(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
+        self.tmp = tempfile.TemporaryDirectory(prefix="gamma-rootless-test-", dir=pathlib.Path.home())
         self.addCleanup(self.tmp.cleanup)
         self.base = pathlib.Path(self.tmp.name)
         self.home = self.base / "gamma"
@@ -35,7 +35,8 @@ class RootlessPreflightTests(unittest.TestCase):
         return subprocess.run(["sh", str(SCRIPT)], env=env, capture_output=True, text=True)
 
     def test_accepts_owned_canonical_root(self):
-        self.assertEqual(self.run_check().returncode, 0)
+        result = self.run_check()
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_rejects_relative_root(self):
         self.assertNotEqual(self.run_check(pathlib.Path("relative")).returncode, 0)
