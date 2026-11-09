@@ -117,3 +117,11 @@
 - Validation: Python checks passed on `29ae65c9` (run 42675826400); new HEAD CI must be verified.
 - Security: GLPI reads remain disabled by default and strictly read-only; staging version/ACL and service-token lifecycle remain unqualified.
 - Next: confirm new CI, then stage API-contract and entity-permission tests.
+
+### 2026-11-09 — GLPI staging qualification gate (#4)
+- Branch / prior commit: `feat/observability-foundation` / `01b689f6`.
+- PR / issue: draft #1 / #4.
+- Delivered: `docs/GLPI-STAGING-QUALIFICATION.md` with prerequisite controls, expected results, evidence requirements, acceptance criteria and rollback; linked from adapter documentation.
+- Validation: GitHub Actions Python checks **passed** on `3ea5ef51` (run 42676495843). Documentation HEAD CI should be rechecked.
+- Security: no staging secrets, no real GLPI tests and no activation. Deployment must provide trusted gateway identity, egress ACL and read-only GLPI service-account RBAC.
+- Next: obtain an approved GLPI staging environment, pin API version and run the qualification matrix; keep PR draft pending review.
