@@ -78,3 +78,7 @@ Added `docs/ITIL4-GOVERNANCE.md` and a typed, authenticated **preview-only** ITI
 - **LLM KPI:** reviewed `alimtalbi-ata/sentinel-llm` and `alimtalbi-ata/arguslm-llm`; implemented `app/reused/llm_kpi.py` and `POST /api/v1/observability/llm/kpis/preview` with strict input validation, tenant equality and unit-labelled KPI projections. See [LLM-KPI-CONTRACT](LLM-KPI-CONTRACT.md). These are **caller-supplied preview samples**, not trusted production observations.
 - **Validation:** Python checks passed on `73ab1335` ([run 42679137227](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/42679137227)). New documentation HEAD CI and all real upstream staging tests remain to be confirmed.
 - **Immediate next gate:** trusted source-specific tenant/model ACL mapping, fixed-origin read-only data retrieval, timestamped metric provenance and sample coverage, then SLO/dashboard qualification. No autonomous remediation or ITSM writes.
+
+## Evidence-linked investigation preview (2026-11-09)
+
+Implemented `app/reused/investigation.py` and `POST /api/v1/incidents/investigation/preview` with tenant equality, bounded typed evidence, UTC-aware timestamps, hypothesis citation integrity and non-authoritative output. Tests cover cross-tenant denial, missing references, conflicting citations and unknowns. This is **not** an autonomous investigation agent or a verified RCA; no external evidence is retrieved. See [INVESTIGATION-PREVIEW](INVESTIGATION-PREVIEW.md). New HEAD CI pending.
