@@ -194,3 +194,52 @@ async def test_glpi_response_size_and_json_shape_fail_closed(monkeypatch, body, 
     with pytest.raises(HTTPException) as exc:
         await glpi_read.read_glpi_incident(tenant, 12)
     assert exc.value.status_code == 502
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("entity_id", ["-1", "not-an-int", "8.5"])
+async def test_invalid_server_entity_configuration_fails_before_network(monkeypatch, entity_id):
+    tenant = uuid4()
+    for name, value in {
+        "enable_glpi_reads": True,
+        "glpi_tenant_id": str(tenant),
+        "glpi_entity_id": entity_id,
+        "glpi_read_url": "https://glpi.internal",
+        "glpi_session_token": "test-session",
+        "glpi_app_token": "test-app",
+    }.items():
+        monkeypatch.setattr(glpi_read.settings, name, value)
+
+    def no_network(*args, **kwargs):
+        raise AssertionError("Invalid entity config must not trigger network")
+
+    monkeypatch.setattr(glpi_read.httpx, "AsyncClient", no_network)
+    with pytest.raises(HTTPException) as exc:
+        await glpi_read.read_glpi_incident(tenant, 12)
+    assert exc.value.status_code == 503
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("missing_setting", [
+    "glpi_read_url", "glpi_entity_id", "glpi_session_token", "glpi_app_token",
+])
+async def test_missing_glpi_configuration_fails_before_network(monkeypatch, missing_setting):
+    tenant = uuid4()
+    for name, value in {
+        "enable_glpi_reads": True,
+        "glpi_tenant_id": str(tenant),
+        "glpi_entity_id": "8",
+        "glpi_read_url": "https://glpi.internal",
+        "glpi_session_token": "test-session",
+        "glpi_app_token": "test-app",
+    }.items():
+        monkeypatch.setattr(glpi_read.settings, name, value)
+    monkeypatch.setattr(glpi_read.settings, missing_setting, "")
+
+    def no_network(*args, **kwargs):
+        raise AssertionError("Incomplete GLPI config must not trigger network")
+
+    monkeypatch.setattr(glpi_read.httpx, "AsyncClient", no_network)
+    with pytest.raises(HTTPException) as exc:
+        await glpi_read.read_glpi_incident(tenant, 12)
+    assert exc.value.status_code == 403
