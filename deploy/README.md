@@ -122,3 +122,7 @@ The `single-directory-runtime` CI job now writes a sentinel record to PostgreSQL
 ## CI-only PostgreSQL logical backup/restore rehearsal
 
 After verifying bind-mount persistence, the `single-directory-runtime` job writes a logical `pg_dump` to `$GAMMA_HOME/backups/ci-postgres.sql` (directory mode 0700, file mode 0600), checks file ownership, **drops only its disposable CI sentinel table**, restores the dump through `psql -v ON_ERROR_STOP=1`, and verifies the restored record. This destructive rehearsal is CI-only: do **not** copy the DROP TABLE step into a production runbook. A successful CI result does not yet demonstrate point-in-time recovery, encrypted/off-host backups, retention, disaster recovery, or actual rootless-engine operation.
+
+## Strict rootless smoke readiness gates
+
+The opt-in `deploy/scripts/smoke-rootless.sh` now **requires** `curl`, retries both UI and API HTTP probes (up to roughly 60 seconds each), and checks PostgreSQL readiness before invoking the strict runtime audit. It never silently skips HTTP validation. The upstream PostgreSQL image may still fail the audit because its configured container user is empty/root even though its entrypoint drops to `postgres` at runtime; do not bypass that failure or claim full rootless compliance without a qualified image/runtime UID design. The successful GitHub-hosted logical backup/restore job does not use a rootless Docker daemon.
