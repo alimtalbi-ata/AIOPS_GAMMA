@@ -314,3 +314,8 @@
 - `bac40a8e`: Python and deployment workflows passed, including expanded mocked rootless audit checks.
 - Strict audit now resolves each bind source with `pwd -P` and rejects symlink escapes and missing directories; added offline regression tests.
 - New CI pending. No real rootless Docker host test has been performed.
+
+### 2026-11-09 — rootless bind ownership and mode gate
+- `79fe81e3`: Python and deployment workflows passed, including symlink escape and missing bind source regression tests.
+- Rootless runtime audit now checks host-visible UID ownership and rejects group/world writable bind directories; added mocked Docker tests for modes 0770 and 0777.
+- Rootless PostgreSQL UID mapping may conflict with host-visible ownership requirements; treat as an unresolved compatibility gate. New CI pending.
