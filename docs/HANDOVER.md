@@ -133,3 +133,11 @@
 - Validation: Python checks passed on `4ba36e94` (run 42676822911); verify new HEAD CI.
 - Security: cache headers complement but do not replace gateway caching and logging policies. No staging GLPI qualification or ITSM mutation.
 - Next: confirm CI and arrange GLPI staging RBAC/API tests; keep PR draft.
+
+### 2026-11-09 — GLPI configuration fail-closed tests (#4)
+- Branch / preceding commit: `feat/observability-foundation` / `bcfc1139`.
+- PR / issue: draft #1 / #4.
+- Delivered: mock tests proving missing GLPI URL/entity/service credentials and invalid entity identifiers fail before any HTTP client construction.
+- Validation: Python checks for `e86e0041` were in progress (run 42677594572) when checked; inspect CI on latest HEAD before treating it as validated.
+- Security: no credentials committed; GLPI read remains feature-flagged off by default and requires staging RBAC/API qualification.
+- Next: confirm CI; arrange approved GLPI staging service account and execute `docs/GLPI-STAGING-QUALIFICATION.md`.
