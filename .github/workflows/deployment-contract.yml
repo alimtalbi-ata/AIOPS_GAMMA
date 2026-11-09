@@ -26,7 +26,7 @@ jobs:
           sh -n deploy/scripts/audit-rootless-compose.sh
           sh -n deploy/scripts/smoke-rootless.sh
       - name: Test rootless preflight with mocked Docker
-        run: python3 -m unittest discover -s deploy/scripts -p "test-rootless-preflight.py" -v
+        run: python3 deploy/scripts/test-rootless-preflight.py -v
       - name: Assert rootless bind mounts and non-root users
         env:
           POSTGRES_PASSWORD: ci-placeholder-not-a-secret
