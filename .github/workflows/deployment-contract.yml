@@ -154,6 +154,13 @@ jobs:
           actual=$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/var/lib/postgresql/data"}}{{.Source}}{{end}}{{end}}' "$pg_id")
           test "$actual" = "$GAMMA_HOME/data/postgres"
           test "$(docker inspect --format '{{.HostConfig.Privileged}}' "$pg_id")" = false
+          # Upstream image starts with an empty configured user, then switches
+          # to postgres. Verify the *running server* is not UID 0; this does
+          # not waive the strict configured-user audit on a rootless host.
+          server_uid=$(docker exec "$pg_id" sh -c "awk '/^Uid:/ {print \\$2}' /proc/1/status")
+          test "$server_uid" != 0
+          test -n "$server_uid"
+          echo "PostgreSQL PID 1 runtime UID: $server_uid (configured user may differ)"
           # A real write/read across container recreation, not just a health probe.
           compose="docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml"
           $compose exec -T postgres psql -v ON_ERROR_STOP=1 -U aiops -d aiops -c 'CREATE TABLE IF NOT EXISTS gamma_ci_persistence (id integer PRIMARY KEY, note text NOT NULL);'
