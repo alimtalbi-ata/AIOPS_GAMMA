@@ -264,3 +264,8 @@
 - CI on `9ab03786`: Python, Helm, Compose static, UI runtime and normal PostgreSQL/API runtime succeeded. The new single-directory bind-mount runtime job **failed**.
 - Logs: `chmod: /var/lib/postgresql/data: Operation not permitted`, `chmod: /var/run/postgresql: Operation not permitted`, `chown: /var/lib/postgresql/data: Operation not permitted`. Root cause: `cap_drop: [ALL]` prevents upstream PostgreSQL entrypoint setup.
 - Added narrowly scoped `CHOWN`, `FOWNER`, `DAC_OVERRIDE` for PostgreSQL in rootless overlay while keeping `cap_drop: [ALL]`. New CI status pending. This does not certify rootless Docker or non-root initialization.
+
+### 2026-11-09 — PostgreSQL UID transition follow-up
+- On `f7956bb1`, Python, Helm, UI, Compose static and normal API/PostgreSQL runtime succeeded; single-directory bind mount still failed.
+- New log: `error: failed switching to 'postgres': operation not permitted`. Previous `CHOWN`/`FOWNER`/`DAC_OVERRIDE` adjustment resolved the initial chmod/chown errors but prevented the upstream entrypoint's UID/GID transition.
+- Added `SETUID` and `SETGID` to PostgreSQL-only `cap_add` while retaining `cap_drop: ALL`. Await fresh CI; rootless host certification remains open.
