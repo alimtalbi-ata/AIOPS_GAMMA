@@ -53,3 +53,7 @@ Two curated research directories now inform implementation criteria: [awesome-sr
 ## AI SRE investigation evaluation track
 
 The fifth design reference, [AI SRE complete guide (2026)](https://dev.to/siddharth_singh_409bd5267/ai-sre-the-complete-guide-for-engineering-teams-in-2026-51ba), informs the [UX blueprint](PRODUCT-UX-DESIGN.md) without qualifying vendor claims. Before autonomous remediation, prioritize: (1) an allowlisted read-only multi-step investigation loop; (2) source-cited hypothesis/contradiction and UNKNOWN handling; (3) human-adjudicated RCA accuracy and time-to-RCA benchmarking; (4) reviewable postmortem drafts; (5) bounded tool/model cost and security audits. **None of these new AI SRE effectiveness KPIs are implemented by the existing Sentinel/ArgusLM model-performance preview.** Start with one service and one alert source in shadow mode. L4 execution remains a separate Policy/HITL release gate.
+
+## Architecture and reuse delivery gates
+
+The target [AI SRE architecture](TARGET-ARCHITECTURE-2026.md) and [GitHub reuse inventory](REUSE-COMPONENT-INVENTORY.md) prioritize canonical `aiops` Core/Policy/Evidence/GLPI and `observability-stack` as P0 integration boundaries, then Sentinel/ArgusLM read-only KPI sources and one qualified investigation engine. Implementation gates: P0 ownership/license review; P1 OIDC/tenant contracts; P2 telemetry/KPI connectors; P3 correlation/GLPI staging; P4 shadow investigation; P5 verified KPI/SLO UX; P6 separately approved execution. Do not treat architecture docs as completed integration.
