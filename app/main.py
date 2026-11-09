@@ -235,3 +235,18 @@ async def glpi_incident_snapshot(
     # Incident metadata must not be retained by shared gateways or browsers.
     response.headers["Cache-Control"] = "no-store"
     return await read_glpi_incident(principal.tenant_id, ticket_id)
+
+
+# KPI preview inspired by Sentinel telemetry counters and ArgusLM LLM timings.
+# Caller-supplied samples are not trusted as authoritative tenant telemetry.
+from app.reused.llm_kpi import LLMKPIRequest, calculate_llm_kpis
+
+
+@app.post("/api/v1/observability/llm/kpis/preview")
+async def llm_kpi_preview(
+    req: LLMKPIRequest, principal: Principal = Depends(internal_principal),
+):
+    try:
+        return calculate_llm_kpis(req, principal.tenant_id)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
