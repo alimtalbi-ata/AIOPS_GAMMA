@@ -6,7 +6,7 @@
 - Repo: https://github.com/alimtalbi-ata/AIOPS_GAMMA
 - Active draft PR: https://github.com/alimtalbi-ata/AIOPS_GAMMA/pull/1
 - Branch: `feat/observability-foundation`; `main` does **not** contain the feature branch.
-- Last verified pre-documentation commit: `8235693a1be7c28c49fa5ad8262f0d2209ccc49c`; its GitHub Actions checks passed. **Recheck HEAD and CI before changing or merging.**
+- Last verified implementation commit: `73ab13356767de690cde89da975d4de9e2d4a7e1`; GitHub Actions Python checks passed (run `42679137227`). **Recheck current HEAD and CI before changing or merging.**
 - Working language: French for operator/product communication; code/docs may be English.
 - Main docs: `docs/PROJECT-STATUS.md`, `docs/ROADMAP.md`, `docs/AI-SRE-PLATFORM.md`, `docs/THREE-SOURCE-INTEGRATION.md`, `docs/OPERATIONS.md`, `docs/DECISIONS.md`.
 
@@ -30,7 +30,7 @@
 - Existing Core, Evidence, Policy, Twin and GLPI service endpoints/auth contracts not independently runtime-qualified.
 - No production OIDC/mTLS or tenant-specific RBAC/DLS; shared internal key and X-Tenant-Id only safe behind a trusted gateway.
 - Demo console uses synthetic data.
-- Metrics API returns 501; OpenSearch query mapping must be checked against actual upstream pipeline.
+- General PromQL metrics API returns 501; OpenSearch query mapping must be checked against actual upstream pipeline. LLM KPI preview is implemented but uses caller-supplied samples; Sentinel/ArgusLM live connectors and trustworthy time-series/SLOs are not integrated.
 - Policy preview is not an authorization token. LIVE mutation prohibited.
 - Integration/e2e tests against deployed upstream systems not run.
 
@@ -158,3 +158,11 @@
 - Validation: previous Python checks passed at `13c91696` (run 42677877051); new HEAD CI must be checked.
 - Security: caller samples are not trustworthy source telemetry. No live API calls, ingestion, credentials, persisted facts, GLPI mutation or LIVE remediation.
 - Next: qualify tenant-scoped source connectors and implement timestamped persistence; establish SLO/sample size criteria before dashboards.
+
+### 2026-11-09 — documentation consolidation: GLPI, ITIL 4 and LLM KPI
+- Branch / preceding commit: `feat/observability-foundation` / `28625290`.
+- PR: draft #1; related issues #2/#3/#4.
+- Delivered: refreshed root README (actual package version 0.2.0, endpoint inventory and sample KPI request), `docs/PROJECT-STATUS.md` (capability matrix and blockers), `docs/ROADMAP.md` (K0–K5 KPI milestones), `docs/LLM-KPI-CONTRACT.md` (worked example, partial coverage and authorization caveats), and this handover.
+- Validation: implementation commit `73ab1335` passed Python checks ([run 42679137227](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/42679137227)). Recheck CI for the **documentation HEAD**; no live Sentinel, ArgusLM or GLPI staging tests.
+- Security/ownership: KPI input is caller-supplied and non-authoritative, model ID not independently ACL-verified, ITSM remains system-of-record, no LIVE actions or ticket writes. GLPI read-only disabled by default.
+- Next: qualified tenant-scoped Sentinel/ArgusLM source adapters, provenance and timestamped KPI history, SLO dashboards after data validation; execute GLPI staging qualification independently. Keep PR draft.
