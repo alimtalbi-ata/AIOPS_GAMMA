@@ -102,3 +102,7 @@ The deployment workflow now builds and **starts** the non-root UI container with
 ## PostgreSQL + API CI runtime integration
 
 A separate GitHub Actions job now starts `postgres` and `api` using the standard Compose files, waits for PostgreSQL health, probes `GET /api/v1/health/live` on loopback, checks the API container's configured non-root user and non-privileged mode, and collects logs/tears down the test stack even after failure. It uses disposable CI-only credentials and removes test volumes. **This is a runtime integration test on the GitHub-hosted Docker daemon, not Docker rootless.** It does not prove DB migrations, tenant authorization, persistence across restarts or host-path confinement.
+
+## Single-directory bind-mount runtime regression
+
+A new GitHub-hosted CI job starts the **UI + API + PostgreSQL** baseline with the rootless Compose overlay and a real PostgreSQL bind mount under the runner's `GAMMA_HOME/data/postgres`. It probes both HTTP endpoints, checks PostgreSQL readiness, inspects the actual mounted host path, and retains filesystem evidence rather than force-deleting it on failure. This detects many UID/mount errors, but **the GitHub-hosted Docker daemon is not rootless**, and the job does not enforce the strict `check-rootless-home.sh` preflight. It does not qualify OpenSearch, host filesystem confinement or Kubernetes.
