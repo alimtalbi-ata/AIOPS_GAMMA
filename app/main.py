@@ -208,3 +208,17 @@ async def itil_workflow_preview(
         return preview_itil_workflow(req.incident, req.problem, req.change)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
+
+
+# Enterprise-specific ITIL 4 priority and incident sync planning: no ITSM writes.
+from app.reused.itsm_contract import IncidentSyncPreview, plan_incident_sync
+
+
+@app.post("/api/v1/itil4/incidents/sync-preview")
+async def itsm_sync_preview(
+    req: IncidentSyncPreview, principal: Principal = Depends(internal_principal)
+):
+    try:
+        return plan_incident_sync(req, principal.tenant_id)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc

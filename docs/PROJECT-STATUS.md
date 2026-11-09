@@ -66,3 +66,7 @@ A new feature-flagged, fail-closed HTTPS GET snapshot adapter is available for C
 
 ## ITIL 4 enterprise architecture (2026-11-09)
 Added `docs/ITIL4-GOVERNANCE.md` and a typed, authenticated **preview-only** ITIL incident/problem/change/CI workflow projection. No ITSM tickets, problem records, RFCs or CMDB mutations are performed; enterprise-specific ITSM rules and change authority must be qualified.
+
+## ITSM synchronization proposal (2026-11-09)
+- New [ITSM-SYNC-CONTRACT](ITSM-SYNC-CONTRACT.md) describes enterprise-owned priority matrices and safe incident sync proposals with stable logical idempotency keys.
+- Implemented as a **pure internal preview** only; not a vendor connector, not a durable exactly-once guarantee, and no ITSM writes.
