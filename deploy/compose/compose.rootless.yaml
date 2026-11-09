@@ -1,0 +1,31 @@
+# Opt-in rootless single-directory data layout. Not a complete compliance certificate.
+# Usage: export GAMMA_HOME=/absolute/owned/path
+# docker compose -f docker-compose.yml -f deploy/compose/compose.yaml \
+#   -f deploy/compose/compose.rootless.yaml config
+# Requires Docker Engine rootless, prepared owned directories, and image UID validation.
+services:
+  api:
+    user: "10001:10001"
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+  frontend:
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+  postgres:
+    volumes:
+      - type: bind
+        source: ${GAMMA_HOME:?set absolute GAMMA_HOME}/data/postgres
+        target: /var/lib/postgresql/data
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+  opensearch:
+    volumes:
+      - type: bind
+        source: ${GAMMA_HOME:?set absolute GAMMA_HOME}/data/opensearch
+        target: /usr/share/opensearch/data
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+  outbox-relay:
+    user: "10001:10001"
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
