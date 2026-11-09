@@ -134,3 +134,7 @@ The opt-in rootless audit now inspects **both** the image/container configured u
 ## Bind-mount path canonicalization
 
 The strict rootless runtime audit now resolves every bind source under `$GAMMA_HOME/data` with `pwd -P` and rejects missing/non-directory paths and symlinks resolving outside the data root. Lexical path-prefix checks alone are not sufficient. Offline mocked-Docker regression tests cover both rejection paths. This is a path-integrity check, not a defense against concurrent filesystem changes or a substitute for a dedicated rootless host test.
+
+## Strict bind source ownership and permissions
+
+The optional rootless runtime audit now requires each resolved bind source directory to be owned by the invoking user and rejects group- or world-writable directory modes. Offline tests cover modes `0770` and `0777`. This is intentionally a fail-closed host-side gate: PostgreSQL's initialization may change host-visible ownership under rootless user-namespace mappings, so compatibility is **not** established by these checks and must be qualified on a disposable rootless host. Never recursively `chown` production data to satisfy the audit without reviewing UID mapping and backup impact.
