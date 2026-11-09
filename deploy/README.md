@@ -98,3 +98,7 @@ The rootless preflight now checks the directory owner and rejects existing symli
 ## UI container runtime smoke in CI
 
 The deployment workflow now builds and **starts** the non-root UI container with `--cap-drop ALL`, `--security-opt no-new-privileges`, UID/GID `101:101`, and a localhost-only published port `18080:8080`. It polls the HTTP homepage, verifies an HTML response, confirms the container remains running, and inspects the configured user/privileged flag. The container is removed after the test. This uses the **GitHub-hosted Docker daemon**, not a certified rootless daemon, and does not exercise the complete stack.
+
+## PostgreSQL + API CI runtime integration
+
+A separate GitHub Actions job now starts `postgres` and `api` using the standard Compose files, waits for PostgreSQL health, probes `GET /api/v1/health/live` on loopback, checks the API container's configured non-root user and non-privileged mode, and collects logs/tears down the test stack even after failure. It uses disposable CI-only credentials and removes test volumes. **This is a runtime integration test on the GitHub-hosted Docker daemon, not Docker rootless.** It does not prove DB migrations, tenant authorization, persistence across restarts or host-path confinement.
