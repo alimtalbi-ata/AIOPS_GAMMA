@@ -94,3 +94,7 @@ sh deploy/scripts/smoke-rootless.sh
 ## Additional rootless safeguards
 
 The rootless preflight now checks the directory owner and rejects existing symlinked data paths escaping `GAMMA_HOME`. The runtime audit includes stopped containers (`docker compose ps --all`) rather than silently ignoring them. CI runs mocked-Docker preflight tests for canonical roots and symlink escapes; these tests do not require or emulate a real Docker daemon.
+
+## UI container runtime smoke in CI
+
+The deployment workflow now builds and **starts** the non-root UI container with `--cap-drop ALL`, `--security-opt no-new-privileges`, UID/GID `101:101`, and a localhost-only published port `18080:8080`. It polls the HTTP homepage, verifies an HTML response, confirms the container remains running, and inspects the configured user/privileged flag. The container is removed after the test. This uses the **GitHub-hosted Docker daemon**, not a certified rootless daemon, and does not exercise the complete stack.
