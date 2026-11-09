@@ -45,3 +45,7 @@ Two curated research directories now inform implementation criteria: [awesome-sr
 | K5 — SLO + dashboards | **Not started** | Enterprise-owned SLO/error budgets, alerts with low-sample safeguards, Grafana/console panels using qualified real data, staged evaluation |
 
 **Dependency:** K2/K3 require independently verified upstream ACL and egress controls; K4 depends on K2/K3; K5 requires trustworthy history. No benchmark, alert or KPI excursion grants execution authority. GLPI staging qualification is a separate P1 gate.
+
+## UX design track (inspiration from production AIOps patterns)
+
+[PRODUCT-UX-DESIGN](PRODUCT-UX-DESIGN.md) maps Command Center → Signal Explorer → Incident Workbench → RCA Evidence → LLM KPI → Runbook/Change → Audit/Learning. UX0–UX5 are proposed increments, not shipped screens. Prioritize UX0/UX1 (clear demo/provenance states and KPI preview) before adding live-looking graphs. Never treat a UX approval as authorization for ITSM writes or LIVE remediation.
