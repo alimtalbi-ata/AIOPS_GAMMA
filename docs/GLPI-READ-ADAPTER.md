@@ -30,3 +30,6 @@ Remaining: GLPI version-pinned contract tests, service-session lifecycle/expiry,
 
 ## Staging activation gate
 Follow [GLPI staging qualification](GLPI-STAGING-QUALIFICATION.md) before enabling the adapter. The matrix is a **plan**, not an executed test report. Do not treat passing mock-based CI as production RBAC or API compatibility attestation.
+
+## Snapshot caching policy
+Successful incident snapshot responses include `Cache-Control: no-store` to discourage intermediary and browser retention of incident metadata. Deployment gateways must independently disable caching and redact sensitive request/response headers; this application header is not a substitute for gateway policy.
