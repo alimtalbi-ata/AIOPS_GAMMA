@@ -12,6 +12,26 @@ jobs:
           POSTGRES_PASSWORD: ci-placeholder-not-a-secret
           INTERNAL_API_KEY: ci-placeholder-not-a-secret
         run: docker compose -f docker-compose.yml -f deploy/compose/compose.yaml config --quiet
+      - name: Validate single-directory rootless overlay
+        env:
+          POSTGRES_PASSWORD: ci-placeholder-not-a-secret
+          INTERNAL_API_KEY: ci-placeholder-not-a-secret
+          GAMMA_HOME: /home/runner/gamma-home
+        run: |
+          mkdir -p "$GAMMA_HOME/data/postgres" "$GAMMA_HOME/data/opensearch"
+          docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml config --quiet
+      - name: Check rootless preflight shell syntax
+        run: sh -n deploy/scripts/check-rootless-home.sh
+  ui-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build non-root UI image
+        run: docker build -t gamma-ui:ci frontend
+      - name: Assert UI image non-root user and unprivileged port
+        run: |
+          test "$(docker image inspect gamma-ui:ci --format '{{.Config.User}}')" = "101:101"
+          docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges --user 101:101 --entrypoint nginx gamma-ui:ci -t
   helm:
     runs-on: ubuntu-latest
     steps:
