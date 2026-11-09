@@ -93,3 +93,11 @@
 - Validation: GitHub Actions Python checks **passed** for `b69374ac` (run 42674584843). Recheck CI for new HEAD; no live GLPI staging tests.
 - Security: read-only and disabled by default; internal header authentication requires a trusted gateway; GLPI entity match is not an RBAC proof.
 - Next: verify new HEAD CI, then run staging contract/RBAC tests with a scoped GLPI service account before any activation.
+
+### 2026-11-09 — GLPI fail-closed upstream contract (#4)
+- Branch / prior commit: `feat/observability-foundation` / `250b8ba6`.
+- PR / issue: draft #1 / #4.
+- Delivered: HTTPX mock-transport negative tests for upstream redirects, authorization failures, missing tickets, throttling, 5xx and non-JSON responses; documented generic error policy.
+- Validation: GitHub Actions Python checks **passed** on `f814455f` (run 42674884849). New HEAD CI remains to be checked.
+- Security: no redirects, no vendor error body propagation, no retries or ITSM mutations. Staging and RBAC qualification still blocked on real GLPI access.
+- Next: confirm CI on new HEAD; qualify API version, token expiry and entity scope in staging.
