@@ -213,3 +213,8 @@
 - Delivered: `docs/ROOTLESS-SINGLE-DIRECTORY.md`, optional `deploy/compose/compose.rootless.yaml` with bind-mounted Postgres/OpenSearch data and dropped capabilities, `deploy/scripts/check-rootless-home.sh` (non-mutating preflight), plus deployment/architecture/roadmap/README updates.
 - Critical limitations: rootless daemon's own XDG paths and system prerequisites, Linux image internal paths, Kubernetes runtime/CSI paths are not automatically confined; Nginx UI image and upstream services are not yet rootless qualified. No runtime smoke or host-path audit performed. Do not claim completed compliance.
 - Next: use a disposable rootless host, pin runtime data-root under GAMMA_HOME, test UID/GID and every mount, rebuild nginx as non-root, qualify K8s restricted and audit filesystem writes.
+
+### 2026-11-09 — non-root UI deployment increment
+- Updated `frontend/Dockerfile` to unprivileged Nginx UID/GID 101; `frontend/nginx.conf` listens on 8080; root Compose maps host 5173 to container 8080; Helm UI uses port 8080 and enforces runAsNonRoot/101/seccomp.
+- Rootless preflight now rejects Docker data-root outside `GAMMA_HOME/docker-data`; CI validates rootless overlay Compose config, preflight syntax, builds UI image, checks UID and Nginx configuration.
+- Limitations: no actual rootless daemon startup or Kubernetes staging qualification performed in this session; CI on new HEAD to check. No proof of all-container single-directory installation or full read-only root filesystems. PR #1 remains draft.
