@@ -80,3 +80,56 @@ async def test_invalid_ticket_id_rejected_before_network(monkeypatch, ticket_id)
     with pytest.raises(HTTPException) as exc:
         await glpi_read.read_glpi_incident(uuid4(), ticket_id)
     assert exc.value.status_code == 422
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("http_status", [301, 302, 401, 403, 404, 429, 500])
+async def test_upstream_non_200_is_fail_closed(monkeypatch, http_status):
+    tenant = uuid4()
+    for name, value in {
+        "enable_glpi_reads": True,
+        "glpi_tenant_id": str(tenant),
+        "glpi_entity_id": "8",
+        "glpi_read_url": "https://glpi.internal",
+        "glpi_session_token": "test-session",
+        "glpi_app_token": "test-app",
+    }.items():
+        monkeypatch.setattr(glpi_read.settings, name, value)
+    original = httpx.AsyncClient
+
+    def mock_client(*args, **kwargs):
+        assert kwargs["follow_redirects"] is False
+        def handle(request):
+            return httpx.Response(http_status, headers={"Location": "https://evil.invalid/"})
+        return original(*args, transport=httpx.MockTransport(handle), **kwargs)
+
+    monkeypatch.setattr(glpi_read.httpx, "AsyncClient", mock_client)
+    with pytest.raises(HTTPException) as exc:
+        await glpi_read.read_glpi_incident(tenant, 12)
+    assert exc.value.status_code == 502
+    assert "test-session" not in str(exc.value.detail)
+
+
+@pytest.mark.asyncio
+async def test_upstream_non_json_rejected(monkeypatch):
+    tenant = uuid4()
+    for name, value in {
+        "enable_glpi_reads": True,
+        "glpi_tenant_id": str(tenant),
+        "glpi_entity_id": "8",
+        "glpi_read_url": "https://glpi.internal",
+        "glpi_session_token": "test-session",
+        "glpi_app_token": "test-app",
+    }.items():
+        monkeypatch.setattr(glpi_read.settings, name, value)
+    original = httpx.AsyncClient
+
+    def mock_client(*args, **kwargs):
+        return original(*args, transport=httpx.MockTransport(
+            lambda request: httpx.Response(200, text="<html>not json</html>")
+        ), **kwargs)
+
+    monkeypatch.setattr(glpi_read.httpx, "AsyncClient", mock_client)
+    with pytest.raises(HTTPException) as exc:
+        await glpi_read.read_glpi_incident(tenant, 12)
+    assert exc.value.status_code == 502
