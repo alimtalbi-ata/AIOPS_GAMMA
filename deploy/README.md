@@ -110,3 +110,7 @@ A new GitHub-hosted CI job starts the **UI + API + PostgreSQL** baseline with th
 ## PostgreSQL initialization capabilities
 
 The first bind-mounted baseline runtime CI run failed: upstream `postgres:16-alpine` needs to `chmod` and `chown` its fresh data directory and runtime socket directory before dropping to the PostgreSQL account. The rootless overlay now retains `cap_drop: [ALL]` but adds `CHOWN`, `FOWNER`, and `DAC_OVERRIDE` **only for PostgreSQL**. On a verified rootless Docker daemon these are namespaced capabilities, not host-root privileges. This is a compatibility exception, not a claim of fully non-root PostgreSQL initialization. Validate actual runtime UID, bind ownership and host containment on a dedicated rootless host before production.
+
+### PostgreSQL UID transition
+
+A subsequent CI run got past filesystem setup but PostgreSQL failed with `failed switching to 'postgres': operation not permitted`. The upstream entrypoint also requires `SETUID` and `SETGID` to drop from its initialization account to the postgres account. The rootless overlay now grants those two capabilities **only to PostgreSQL**, in addition to `CHOWN`, `FOWNER` and `DAC_OVERRIDE`. These permissions are container-scoped and must be assessed against a verified rootless engine before acceptance; the CI runtime runner is not rootless.
