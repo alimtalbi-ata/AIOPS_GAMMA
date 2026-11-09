@@ -169,3 +169,15 @@ async def remediation_preview(
 ):
     """Advisory policy evaluation only. Never authorizes effect execution."""
     return evaluate_policy(proposal)
+
+
+# Pure correlation preview: advisory only; canonical incident ownership remains
+# with the existing AIOps Core and ITSM connectors.
+from app.reused.correlation import CorrelationPreview, correlate
+
+
+@app.post("/api/v1/incidents/correlation/preview")
+async def correlation_preview(
+    req: CorrelationPreview, principal: Principal = Depends(internal_principal)
+):
+    return correlate(req.signals, str(principal.tenant_id), req.window_seconds)

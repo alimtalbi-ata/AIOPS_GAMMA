@@ -52,3 +52,7 @@ Voir [architecture et prochaines étapes](docs/ARCHITECTURE.md).
 AIOPS_GAMMA cible la chaîne **détecter → corréler → identifier les assets/impacts → tracer en ITSM → analyser RCA → proposer une remédiation fondée sur un runbook → vérifier Policy/HITL → exécuter par le Core/Temporal existant → vérifier et réconcilier**. Les fonctions opérationnelles autonomes ne sont pas encore qualifiées. Voir [architecture AI SRE](docs/AI-SRE-PLATFORM.md) et [réutilisation des services AIOps existants](docs/SOURCE-REUSE-AIOPS.md).
 
 Une API de **prévisualisation non exécutoire** est ajoutée : `POST /api/v1/policy/remediation/preview` (accès interne, aucune action LIVE).
+
+## Sélection des trois dépôts sources
+
+[Décisions de réutilisation et limites d'intégration](docs/THREE-SOURCE-INTEGRATION.md). Nouveau moteur de **prévisualisation de corrélation** : `POST /api/v1/incidents/correlation/preview`, interne, sans écriture ITSM ni exécution LIVE.
