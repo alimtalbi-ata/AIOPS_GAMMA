@@ -181,3 +181,14 @@ async def correlation_preview(
     req: CorrelationPreview, principal: Principal = Depends(internal_principal)
 ):
     return correlate(req.signals, str(principal.tenant_id), req.window_seconds)
+
+
+from app.reused.upstream import ALLOWED_RESOURCES, fetch_canonical
+
+
+@app.get("/api/v1/canonical/{resource}/snapshot")
+async def canonical_snapshot(resource: str, principal: Principal = Depends(internal_principal)):
+    """Bounded, read-only provisional upstream adapter; never mutates canonical Core."""
+    if resource not in ALLOWED_RESOURCES:
+        raise HTTPException(404, "Unknown upstream resource")
+    return await fetch_canonical(resource, principal.tenant_id)

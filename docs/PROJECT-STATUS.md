@@ -59,3 +59,7 @@ No production claim without a real multi-tenant isolation test, replay/duplicate
 ## Reference-only SRE/AI DevOps catalogs (2026-11-09)
 
 Added [docs/SRE-REFERENTIALS.md](SRE-REFERENTIALS.md) based on two curated user-provided GitHub directories. This adds a **selection and review process only**; zero third-party skills/agents/MCP servers installed, no changed execution privileges, and no external integrations qualified. Follow up in #2–#6.
+
+## Canonical read adapter prototype (2026-11-09)
+
+A new feature-flagged, fail-closed HTTPS GET snapshot adapter is available for Core/Evidence/Twin with strict resource allowlist, 256 KiB maximum response, timeout, no redirects, and required tenant-id echo. **Not a production-qualified integration:** upstream paths/tenant ACL/OIDC/mTLS/network egress are unverified; flag remains OFF. See [CANONICAL-READ-ADAPTER](CANONICAL-READ-ADAPTER.md) and issue #2.

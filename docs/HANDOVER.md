@@ -61,3 +61,8 @@
 - Security: directory links and skill instructions **are untrusted until audited**. No skills, MCP servers, code executors or credentials were installed/imported.
 - Validation: documentation-only GitHub commit; check workflow status on new HEAD before merge.
 - Next concrete action: implement tenant-qualified read-only Core/Evidence/Twin adapters (#2), then typed OTel/OpenSearch tool queries (#3).
+
+### 2026-11-09 — initial fail-closed canonical read adapter (#2)
+- Delivered: fixed-origin, HTTPS-only, GET-only, bounded JSON upstream snapshot prototype and negative tests; `docs/CANONICAL-READ-ADAPTER.md`.
+- Status: disabled by default; paths and tenant attestation are provisional and **not qualified against live aiops services**.
+- Next: validate upstream contracts, tenant-specific ACL/OIDC and network egress controls before activation; continue #2.

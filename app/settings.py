@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     opensearch_logs_index: str = "aiops-logs-v1-*"
     enable_opensearch: bool = False
     enable_alert_ingestion: bool = False
+    enable_canonical_reads: bool = False
+    canonical_read_token: str = ""
+    core_read_url: str = ""
+    evidence_read_url: str = ""
+    twin_read_url: str = ""
     max_query_hours: int = 24
 
 
