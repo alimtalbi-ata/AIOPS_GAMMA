@@ -19,6 +19,6 @@ Transport is GET-only, TLS-verified, redirect-disabled, proxy-environment-disabl
 Remaining: GLPI version-pinned contract tests, service-session lifecycle/expiry, ACL-backed multi-tenant credential registry, CI matching, reconciliation and evidence links, staging integration tests, and secret management. No ITSM writes are authorized.
 
 ## CI and staging qualification
-- The GitHub Actions run for `d505bfca` (run 42671763231) reported **failure**; job details were unavailable via the connector. Diagnose before merging; the follow-up type-validation commits do not establish a green build.
+- Historical run `42671763231` on `d505bfca` failed, but later run `42674584843` on `b69374ac` **passed**. Recheck CI on the latest HEAD after each change; this does not qualify live GLPI behavior.
 - Validate GLPI API version, session-token expiry, entity inheritance, denial of out-of-scope tickets, and actual RBAC against a staging instance.
-- No live GLPI calls or runtime tests have been executed in this handover.
+- Route-level tests cover missing internal authentication, invalid tenant identity and cross-tenant denial. No live GLPI calls or staging integration tests have been executed in this handover.
