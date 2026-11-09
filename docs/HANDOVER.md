@@ -149,3 +149,12 @@
 - Validation: Python checks for `a278e2a7` were in progress when checked (run 42677740871); recheck CI on the latest HEAD.
 - Security: validation remains necessary but insufficient without infrastructure DNS/egress allowlists, TLS and tenant RBAC. No staging GLPI qualification or ITSM writes.
 - Next: confirm new HEAD CI; execute approved GLPI staging qualification matrix when infrastructure is available.
+
+### 2026-11-09 — Sentinel + ArgusLM LLM KPI contract (#3)
+- Branch / preceding commit: `feat/observability-foundation` / `cd9ae207`.
+- PR / issue: draft #1 / #3 (observability and measurement).
+- Source repos examined: `alimtalbi-ata/sentinel-llm` (`main`) metric names, Prometheus handler and scrape config; `alimtalbi-ata/arguslm-llm` (`master`) TTFT/TPS/cost estimator, uptime and benchmark APIs.
+- Delivered: tenant-bound, non-authoritative `POST /api/v1/observability/llm/kpis/preview`, typed finite value validation, explicit millisecond/USD units, percentiles and coverage, tests for missing values/tenant isolation, `docs/LLM-KPI-CONTRACT.md`.
+- Validation: previous Python checks passed at `13c91696` (run 42677877051); new HEAD CI must be checked.
+- Security: caller samples are not trustworthy source telemetry. No live API calls, ingestion, credentials, persisted facts, GLPI mutation or LIVE remediation.
+- Next: qualify tenant-scoped source connectors and implement timestamped persistence; establish SLO/sample size criteria before dashboards.
