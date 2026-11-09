@@ -163,3 +163,34 @@ async def test_unsafe_glpi_origin_rejected_before_network(monkeypatch, origin):
     with pytest.raises(HTTPException) as exc:
         await glpi_read.read_glpi_incident(tenant, 12)
     assert exc.value.status_code == 503
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("body,content_type", [
+    (b"x" * (glpi_read.MAX_BYTES + 1), "application/json"),
+    (b"{invalid-json", "application/json"),
+    (b"[]", "application/json"),
+])
+async def test_glpi_response_size_and_json_shape_fail_closed(monkeypatch, body, content_type):
+    tenant = uuid4()
+    for name, value in {
+        "enable_glpi_reads": True,
+        "glpi_tenant_id": str(tenant),
+        "glpi_entity_id": "8",
+        "glpi_read_url": "https://glpi.internal",
+        "glpi_session_token": "test-session",
+        "glpi_app_token": "test-app",
+    }.items():
+        monkeypatch.setattr(glpi_read.settings, name, value)
+    original = httpx.AsyncClient
+
+    def mock_client(*args, **kwargs):
+        return original(*args, transport=httpx.MockTransport(
+            lambda request: httpx.Response(200, content=body,
+                                           headers={"content-type": content_type})
+        ), **kwargs)
+
+    monkeypatch.setattr(glpi_read.httpx, "AsyncClient", mock_client)
+    with pytest.raises(HTTPException) as exc:
+        await glpi_read.read_glpi_incident(tenant, 12)
+    assert exc.value.status_code == 502
