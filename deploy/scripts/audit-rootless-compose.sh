@@ -7,8 +7,8 @@ project="${COMPOSE_PROJECT_NAME:-aiops-gamma}"
 export COMPOSE_PROJECT_NAME="$project"
 files="-f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml"
 # shellcheck disable=SC2086
-ids=$(docker compose $files ps -q)
-[ -n "$ids" ] || { echo "No running Compose containers to audit" >&2; exit 2; }
+ids=$(docker compose $files ps --all -q)
+[ -n "$ids" ] || { echo "No Compose containers to audit" >&2; exit 2; }
 failed=0
 for id in $ids; do
   name=$(docker inspect --format '{{.Name}}' "$id")
