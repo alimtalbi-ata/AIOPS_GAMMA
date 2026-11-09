@@ -85,3 +85,7 @@ Le [blueprint UX evidence-first](docs/PRODUCT-UX-DESIGN.md) définit le futur Co
 ## Architecture cible et composants réutilisables
 
 Le [plan d'architecture AI SRE / ITIL 4](docs/TARGET-ARCHITECTURE-2026.md) définit les responsabilités, flux, contrats, zones de sécurité et jalons de déploiement. L'[inventaire des composants réutilisables](docs/REUSE-COMPONENT-INVENTORY.md) recense les candidats dans les dépôts GitHub accessibles : aiops (Core/Policy/Evidence/GLPI), observability-stack (OTel/OpenSearch/Cortex), sentinel-llm, arguslm-llm, HolmesGPT, Aurora, Akmatori et IncidentFox. **Plan cible uniquement : aucun connecteur supplémentaire ni service LIVE déployé par cette documentation.**
+
+## Déploiement cible : Docker Compose et Kubernetes
+
+**Exigence d'architecture** : tous les composants de la plateforme exploités par GAMMA devront être livrés en images OCI et déployables via **Docker Compose (local/démo/intégration)** et **Kubernetes/Helm (staging/production)**. Les services externes peuvent être raccordés par connecteur. Le [contrat de déploiement](docs/DEPLOYMENT-CONTRACT.md) définit la matrice, les profils, les critères CI, les secrets, les volumes et les garde-fous. Cette exigence est une cible à implémenter, pas une certification des manifests existants.
