@@ -40,3 +40,28 @@ def test_database_session_factory_is_lazy_and_cached(monkeypatch):
         assert app.db.get_session_factory() is app.db.get_session_factory()
         assert len(calls) == 1
     app.db.get_session_factory.cache_clear()
+
+
+def test_db_module_import_in_fresh_interpreter_without_engine():
+    """A fresh process catches import-time engine creation hidden by pytest caches."""
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    script = """
+import sqlalchemy.ext.asyncio as sa_async
+
+def forbid_engine(*args, **kwargs):
+    raise AssertionError("engine created at import time")
+
+sa_async.create_async_engine = forbid_engine
+from app.db import get_session_factory
+assert get_session_factory.cache_info().currsize == 0
+print("lazy database import OK")
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=Path(__file__).resolve().parents[1],
+        capture_output=True, text=True, timeout=30, check=False,
+    )
+    assert result.returncode == 0, result.stderr
