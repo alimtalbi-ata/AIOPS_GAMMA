@@ -259,3 +259,28 @@ def test_join_complete_with_full_bidirectional_coverage():
     assert result["unmatched_evidence"] == 0
     assert result["groups"][0]["evidence_missing_events"] == 0
     assert result["evidence_join_complete"] is True
+
+
+def test_complete_coverage_with_conflicting_alert_is_not_consistent():
+    req = request()
+    req.correlation.signals.append(req.correlation.signals[0].model_copy(
+        update={"severity": "critical"}
+    ))
+    result = preview(req, TENANT, now=NOW)
+    assert result["evidence_join_complete"] is True
+    assert result["evidence_join_consistent"] is False
+    assert result["groups"][0]["evidence_state"] == "UNKNOWN"
+
+
+def test_complete_coverage_with_stale_evidence_is_not_consistent():
+    from datetime import timedelta
+    result = preview(request(), TENANT, now=NOW + timedelta(hours=2))
+    assert result["evidence_join_complete"] is True
+    assert result["evidence_join_consistent"] is False
+
+
+def test_complete_coverage_with_no_conflicts_is_consistent():
+    result = preview(request(), TENANT, now=NOW)
+    assert result["evidence_join_complete"] is True
+    assert result["evidence_join_consistent"] is True
+    assert result["live_remediation_authorized"] is False
