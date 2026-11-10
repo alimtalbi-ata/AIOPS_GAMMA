@@ -68,3 +68,9 @@ def test_absent_ci_id_still_uses_service_identity():
     assert len(absent["groups"]) == 1
     assert absent["groups"][0]["ci_id"] is None
     assert absent["live_remediation_authorized"] is False
+
+
+@pytest.mark.parametrize("blank_ci", [" ", "  ", "\\t", "\\n"])
+def test_whitespace_only_ci_id_is_rejected(blank_ci):
+    with pytest.raises(ValidationError):
+        signal("a", ci=blank_ci)
