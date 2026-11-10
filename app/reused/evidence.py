@@ -57,10 +57,10 @@ def normalize(items: list[EvidenceInput], *, now: datetime, max_age_seconds: int
         provenance_digest = sha256(provenance_canonical.encode("utf-8")).hexdigest()
         if key in seen:
             duplicate_count += 1
-            if seen[key] != (digest, item.claim, observed_at_key(item.observed_at)):
+            if seen[key] != (digest, provenance_digest, item.claim, observed_at_key(item.observed_at)):
                 conflicts.add(key)
             continue
-        seen[key] = (digest, item.claim, observed_at_key(item.observed_at))
+        seen[key] = (digest, provenance_digest, item.claim, observed_at_key(item.observed_at))
         observed = item.observed_at.astimezone(timezone.utc)
         fresh = timedelta(0) <= now - observed <= timedelta(seconds=max_age_seconds)
         # Hashing the supplied payload does not authenticate its source.
