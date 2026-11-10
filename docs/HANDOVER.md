@@ -329,3 +329,8 @@
 - `8a8ddfa7`: both workflows passed, but inspection of the deployment workflow revealed that `test-rootless-audit.py` was **not actually invoked** by CI, despite prior handover claims. Previous green runs therefore did not validate this test suite.
 - Added an explicit CI step to run `python3 deploy/scripts/test-rootless-audit.py -v` and syntax-check `inspect-rootless-evidence.sh`.
 - Treat new CI as the first authoritative execution of the mocked audit suite; failures must be fixed before claiming it passes. Rootless daemon qualification remains outstanding.
+
+### 2026-11-10 — configured UID zero bypass hardening
+- `b8a6acdd`: both workflows passed, now including the previously missing mocked strict audit suite.
+- Fixed audit acceptance of numeric root user forms such as `0:1000` and `00:1000`. Require explicit numeric nonzero configured UID, rejecting unresolvable named users; runtime PID 1 UID remains separately verified.
+- Added tests for numeric UID zero variants, named users and leading-zero nonroot numeric UIDs. New CI pending; no actual rootless Docker qualification.
