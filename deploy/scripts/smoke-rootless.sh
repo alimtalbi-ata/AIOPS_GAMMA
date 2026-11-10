@@ -17,8 +17,9 @@ if [ -d "$GAMMA_HOME/data/postgres" ] && [ -n "$(ls -A "$GAMMA_HOME/data/postgre
   exit 2
 fi
 for dir in "$GAMMA_HOME/data/postgres" "$GAMMA_HOME/data/opensearch"; do
-  mkdir -p "$dir"
-  chmod 700 "$dir"
+  if [ ! -d "$dir" ]; then
+    (umask 077; mkdir -p "$dir")
+  fi
 done
 export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-aiops-gamma-rootless-smoke}"
 echo "Using project $COMPOSE_PROJECT_NAME; cleanup is manual to preserve evidence."
