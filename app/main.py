@@ -293,3 +293,22 @@ async def evidence_preview(
         )
     except (ValueError, TypeError) as exc:
         raise HTTPException(422, "Invalid evidence payload") from exc
+
+
+# Explicit source-event join; no fuzzy matching, incident mutation, or LIVE actions.
+from app.reused.correlation_evidence import CorrelationEvidencePreview, preview as correlation_evidence_join
+
+
+@app.post("/api/v1/incidents/correlation-evidence/preview")
+async def correlation_evidence_preview(
+    req: CorrelationEvidencePreview,
+    response: Response,
+    principal: Principal = Depends(internal_principal),
+):
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        return correlation_evidence_join(req, str(principal.tenant_id))
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(422, "Invalid correlation evidence payload") from exc
