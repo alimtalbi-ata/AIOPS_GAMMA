@@ -24,12 +24,15 @@ def preview(request: CorrelationEvidencePreview, tenant_id: str, *, now: datetim
         event_ids = {(e["source"], e["external_event_id"]) for e in group["source_events"]}
         linked = [e for e in evidence_result["items"]
                   if (e["source"], e["external_id"]) in event_ids]
+        covered_events = {(e["source"], e["external_id"]) for e in linked}
+        group["evidence_covered_events"] = len(covered_events)
+        group["evidence_missing_events"] = len(event_ids - covered_events)
         group["evidence"] = linked
         # The source-event identity is not a canonical incident identifier.
         # Multiple incident claims for one group must not be treated as corroboration.
         incident_ids = {e["incident_id"] for e in linked}
         group["evidence_state"] = "UNKNOWN" if (
-            not linked or len(incident_ids) > 1
+            len(covered_events) != len(event_ids) or len(incident_ids) > 1
             or any(e["state"] == "UNKNOWN" for e in linked)
         ) else "UNVERIFIED"
     corr["evidence_duplicates"] = evidence_result["duplicates"]
