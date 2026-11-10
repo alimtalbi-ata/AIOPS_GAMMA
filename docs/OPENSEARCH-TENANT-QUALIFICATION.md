@@ -153,9 +153,11 @@ window, with expected `ERROR` for the first service and `WARN` for the
 second. It also runs a mismatched severity search and checks that the
 generator's fifth, out-of-window fixture is absent.
 
-Use a fresh marker and a clean disposable index per run. If more than 500
-documents match a tenant/service query, the test may not see its fixture;
-that is an **inconclusive setup**, not evidence of isolation. Do not treat
+Use a fresh marker and a clean disposable index per run. If a tenant/service, severity or time query returns **500 hits**, the test
+fails as **inconclusive**: the configured result cap may hide relevant
+fixtures or cross-tenant data. Use a clean disposable index with fewer than
+500 matching documents per query; do not raise the production search limit
+or interpret a saturated result set as evidence of isolation. Do not treat
 passing this application-filter test as proof of OpenSearch DLS, gateway
 authorization or index-role isolation. Those checks remain separate release
 gates.
