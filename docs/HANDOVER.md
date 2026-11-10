@@ -319,3 +319,8 @@
 - `79fe81e3`: Python and deployment workflows passed, including symlink escape and missing bind source regression tests.
 - Rootless runtime audit now checks host-visible UID ownership and rejects group/world writable bind directories; added mocked Docker tests for modes 0770 and 0777.
 - Rootless PostgreSQL UID mapping may conflict with host-visible ownership requirements; treat as an unresolved compatibility gate. New CI pending.
+
+### 2026-11-10 — rootless qualification evidence collector
+- `598c1106`: Python and deployment workflows passed, including owner/mode negative tests.
+- Added `deploy/scripts/inspect-rootless-evidence.sh`, a read-only diagnostic to capture Docker rootless preflight, host UID/GID, canonical data directory ownership/modes, configured user, PID 1 UID, privileged/running state, and mount sources. Does not change runtime or bypass strict audit.
+- Must run on an actual disposable rootless host; current CI remains GitHub-hosted rootful Docker plus offline mocks. New CI pending.
