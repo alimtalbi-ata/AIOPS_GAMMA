@@ -77,3 +77,19 @@ def test_oversized_provenance_rejected():
 def test_nan_payload_rejected():
     with pytest.raises(ValidationError):
         evidence(payload={"metric": float("nan")})
+
+
+def test_provenance_fingerprint_is_deterministic_and_private():
+    first = normalize([evidence(provenance={"origin": "otel", "trace": "private"})], now=NOW)
+    second = normalize([evidence(provenance={"trace": "private", "origin": "otel"})], now=NOW)
+    a, b = first["items"][0], second["items"][0]
+    assert a["provenance_sha256"] == b["provenance_sha256"]
+    assert len(a["provenance_sha256"]) == 64
+    assert "provenance" not in a
+    assert a["integrity"] == "UNVERIFIED"
+
+
+def test_provenance_change_changes_fingerprint():
+    first = normalize([evidence(provenance={"origin": "otel"})], now=NOW)
+    second = normalize([evidence(provenance={"origin": "prom"})], now=NOW)
+    assert first["items"][0]["provenance_sha256"] != second["items"][0]["provenance_sha256"]
