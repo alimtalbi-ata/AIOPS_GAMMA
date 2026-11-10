@@ -85,3 +85,18 @@ def test_ci_id_with_surrounding_whitespace_is_rejected(noncanonical_ci):
 def test_canonical_ci_id_remains_valid():
     result = correlate([signal("a", ci="CI-123")], "tenant-1")
     assert result["groups"][0]["ci_id"] == "CI-123"
+
+
+def test_correlation_grouping_is_permutation_invariant_across_time_windows():
+    from itertools import permutations
+
+    events = [
+        signal("a", at=NOW),
+        signal("b", at=NOW + timedelta(seconds=40)),
+        signal("c", at=NOW + timedelta(seconds=80)),
+        signal("d", at=NOW + timedelta(seconds=500)),
+    ]
+    expected = correlate(events, "tenant-1", window_seconds=300)
+    assert len(expected["groups"]) == 2
+    for order in permutations(events):
+        assert correlate(list(order), "tenant-1", window_seconds=300) == expected
