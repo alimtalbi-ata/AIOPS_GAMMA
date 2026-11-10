@@ -310,3 +310,35 @@ def test_group_id_is_stable_for_same_structured_identity():
     a = correlate([signal], TENANT)
     b = correlate([signal.model_copy(deep=True)], TENANT)
     assert a["groups"][0]["group_id"] == b["groups"][0]["group_id"]
+
+
+def test_ci_identifier_does_not_alias_service_name():
+    from app.reused.correlation import correlate
+    base = request().correlation.signals[0]
+    ci = base.model_copy(update={
+        "external_event_id": "ci-alert", "ci_id": "checkout",
+        "service_name": "another-service",
+    })
+    service = base.model_copy(update={
+        "external_event_id": "service-alert", "ci_id": None,
+        "service_name": "checkout",
+    })
+    result = correlate([ci, service], TENANT)
+    assert len(result["groups"]) == 2
+    assert len({group["group_id"] for group in result["groups"]}) == 2
+
+
+def test_same_ci_identifier_groups_alerts_from_different_service_labels():
+    from app.reused.correlation import correlate
+    base = request().correlation.signals[0]
+    a = base.model_copy(update={
+        "external_event_id": "a", "ci_id": "ci-123",
+        "service_name": "checkout",
+    })
+    b = base.model_copy(update={
+        "external_event_id": "b", "ci_id": "ci-123",
+        "service_name": "checkout-v2",
+    })
+    result = correlate([a, b], TENANT)
+    assert len(result["groups"]) == 1
+    assert result["groups"][0]["event_count"] == 2
