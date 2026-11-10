@@ -167,7 +167,22 @@ jobs:
           test "$(docker exec "$id" sh -c "awk '/^Uid:/ {print \$2}' /proc/1/status")" = 10001
           docker exec "$id" pg_isready -U aiops -d aiops
           docker exec "$id" psql -v ON_ERROR_STOP=1 -U aiops -d aiops -c 'CREATE TABLE gamma_nonroot_ci (id integer PRIMARY KEY); INSERT INTO gamma_nonroot_ci VALUES (1);'
-          echo "Rootful Docker non-root PostgreSQL initialization and write: OK"
+          # Confirm PostgreSQL made a private PGDATA directory despite the
+          # disposable permissive parent (not a rootless host permission test).
+          test "$(stat -c %a "$GAMMA_HOME/data/postgres/pgdata")" = 700
+          test "$(stat -c %u "$GAMMA_HOME/data/postgres/pgdata")" = 10001
+          # Recreate the container, retaining the same bind mount.
+          compose="docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml -f deploy/compose/compose.postgres-nonroot.experimental.yaml"
+          $compose stop postgres
+          $compose rm -f postgres
+          $compose up -d --wait postgres
+          recreated=$($compose ps -q postgres)
+          test "$recreated" != "$id"
+          test "$(docker inspect --format '{{.Config.User}}' "$recreated")" = "10001:10001"
+          test "$(docker inspect --format '{{len .HostConfig.CapAdd}}' "$recreated")" = 0
+          persisted=$(docker exec "$recreated" psql -At -v ON_ERROR_STOP=1 -U aiops -d aiops -c 'SELECT id FROM gamma_nonroot_ci;')
+          test "$persisted" = 1
+          echo "Rootful Docker non-root PostgreSQL initialization, private PGDATA, and persistence: OK"
       - name: Collect experimental logs and remove disposable containers
         if: always()
         run: |
