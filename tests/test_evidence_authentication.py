@@ -243,3 +243,30 @@ def test_http_correlation_group_ids_are_tenant_scoped(monkeypatch):
     assert second.headers["cache-control"] == "no-store"
     assert first.json()["live_remediation_authorized"] is False
     assert second.json()["live_remediation_authorized"] is False
+
+
+def test_http_correlation_preview_rejects_empty_ci_id(monkeypatch):
+    monkeypatch.setattr(settings, "internal_api_key", "test-secret-not-production")
+    body = valid_correlation_evidence_body()["correlation"]
+    body["signals"][0]["ci_id"] = ""
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/incidents/correlation/preview",
+            json=body,
+            headers={"X-Tenant-ID": str(TENANT),
+                     "X-Internal-API-Key": "test-secret-not-production"},
+        )
+    assert response.status_code == 422, response.text
+
+
+def test_http_correlation_evidence_preview_rejects_empty_ci_id(monkeypatch):
+    monkeypatch.setattr(settings, "internal_api_key", "test-secret-not-production")
+    body = valid_correlation_evidence_body()
+    body["correlation"]["signals"][0]["ci_id"] = ""
+    with TestClient(app) as client:
+        response = client.post(
+            PATHS[1], json=body,
+            headers={"X-Tenant-ID": str(TENANT),
+                     "X-Internal-API-Key": "test-secret-not-production"},
+        )
+    assert response.status_code == 422, response.text
