@@ -358,3 +358,8 @@
 - `1af01c2c`: Python and deployment CI both passed, including Compose project collision tests.
 - Added Python stdlib loopback bind preflight for ports 5173 and 8000 before rootless Compose startup, with mocked-socket tests wired into deployment CI.
 - Preflight is non-atomic and does not substitute for an isolated host; new CI pending, real rootless qualification outstanding.
+
+### 2026-11-10 — PostgreSQL rootless fail-fast gate
+- `3b9f4511`: Python and deployment CI both succeeded.
+- Rootless smoke now validates PostgreSQL's rendered configured numeric non-root UID **before** any `compose up`. The current official PostgreSQL Compose overlay is intentionally rejected, preventing an unqualified root-configured container from initializing data.
+- Offline unit tests and mocked smoke startup use a qualified test-only PostgreSQL user; wired into deployment CI. New CI pending; real rootless PostgreSQL compatibility remains unproven.
