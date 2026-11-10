@@ -21,7 +21,7 @@ class CorrelationSignal(BaseModel):
     severity: Literal["critical", "major", "minor", "warning", "info"]
     status: Literal["firing", "resolved"]
     observed_at: datetime
-    ci_id: str | None = Field(default=None, max_length=255)
+    ci_id: str | None = Field(default=None, min_length=1, max_length=255)
     symptom_key: str = Field(min_length=1, max_length=255)
     evidence_refs: list[str] = Field(default_factory=list, max_length=30)
 
