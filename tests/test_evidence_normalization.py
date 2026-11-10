@@ -62,3 +62,18 @@ def test_bounds_and_naive_now_rejected():
 def test_duplicate_event_with_changed_payload_is_not_silently_accepted():
     result = normalize([evidence(), evidence(payload={"value": 0})], now=NOW)
     assert all(row["state"] == "UNKNOWN" for row in result["items"])
+
+
+def test_oversized_payload_rejected():
+    with pytest.raises(ValidationError):
+        evidence(payload={"text": "x" * 65536})
+
+
+def test_oversized_provenance_rejected():
+    with pytest.raises(ValidationError):
+        evidence(provenance={"text": "x" * 8192})
+
+
+def test_nan_payload_rejected():
+    with pytest.raises(ValidationError):
+        evidence(payload={"metric": float("nan")})
