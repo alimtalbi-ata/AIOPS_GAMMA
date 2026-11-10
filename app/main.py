@@ -16,6 +16,15 @@ from app.settings import settings
 app = FastAPI(title="AIOPS_GAMMA", version="0.1.0")
 
 
+@app.middleware("http")
+async def prevent_log_search_caching(request, call_next):
+    """Apply no-store even when auth or request validation rejects the call."""
+    response = await call_next(request)
+    if request.url.path == "/api/v1/observability/logs/search":
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 @app.get("/api/v1/health/live")
 async def live():
     return {"status": "ok"}
