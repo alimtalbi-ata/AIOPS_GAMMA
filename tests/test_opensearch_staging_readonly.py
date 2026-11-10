@@ -69,6 +69,7 @@ async def test_real_opensearch_tenant_and_service_isolation():
         "Use one explicit staging index; no wildcard, alias list or cross-index expression"
     )
 
+    fixture_timestamp = None
     for tenant_index, tenant in enumerate(tenants):
         for service_index, service in enumerate(services):
             expected_fixture_id = f"{marker}-{1 + 2 * tenant_index + service_index}"
@@ -91,6 +92,10 @@ async def test_real_opensearch_tenant_and_service_isolation():
                 source = hit["_source"]
                 observed = datetime.fromisoformat(source["@timestamp"].replace("Z", "+00:00"))
                 assert window.start <= observed <= window.end, "Fixture timestamp outside window"
+                if fixture_timestamp is None:
+                    fixture_timestamp = observed
+                else:
+                    assert observed == fixture_timestamp, "Fixture timestamps differ"
                 assert source["tenant"]["id"] == tenant
                 assert source["resource"]["attributes"]["service"]["name"] == service
                 assert source["severityText"] == ("ERROR" if service == services[0] else "WARN")
@@ -127,3 +132,31 @@ async def test_real_opensearch_tenant_and_service_isolation():
                 hit.get("_id") != f"{marker}-5"
                 for hit in hits
             ), "Out-of-window fixture leaked into results"
+
+
+    # Positive control: prove the out-of-window fixture actually exists.
+    # Otherwise its absence from the in-window search is not meaningful.
+    assert fixture_timestamp is not None
+    outside_timestamp = fixture_timestamp - timedelta(days=2)
+    outside_window = TimeWindow(
+        start=outside_timestamp - timedelta(seconds=1),
+        end=outside_timestamp + timedelta(seconds=1),
+    )
+    outside_request = LogSearchRequest(
+        service_name=services[0], window=outside_window, limit=500,
+    )
+    outside_result = await search_logs(tenants[0], outside_request)
+    outside_hits = outside_result["hits"]["hits"]
+    assert len(outside_hits) < outside_request.limit, (
+        "Outside-window control query saturated; result is inconclusive"
+    )
+    matching_outside = [
+        hit for hit in outside_hits
+        if hit.get("_id") == f"{marker}-5"
+        and hit.get("_source", {}).get("gamma_fixture_marker") == marker
+    ]
+    assert len(matching_outside) == 1, (
+        "Outside-window fixture missing: time-filter qualification is inconclusive"
+    )
+    assert matching_outside[0]["_source"]["tenant"]["id"] == tenants[0]
+    assert matching_outside[0]["_source"]["resource"]["attributes"]["service"]["name"] == services[0]
