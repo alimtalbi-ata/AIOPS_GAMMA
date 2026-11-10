@@ -116,3 +116,13 @@ def test_alert_identity_rejects_blank_or_padded_values(field, bad_value):
 def test_alert_identity_accepts_canonical_values():
     payload = signal("a").model_dump()
     assert CorrelationSignal.model_validate(payload).external_event_id == "a"
+
+
+def test_evidence_refs_are_stable_under_signal_and_reference_permutations():
+    first = signal("a").model_copy(update={"evidence_refs": ["z", "a", "z"]})
+    second = signal("b").model_copy(update={"evidence_refs": ["m", "a"]})
+    expected = correlate([first, second], "tenant-1")
+    assert expected["groups"][0]["evidence_refs"] == ["a", "m", "z"]
+    reordered_first = first.model_copy(update={"evidence_refs": ["z", "z", "a"]})
+    reordered_second = second.model_copy(update={"evidence_refs": ["a", "m"]})
+    assert correlate([reordered_second, reordered_first], "tenant-1") == expected
