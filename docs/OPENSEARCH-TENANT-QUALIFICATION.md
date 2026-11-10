@@ -120,3 +120,27 @@ and authenticated service-account settings are absent. The result does
 forged gateway identity, index aliases and wildcard expansion, and record
 redacted evidence before approving the release gate. In ordinary CI this
 test is skipped.
+
+## Generate staging fixtures offline
+
+A deterministic generator emits five synthetic documents as OpenSearch Bulk
+NDJSON (two lines per document) **to standard output only**. It never opens
+a connection, creates an index, or imports anything.
+
+```sh
+python deploy/scripts/generate-opensearch-staging-fixtures.py \
+  --tenant-a 11111111-1111-4111-8111-111111111111 \
+  --tenant-b 22222222-2222-4222-8222-222222222222 \
+  --service-a checkout --service-b payments \
+  --marker gamma-staging-run-unique-001 \
+  --index staging-gamma-fixtures \
+  --at 2026-11-10T11:30:00+00:00 > /tmp/gamma-staging-fixtures.ndjson
+```
+
+A staging operator must first review the NDJSON and confirm the target index
+has the required keyword/date mappings. Import and cleanup are intentionally
+outside this script, require separate authorization, and must never target
+production. The fifth document is timestamped two days before the other four
+and should fall outside the example test window. The test window must contain
+the first four documents and exclude the fifth. The generator's output is
+covered by `tests/test_opensearch_staging_fixtures.py`.
