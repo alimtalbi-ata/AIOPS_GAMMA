@@ -353,3 +353,8 @@
 - `8a9e561b`: Python and deployment CI passed, including disposable smoke mock tests.
 - Rootless smoke now rejects any pre-existing Compose project containers before startup, and a new offline mock test covers the refusal.
 - CI for this change pending. Existing project inspection is non-atomic; dedicated isolated host remains required.
+
+### 2026-11-10 — rootless smoke port collision guard
+- `1af01c2c`: Python and deployment CI both passed, including Compose project collision tests.
+- Added Python stdlib loopback bind preflight for ports 5173 and 8000 before rootless Compose startup, with mocked-socket tests wired into deployment CI.
+- Preflight is non-atomic and does not substitute for an isolated host; new CI pending, real rootless qualification outstanding.
