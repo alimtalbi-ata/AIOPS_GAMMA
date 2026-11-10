@@ -15,6 +15,12 @@ def check(services):
     uid = int(user.split(":", 1)[0], 10)
     if uid == 0:
         return f"postgres configured root UID ({user})"
+    # Check the effective, merged Compose config, not individual overlay files:
+    # an empty cap_add list in a later overlay may retain earlier additions.
+    if pg.get("cap_add"):
+        return f"postgres retains added capabilities: {pg['cap_add']!r}"
+    if pg.get("cap_drop") != ["ALL"]:
+        return "postgres must drop ALL capabilities"
     return None
 
 
