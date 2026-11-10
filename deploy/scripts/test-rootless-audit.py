@@ -39,7 +39,7 @@ esac
         )
         docker.chmod(0o755)
 
-    def audit(self, config_user="999:999", runtime_uid="999", privileged="false", running="true", mount=None):
+    def audit(self, config_user="999:999", runtime_uid="999", privileged="false", running="true", mount=None, cap_add="null", cap_drop='["ALL"]'):
         env = dict(
             os.environ,
             GAMMA_HOME=str(self.home),
@@ -47,6 +47,8 @@ esac
             MOCK_RUNTIME_UID=runtime_uid,
             MOCK_PRIVILEGED=privileged,
             MOCK_RUNNING=running,
+            MOCK_CAP_ADD=cap_add,
+            MOCK_CAP_DROP=cap_drop,
             MOCK_MOUNT=mount if mount is not None else str(self.home / "data" / "postgres"),
             PATH=str(self.fakebin) + os.pathsep + os.environ["PATH"],
         )
@@ -107,6 +109,16 @@ esac
         result = self.audit(privileged="true")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("PRIVILEGED", result.stderr)
+
+    def test_added_capabilities_rejected(self):
+        result = self.audit(cap_add='["CHOWN"]')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("ADDED CAPABILITIES", result.stderr)
+
+    def test_missing_drop_all_rejected(self):
+        result = self.audit(cap_drop="null")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("CAPABILITIES NOT DROPPED", result.stderr)
 
     def test_stopped_container_rejected(self):
         result = self.audit(running="false")
