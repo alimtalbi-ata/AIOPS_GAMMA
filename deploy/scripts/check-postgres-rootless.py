@@ -6,6 +6,8 @@ import sys
 
 
 def check(services):
+    if not isinstance(services, dict):
+        return "services must be a mapping"
     pg = services.get("postgres")
     if not isinstance(pg, dict):
         return "postgres service missing"
