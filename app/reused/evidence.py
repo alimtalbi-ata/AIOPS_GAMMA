@@ -1,0 +1,68 @@
+"""Read-only evidence normalization adapted from aiops/app/evidence/main.py.
+
+No database, network access, remediation, or inferred proof of integrity.
+"""
+from datetime import datetime, timedelta, timezone
+from hashlib import sha256
+import json
+from typing import Literal
+
+from pydantic import BaseModel, Field, model_validator
+
+
+class EvidenceInput(BaseModel):
+    tenant_id: str = Field(min_length=1, max_length=128)
+    incident_id: str = Field(min_length=1, max_length=255)
+    source: str = Field(min_length=1, max_length=100)
+    external_id: str = Field(min_length=1, max_length=255)
+    claim: str = Field(min_length=1, max_length=2048)
+    observed_at: datetime
+    payload: dict = Field(default_factory=dict)
+    provenance: dict = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def aware_timestamp(self):
+        if self.observed_at.tzinfo is None:
+            raise ValueError("observed_at requires timezone")
+        return self
+
+
+def normalize(items: list[EvidenceInput], *, now: datetime, max_age_seconds: int = 3600) -> dict:
+    """Bounded preview; identical claims can conflict and are never auto-resolved."""
+    if now.tzinfo is None:
+        raise ValueError("now requires timezone")
+    if not 1 <= len(items) <= 500 or not 1 <= max_age_seconds <= 86400:
+        raise ValueError("evidence bounds exceeded")
+    now = now.astimezone(timezone.utc)
+    seen = set()
+    results = []
+    duplicate_count = 0
+    claims = {}
+    for item in items:
+        key = (item.tenant_id, item.incident_id, item.source, item.external_id)
+        canonical = json.dumps(item.payload, sort_keys=True, separators=(",", ":"), allow_nan=False)
+        digest = sha256(canonical.encode("utf-8")).hexdigest()
+        if key in seen:
+            duplicate_count += 1
+            continue
+        seen.add(key)
+        observed = item.observed_at.astimezone(timezone.utc)
+        fresh = timedelta(0) <= now - observed <= timedelta(seconds=max_age_seconds)
+        # Hashing the supplied payload does not authenticate its source.
+        state = "UNVERIFIED" if fresh else "UNKNOWN"
+        results.append({
+            "tenant_id": item.tenant_id, "incident_id": item.incident_id,
+            "source": item.source, "external_id": item.external_id,
+            "claim": item.claim, "observed_at": observed.isoformat(),
+            "payload_sha256": digest, "freshness": "FRESH" if fresh else "UNKNOWN",
+            "integrity": "UNVERIFIED", "state": state,
+        })
+        claims.setdefault((item.tenant_id, item.incident_id, item.claim), set()).add(digest)
+    for result in results:
+        if len(claims[(result["tenant_id"], result["incident_id"], result["claim"])]) > 1:
+            result["state"] = "UNKNOWN"
+    return {
+        "schema_version": "aiops.gamma.evidence-preview.v1",
+        "items": results, "duplicates": duplicate_count,
+        "persisted": False, "live_remediation_authorized": False,
+    }
