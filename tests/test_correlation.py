@@ -74,3 +74,14 @@ def test_absent_ci_id_still_uses_service_identity():
 def test_whitespace_only_ci_id_is_rejected(blank_ci):
     with pytest.raises(ValidationError):
         signal("a", ci=blank_ci)
+
+
+@pytest.mark.parametrize("noncanonical_ci", [" CI-123", "CI-123 ", " CI-123 "])
+def test_ci_id_with_surrounding_whitespace_is_rejected(noncanonical_ci):
+    with pytest.raises(ValidationError):
+        signal("a", ci=noncanonical_ci)
+
+
+def test_canonical_ci_id_remains_valid():
+    result = correlate([signal("a", ci="CI-123")], "tenant-1")
+    assert result["groups"][0]["ci_id"] == "CI-123"
