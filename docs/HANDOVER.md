@@ -383,3 +383,8 @@
 - `aeb7a95e`: Python and deployment CI both succeeded, including rootful Docker non-root PostgreSQL startup and SQL write.
 - Extended the isolated experimental job to assert `pgdata` is owned by UID 10001 with mode 0700, recreate the PostgreSQL container and verify SQL row persistence.
 - New CI pending. Rootless user namespace mapping and strict host bind ownership remain unverified.
+
+### 2026-11-10 — private disposable PostgreSQL bind in rootful CI
+- `cadcd569`: both workflows succeeded, including PostgreSQL non-root PGDATA ownership/mode and persistence across recreation.
+- Replaced the experimental job's world-writable PostgreSQL parent with a disposable UID 10001-owned, mode 0700 bind; ownership transfer uses `sudo` **only on the disposable GitHub Actions rootful runner**, never in the GAMMA installer.
+- New CI pending. This rootful setup is not compliant with the rootless audit requirement that host binds remain owned by the invoking user; UID namespace mapping remains unresolved.
