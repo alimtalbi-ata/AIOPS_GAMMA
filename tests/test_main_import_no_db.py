@@ -20,6 +20,9 @@ sa_async.create_async_engine = forbid_engine
 from app.main import app
 assert any(route.path == "/api/v1/incidents/evidence/preview" for route in app.routes)
 assert any(route.path == "/api/v1/incidents/correlation-evidence/preview" for route in app.routes)
+assert any(route.path == "/api/v1/incidents/correlation/preview" for route in app.routes)
+assert any(route.path == "/api/v1/health/live" for route in app.routes)
+assert any(route.path == "/api/v1/policy/remediation/preview" for route in app.routes)
 print("main import without database engine: OK")
 """
     result = subprocess.run(
