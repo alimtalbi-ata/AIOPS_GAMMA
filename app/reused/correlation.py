@@ -49,7 +49,6 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
         raise ValueError("correlation bounds exceeded")
     seen: dict[tuple[str, str], CorrelationSignal] = {}
     conflicting_identities: set[tuple[str, str]] = set()
-    unique: list[CorrelationSignal] = []
     duplicates = 0
     for signal in signals:
         identity = (signal.source, signal.external_event_id)
@@ -57,9 +56,13 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
             duplicates += 1
             if seen[identity] != signal:
                 conflicting_identities.add(identity)
+                # Deterministic representative: never let input order choose
+                # the displayed severity, status or grouping attributes.
+                if signal.model_dump_json() < seen[identity].model_dump_json():
+                    seen[identity] = signal
             continue
         seen[identity] = signal
-        unique.append(signal)
+    unique = list(seen.values())
     unique.sort(key=lambda s: (s.observed_at.astimezone(timezone.utc), s.source, s.external_event_id))
     groups: list[dict] = []
     for signal in unique:
