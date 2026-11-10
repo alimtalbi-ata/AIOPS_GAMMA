@@ -55,5 +55,34 @@ class PostgresRootlessPreflightTests(unittest.TestCase):
         self.assertIsNotNone(module.check({}))
 
 
+class PostgresRootlessCliTests(unittest.TestCase):
+    def run_cli(self, payload):
+        import subprocess
+        import sys
+        return subprocess.run([sys.executable, str(SCRIPT)], input=payload,
+                              text=True, capture_output=True, timeout=10)
+
+    def test_valid_effective_compose_document_passes(self):
+        result = self.run_cli('{"services":{"postgres":{"user":"10001:10001","cap_drop":["ALL"],"cap_add":[]}}}')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("runtime unverified", result.stdout)
+
+    def test_root_config_fails_with_code_two(self):
+        result = self.run_cli('{"services":{"postgres":{"user":"0","cap_drop":["ALL"]}}}')
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("REFUSED", result.stderr)
+
+    def test_invalid_json_fails_with_code_two(self):
+        result = self.run_cli('{invalid')
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("Invalid Compose configuration", result.stderr)
+
+    def test_malformed_services_fails_without_traceback(self):
+        result = self.run_cli('{"services":[]}')
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("mapping", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()
