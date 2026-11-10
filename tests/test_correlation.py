@@ -56,3 +56,15 @@ def test_preview_never_opens_ticket_or_executes():
     assert result["groups"][0]["itsm_ticket_state"] == "NOT_CREATED"
     assert result["groups"][0]["impact_state"] == "UNKNOWN_UNTIL_CMDB_VERIFIED"
     assert result["persisted"] is False
+
+
+def test_empty_ci_id_is_rejected_instead_of_using_service_fallback():
+    with pytest.raises(ValidationError):
+        signal("a", ci="")
+
+
+def test_absent_ci_id_still_uses_service_identity():
+    absent = correlate([signal("a", ci=None)], "tenant-1")
+    assert len(absent["groups"]) == 1
+    assert absent["groups"][0]["ci_id"] is None
+    assert absent["live_remediation_authorized"] is False
