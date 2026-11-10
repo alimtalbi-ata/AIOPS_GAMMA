@@ -70,7 +70,7 @@ def test_absent_ci_id_still_uses_service_identity():
     assert absent["live_remediation_authorized"] is False
 
 
-@pytest.mark.parametrize("blank_ci", [" ", "  ", "\\t", "\\n"])
+@pytest.mark.parametrize("blank_ci", [" ", "  ", "\t", "\n"])
 def test_whitespace_only_ci_id_is_rejected(blank_ci):
     with pytest.raises(ValidationError):
         signal("a", ci=blank_ci)
