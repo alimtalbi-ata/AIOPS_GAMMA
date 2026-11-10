@@ -138,3 +138,24 @@ def test_identical_duplicate_alert_keeps_unverified_state():
     assert result["deduplicated_events"] == 1
     assert result["conflicting_source_events"] == 0
     assert result["groups"][0]["evidence_state"] == "UNVERIFIED"
+
+
+def test_duplicate_alert_with_changed_timestamp_is_conflicting():
+    from datetime import timedelta
+    req = request()
+    req.correlation.signals.append(req.correlation.signals[0].model_copy(
+        update={"observed_at": NOW + timedelta(seconds=30)}
+    ))
+    result = preview(req, TENANT, now=NOW)
+    assert result["conflicting_source_events"] == 1
+    assert result["groups"][0]["evidence_state"] == "UNKNOWN"
+
+
+def test_conflicting_duplicate_alert_is_order_independent():
+    req = request()
+    original = req.correlation.signals[0]
+    altered = original.model_copy(update={"severity": "critical"})
+    req.correlation.signals = [altered, original]
+    result = preview(req, TENANT, now=NOW)
+    assert result["conflicting_source_events"] == 1
+    assert result["groups"][0]["evidence_state"] == "UNKNOWN"
