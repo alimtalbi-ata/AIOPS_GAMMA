@@ -86,3 +86,43 @@ def test_generator_rejects_invalid_service(service):
             "staging-gamma-fixtures",
             datetime(2026, 11, 10, 12, tzinfo=timezone.utc),
         ))
+
+
+def test_fixture_cli_fails_without_partial_stdout(monkeypatch, capsys):
+    module = load_generator()
+    monkeypatch.setattr("sys.argv", [
+        "generate-opensearch-staging-fixtures.py",
+        "--tenant-a", "11111111-1111-4111-8111-111111111111",
+        "--tenant-b", "22222222-2222-4222-8222-222222222222",
+        "--service-a", "checkout",
+        "--service-b", "payments",
+        "--marker", "bad marker",
+        "--index", "staging-gamma-fixtures",
+        "--at", "2026-11-10T12:00:00+00:00",
+    ])
+    with pytest.raises(SystemExit) as exc:
+        module.main()
+    captured = capsys.readouterr()
+    assert exc.value.code == 2
+    assert captured.out == ""
+    assert "marker" in captured.err
+
+
+def test_fixture_cli_rejects_malformed_uuid_without_traceback(monkeypatch, capsys):
+    module = load_generator()
+    monkeypatch.setattr("sys.argv", [
+        "generate-opensearch-staging-fixtures.py",
+        "--tenant-a", "not-a-uuid",
+        "--tenant-b", "22222222-2222-4222-8222-222222222222",
+        "--service-a", "checkout",
+        "--service-b", "payments",
+        "--marker", "gamma-run-001",
+        "--index", "staging-gamma-fixtures",
+        "--at", "2026-11-10T12:00:00+00:00",
+    ])
+    with pytest.raises(SystemExit) as exc:
+        module.main()
+    captured = capsys.readouterr()
+    assert exc.value.code == 2
+    assert captured.out == ""
+    assert "Valid tenant UUID required" in captured.err
