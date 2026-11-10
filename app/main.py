@@ -22,7 +22,8 @@ async def live():
 
 
 @app.post("/api/v1/observability/logs/search")
-async def logs(req: LogSearchRequest, principal: Principal = Depends(internal_principal)):
+async def logs(req: LogSearchRequest, response: Response, principal: Principal = Depends(internal_principal)):
+    response.headers["Cache-Control"] = "no-store"
     if not settings.enable_opensearch:
         raise HTTPException(503, "OpenSearch adapter disabled")
     if req.window.end - req.window.start > timedelta(hours=settings.max_query_hours):
