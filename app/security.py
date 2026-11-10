@@ -25,6 +25,8 @@ def internal_principal(
         raise HTTPException(status_code=401, detail="Unauthorized")
     try:
         tenant = UUID(x_tenant_id or "")
+        if tenant.int == 0:
+            raise ValueError("Nil tenant UUID is not a tenant identity")
         if x_tenant_id != str(tenant):
             raise ValueError("Noncanonical tenant UUID")
         return Principal(tenant)
