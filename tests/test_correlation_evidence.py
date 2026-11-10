@@ -87,3 +87,31 @@ def test_conflicting_duplicate_provenance_downgrades_correlated_group():
     assert result["groups"][0]["evidence_state"] == "UNKNOWN"
     assert result["groups"][0]["evidence"][0]["integrity"] == "UNVERIFIED"
     assert result["live_remediation_authorized"] is False
+
+
+def test_partial_evidence_coverage_is_unknown():
+    req = request()
+    req.correlation.signals.append(req.correlation.signals[0].model_copy(
+        update={"external_event_id": "evt-2"}
+    ))
+    result = preview(req, TENANT, now=NOW)
+    group = result["groups"][0]
+    assert group["event_count"] == 2
+    assert group["evidence_covered_events"] == 1
+    assert group["evidence_missing_events"] == 1
+    assert group["evidence_state"] == "UNKNOWN"
+
+
+def test_full_evidence_coverage_remains_unverified():
+    req = request()
+    req.correlation.signals.append(req.correlation.signals[0].model_copy(
+        update={"external_event_id": "evt-2"}
+    ))
+    req.evidence.append(req.evidence[0].model_copy(
+        update={"external_id": "evt-2"}
+    ))
+    result = preview(req, TENANT, now=NOW)
+    group = result["groups"][0]
+    assert group["evidence_covered_events"] == 2
+    assert group["evidence_missing_events"] == 0
+    assert group["evidence_state"] == "UNVERIFIED"
