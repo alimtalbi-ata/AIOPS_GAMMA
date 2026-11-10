@@ -37,7 +37,7 @@ command -v python3 >/dev/null 2>&1 || { echo "python3 required for port collisio
 python3 deploy/scripts/check-smoke-ports.py || exit 2
 echo "Using fresh project $COMPOSE_PROJECT_NAME; cleanup is manual to preserve evidence."
 # Never enable optional relay or insecure observability demo for the baseline smoke.
-docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml config --quiet
+docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml config --format json | python3 deploy/scripts/check-postgres-rootless.py
 docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml up -d --build --wait frontend api postgres
 docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml ps
 # --wait does not prove HTTP readiness for services without healthchecks.
