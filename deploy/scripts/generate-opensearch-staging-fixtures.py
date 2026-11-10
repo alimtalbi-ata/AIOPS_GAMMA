@@ -6,25 +6,33 @@ review the output and import it using a separate, authorized workflow.
 """
 import argparse
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+import re
 from uuid import UUID
 
 
 def canonical_uuid(value):
-    result = str(UUID(value))
+    parsed = UUID(value)
+    if parsed.int == 0:
+        raise argparse.ArgumentTypeError("Nil tenant UUID is forbidden")
+    result = str(parsed)
     if value != result:
         raise argparse.ArgumentTypeError("Canonical UUID required")
     return result
 
 
 def generate(tenant_a, tenant_b, service_a, service_b, marker, index, at):
+    tenant_a = canonical_uuid(tenant_a)
+    tenant_b = canonical_uuid(tenant_b)
     if tenant_a == tenant_b or service_a == service_b:
         raise ValueError("Distinct tenants and services required")
-    if len(marker) < 8 or not marker.isascii() or not marker.replace("-", "").isalnum():
+    if not re.fullmatch(r"[A-Za-z0-9-]{8,128}", marker):
         raise ValueError("Use a unique ASCII alphanumeric/hyphen marker of >=8 characters")
-    if not index.startswith("staging-") or any(c in index for c in "*?,/ "):
+    if not re.fullmatch(r"staging-[a-z0-9][a-z0-9._-]{0,127}", index):
         raise ValueError("Explicit staging- index name required (no wildcards)")
-    if at.tzinfo is None:
+    if any(not re.fullmatch(r"[A-Za-z0-9_.-]{1,255}", service) for service in (service_a, service_b)):
+        raise ValueError("Invalid service name")
+    if at.tzinfo is None or at.utcoffset() is None:
         raise ValueError("Timezone-aware timestamp required")
     cases = [
         (tenant_a, service_a, "ERROR", at),
