@@ -196,3 +196,32 @@ def test_three_conflicting_versions_are_permutation_invariant():
     assert results[0]["deduplicated_events"] == 2
     assert results[0]["conflicting_source_events"] == 1
     assert results[0]["groups"][0]["evidence_state"] == "UNKNOWN"
+
+
+def test_unmatched_evidence_is_reported_not_silently_dropped():
+    req = request()
+    req.evidence.append(req.evidence[0].model_copy(
+        update={"external_id": "unrelated-event"}
+    ))
+    result = preview(req, TENANT, now=NOW)
+    assert result["unmatched_evidence"] == 1
+    assert result["evidence_join_complete"] is False
+    assert result["groups"][0]["evidence_covered_events"] == 1
+    assert result["groups"][0]["evidence_state"] == "UNVERIFIED"
+    assert result["persisted"] is False
+
+
+def test_all_evidence_matched_is_complete():
+    result = preview(request(), TENANT, now=NOW)
+    assert result["unmatched_evidence"] == 0
+    assert result["evidence_join_complete"] is True
+
+
+def test_unmatched_duplicate_count_is_not_double_counted():
+    req = request()
+    unrelated = req.evidence[0].model_copy(update={"external_id": "other"})
+    req.evidence.extend([unrelated, unrelated.model_copy(deep=True)])
+    result = preview(req, TENANT, now=NOW)
+    assert result["evidence_duplicates"] == 1
+    assert result["unmatched_evidence"] == 1
+    assert result["evidence_join_complete"] is False
