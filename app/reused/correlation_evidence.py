@@ -20,6 +20,16 @@ def preview(request: CorrelationEvidencePreview, tenant_id: str, *, now: datetim
         normalize(request.evidence, now=now or datetime.now(timezone.utc), max_age_seconds=request.max_age_seconds)
         if request.evidence else {"items": [], "duplicates": 0}
     )
+    all_event_ids = {
+        (event["source"], event["external_event_id"])
+        for group in corr["groups"] for event in group["source_events"]
+    }
+    unmatched = sum(
+        (item["source"], item["external_id"]) not in all_event_ids
+        for item in evidence_result["items"]
+    )
+    corr["unmatched_evidence"] = unmatched
+    corr["evidence_join_complete"] = unmatched == 0
     for group in corr["groups"]:
         event_ids = {(e["source"], e["external_event_id"]) for e in group["source_events"]}
         linked = [e for e in evidence_result["items"]
