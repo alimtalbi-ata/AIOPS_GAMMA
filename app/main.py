@@ -264,3 +264,32 @@ async def investigation_preview(
         return evaluate_investigation(req, principal.tenant_id)
     except PermissionError as exc:
         raise HTTPException(403, str(exc)) from exc
+
+
+# Caller-supplied evidence is previewed only; the authenticated tenant is authoritative.
+from datetime import datetime, timezone
+from pydantic import BaseModel, Field
+from app.reused.evidence import EvidenceInput, normalize as normalize_evidence
+
+
+class EvidencePreviewRequest(BaseModel):
+    items: list[EvidenceInput] = Field(min_length=1, max_length=500)
+    max_age_seconds: int = Field(default=3600, ge=1, le=86400)
+
+
+@app.post("/api/v1/incidents/evidence/preview")
+async def evidence_preview(
+    req: EvidencePreviewRequest,
+    response: Response,
+    principal: Principal = Depends(internal_principal),
+):
+    response.headers["Cache-Control"] = "no-store"
+    if any(item.tenant_id != str(principal.tenant_id) for item in req.items):
+        raise HTTPException(403, "Cross-tenant evidence rejected")
+    try:
+        return normalize_evidence(
+            req.items, now=datetime.now(timezone.utc),
+            max_age_seconds=req.max_age_seconds,
+        )
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(422, "Invalid evidence payload") from exc
