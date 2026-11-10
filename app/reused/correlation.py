@@ -47,15 +47,18 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
     """
     if not 1 <= len(signals) <= 500 or not 30 <= window_seconds <= 3600:
         raise ValueError("correlation bounds exceeded")
-    seen: set[tuple[str, str]] = set()
+    seen: dict[tuple[str, str], CorrelationSignal] = {}
+    conflicting_identities: set[tuple[str, str]] = set()
     unique: list[CorrelationSignal] = []
     duplicates = 0
     for signal in signals:
         identity = (signal.source, signal.external_event_id)
         if identity in seen:
             duplicates += 1
+            if seen[identity] != signal:
+                conflicting_identities.add(identity)
             continue
-        seen.add(identity)
+        seen[identity] = signal
         unique.append(signal)
     unique.sort(key=lambda s: (s.observed_at.astimezone(timezone.utc), s.source, s.external_event_id))
     groups: list[dict] = []
@@ -102,6 +105,10 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
         group.pop("_key")
         group.pop("_last")
         group["event_count"] = len(group["source_events"])
+        group["conflicting_source_events"] = sum(
+            (event["source"], event["external_event_id"]) in conflicting_identities
+            for event in group["source_events"]
+        )
         group["impact_state"] = "UNKNOWN_UNTIL_CMDB_VERIFIED"
         group["root_cause_state"] = "UNKNOWN"
         group["itsm_ticket_state"] = "NOT_CREATED"
@@ -109,6 +116,7 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
         "schema_version": "aiops.gamma.correlation-preview.v1",
         "source_events": len(signals),
         "deduplicated_events": duplicates,
+        "conflicting_source_events": len(conflicting_identities),
         "groups": groups,
         "persisted": False,
         "live_remediation_authorized": False,
