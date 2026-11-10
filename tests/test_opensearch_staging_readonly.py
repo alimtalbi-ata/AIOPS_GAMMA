@@ -16,7 +16,7 @@ from app.settings import settings
 
 
 @pytest.mark.asyncio
-async def test_real_opensearch_tenant_and_service_isolation(monkeypatch):
+async def test_real_opensearch_tenant_and_service_isolation():
     if os.getenv("GAMMA_OPENSEARCH_STAGING_TEST") != "1":
         pytest.skip("Explicit staging opt-in required")
 
@@ -48,6 +48,8 @@ async def test_real_opensearch_tenant_and_service_isolation(monkeypatch):
     assert settings.opensearch_url.startswith("https://"), "Staging must use HTTPS"
     assert settings.opensearch_verify_certs, "Staging must verify TLS certificates"
     assert settings.opensearch_username, "Use a restricted authenticated service account"
+    assert settings.opensearch_password, "Staging service account password required"
+    assert settings.opensearch_logs_index.startswith("staging-"), "Staging-only index pattern required"
 
     for tenant in tenants:
         for service in services:
@@ -55,18 +57,45 @@ async def test_real_opensearch_tenant_and_service_isolation(monkeypatch):
             result = await search_logs(tenant, request)
             hits = result["hits"]["hits"]
             fixture_hits = [
-                hit["_source"] for hit in hits
-                if marker in str(hit.get("_source", {}))
+                hit for hit in hits
+                if hit.get("_source", {}).get("gamma_fixture_marker") == marker
             ]
-            assert fixture_hits, (
+            assert len(fixture_hits) == 1, (
                 f"No marked fixtures for tenant={tenant}, service={service}; "
                 "check seed data, mapping and test window"
             )
-            for source in fixture_hits:
+            for hit in fixture_hits:
+                source = hit["_source"]
                 assert source["tenant"]["id"] == tenant
                 assert source["resource"]["attributes"]["service"]["name"] == service
+                assert source["severityText"] == ("ERROR" if service == services[0] else "WARN")
             # Never accept any cross-tenant/service result, even without marker.
             for hit in hits:
                 source = hit["_source"]
                 assert source["tenant"]["id"] == tenant
                 assert source["resource"]["attributes"]["service"]["name"] == service
+
+
+    # Severity and time filters must exclude otherwise matching fixtures.
+    for tenant in tenants:
+        request = LogSearchRequest(
+            service_name=services[0], window=window,
+            severity=["WARN"], limit=500,
+        )
+        result = await search_logs(tenant, request)
+        assert not any(
+            hit.get("_source", {}).get("gamma_fixture_marker") == marker
+            for hit in result["hits"]["hits"]
+        ), "Severity filter returned an ERROR fixture"
+
+    # The fifth synthetic fixture is two days before the other four.
+    # A query in the configured window must never return its known ID.
+    for tenant in tenants:
+        for service in services:
+            request = LogSearchRequest(service_name=service, window=window, limit=500)
+            result = await search_logs(tenant, request)
+            assert all(
+                not str(hit.get("_id", "")).endswith("-5")
+                or hit.get("_source", {}).get("gamma_fixture_marker") != marker
+                for hit in result["hits"]["hits"]
+            ), "Out-of-window fixture leaked into results"
