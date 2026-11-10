@@ -86,3 +86,40 @@ async def test_invalid_tenant_does_not_construct_opensearch_client(monkeypatch):
 
     with pytest.raises(ValueError, match="tenant UUID"):
         await search_logs("invalid", request())
+
+
+@pytest.mark.asyncio
+async def test_backend_receives_configured_index_and_security_options(monkeypatch):
+    from app.settings import settings
+
+    monkeypatch.setattr(settings, "opensearch_logs_index", "staging-logs-*")
+    monkeypatch.setattr(settings, "opensearch_url", "https://search.internal:9200")
+    monkeypatch.setattr(settings, "opensearch_username", "readonly")
+    monkeypatch.setattr(settings, "opensearch_password", "test-secret")
+    monkeypatch.setattr(settings, "opensearch_verify_certs", True)
+    monkeypatch.setattr(settings, "opensearch_ca_certs", "/etc/ssl/staging-ca.pem")
+    observed = {}
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            observed["init"] = kwargs
+
+        async def search(self, **kwargs):
+            observed["search"] = kwargs
+            return {"hits": {"hits": []}}
+
+        async def close(self):
+            observed["closed"] = True
+
+    module = ModuleType("opensearchpy")
+    module.AsyncOpenSearch = FakeClient
+    monkeypatch.setitem(sys.modules, "opensearchpy", module)
+
+    await search_logs(TENANT, request())
+    assert observed["init"]["hosts"] == ["https://search.internal:9200"]
+    assert observed["init"]["http_auth"] == ("readonly", "test-secret")
+    assert observed["init"]["verify_certs"] is True
+    assert observed["init"]["ca_certs"] == "/etc/ssl/staging-ca.pem"
+    assert observed["search"]["index"] == "staging-logs-*"
+    assert observed["search"]["body"]["size"] == 3
+    assert observed["closed"] is True
