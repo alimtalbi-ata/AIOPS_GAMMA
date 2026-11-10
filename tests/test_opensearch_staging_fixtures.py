@@ -126,3 +126,49 @@ def test_fixture_cli_rejects_malformed_uuid_without_traceback(monkeypatch, capsy
     assert exc.value.code == 2
     assert captured.out == ""
     assert "Valid tenant UUID required" in captured.err
+
+
+def test_fixture_cli_emits_valid_bulk_ndjson(monkeypatch, capsys):
+    import json
+
+    module = load_generator()
+    monkeypatch.setattr("sys.argv", [
+        "generate-opensearch-staging-fixtures.py",
+        "--tenant-a", "11111111-1111-4111-8111-111111111111",
+        "--tenant-b", "22222222-2222-4222-8222-222222222222",
+        "--service-a", "checkout",
+        "--service-b", "payments",
+        "--marker", "gamma-run-001",
+        "--index", "staging-gamma-fixtures",
+        "--at", "2026-11-10T12:00:00+00:00",
+    ])
+    module.main()
+    captured = capsys.readouterr()
+    assert captured.err == ""
+    lines = [json.loads(line) for line in captured.out.splitlines()]
+    assert len(lines) == 10
+    assert [lines[i]["index"]["_id"] for i in range(0, 10, 2)] == [
+        f"gamma-run-001-{n}" for n in range(1, 6)
+    ]
+    assert all(lines[i]["gamma_fixture_marker"] == "gamma-run-001"
+               for i in range(1, 10, 2))
+
+
+def test_fixture_cli_rejects_naive_timestamp_without_stdout(monkeypatch, capsys):
+    module = load_generator()
+    monkeypatch.setattr("sys.argv", [
+        "generate-opensearch-staging-fixtures.py",
+        "--tenant-a", "11111111-1111-4111-8111-111111111111",
+        "--tenant-b", "22222222-2222-4222-8222-222222222222",
+        "--service-a", "checkout",
+        "--service-b", "payments",
+        "--marker", "gamma-run-001",
+        "--index", "staging-gamma-fixtures",
+        "--at", "2026-11-10T12:00:00",
+    ])
+    with pytest.raises(SystemExit) as exc:
+        module.main()
+    captured = capsys.readouterr()
+    assert exc.value.code == 2
+    assert captured.out == ""
+    assert "Timezone-aware" in captured.err
