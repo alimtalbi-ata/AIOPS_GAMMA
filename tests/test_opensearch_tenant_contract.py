@@ -63,7 +63,7 @@ def test_query_uses_filter_context_without_user_supplied_dsl():
 @pytest.mark.parametrize("tenant", [
     "", " ", "not-a-uuid", "11111111-1111-4111-8111-111111111111 ",
     "11111111111141118111111111111111",
-    "11111111-1111-4111-8111-111111111111".upper(),
+    "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa".upper(),
 ])
 def test_query_builder_rejects_invalid_or_noncanonical_tenant(tenant):
     end = datetime(2026, 11, 10, 12, tzinfo=timezone.utc)
