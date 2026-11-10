@@ -69,3 +69,16 @@ application-level tenant filter.
   matrix; no network, mapping, role, or DLS verification.
 - `tests/test_observability_readonly_http.py`: authenticated FastAPI route
   with mocked backend; no real OpenSearch or gateway verification.
+
+## Validation snapshot — 2026-11-10
+
+- Local partial laboratory: `python -m pytest -q` completed with **54 passed**
+  in 1.63 s. This laboratory is a subset of the repository and must **not**
+  be described as the complete PR test suite.
+- GitHub PR branch head `dc7f965fd2b8a53ff407e3a258717ac449407e45`:
+  `Python checks` and `Deployment contract (static + runtime smoke)`
+  are reported as **failure** by GitHub Actions. Their test outcome is
+  **unqualified** until actionable job logs or a reproducible runner are
+  available; the summary alone does not prove a Python assertion failure.
+- No real OpenSearch cluster, role/DLS, mappings, or gateway authorization
+  was exercised by the local laboratory. Production enablement remains blocked.
