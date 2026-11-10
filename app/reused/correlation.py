@@ -68,7 +68,8 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
     groups: list[dict] = []
     for signal in unique:
         timestamp = signal.observed_at.astimezone(timezone.utc)
-        key = (signal.environment, signal.ci_id or signal.service_name, signal.symptom_key)
+        key = (signal.environment, "ci" if signal.ci_id else "service",
+               signal.ci_id if signal.ci_id else signal.service_name, signal.symptom_key)
         matching = next((
             g for g in reversed(groups)
             if g["_key"] == key
