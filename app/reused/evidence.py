@@ -5,7 +5,6 @@ No database, network access, remediation, or inferred proof of integrity.
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 import json
-from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -27,6 +26,10 @@ class EvidenceInput(BaseModel):
         return self
 
 
+def observed_at_key(value: datetime) -> str:
+    return value.astimezone(timezone.utc).isoformat()
+
+
 def normalize(items: list[EvidenceInput], *, now: datetime, max_age_seconds: int = 3600) -> dict:
     """Bounded preview; identical claims can conflict and are never auto-resolved."""
     if now.tzinfo is None:
@@ -34,7 +37,8 @@ def normalize(items: list[EvidenceInput], *, now: datetime, max_age_seconds: int
     if not 1 <= len(items) <= 500 or not 1 <= max_age_seconds <= 86400:
         raise ValueError("evidence bounds exceeded")
     now = now.astimezone(timezone.utc)
-    seen = set()
+    seen = {}
+    conflicts = set()
     results = []
     duplicate_count = 0
     claims = {}
@@ -44,8 +48,10 @@ def normalize(items: list[EvidenceInput], *, now: datetime, max_age_seconds: int
         digest = sha256(canonical.encode("utf-8")).hexdigest()
         if key in seen:
             duplicate_count += 1
+            if seen[key] != (digest, item.claim, observed_at_key(item.observed_at)):
+                conflicts.add(key)
             continue
-        seen.add(key)
+        seen[key] = (digest, item.claim, observed_at_key(item.observed_at))
         observed = item.observed_at.astimezone(timezone.utc)
         fresh = timedelta(0) <= now - observed <= timedelta(seconds=max_age_seconds)
         # Hashing the supplied payload does not authenticate its source.
@@ -59,7 +65,8 @@ def normalize(items: list[EvidenceInput], *, now: datetime, max_age_seconds: int
         })
         claims.setdefault((item.tenant_id, item.incident_id, item.claim), set()).add(digest)
     for result in results:
-        if len(claims[(result["tenant_id"], result["incident_id"], result["claim"])]) > 1:
+        if (len(claims[(result["tenant_id"], result["incident_id"], result["claim"])]) > 1
+                or (result["tenant_id"], result["incident_id"], result["source"], result["external_id"]) in conflicts):
             result["state"] = "UNKNOWN"
     return {
         "schema_version": "aiops.gamma.evidence-preview.v1",
