@@ -102,7 +102,7 @@ export OPENSEARCH_USERNAME=gamma-staging-readonly
 export OPENSEARCH_PASSWORD='from-secure-secret-store'
 export OPENSEARCH_VERIFY_CERTS=true
 export OPENSEARCH_CA_CERTS=/path/to/staging-ca.pem
-export OPENSEARCH_LOGS_INDEX='staging-aiops-logs-*'
+export OPENSEARCH_LOGS_INDEX='staging-gamma-fixtures'
 export GAMMA_STAGING_TENANT_A=11111111-1111-4111-8111-111111111111
 export GAMMA_STAGING_TENANT_B=22222222-2222-4222-8222-222222222222
 export GAMMA_STAGING_SERVICE_A=checkout
@@ -113,7 +113,7 @@ export GAMMA_STAGING_FIXTURE_MARKER=gamma-staging-run-unique-001
 python -m pytest -q tests/test_opensearch_staging_readonly.py
 ```
 
-The test fails if a tenant/service combination has no marked fixture, if
+The staging test now requires one explicit index name (no wildcard or comma-separated aliases), canonical non-nil tenant UUIDs, and fixture-compatible service names and marker. The test fails if a tenant/service combination has no marked fixture, if
 returned hits include another tenant or service, or if required HTTPS/TLS
 and authenticated service-account settings are absent. The result does
 **not** establish DLS enforcement by itself: separately test role privileges,
