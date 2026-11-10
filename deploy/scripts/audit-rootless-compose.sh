@@ -17,9 +17,23 @@ for id in $ids; do
   user=$(docker inspect --format '{{.Config.User}}' "$id")
   [ "$running" = true ] || { echo "NOT RUNNING: $name" >&2; failed=1; }
   [ "$privileged" = false ] || { echo "PRIVILEGED: $name" >&2; failed=1; }
-  [ -n "$user" ] && [ "$user" != 0 ] && [ "$user" != root ] || {
-    echo "UNQUALIFIED CONFIG USER: $name ($user) — explicit non-root image user required" >&2; failed=1;
-  }
+  # Docker accepts UID, UID:GID and user-name forms. A numeric UID 0
+  # remains root even with a nonzero GID (0:1000, 00:1000, etc.).
+  configured_uid=${user%%:*}
+  case "$configured_uid" in
+    ''|root|*[!0-9]*)
+      # Non-numeric user names cannot be proven non-root from Config.User
+      # alone. Fail closed until a numeric UID is explicitly configured.
+      echo "UNQUALIFIED CONFIG USER: $name ($user) — numeric non-root UID required" >&2
+      failed=1
+      ;;
+    *)
+      if [ "$((configured_uid))" -eq 0 ]; then
+        echo "UNQUALIFIED CONFIG USER: $name ($user) — root UID" >&2
+        failed=1
+      fi
+      ;;
+  esac
   # Config.User and the running process UID are independent security facts.
   # Collect both; never treat a non-root process as a waiver for root config.
   if [ "$running" = true ]; then
