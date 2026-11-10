@@ -61,7 +61,7 @@ def test_query_uses_filter_context_without_user_supplied_dsl():
 
 
 @pytest.mark.parametrize("tenant", [
-    "", " ", "not-a-uuid", "11111111-1111-4111-8111-111111111111 ",
+    "", " ", "not-a-uuid", "00000000-0000-0000-0000-000000000000", "11111111-1111-4111-8111-111111111111 ",
     "11111111111141118111111111111111",
     "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa".upper(),
 ])
@@ -94,5 +94,6 @@ async def test_invalid_tenant_never_initializes_opensearch_client(monkeypatch):
         service_name="checkout",
         window=TimeWindow(start=end - timedelta(minutes=1), end=end),
     )
-    with pytest.raises(ValueError, match="tenant UUID"):
-        await search_logs("not-a-uuid", req)
+    for invalid_tenant in ("not-a-uuid", "00000000-0000-0000-0000-000000000000"):
+        with pytest.raises(ValueError, match="tenant UUID"):
+            await search_logs(invalid_tenant, req)
