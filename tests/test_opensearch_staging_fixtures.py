@@ -1,4 +1,5 @@
 """Offline fixture generator contract; never contacts OpenSearch."""
+import argparse
 import importlib.util
 from datetime import datetime, timezone
 from pathlib import Path
@@ -52,7 +53,7 @@ def test_fixture_generator_rejects_unsafe_index(index):
 ])
 def test_generator_rejects_nil_or_noncanonical_tenant(tenant):
     module = load_generator()
-    with pytest.raises(ValueError):
+    with pytest.raises(argparse.ArgumentTypeError):
         list(module.generate(
             tenant, "22222222-2222-4222-8222-222222222222",
             "checkout", "payments", "gamma-run-001",
