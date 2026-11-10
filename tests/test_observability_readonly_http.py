@@ -82,6 +82,7 @@ def test_logs_reject_bad_auth_before_backend(monkeypatch):
         response = client.post("/api/v1/observability/logs/search",
                                json=body(), headers={"X-Tenant-ID": str(TENANT_A)})
     assert response.status_code == 401
+    assert response.headers["cache-control"] == "no-store"
 
 
 def test_logs_reject_oversized_time_window_before_backend(monkeypatch):
@@ -122,6 +123,7 @@ def test_logs_reject_invalid_tenant_before_backend(monkeypatch):
             },
         )
     assert response.status_code == 400
+    assert response.headers["cache-control"] == "no-store"
 
 
 def test_logs_backend_failure_is_sanitized_and_not_cached(monkeypatch):
@@ -142,3 +144,22 @@ def test_logs_backend_failure_is_sanitized_and_not_cached(monkeypatch):
     assert response.json() == {"detail": "OpenSearch query failed"}
     assert "secret-password" not in response.text
     assert "private-index" not in response.text
+
+
+def test_logs_reject_invalid_request_without_cache(monkeypatch):
+    monkeypatch.setattr(settings, "internal_api_key", KEY)
+    monkeypatch.setattr(settings, "enable_opensearch", True)
+
+    async def unexpected_backend(*args, **kwargs):
+        raise AssertionError("Invalid request reached backend")
+
+    monkeypatch.setattr(main, "search_logs", unexpected_backend)
+    payload = body()
+    payload["service_name"] = "invalid service name!"
+    with TestClient(main.app) as client:
+        response = client.post(
+            "/api/v1/observability/logs/search",
+            json=payload, headers=headers(TENANT_A),
+        )
+    assert response.status_code == 422
+    assert response.headers["cache-control"] == "no-store"
