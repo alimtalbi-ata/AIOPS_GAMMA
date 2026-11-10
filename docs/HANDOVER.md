@@ -344,3 +344,7 @@
 - Added explicit `GAMMA_ROOTLESS_SMOKE_DISPOSABLE=YES` opt-in and refuse nonempty `GAMMA_HOME/data/postgres` before Docker Compose startup.
 - New directories are created with restrictive umask; no permission changes to existing directories, no data deletion or cleanup.
 - CI for the new change is pending. This is not a rootless runtime qualification.
+
+### 2026-11-10 — offline disposable smoke guard regression tests
+- Added `deploy/scripts/test-rootless-smoke.py` and wired it into deployment CI. Mock Docker tests verify absent/wrong disposable opt-in blocks Compose, existing hidden PostgreSQL data is preserved and blocks Compose, and a fresh opted-in directory reaches Compose (mock exits intentionally).
+- `a56a062b` CI was in progress when checked. New CI for these tests is pending; no rootless daemon qualification has been performed.
