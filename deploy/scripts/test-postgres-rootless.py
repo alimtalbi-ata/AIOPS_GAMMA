@@ -40,6 +40,11 @@ class PostgresRootlessPreflightTests(unittest.TestCase):
                     pg["cap_drop"] = value
                 self.assertIn("drop ALL", module.check({"postgres": pg}))
 
+    def test_malformed_services_mapping_refused(self):
+        for services in (None, [], "postgres", 7):
+            with self.subTest(services=services):
+                self.assertIn("mapping", module.check(services))
+
     def test_missing_service_refused(self):
         self.assertIsNotNone(module.check({}))
 
