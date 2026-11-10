@@ -1,8 +1,17 @@
+from uuid import UUID
+
 from app.schemas import LogSearchRequest
 from app.settings import settings
 
 
 def make_log_query(tenant_id: str, req: LogSearchRequest) -> dict:
+    # Defense in depth: never construct an unscoped or malformed tenant query.
+    try:
+        canonical_tenant = str(UUID(tenant_id))
+    except (TypeError, ValueError, AttributeError) as exc:
+        raise ValueError("Valid tenant UUID required for OpenSearch query") from exc
+    if tenant_id != canonical_tenant:
+        raise ValueError("Canonical tenant UUID required for OpenSearch query")
     filters = [
         {"term": {"tenant.id": tenant_id}},
         {"term": {"resource.attributes.service.name": req.service_name}},
