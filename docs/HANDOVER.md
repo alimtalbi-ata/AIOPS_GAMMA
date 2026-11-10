@@ -388,3 +388,9 @@
 - `cadcd569`: both workflows succeeded, including PostgreSQL non-root PGDATA ownership/mode and persistence across recreation.
 - Replaced the experimental job's world-writable PostgreSQL parent with a disposable UID 10001-owned, mode 0700 bind; ownership transfer uses `sudo` **only on the disposable GitHub Actions rootful runner**, never in the GAMMA installer.
 - New CI pending. This rootful setup is not compliant with the rootless audit requirement that host binds remain owned by the invoking user; UID namespace mapping remains unresolved.
+
+### 2026-11-10 — GitHub Actions billing block (confirmed by UI annotations)
+- Workflow run `42803654371` did not execute any of its six jobs. GitHub explicitly reports: "The job was not started because recent account payments have failed or your spending limit needs to be increased. Please check the 'Billing & plans' section in your settings". The Python checks run was also blocked with zero executed steps.
+- This is an account billing/spending-limit gate, **not evidence of a code or PostgreSQL test failure**. Earlier rootful non-root PostgreSQL checks on `cadcd569` succeeded. Current HEAD `22d3b9ec` is **not CI-qualified**; its private-bind change remains untested.
+- Do not retry workflows or change CI/Docker configuration to circumvent billing restrictions. Account owner should resolve the billing/spending limit in GitHub Settings > Billing & Licensing and then rerun CI; preserve the PR in draft, with no merge/deploy.
+- The `ubuntu-latest` migration notice (Ubuntu 26) is separate and is not the cause of these failures.
