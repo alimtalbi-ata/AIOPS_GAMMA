@@ -192,3 +192,31 @@ def test_http_correlation_evidence_rejects_missing_server_key_configuration(monk
                      "X-Internal-API-Key": "test-secret-not-production"},
         )
     assert response.status_code == 503, response.text
+
+
+def test_http_correlation_preview_disables_caching(monkeypatch):
+    monkeypatch.setattr(settings, "internal_api_key", "test-secret-not-production")
+    body = valid_correlation_evidence_body()["correlation"]
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/incidents/correlation/preview",
+            json=body,
+            headers={"X-Tenant-ID": str(TENANT),
+                     "X-Internal-API-Key": "test-secret-not-production"},
+        )
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    assert response.json()["persisted"] is False
+    assert response.json()["live_remediation_authorized"] is False
+
+
+def test_http_correlation_preview_requires_authentication(monkeypatch):
+    monkeypatch.setattr(settings, "internal_api_key", "test-secret-not-production")
+    body = valid_correlation_evidence_body()["correlation"]
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/incidents/correlation/preview",
+            json=body,
+            headers={"X-Tenant-ID": str(TENANT)},
+        )
+    assert response.status_code == 401, response.text
