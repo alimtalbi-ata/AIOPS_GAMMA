@@ -176,3 +176,23 @@ def test_conflicting_alert_order_does_not_change_group_identity():
     assert a == b
     assert a["conflicting_source_events"] == 1
     assert a["groups"][0]["evidence_state"] == "UNKNOWN"
+
+
+def test_three_conflicting_versions_are_permutation_invariant():
+    from itertools import permutations
+    req = request()
+    base = req.correlation.signals[0]
+    variants = [
+        base,
+        base.model_copy(update={"severity": "critical", "status": "resolved"}),
+        base.model_copy(update={"service_name": "different-service", "environment": "stage"}),
+    ]
+    results = []
+    for ordered in permutations(variants):
+        candidate = request()
+        candidate.correlation.signals = list(ordered)
+        results.append(preview(candidate, TENANT, now=NOW))
+    assert all(result == results[0] for result in results)
+    assert results[0]["deduplicated_events"] == 2
+    assert results[0]["conflicting_source_events"] == 1
+    assert results[0]["groups"][0]["evidence_state"] == "UNKNOWN"
