@@ -5,7 +5,7 @@ restricted service account. Never creates/deletes indices or documents.
 Run with GAMMA_OPENSEARCH_STAGING_TEST=1 and the variables below.
 """
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import UUID
 
 import pytest
@@ -44,6 +44,9 @@ async def test_real_opensearch_tenant_and_service_isolation():
     )
     marker = os.environ["GAMMA_STAGING_FIXTURE_MARKER"]
     assert len(marker) >= 8, "Use a unique fixture marker"
+    assert window.end - window.start < timedelta(days=2), (
+        "Window must be shorter than the fixture outside-window offset"
+    )
     assert settings.enable_opensearch, "OpenSearch must be explicitly enabled"
     assert settings.opensearch_url.startswith("https://"), "Staging must use HTTPS"
     assert settings.opensearch_verify_certs, "Staging must verify TLS certificates"
@@ -51,8 +54,9 @@ async def test_real_opensearch_tenant_and_service_isolation():
     assert settings.opensearch_password, "Staging service account password required"
     assert settings.opensearch_logs_index.startswith("staging-"), "Staging-only index pattern required"
 
-    for tenant in tenants:
-        for service in services:
+    for tenant_index, tenant in enumerate(tenants):
+        for service_index, service in enumerate(services):
+            expected_fixture_id = f"{marker}-{1 + 2 * tenant_index + service_index}"
             request = LogSearchRequest(service_name=service, window=window, limit=500)
             result = await search_logs(tenant, request)
             hits = result["hits"]["hits"]
@@ -65,7 +69,10 @@ async def test_real_opensearch_tenant_and_service_isolation():
                 "check seed data, mapping and test window"
             )
             for hit in fixture_hits:
+                assert hit["_id"] == expected_fixture_id, "Unexpected fixture identity"
                 source = hit["_source"]
+                observed = datetime.fromisoformat(source["@timestamp"].replace("Z", "+00:00"))
+                assert window.start <= observed <= window.end, "Fixture timestamp outside window"
                 assert source["tenant"]["id"] == tenant
                 assert source["resource"]["attributes"]["service"]["name"] == service
                 assert source["severityText"] == ("ERROR" if service == services[0] else "WARN")
@@ -95,7 +102,6 @@ async def test_real_opensearch_tenant_and_service_isolation():
             request = LogSearchRequest(service_name=service, window=window, limit=500)
             result = await search_logs(tenant, request)
             assert all(
-                not str(hit.get("_id", "")).endswith("-5")
-                or hit.get("_source", {}).get("gamma_fixture_marker") != marker
+                hit.get("_id") != f"{marker}-5"
                 for hit in result["hits"]["hits"]
             ), "Out-of-window fixture leaked into results"
