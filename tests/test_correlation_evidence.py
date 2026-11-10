@@ -74,3 +74,16 @@ def test_same_source_event_claimed_by_multiple_incidents_unknown():
     assert len(result["groups"][0]["evidence"]) == 2
     assert result["groups"][0]["evidence_state"] == "UNKNOWN"
     assert result["live_remediation_authorized"] is False
+
+
+def test_conflicting_duplicate_provenance_downgrades_correlated_group():
+    req = request()
+    req.evidence[0].provenance = {"collector": "otel-a"}
+    req.evidence.append(req.evidence[0].model_copy(
+        update={"provenance": {"collector": "otel-b"}}
+    ))
+    result = preview(req, TENANT, now=NOW)
+    assert result["evidence_duplicates"] == 1
+    assert result["groups"][0]["evidence_state"] == "UNKNOWN"
+    assert result["groups"][0]["evidence"][0]["integrity"] == "UNVERIFIED"
+    assert result["live_remediation_authorized"] is False
