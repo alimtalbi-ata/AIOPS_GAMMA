@@ -100,3 +100,19 @@ def test_correlation_grouping_is_permutation_invariant_across_time_windows():
     assert len(expected["groups"]) == 2
     for order in permutations(events):
         assert correlate(list(order), "tenant-1", window_seconds=300) == expected
+
+
+@pytest.mark.parametrize("field", [
+    "source", "external_event_id", "service_name", "environment", "symptom_key",
+])
+@pytest.mark.parametrize("bad_value", ["  ", " padded", "padded "])
+def test_alert_identity_rejects_blank_or_padded_values(field, bad_value):
+    payload = signal("a").model_dump()
+    payload[field] = bad_value
+    with pytest.raises(ValidationError):
+        CorrelationSignal.model_validate(payload)
+
+
+def test_alert_identity_accepts_canonical_values():
+    payload = signal("a").model_dump()
+    assert CorrelationSignal.model_validate(payload).external_event_id == "a"
