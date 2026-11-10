@@ -205,3 +205,24 @@ def test_logs_reject_noncanonical_tenant_before_backend(monkeypatch):
             )
             assert response.status_code == 400, response.text
             assert response.headers["cache-control"] == "no-store"
+
+
+def test_logs_reject_nil_tenant_before_backend(monkeypatch):
+    monkeypatch.setattr(settings, "internal_api_key", KEY)
+    monkeypatch.setattr(settings, "enable_opensearch", True)
+
+    async def unexpected_backend(*args, **kwargs):
+        raise AssertionError("Nil tenant reached backend")
+
+    monkeypatch.setattr(main, "search_logs", unexpected_backend)
+    with TestClient(main.app) as client:
+        response = client.post(
+            "/api/v1/observability/logs/search",
+            json=body(),
+            headers={
+                "X-Internal-API-Key": KEY,
+                "X-Tenant-ID": "00000000-0000-0000-0000-000000000000",
+            },
+        )
+    assert response.status_code == 400
+    assert response.headers["cache-control"] == "no-store"
