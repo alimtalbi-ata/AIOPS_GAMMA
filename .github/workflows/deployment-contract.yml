@@ -155,8 +155,8 @@ jobs:
           mkdir -p "$GAMMA_HOME/data/postgres"
           # Rootful CI-only: chown the disposable bind to the container UID.
           # This is NOT a rootless UID mapping procedure or host qualification.
-          sudo chown 10001:10001 "$GAMMA_HOME/data/postgres"
           chmod 700 "$GAMMA_HOME/data/postgres"
+          sudo chown 10001:10001 "$GAMMA_HOME/data/postgres"
           test "$(stat -c %u "$GAMMA_HOME/data/postgres")" = 10001
           test "$(stat -c %a "$GAMMA_HOME/data/postgres")" = 700
       - name: Initialize PostgreSQL as UID 10001 with no added capabilities
