@@ -79,6 +79,18 @@ esac
                 result = self.audit(config_user=user)
                 self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_malformed_configured_gid_rejected(self):
+        for user in ("10001:", "10001:postgres", "10001:100:200"):
+            with self.subTest(user=user):
+                result = self.audit(config_user=user)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("UNQUALIFIED CONFIG USER", result.stderr)
+
+    def test_zero_padded_runtime_root_rejected(self):
+        result = self.audit(runtime_uid="000")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("ROOT RUNTIME UID", result.stderr)
+
     def test_named_user_is_not_accepted_without_numeric_uid(self):
         result = self.audit(config_user="postgres")
         self.assertNotEqual(result.returncode, 0)
