@@ -30,6 +30,8 @@ def make_log_query(tenant_id: str, req: LogSearchRequest) -> dict:
 
 
 async def search_logs(tenant_id: str, req: LogSearchRequest) -> dict:
+    # Validate tenant and build the bounded query before opening any client.
+    query = make_log_query(tenant_id, req)
     # Lazy import allows local unit tests without connecting to OpenSearch.
     from opensearchpy import AsyncOpenSearch
 
@@ -46,7 +48,7 @@ async def search_logs(tenant_id: str, req: LogSearchRequest) -> dict:
     try:
         return await client.search(
             index=settings.opensearch_logs_index,
-            body=make_log_query(tenant_id, req),
+            body=query,
             request_timeout=10,
         )
     finally:
