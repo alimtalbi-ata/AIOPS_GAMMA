@@ -61,6 +61,7 @@ def test_logs_forward_only_authenticated_tenant_to_backend(monkeypatch):
             response = client.post("/api/v1/observability/logs/search",
                                    json=body(), headers=headers(tenant))
             assert response.status_code == 200, response.text
+            assert response.headers["cache-control"] == "no-store"
             assert response.json() == {"hits": {"hits": []}}
     assert observed == [
         (str(TENANT_A), "checkout", 5),
