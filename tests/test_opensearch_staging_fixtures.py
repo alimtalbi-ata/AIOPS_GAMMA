@@ -44,3 +44,44 @@ def test_fixture_generator_rejects_unsafe_index(index):
             "checkout", "payments", "gamma-run-001", index,
             datetime(2026, 11, 10, 12, tzinfo=timezone.utc),
         ))
+
+
+@pytest.mark.parametrize("tenant", [
+    "00000000-0000-0000-0000-000000000000",
+    "11111111111141118111111111111111",
+])
+def test_generator_rejects_nil_or_noncanonical_tenant(tenant):
+    module = load_generator()
+    with pytest.raises(ValueError):
+        list(module.generate(
+            tenant, "22222222-2222-4222-8222-222222222222",
+            "checkout", "payments", "gamma-run-001",
+            "staging-gamma-fixtures",
+            datetime(2026, 11, 10, 12, tzinfo=timezone.utc),
+        ))
+
+
+@pytest.mark.parametrize("marker", ["../escape", "unsafe marker", "x" * 129])
+def test_generator_rejects_unsafe_marker(marker):
+    module = load_generator()
+    with pytest.raises(ValueError, match="marker"):
+        list(module.generate(
+            "11111111-1111-4111-8111-111111111111",
+            "22222222-2222-4222-8222-222222222222",
+            "checkout", "payments", marker,
+            "staging-gamma-fixtures",
+            datetime(2026, 11, 10, 12, tzinfo=timezone.utc),
+        ))
+
+
+@pytest.mark.parametrize("service", ["../other", "bad service", "x" * 256])
+def test_generator_rejects_invalid_service(service):
+    module = load_generator()
+    with pytest.raises(ValueError, match="service"):
+        list(module.generate(
+            "11111111-1111-4111-8111-111111111111",
+            "22222222-2222-4222-8222-222222222222",
+            service, "payments", "gamma-run-001",
+            "staging-gamma-fixtures",
+            datetime(2026, 11, 10, 12, tzinfo=timezone.utc),
+        ))
