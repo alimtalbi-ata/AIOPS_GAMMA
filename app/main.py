@@ -25,14 +25,14 @@ async def live():
 async def logs(req: LogSearchRequest, response: Response, principal: Principal = Depends(internal_principal)):
     response.headers["Cache-Control"] = "no-store"
     if not settings.enable_opensearch:
-        raise HTTPException(503, "OpenSearch adapter disabled")
+        raise HTTPException(503, "OpenSearch adapter disabled", headers={"Cache-Control": "no-store"})
     if req.window.end - req.window.start > timedelta(hours=settings.max_query_hours):
-        raise HTTPException(422, "Time window exceeds policy")
+        raise HTTPException(422, "Time window exceeds policy", headers={"Cache-Control": "no-store"})
     try:
         return await search_logs(str(principal.tenant_id), req)
     except Exception as exc:
         # Do not expose backend URLs, credentials, index names, or raw client errors.
-        raise HTTPException(502, "OpenSearch query failed") from exc
+        raise HTTPException(502, "OpenSearch query failed", headers={"Cache-Control": "no-store"}) from exc
 
 
 @app.post("/api/v1/observability/metrics/query")
