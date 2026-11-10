@@ -10,7 +10,7 @@ from hashlib import sha256
 import json
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class CorrelationSignal(BaseModel):
@@ -24,6 +24,13 @@ class CorrelationSignal(BaseModel):
     ci_id: str | None = Field(default=None, min_length=1, max_length=255)
     symptom_key: str = Field(min_length=1, max_length=255)
     evidence_refs: list[str] = Field(default_factory=list, max_length=30)
+
+    @field_validator("source", "external_event_id", "service_name", "environment", "symptom_key")
+    @classmethod
+    def validate_identity(cls, value: str) -> str:
+        if value != value.strip():
+            raise ValueError("identity fields must not contain surrounding whitespace")
+        return value
 
     @model_validator(mode="after")
     def validate_time(self):
