@@ -226,3 +226,23 @@ def test_logs_reject_nil_tenant_before_backend(monkeypatch):
         )
     assert response.status_code == 400
     assert response.headers["cache-control"] == "no-store"
+
+
+def test_logs_reject_unsafe_severity_terms_before_backend(monkeypatch):
+    monkeypatch.setattr(settings, "internal_api_key", KEY)
+    monkeypatch.setattr(settings, "enable_opensearch", True)
+
+    async def unexpected_backend(*args, **kwargs):
+        raise AssertionError("Invalid severity reached backend")
+
+    monkeypatch.setattr(main, "search_logs", unexpected_backend)
+    with TestClient(main.app) as client:
+        for severity in ([""], ["ERROR WARN"], ["x" * 33], ["ERROR"] * 11):
+            payload = body()
+            payload["severity"] = severity
+            response = client.post(
+                "/api/v1/observability/logs/search",
+                json=payload, headers=headers(TENANT_A),
+            )
+            assert response.status_code == 422, response.text
+            assert response.headers["cache-control"] == "no-store"
