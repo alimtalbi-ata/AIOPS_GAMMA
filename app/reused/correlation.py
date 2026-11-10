@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
+import json
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
@@ -74,7 +75,7 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
             and timestamp - g["_last"] <= timedelta(seconds=window_seconds)
         ), None)
         if matching is None:
-            stable_key = "|".join((tenant_id, *key, timestamp.isoformat()))
+            stable_key = json.dumps((tenant_id, *key, timestamp.isoformat()), ensure_ascii=False, separators=(",", ":"))
             matching = {
                 "_key": key, "_last": timestamp,
                 "group_id": "grp-" + sha256(stable_key.encode()).hexdigest()[:20],
