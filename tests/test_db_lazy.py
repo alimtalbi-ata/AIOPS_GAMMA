@@ -32,7 +32,8 @@ def test_database_session_factory_is_lazy_and_cached(monkeypatch):
         return FakeFactory()
 
     with monkeypatch.context() as patch:
-        patch.setattr(app.db.settings, "database_url", "postgresql+asyncpg://localhost/test", raising=False)
+        from types import SimpleNamespace
+        patch.setattr(app.db, "settings", SimpleNamespace(database_url="postgresql+asyncpg://localhost/test"))
         patch.setattr(app.db, "create_async_engine", fake_engine)
         patch.setattr(app.db, "async_sessionmaker", fake_maker)
         app.db.get_session_factory.cache_clear()
