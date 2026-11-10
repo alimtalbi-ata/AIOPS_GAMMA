@@ -394,3 +394,8 @@
 - This is an account billing/spending-limit gate, **not evidence of a code or PostgreSQL test failure**. Earlier rootful non-root PostgreSQL checks on `cadcd569` succeeded. Current HEAD `22d3b9ec` is **not CI-qualified**; its private-bind change remains untested.
 - Do not retry workflows or change CI/Docker configuration to circumvent billing restrictions. Account owner should resolve the billing/spending limit in GitHub Settings > Billing & Licensing and then rerun CI; preserve the PR in draft, with no merge/deploy.
 - The `ubuntu-latest` migration notice (Ubuntu 26) is separate and is not the cause of these failures.
+
+### 2026-11-10 — fail-closed PostgreSQL effective capability preflight (CI billing blocked)
+- Extended `deploy/scripts/check-postgres-rootless.py` to reject effective Compose PostgreSQL configurations with any inherited `cap_add` or without `cap_drop: [ALL]`, in addition to requiring numeric non-root UID. This catches Compose overlay merge behavior that silently retained capabilities.
+- Updated offline unit cases and rootless smoke mock to cover the hardened preflight. The baseline rootless smoke remains intentionally blocked by upstream root-configured PostgreSQL; the experimental override is not automatically enabled.
+- GitHub Actions billing restriction remains unresolved as last observed. These changes are **not CI-validated**; run the offline tests and full CI when runners are restored. No rootless host runtime qualification, merge, or production deployment.
