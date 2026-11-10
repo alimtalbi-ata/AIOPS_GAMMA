@@ -146,3 +146,5 @@ On a **disposable, dedicated Docker rootless host**, after running the opt-in sm
 ## Disposable rootless smoke safety gate
 
 Run `deploy/scripts/smoke-rootless.sh` only on a **dedicated disposable rootless host** with `GAMMA_ROOTLESS_SMOKE_DISPOSABLE=YES` explicitly set. The script now refuses to start when `$GAMMA_HOME/data/postgres` is nonempty, including hidden entries, even with opt-in. It creates missing data directories under a restrictive umask and does not change permissions of existing directories. It does not erase any data or perform cleanup. A fresh directory is not proof that the Docker project name/ports are unused: choose an isolated host and project name, and inspect the environment before starting. Do not use this smoke against an existing tenant or production database.
+
+The disposable rootless smoke now also refuses any existing containers (including stopped containers) in its selected `COMPOSE_PROJECT_NAME` before `docker compose up`. Use a dedicated project name and host; the check is not an atomic reservation against concurrent Compose invocations. Offline mock tests cover refusal to reuse an existing project.
