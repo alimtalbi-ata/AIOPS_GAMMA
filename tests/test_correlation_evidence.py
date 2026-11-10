@@ -115,3 +115,26 @@ def test_full_evidence_coverage_remains_unverified():
     assert group["evidence_covered_events"] == 2
     assert group["evidence_missing_events"] == 0
     assert group["evidence_state"] == "UNVERIFIED"
+
+
+def test_conflicting_duplicate_alert_downgrades_evidence_group():
+    req = request()
+    req.correlation.signals.append(req.correlation.signals[0].model_copy(
+        update={"severity": "critical", "status": "resolved"}
+    ))
+    result = preview(req, TENANT, now=NOW)
+    assert result["deduplicated_events"] == 1
+    assert result["conflicting_source_events"] == 1
+    assert result["groups"][0]["conflicting_source_events"] == 1
+    assert result["groups"][0]["evidence_covered_events"] == 1
+    assert result["groups"][0]["evidence_state"] == "UNKNOWN"
+    assert result["live_remediation_authorized"] is False
+
+
+def test_identical_duplicate_alert_keeps_unverified_state():
+    req = request()
+    req.correlation.signals.append(req.correlation.signals[0].model_copy(deep=True))
+    result = preview(req, TENANT, now=NOW)
+    assert result["deduplicated_events"] == 1
+    assert result["conflicting_source_events"] == 0
+    assert result["groups"][0]["evidence_state"] == "UNVERIFIED"
