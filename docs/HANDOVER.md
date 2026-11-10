@@ -378,3 +378,8 @@
 - `ffe09ef1`: Python, Compose, Helm, UI and API/PostgreSQL jobs passed; single-directory runtime still running when checked.
 - Added separate `postgres-nonroot-experiment` job to start experimental PostgreSQL as UID 10001, verify effective capabilities and runtime UID, and perform a SQL write on rootful GitHub Docker.
 - Uses disposable world-writable bind **only in isolated rootful CI**, not acceptable for rootless production. New CI pending; rootless UID mapping and secure bind permissions remain blockers.
+
+### 2026-11-10 — PostgreSQL non-root persistence rehearsal
+- `aeb7a95e`: Python and deployment CI both succeeded, including rootful Docker non-root PostgreSQL startup and SQL write.
+- Extended the isolated experimental job to assert `pgdata` is owned by UID 10001 with mode 0700, recreate the PostgreSQL container and verify SQL row persistence.
+- New CI pending. Rootless user namespace mapping and strict host bind ownership remain unverified.
