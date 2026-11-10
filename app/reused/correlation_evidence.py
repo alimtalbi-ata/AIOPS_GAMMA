@@ -1,5 +1,5 @@
 """Read-only correlation/evidence join. Never infers canonical incident identity."""
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 from app.reused.correlation import CorrelationPreview, correlate
 from app.reused.evidence import EvidenceInput, normalize
 from datetime import datetime, timezone
@@ -25,8 +25,12 @@ def preview(request: CorrelationEvidencePreview, tenant_id: str, *, now: datetim
         linked = [e for e in evidence_result["items"]
                   if (e["source"], e["external_id"]) in event_ids]
         group["evidence"] = linked
-        group["evidence_state"] = "UNKNOWN" if not linked or any(
-            e["state"] == "UNKNOWN" for e in linked
+        # The source-event identity is not a canonical incident identifier.
+        # Multiple incident claims for one group must not be treated as corroboration.
+        incident_ids = {e["incident_id"] for e in linked}
+        group["evidence_state"] = "UNKNOWN" if (
+            not linked or len(incident_ids) > 1
+            or any(e["state"] == "UNKNOWN" for e in linked)
         ) else "UNVERIFIED"
     corr["evidence_duplicates"] = evidence_result["duplicates"]
     corr["schema_version"] = "aiops.gamma.correlation-evidence-preview.v1"
