@@ -44,6 +44,7 @@ def test_logs_disabled_fail_closed_without_opening_backend(monkeypatch):
         response = client.post("/api/v1/observability/logs/search",
                                json=body(), headers=headers(TENANT_A))
     assert response.status_code == 503
+    assert response.headers["cache-control"] == "no-store"
 
 
 def test_logs_forward_only_authenticated_tenant_to_backend(monkeypatch):
@@ -100,6 +101,7 @@ def test_logs_reject_oversized_time_window_before_backend(monkeypatch):
         response = client.post("/api/v1/observability/logs/search",
                                json=payload, headers=headers(TENANT_A))
     assert response.status_code == 422
+    assert response.headers["cache-control"] == "no-store"
 
 
 def test_logs_reject_invalid_tenant_before_backend(monkeypatch):
