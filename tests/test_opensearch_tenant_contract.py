@@ -58,3 +58,41 @@ def test_query_uses_filter_context_without_user_supplied_dsl():
     assert set(query["query"]["bool"]) == {"filter"}
     assert "script" not in str(query)
     assert "query_string" not in str(query)
+
+
+@pytest.mark.parametrize("tenant", [
+    "", " ", "not-a-uuid", "11111111-1111-4111-8111-111111111111 ",
+    "11111111111141118111111111111111",
+    "11111111-1111-4111-8111-111111111111".upper(),
+])
+def test_query_builder_rejects_invalid_or_noncanonical_tenant(tenant):
+    end = datetime(2026, 11, 10, 12, tzinfo=timezone.utc)
+    req = LogSearchRequest(
+        service_name="checkout",
+        window=TimeWindow(start=end - timedelta(minutes=1), end=end),
+    )
+    with pytest.raises(ValueError, match="tenant UUID"):
+        make_log_query(tenant, req)
+
+
+@pytest.mark.asyncio
+async def test_invalid_tenant_never_initializes_opensearch_client(monkeypatch):
+    import sys
+    from types import ModuleType
+    from app.opensearch_adapter import search_logs
+
+    fake_module = ModuleType("opensearchpy")
+
+    class ForbiddenClient:
+        def __init__(self, *args, **kwargs):
+            raise AssertionError("OpenSearch client must not be constructed")
+
+    fake_module.AsyncOpenSearch = ForbiddenClient
+    monkeypatch.setitem(sys.modules, "opensearchpy", fake_module)
+    end = datetime(2026, 11, 10, 12, tzinfo=timezone.utc)
+    req = LogSearchRequest(
+        service_name="checkout",
+        window=TimeWindow(start=end - timedelta(minutes=1), end=end),
+    )
+    with pytest.raises(ValueError, match="tenant UUID"):
+        await search_logs("not-a-uuid", req)
