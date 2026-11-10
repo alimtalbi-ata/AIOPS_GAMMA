@@ -284,3 +284,29 @@ def test_complete_coverage_with_no_conflicts_is_consistent():
     assert result["evidence_join_complete"] is True
     assert result["evidence_join_consistent"] is True
     assert result["live_remediation_authorized"] is False
+
+
+def test_group_ids_do_not_collide_when_identity_contains_separator():
+    from app.reused.correlation import correlate
+    base = request().correlation.signals[0]
+    a = base.model_copy(update={
+        "environment": "prod|checkout",
+        "service_name": "payments",
+        "external_event_id": "one",
+    })
+    b = base.model_copy(update={
+        "environment": "prod",
+        "service_name": "checkout|payments",
+        "external_event_id": "two",
+    })
+    result = correlate([a, b], TENANT)
+    assert len(result["groups"]) == 2
+    assert result["groups"][0]["group_id"] != result["groups"][1]["group_id"]
+
+
+def test_group_id_is_stable_for_same_structured_identity():
+    from app.reused.correlation import correlate
+    signal = request().correlation.signals[0]
+    a = correlate([signal], TENANT)
+    b = correlate([signal.model_copy(deep=True)], TENANT)
+    assert a["groups"][0]["group_id"] == b["groups"][0]["group_id"]
