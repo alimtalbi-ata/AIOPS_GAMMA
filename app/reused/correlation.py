@@ -27,8 +27,8 @@ class CorrelationSignal(BaseModel):
 
     @model_validator(mode="after")
     def validate_time(self):
-        if self.ci_id is not None and not self.ci_id.strip():
-            raise ValueError("ci_id must not be blank")
+        if self.ci_id is not None and self.ci_id != self.ci_id.strip():
+            raise ValueError("ci_id must not contain surrounding whitespace")
         if self.observed_at.tzinfo is None:
             raise ValueError("observed_at must have a timezone")
         return self
