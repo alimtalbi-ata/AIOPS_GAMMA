@@ -6,8 +6,19 @@ set -eu
 : "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}"
 : "${INTERNAL_API_KEY:?Set INTERNAL_API_KEY}"
 sh deploy/scripts/check-rootless-home.sh
+# This smoke is only for a fresh disposable installation. Refuse to run on
+# existing PostgreSQL data even if the caller explicitly opts in.
+[ "${GAMMA_ROOTLESS_SMOKE_DISPOSABLE:-}" = "YES" ] || {
+  echo "Set GAMMA_ROOTLESS_SMOKE_DISPOSABLE=YES for a dedicated disposable host" >&2
+  exit 2
+}
+if [ -d "$GAMMA_HOME/data/postgres" ] && [ -n "$(ls -A "$GAMMA_HOME/data/postgres")" ]; then
+  echo "Refusing rootless smoke: PostgreSQL data directory is not empty" >&2
+  exit 2
+fi
 for dir in "$GAMMA_HOME/data/postgres" "$GAMMA_HOME/data/opensearch"; do
   mkdir -p "$dir"
+  chmod 700 "$dir"
 done
 export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-aiops-gamma-rootless-smoke}"
 echo "Using project $COMPOSE_PROJECT_NAME; cleanup is manual to preserve evidence."
