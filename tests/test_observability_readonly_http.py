@@ -163,3 +163,22 @@ def test_logs_reject_invalid_request_without_cache(monkeypatch):
         )
     assert response.status_code == 422
     assert response.headers["cache-control"] == "no-store"
+
+
+def test_logs_unconfigured_internal_auth_fails_closed_without_backend(monkeypatch):
+    monkeypatch.setattr(settings, "internal_api_key", "")
+    monkeypatch.setattr(settings, "enable_opensearch", True)
+
+    async def unexpected_backend(*args, **kwargs):
+        raise AssertionError("Unconfigured authentication reached backend")
+
+    monkeypatch.setattr(main, "search_logs", unexpected_backend)
+    with TestClient(main.app) as client:
+        response = client.post(
+            "/api/v1/observability/logs/search",
+            json=body(),
+            headers={"X-Tenant-ID": str(TENANT_A)},
+        )
+    assert response.status_code == 503
+    assert response.headers["cache-control"] == "no-store"
+    assert response.json() == {"detail": "Internal authentication not configured"}
