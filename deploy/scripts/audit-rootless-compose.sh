@@ -15,6 +15,17 @@ for id in $ids; do
   running=$(docker inspect --format '{{.State.Running}}' "$id")
   privileged=$(docker inspect --format '{{.HostConfig.Privileged}}' "$id")
   user=$(docker inspect --format '{{.Config.User}}' "$id")
+  # Audit the running container, not only the merged Compose declaration.
+  cap_add=$(docker inspect --format '{{json .HostConfig.CapAdd}}' "$id") || { echo "CAP_ADD UNAVAILABLE: $name" >&2; failed=1; cap_add=unknown; }
+  cap_drop=$(docker inspect --format '{{json .HostConfig.CapDrop}}' "$id") || { echo "CAP_DROP UNAVAILABLE: $name" >&2; failed=1; cap_drop=unknown; }
+  case "$cap_add" in
+    null|\[\]) ;;
+    *) echo "ADDED CAPABILITIES: $name ($cap_add)" >&2; failed=1 ;;
+  esac
+  case "$cap_drop" in
+    '["ALL"]'|'["all"]') ;;
+    *) echo "CAPABILITIES NOT DROPPED: $name ($cap_drop)" >&2; failed=1 ;;
+  esac
   [ "$running" = true ] || { echo "NOT RUNNING: $name" >&2; failed=1; }
   [ "$privileged" = false ] || { echo "PRIVILEGED: $name" >&2; failed=1; }
   # Docker accepts UID, UID:GID and user-name forms. A numeric UID 0
