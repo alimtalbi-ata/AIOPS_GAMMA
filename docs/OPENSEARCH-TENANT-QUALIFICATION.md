@@ -82,3 +82,41 @@ application-level tenant filter.
   available; the summary alone does not prove a Python assertion failure.
 - No real OpenSearch cluster, role/DLS, mappings, or gateway authorization
   was exercised by the local laboratory. Production enablement remains blocked.
+
+## Opt-in read-only staging execution
+
+The optional `tests/test_opensearch_staging_readonly.py` uses the production
+query builder and actual async OpenSearch client. It **does not seed or delete**
+data. Provision the five synthetic documents described above using a separate
+staging fixture procedure, then configure the service account with the same
+effective role intended for GAMMA. The marker must appear in the seeded
+`_source` documents. Do not use production credentials or production indices.
+
+Example (values are illustrative; replace with actual staging fixtures):
+
+```sh
+export GAMMA_OPENSEARCH_STAGING_TEST=1
+export ENABLE_OPENSEARCH=true
+export OPENSEARCH_URL=https://staging-search.example.invalid:9200
+export OPENSEARCH_USERNAME=gamma-staging-readonly
+export OPENSEARCH_PASSWORD='from-secure-secret-store'
+export OPENSEARCH_VERIFY_CERTS=true
+export OPENSEARCH_CA_CERTS=/path/to/staging-ca.pem
+export OPENSEARCH_LOGS_INDEX='staging-aiops-logs-*'
+export GAMMA_STAGING_TENANT_A=11111111-1111-4111-8111-111111111111
+export GAMMA_STAGING_TENANT_B=22222222-2222-4222-8222-222222222222
+export GAMMA_STAGING_SERVICE_A=checkout
+export GAMMA_STAGING_SERVICE_B=payments
+export GAMMA_STAGING_WINDOW_START=2026-11-10T11:00:00+00:00
+export GAMMA_STAGING_WINDOW_END=2026-11-10T12:00:00+00:00
+export GAMMA_STAGING_FIXTURE_MARKER=gamma-staging-run-unique-001
+python -m pytest -q tests/test_opensearch_staging_readonly.py
+```
+
+The test fails if a tenant/service combination has no marked fixture, if
+returned hits include another tenant or service, or if required HTTPS/TLS
+and authenticated service-account settings are absent. The result does
+**not** establish DLS enforcement by itself: separately test role privileges,
+forged gateway identity, index aliases and wildcard expansion, and record
+redacted evidence before approving the release gate. In ordinary CI this
+test is skipped.
