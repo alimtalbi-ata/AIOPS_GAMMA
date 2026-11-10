@@ -65,3 +65,12 @@ def test_conflicting_duplicate_event_unknown():
     result = preview(req, TENANT, now=NOW)
     assert result["groups"][0]["evidence_state"] == "UNKNOWN"
     assert result["evidence_duplicates"] == 1
+
+
+def test_same_source_event_claimed_by_multiple_incidents_unknown():
+    req = request()
+    req.evidence.append(req.evidence[0].model_copy(update={"incident_id": "inc-2"}))
+    result = preview(req, TENANT, now=NOW)
+    assert len(result["groups"][0]["evidence"]) == 2
+    assert result["groups"][0]["evidence_state"] == "UNKNOWN"
+    assert result["live_remediation_authorized"] is False
