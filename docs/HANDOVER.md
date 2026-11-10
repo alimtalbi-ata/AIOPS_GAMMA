@@ -334,3 +334,8 @@
 - `b8a6acdd`: both workflows passed, now including the previously missing mocked strict audit suite.
 - Fixed audit acceptance of numeric root user forms such as `0:1000` and `00:1000`. Require explicit numeric nonzero configured UID, rejecting unresolvable named users; runtime PID 1 UID remains separately verified.
 - Added tests for numeric UID zero variants, named users and leading-zero nonroot numeric UIDs. New CI pending; no actual rootless Docker qualification.
+
+### 2026-11-10 — configured GID and runtime UID hardening
+- `d1b98b46`: Python, Compose, Helm, UI, and API/PostgreSQL jobs passed; single-directory-runtime was still running when checked.
+- Audit now rejects malformed configured numeric GIDs (empty, named, multiple colons) and zero-padded runtime UID 000, with offline regression tests.
+- New CI pending; genuine rootless Docker engine and PostgreSQL qualification remain outstanding.
