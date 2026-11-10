@@ -25,7 +25,7 @@ class DisposableSmokeTests(unittest.TestCase):
             "  *SecurityOptions*) echo '[\"name=rootless\"]' ;;\n"
             "  *DockerRootDir*) echo \"$GAMMA_HOME/docker-data\" ;;\n"
             "  compose*) case \"$*\" in\n"
-            "    *\"ps --all -q\"*) printf '%s' \"$MOCK_EXISTING_CONTAINERS\"; exit 0 ;;\n"
+            "    *\"ps --all -q\"*) printf '%s' \"$MOCK_EXISTING_CONTAINERS\"; exit 0 ;;\n"            "    *\"config --format json\"*) echo '{\"services\":{\"postgres\":{\"user\":\"10001:10001\"}}}'; exit 0 ;;\n"
             "    *) touch \"$MOCK_COMPOSE_MARKER\"; exit 77 ;;\n"
             "  esac ;;\n"
             "  *) exit 9 ;;\n"
