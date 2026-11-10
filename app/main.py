@@ -28,7 +28,11 @@ async def logs(req: LogSearchRequest, response: Response, principal: Principal =
         raise HTTPException(503, "OpenSearch adapter disabled")
     if req.window.end - req.window.start > timedelta(hours=settings.max_query_hours):
         raise HTTPException(422, "Time window exceeds policy")
-    return await search_logs(str(principal.tenant_id), req)
+    try:
+        return await search_logs(str(principal.tenant_id), req)
+    except Exception as exc:
+        # Do not expose backend URLs, credentials, index names, or raw client errors.
+        raise HTTPException(502, "OpenSearch query failed") from exc
 
 
 @app.post("/api/v1/observability/metrics/query")
