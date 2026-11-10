@@ -284,3 +284,32 @@ def test_http_correlation_preview_rejects_whitespace_ci_id(monkeypatch):
                      "X-Internal-API-Key": "test-secret-not-production"},
         )
     assert response.status_code == 422, response.text
+
+
+def test_http_correlation_evidence_preview_rejects_whitespace_ci_id(monkeypatch):
+    monkeypatch.setattr(settings, "internal_api_key", "test-secret-not-production")
+    body = valid_correlation_evidence_body()
+    body["correlation"]["signals"][0]["ci_id"] = " CI-123 "
+    with TestClient(app) as client:
+        response = client.post(
+            PATHS[1], json=body,
+            headers={"X-Tenant-ID": str(TENANT),
+                     "X-Internal-API-Key": "test-secret-not-production"},
+        )
+    assert response.status_code == 422, response.text
+
+
+def test_http_correlation_preview_accepts_canonical_ci_id(monkeypatch):
+    monkeypatch.setattr(settings, "internal_api_key", "test-secret-not-production")
+    body = valid_correlation_evidence_body()["correlation"]
+    body["signals"][0]["ci_id"] = "CI-123"
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/incidents/correlation/preview",
+            json=body,
+            headers={"X-Tenant-ID": str(TENANT),
+                     "X-Internal-API-Key": "test-secret-not-production"},
+        )
+    assert response.status_code == 200, response.text
+    assert response.json()["groups"][0]["ci_id"] == "CI-123"
+    assert response.headers["cache-control"] == "no-store"
