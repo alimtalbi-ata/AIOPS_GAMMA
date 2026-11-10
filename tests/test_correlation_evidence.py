@@ -225,3 +225,37 @@ def test_unmatched_duplicate_count_is_not_double_counted():
     assert result["evidence_duplicates"] == 1
     assert result["unmatched_evidence"] == 1
     assert result["evidence_join_complete"] is False
+
+
+def test_join_not_complete_when_alert_has_no_evidence():
+    req = request()
+    req.evidence = []
+    result = preview(req, TENANT, now=NOW)
+    assert result["unmatched_evidence"] == 0
+    assert result["groups"][0]["evidence_missing_events"] == 1
+    assert result["evidence_join_complete"] is False
+
+
+def test_join_not_complete_when_one_of_two_alerts_lacks_evidence():
+    req = request()
+    req.correlation.signals.append(req.correlation.signals[0].model_copy(
+        update={"external_event_id": "evt-2"}
+    ))
+    result = preview(req, TENANT, now=NOW)
+    assert result["unmatched_evidence"] == 0
+    assert result["groups"][0]["evidence_missing_events"] == 1
+    assert result["evidence_join_complete"] is False
+
+
+def test_join_complete_with_full_bidirectional_coverage():
+    req = request()
+    req.correlation.signals.append(req.correlation.signals[0].model_copy(
+        update={"external_event_id": "evt-2"}
+    ))
+    req.evidence.append(req.evidence[0].model_copy(
+        update={"external_id": "evt-2"}
+    ))
+    result = preview(req, TENANT, now=NOW)
+    assert result["unmatched_evidence"] == 0
+    assert result["groups"][0]["evidence_missing_events"] == 0
+    assert result["evidence_join_complete"] is True
