@@ -150,3 +150,7 @@ Run `deploy/scripts/smoke-rootless.sh` only on a **dedicated disposable rootless
 The disposable rootless smoke now also refuses any existing containers (including stopped containers) in its selected `COMPOSE_PROJECT_NAME` before `docker compose up`. Use a dedicated project name and host; the check is not an atomic reservation against concurrent Compose invocations. Offline mock tests cover refusal to reuse an existing project.
 
 The disposable rootless smoke also checks whether loopback TCP ports `127.0.0.1:5173` (UI) and `127.0.0.1:8000` (API) can be bound before starting Compose. An occupied/unavailable port blocks startup. This is a best-effort preflight, **not** an atomic port reservation; concurrent processes can still claim a port after the check. Offline socket-mock tests run in deployment CI.
+
+### PostgreSQL rootless fail-fast gate
+
+Before any `compose up`, `smoke-rootless.sh` now checks the fully rendered Compose PostgreSQL `user` field. It **refuses the current official `postgres:16-alpine` root-configured startup** because the overlay does not explicitly configure a numeric non-root UID. This deliberately means the rootless smoke cannot currently pass; do not bypass the gate by treating PID 1's eventual non-root UID as proof of non-root container configuration. A future PostgreSQL image/entrypoint and bind ownership strategy must be proven on a dedicated rootless host. The check is static only and does not certify that a non-root image will initialize successfully.
