@@ -29,7 +29,6 @@ def preview(request: CorrelationEvidencePreview, tenant_id: str, *, now: datetim
         for item in evidence_result["items"]
     )
     corr["unmatched_evidence"] = unmatched
-    corr["evidence_join_complete"] = unmatched == 0
     for group in corr["groups"]:
         event_ids = {(e["source"], e["external_event_id"]) for e in group["source_events"]}
         linked = [e for e in evidence_result["items"]
@@ -46,6 +45,12 @@ def preview(request: CorrelationEvidencePreview, tenant_id: str, *, now: datetim
             or group["conflicting_source_events"] > 0
             or any(e["state"] == "UNKNOWN" for e in linked)
         ) else "UNVERIFIED"
+    # Complete means both directions are covered, not merely that every
+    # supplied evidence item found a matching source event.
+    corr["evidence_join_complete"] = (
+        unmatched == 0
+        and all(group["evidence_missing_events"] == 0 for group in corr["groups"])
+    )
     corr["evidence_duplicates"] = evidence_result["duplicates"]
     corr["schema_version"] = "aiops.gamma.correlation-evidence-preview.v1"
     corr["persisted"] = False
