@@ -93,3 +93,23 @@ def test_provenance_change_changes_fingerprint():
     first = normalize([evidence(provenance={"origin": "otel"})], now=NOW)
     second = normalize([evidence(provenance={"origin": "prom"})], now=NOW)
     assert first["items"][0]["provenance_sha256"] != second["items"][0]["provenance_sha256"]
+
+
+def test_duplicate_event_with_conflicting_provenance_fails_closed():
+    result = normalize([
+        evidence(provenance={"collector": "otel-a"}),
+        evidence(provenance={"collector": "otel-b"}),
+    ], now=NOW)
+    assert result["duplicates"] == 1
+    assert len(result["items"]) == 1
+    assert result["items"][0]["state"] == "UNKNOWN"
+    assert result["items"][0]["integrity"] == "UNVERIFIED"
+
+
+def test_duplicate_event_with_equivalent_provenance_stays_unverified():
+    result = normalize([
+        evidence(provenance={"collector": "otel", "trace": "abc"}),
+        evidence(provenance={"trace": "abc", "collector": "otel"}),
+    ], now=NOW)
+    assert result["duplicates"] == 1
+    assert result["items"][0]["state"] == "UNVERIFIED"
