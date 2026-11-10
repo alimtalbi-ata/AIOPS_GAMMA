@@ -30,6 +30,8 @@ jobs:
         run: python3 deploy/scripts/test-rootless-preflight.py -v
       - name: Test strict rootless audit with mocked Docker
         run: python3 deploy/scripts/test-rootless-audit.py -v
+      - name: Test disposable rootless smoke guards with mocked Docker
+        run: python3 deploy/scripts/test-rootless-smoke.py -v
       - name: Assert rootless bind mounts and non-root users
         env:
           POSTGRES_PASSWORD: ci-placeholder-not-a-secret
