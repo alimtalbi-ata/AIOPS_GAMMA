@@ -118,6 +118,7 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
     for group in groups:
         group.pop("_key")
         group.pop("_last")
+        group["evidence_refs"].sort()
         group["event_count"] = len(group["source_events"])
         group["conflicting_source_events"] = sum(
             (event["source"], event["external_event_id"]) in conflicting_identities
