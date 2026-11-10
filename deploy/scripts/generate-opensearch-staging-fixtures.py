@@ -12,7 +12,10 @@ from uuid import UUID
 
 
 def canonical_uuid(value):
-    parsed = UUID(value)
+    try:
+        parsed = UUID(value)
+    except (TypeError, ValueError, AttributeError) as exc:
+        raise argparse.ArgumentTypeError("Valid tenant UUID required") from exc
     if parsed.int == 0:
         raise argparse.ArgumentTypeError("Nil tenant UUID is forbidden")
     result = str(parsed)
@@ -63,11 +66,16 @@ def main():
     parser.add_argument("--index", required=True)
     parser.add_argument("--at", required=True, help="ISO-8601 timestamp inside test window")
     args = parser.parse_args()
-    at = datetime.fromisoformat(args.at)
-    for line in generate(
-        args.tenant_a, args.tenant_b, args.service_a, args.service_b,
-        args.marker, args.index, at,
-    ):
+    try:
+        at = datetime.fromisoformat(args.at)
+        # Materialize and validate the entire fixture before printing anything.
+        lines = list(generate(
+            args.tenant_a, args.tenant_b, args.service_a, args.service_b,
+            args.marker, args.index, at,
+        ))
+    except (ValueError, argparse.ArgumentTypeError) as exc:
+        parser.error(str(exc))
+    for line in lines:
         print(json.dumps(line, separators=(",", ":"), ensure_ascii=True))
 
 
