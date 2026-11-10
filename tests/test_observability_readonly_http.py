@@ -120,3 +120,23 @@ def test_logs_reject_invalid_tenant_before_backend(monkeypatch):
             },
         )
     assert response.status_code == 400
+
+
+def test_logs_backend_failure_is_sanitized_and_not_cached(monkeypatch):
+    monkeypatch.setattr(settings, "internal_api_key", KEY)
+    monkeypatch.setattr(settings, "enable_opensearch", True)
+
+    async def broken_backend(*args, **kwargs):
+        raise RuntimeError("secret-user:secret-password@internal-search:9200/private-index")
+
+    monkeypatch.setattr(main, "search_logs", broken_backend)
+    with TestClient(main.app) as client:
+        response = client.post(
+            "/api/v1/observability/logs/search",
+            json=body(), headers=headers(TENANT_A),
+        )
+    assert response.status_code == 502
+    assert response.headers["cache-control"] == "no-store"
+    assert response.json() == {"detail": "OpenSearch query failed"}
+    assert "secret-password" not in response.text
+    assert "private-index" not in response.text
