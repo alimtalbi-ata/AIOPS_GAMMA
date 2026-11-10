@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
@@ -25,7 +25,8 @@ class TimeWindow(BaseModel):
 class LogSearchRequest(BaseModel):
     service_name: str = Field(min_length=1, max_length=255, pattern=r"^[a-zA-Z0-9_.-]+$")
     window: TimeWindow
-    severity: list[str] = Field(default_factory=list, max_length=10)
+    severity: list[Annotated[str, Field(min_length=1, max_length=32, pattern=r"^[A-Za-z0-9_.-]+$")]] = Field(
+        default_factory=list, max_length=10\n    )
     limit: int = Field(default=100, ge=1, le=500)
 
 
