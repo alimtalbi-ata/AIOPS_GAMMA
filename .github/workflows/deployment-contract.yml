@@ -140,6 +140,39 @@ jobs:
         run: |
           docker compose -f docker-compose.yml -f deploy/compose/compose.yaml logs --no-color --tail=100 || true
           docker compose -f docker-compose.yml -f deploy/compose/compose.yaml down --volumes --remove-orphans || true
+  postgres-nonroot-experiment:
+    runs-on: ubuntu-latest
+    env:
+      POSTGRES_PASSWORD: ci-only-test-password
+      INTERNAL_API_KEY: ci-only-test-internal-key
+      COMPOSE_PROJECT_NAME: gamma-pg-nonroot-ci
+      GAMMA_HOME: ${{ github.workspace }}/gamma-experimental-home
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare disposable writable PostgreSQL bind
+        run: |
+          set -eu
+          mkdir -p "$GAMMA_HOME/data/postgres"
+          # Rootful CI only: broad permissions are temporary to test image
+          # initialization as UID 10001; this is NOT rootless compliance.
+          chmod 777 "$GAMMA_HOME/data/postgres"
+      - name: Initialize PostgreSQL as UID 10001 with no added capabilities
+        run: |
+          set -eu
+          docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml -f deploy/compose/compose.postgres-nonroot.experimental.yaml up -d --wait postgres
+          id=$(docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml -f deploy/compose/compose.postgres-nonroot.experimental.yaml ps -q postgres)
+          test "$(docker inspect --format '{{.Config.User}}' "$id")" = "10001:10001"
+          test "$(docker inspect --format '{{.HostConfig.Privileged}}' "$id")" = false
+          test "$(docker inspect --format '{{len .HostConfig.CapAdd}}' "$id")" = 0
+          test "$(docker exec "$id" sh -c "awk '/^Uid:/ {print \\$2}' /proc/1/status")" = 10001
+          docker exec "$id" pg_isready -U aiops -d aiops
+          docker exec "$id" psql -v ON_ERROR_STOP=1 -U aiops -d aiops -c 'CREATE TABLE gamma_nonroot_ci (id integer PRIMARY KEY); INSERT INTO gamma_nonroot_ci VALUES (1);'
+          echo "Rootful Docker non-root PostgreSQL initialization and write: OK"
+      - name: Collect experimental logs and remove disposable containers
+        if: always()
+        run: |
+          docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml -f deploy/compose/compose.postgres-nonroot.experimental.yaml logs --no-color --tail=100 postgres || true
+          docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml -f deploy/compose/compose.postgres-nonroot.experimental.yaml down --remove-orphans || true
   single-directory-runtime:
     runs-on: ubuntu-latest
     env:
