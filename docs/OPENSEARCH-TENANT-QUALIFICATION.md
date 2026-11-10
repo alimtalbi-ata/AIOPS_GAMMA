@@ -144,3 +144,18 @@ production. The fifth document is timestamped two days before the other four
 and should fall outside the example test window. The test window must contain
 the first four documents and exclude the fifth. The generator's output is
 covered by `tests/test_opensearch_staging_fixtures.py`.
+
+## Staging test interpretation
+
+The automated staging check requires **exactly one** document bearing
+`gamma_fixture_marker` for each tenant/service pair in the selected time
+window, with expected `ERROR` for the first service and `WARN` for the
+second. It also runs a mismatched severity search and checks that the
+generator's fifth, out-of-window fixture is absent.
+
+Use a fresh marker and a clean disposable index per run. If more than 500
+documents match a tenant/service query, the test may not see its fixture;
+that is an **inconclusive setup**, not evidence of isolation. Do not treat
+passing this application-filter test as proof of OpenSearch DLS, gateway
+authorization or index-role isolation. Those checks remain separate release
+gates.
