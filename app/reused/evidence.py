@@ -49,7 +49,17 @@ def normalize(items: list[EvidenceInput], *, now: datetime, max_age_seconds: int
     results = []
     duplicate_count = 0
     claims = {}
-    for item in items:
+    # Sort before deduplication so contradictory versions cannot make the
+    # displayed representative depend on collector arrival order.
+    def stable_order(item: EvidenceInput) -> tuple:
+        return (
+            item.tenant_id, item.incident_id, item.source, item.external_id,
+            json.dumps(item.payload, sort_keys=True, separators=(",", ":"), allow_nan=False),
+            json.dumps(item.provenance, sort_keys=True, separators=(",", ":"), allow_nan=False),
+            item.claim, observed_at_key(item.observed_at),
+        )
+
+    for item in sorted(items, key=stable_order):
         key = (item.tenant_id, item.incident_id, item.source, item.external_id)
         canonical = json.dumps(item.payload, sort_keys=True, separators=(",", ":"), allow_nan=False)
         digest = sha256(canonical.encode("utf-8")).hexdigest()
