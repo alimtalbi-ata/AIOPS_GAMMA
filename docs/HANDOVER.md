@@ -368,3 +368,8 @@
 - `d4bff1ea`: Python and deployment CI passed.
 - Added opt-in `deploy/compose/compose.postgres-nonroot.experimental.yaml` with PostgreSQL UID/GID 10001, PGDATA subdirectory and no capabilities, plus static Compose contract CI. Existing rootless overlay and runtime tests remain unchanged.
 - Important blocker: rootless Docker UID mapping can make user-owned 0700 bind data inaccessible to UID 10001. No rootless PostgreSQL runtime initialization or persistence has been demonstrated; new CI pending.
+
+### 2026-11-10 — experimental PostgreSQL Compose capability merge fix
+- `cfd466fd`: Python checks succeeded; deployment contract failed in the experimental PostgreSQL static job. Rendered `cap_add` incorrectly retained CHOWN/FOWNER/DAC_OVERRIDE/SETUID/SETGID because `cap_add: []` did not reset the earlier overlay.
+- Replaced with `cap_add: !reset []`; static CI continues asserting the rendered effective capability additions are empty. New CI pending.
+- No rootless runtime qualification or production deployment.
