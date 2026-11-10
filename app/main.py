@@ -178,8 +178,11 @@ from app.reused.correlation import CorrelationPreview, correlate
 
 @app.post("/api/v1/incidents/correlation/preview")
 async def correlation_preview(
-    req: CorrelationPreview, principal: Principal = Depends(internal_principal)
+    req: CorrelationPreview, response: Response,
+    principal: Principal = Depends(internal_principal),
 ):
+    # Incident signals must not be cached by browsers or shared proxies.
+    response.headers["Cache-Control"] = "no-store"
     return correlate(req.signals, str(principal.tenant_id), req.window_seconds)
 
 
