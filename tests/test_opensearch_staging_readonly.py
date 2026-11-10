@@ -75,6 +75,9 @@ async def test_real_opensearch_tenant_and_service_isolation():
             request = LogSearchRequest(service_name=service, window=window, limit=500)
             result = await search_logs(tenant, request)
             hits = result["hits"]["hits"]
+            assert len(hits) < request.limit, (
+                "Staging query saturated the result limit; fixture coverage is inconclusive"
+            )
             fixture_hits = [
                 hit for hit in hits
                 if hit.get("_source", {}).get("gamma_fixture_marker") == marker
@@ -105,9 +108,11 @@ async def test_real_opensearch_tenant_and_service_isolation():
             severity=["WARN"], limit=500,
         )
         result = await search_logs(tenant, request)
+        hits = result["hits"]["hits"]
+        assert len(hits) < request.limit, "Severity query saturated; result is inconclusive"
         assert not any(
             hit.get("_source", {}).get("gamma_fixture_marker") == marker
-            for hit in result["hits"]["hits"]
+            for hit in hits
         ), "Severity filter returned an ERROR fixture"
 
     # The fifth synthetic fixture is two days before the other four.
@@ -116,7 +121,9 @@ async def test_real_opensearch_tenant_and_service_isolation():
         for service in services:
             request = LogSearchRequest(service_name=service, window=window, limit=500)
             result = await search_logs(tenant, request)
+            hits = result["hits"]["hits"]
+            assert len(hits) < request.limit, "Time query saturated; result is inconclusive"
             assert all(
                 hit.get("_id") != f"{marker}-5"
-                for hit in result["hits"]["hits"]
+                for hit in hits
             ), "Out-of-window fixture leaked into results"
