@@ -159,3 +159,20 @@ def test_conflicting_duplicate_alert_is_order_independent():
     result = preview(req, TENANT, now=NOW)
     assert result["conflicting_source_events"] == 1
     assert result["groups"][0]["evidence_state"] == "UNKNOWN"
+
+
+def test_conflicting_alert_order_does_not_change_group_identity():
+    original = request()
+    first = original.correlation.signals[0]
+    alternate = first.model_copy(update={
+        "severity": "critical", "status": "resolved",
+        "service_name": "other-service",
+    })
+    original.correlation.signals = [first, alternate]
+    reversed_req = request()
+    reversed_req.correlation.signals = [alternate, first]
+    a = preview(original, TENANT, now=NOW)
+    b = preview(reversed_req, TENANT, now=NOW)
+    assert a == b
+    assert a["conflicting_source_events"] == 1
+    assert a["groups"][0]["evidence_state"] == "UNKNOWN"
