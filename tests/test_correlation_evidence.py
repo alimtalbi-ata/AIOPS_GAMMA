@@ -49,3 +49,19 @@ def test_stale_evidence_unknown():
     from datetime import timedelta
     result = preview(request(), TENANT, now=NOW + timedelta(hours=2))
     assert result["groups"][0]["evidence_state"] == "UNKNOWN"
+
+
+def test_no_evidence_remains_unknown():
+    req = request()
+    req.evidence = []
+    result = preview(req, TENANT, now=NOW)
+    assert result["groups"][0]["evidence_state"] == "UNKNOWN"
+    assert result["groups"][0]["evidence"] == []
+
+
+def test_conflicting_duplicate_event_unknown():
+    req = request()
+    req.evidence.append(req.evidence[0].model_copy(update={"payload": {"latency_ms": 100}}))
+    result = preview(req, TENANT, now=NOW)
+    assert result["groups"][0]["evidence_state"] == "UNKNOWN"
+    assert result["evidence_duplicates"] == 1
