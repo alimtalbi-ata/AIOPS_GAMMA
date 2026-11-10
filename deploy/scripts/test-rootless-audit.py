@@ -66,6 +66,24 @@ esac
         result = self.audit(config_user="")
         self.assertNotEqual(result.returncode, 0)
 
+    def test_numeric_root_with_group_rejected(self):
+        for user in ("0:1000", "00:1000", "000"):
+            with self.subTest(user=user):
+                result = self.audit(config_user=user)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("UNQUALIFIED CONFIG USER", result.stderr)
+
+    def test_nonroot_numeric_uid_with_group_passes(self):
+        for user in ("10001:10001", "08:08"):
+            with self.subTest(user=user):
+                result = self.audit(config_user=user)
+                self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_named_user_is_not_accepted_without_numeric_uid(self):
+        result = self.audit(config_user="postgres")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("UNQUALIFIED CONFIG USER", result.stderr)
+
     def test_root_process_rejected_even_if_config_nonroot(self):
         result = self.audit(runtime_uid="0")
         self.assertNotEqual(result.returncode, 0)
