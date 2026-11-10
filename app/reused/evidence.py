@@ -53,6 +53,8 @@ def normalize(items: list[EvidenceInput], *, now: datetime, max_age_seconds: int
         key = (item.tenant_id, item.incident_id, item.source, item.external_id)
         canonical = json.dumps(item.payload, sort_keys=True, separators=(",", ":"), allow_nan=False)
         digest = sha256(canonical.encode("utf-8")).hexdigest()
+        provenance_canonical = json.dumps(item.provenance, sort_keys=True, separators=(",", ":"), allow_nan=False)
+        provenance_digest = sha256(provenance_canonical.encode("utf-8")).hexdigest()
         if key in seen:
             duplicate_count += 1
             if seen[key] != (digest, item.claim, observed_at_key(item.observed_at)):
@@ -67,7 +69,8 @@ def normalize(items: list[EvidenceInput], *, now: datetime, max_age_seconds: int
             "tenant_id": item.tenant_id, "incident_id": item.incident_id,
             "source": item.source, "external_id": item.external_id,
             "claim": item.claim, "observed_at": observed.isoformat(),
-            "payload_sha256": digest, "freshness": "FRESH" if fresh else "UNKNOWN",
+            "payload_sha256": digest, "provenance_sha256": provenance_digest,
+            "freshness": "FRESH" if fresh else "UNKNOWN",
             "integrity": "UNVERIFIED", "state": state,
         })
         claims.setdefault((item.tenant_id, item.incident_id, item.claim), set()).add(digest)
