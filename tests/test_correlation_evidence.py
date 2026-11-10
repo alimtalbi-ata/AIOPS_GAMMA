@@ -374,3 +374,23 @@ def test_evidence_order_independence_across_incident_claims():
     result_b = preview(b, TENANT, now=NOW)
     assert result_a == result_b
     assert result_a["groups"][0]["evidence_state"] == "UNKNOWN"
+
+
+def test_three_evidence_versions_all_permutations_are_identical():
+    from itertools import permutations
+    req = request()
+    base = req.evidence[0]
+    variants = [
+        base,
+        base.model_copy(update={"payload": {"latency_ms": 100}}),
+        base.model_copy(update={"provenance": {"collector": "other"}}),
+    ]
+    outputs = []
+    for ordered in permutations(variants):
+        candidate = request()
+        candidate.evidence = list(ordered)
+        outputs.append(preview(candidate, TENANT, now=NOW))
+    assert all(output == outputs[0] for output in outputs)
+    assert outputs[0]["evidence_duplicates"] == 2
+    assert outputs[0]["evidence_join_consistent"] is False
+    assert outputs[0]["groups"][0]["evidence_state"] == "UNKNOWN"
