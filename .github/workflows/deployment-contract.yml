@@ -20,6 +20,23 @@ jobs:
         run: |
           mkdir -p "$GAMMA_HOME/data/postgres" "$GAMMA_HOME/data/opensearch"
           docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml config --quiet
+      - name: Validate experimental non-root PostgreSQL Compose override
+        env:
+          POSTGRES_PASSWORD: ci-placeholder-not-a-secret
+          INTERNAL_API_KEY: ci-placeholder-not-a-secret
+          GAMMA_HOME: /home/runner/gamma-home
+        run: |
+          docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml -f deploy/compose/compose.postgres-nonroot.experimental.yaml config --format json > /tmp/gamma-pg-experimental.json
+          python3 - <<'PY'
+          import json
+          with open("/tmp/gamma-pg-experimental.json", encoding="utf-8") as f:
+              pg = json.load(f)["services"]["postgres"]
+          assert pg["user"] == "10001:10001", pg
+          assert pg["environment"]["PGDATA"] == "/var/lib/postgresql/data/pgdata", pg
+          assert pg["cap_drop"] == ["ALL"], pg
+          assert not pg.get("cap_add"), pg
+          print("Experimental PostgreSQL non-root static configuration: OK")
+          PY
       - name: Check rootless preflight shell syntax
         run: |
           sh -n deploy/scripts/check-rootless-home.sh
