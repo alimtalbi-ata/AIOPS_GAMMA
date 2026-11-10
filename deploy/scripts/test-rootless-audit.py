@@ -27,6 +27,8 @@ case "$*" in
   *".Name"*) echo /mock-postgres ;;
   *".State.Running"*) echo "${MOCK_RUNNING:-true}" ;;
   *".HostConfig.Privileged"*) echo "${MOCK_PRIVILEGED:-false}" ;;
+  *".HostConfig.CapAdd"*) echo "${MOCK_CAP_ADD:-null}" ;;
+  *".HostConfig.CapDrop"*) echo "${MOCK_CAP_DROP:-[\\\"ALL\\\"]}" ;;
   *".Config.User"*) printf '%s\\n' "${MOCK_CONFIG_USER-999:999}" ;;
   *".Mounts"*) printf '%s\\n' "${MOCK_MOUNT-$GAMMA_HOME/data/postgres}" ;;
   "exec mock-postgres "*) printf 'Uid:\\t%s\\t%s\\t%s\\t%s\\n' "${MOCK_RUNTIME_UID:-999}" "${MOCK_RUNTIME_UID:-999}" "${MOCK_RUNTIME_UID:-999}" "${MOCK_RUNTIME_UID:-999}" | awk '/^Uid:/ {print $2}' ;;
