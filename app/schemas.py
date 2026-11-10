@@ -11,7 +11,13 @@ class TimeWindow(BaseModel):
 
     @model_validator(mode="after")
     def valid_window(self):
-        if not self.start.tzinfo or not self.end.tzinfo or self.end <= self.start:
+        if (
+            self.start.tzinfo is None
+            or self.end.tzinfo is None
+            or self.start.utcoffset() is None
+            or self.end.utcoffset() is None
+            or self.end <= self.start
+        ):
             raise ValueError("TimeWindow requires timezone-aware increasing timestamps")
         return self
 
