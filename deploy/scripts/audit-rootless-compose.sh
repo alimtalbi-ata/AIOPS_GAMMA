@@ -20,6 +20,15 @@ for id in $ids; do
   # Docker accepts UID, UID:GID and user-name forms. A numeric UID 0
   # remains root even with a nonzero GID (0:1000, 00:1000, etc.).
   configured_uid=${user%%:*}
+  case "$user" in
+    *:*:*) echo "UNQUALIFIED CONFIG USER: $name ($user) — multiple colons" >&2; failed=1 ;;
+    *:*)
+      configured_gid=${user#*:}
+      case "$configured_gid" in
+        ''|*[!0-9]*) echo "UNQUALIFIED CONFIG USER: $name ($user) — numeric GID required" >&2; failed=1 ;;
+      esac
+      ;;
+  esac
   case "$configured_uid" in
     ''|root|*[!0-9]*)
       # Non-numeric user names cannot be proven non-root from Config.User
@@ -47,8 +56,15 @@ for id in $ids; do
     }
     case "$runtime_uid" in
       ''|*[!0-9]*) echo "INVALID RUNTIME UID: $name ($runtime_uid)" >&2; failed=1 ;;
-      0) echo "ROOT RUNTIME UID: $name" >&2; failed=1 ;;
-      *) echo "Runtime PID 1 UID: $name ($runtime_uid)" ;;
+      *)
+        runtime_nonzero=$(printf '%s' "$runtime_uid" | tr -d 0)
+        if [ -z "$runtime_nonzero" ]; then
+          echo "ROOT RUNTIME UID: $name ($runtime_uid)" >&2
+          failed=1
+        else
+          echo "Runtime PID 1 UID: $name ($runtime_uid)"
+        fi
+        ;;
     esac
   fi
   mounts=$(docker inspect --format '{{range .Mounts}}{{if eq .Type "bind"}}{{.Source}}{{println}}{{else}}NAMED_VOLUME{{println}}{{end}}{{end}}' "$id")
