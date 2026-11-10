@@ -7,7 +7,10 @@ from app.settings import settings
 def make_log_query(tenant_id: str, req: LogSearchRequest) -> dict:
     # Defense in depth: never construct an unscoped or malformed tenant query.
     try:
-        canonical_tenant = str(UUID(tenant_id))
+        parsed_tenant = UUID(tenant_id)
+        if parsed_tenant.int == 0:
+            raise ValueError("Nil tenant UUID is not a tenant identity")
+        canonical_tenant = str(parsed_tenant)
     except (TypeError, ValueError, AttributeError) as exc:
         raise ValueError("Valid tenant UUID required for OpenSearch query") from exc
     if tenant_id != canonical_tenant:
