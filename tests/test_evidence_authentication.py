@@ -95,3 +95,68 @@ def test_valid_key_with_invalid_tenant_header_denied(monkeypatch):
                          "X-Internal-API-Key": "test-secret-not-production"},
             )
             assert result.status_code == 400, (path, result.text)
+
+
+def valid_correlation_evidence_body():
+    evidence = valid_evidence_body()["items"][0]
+    return {
+        "correlation": {"signals": [{
+            "source": evidence["source"],
+            "external_event_id": evidence["external_id"],
+            "service_name": "checkout",
+            "environment": "prod",
+            "severity": "major",
+            "status": "firing",
+            "observed_at": evidence["observed_at"],
+            "symptom_key": "latency",
+        }]},
+        "evidence": [evidence],
+    }
+
+
+def test_http_correlation_evidence_complete_and_consistent(monkeypatch):
+    monkeypatch.setattr(settings, "internal_api_key", "test-secret-not-production")
+    with TestClient(app) as client:
+        response = client.post(
+            PATHS[1], json=valid_correlation_evidence_body(),
+            headers={"X-Tenant-ID": str(TENANT),
+                     "X-Internal-API-Key": "test-secret-not-production"},
+        )
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    result = response.json()
+    assert result["evidence_join_complete"] is True
+    assert result["evidence_join_consistent"] is True
+    assert result["groups"][0]["evidence_state"] == "UNVERIFIED"
+    assert result["persisted"] is False
+    assert result["live_remediation_authorized"] is False
+
+
+def test_http_correlation_evidence_missing_proof_not_complete(monkeypatch):
+    monkeypatch.setattr(settings, "internal_api_key", "test-secret-not-production")
+    body = valid_correlation_evidence_body()
+    body["evidence"] = []
+    with TestClient(app) as client:
+        response = client.post(
+            PATHS[1], json=body,
+            headers={"X-Tenant-ID": str(TENANT),
+                     "X-Internal-API-Key": "test-secret-not-production"},
+        )
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["evidence_join_complete"] is False
+    assert result["evidence_join_consistent"] is False
+    assert result["groups"][0]["evidence_state"] == "UNKNOWN"
+
+
+def test_http_correlation_evidence_cross_tenant_denied(monkeypatch):
+    monkeypatch.setattr(settings, "internal_api_key", "test-secret-not-production")
+    body = valid_correlation_evidence_body()
+    body["evidence"][0]["tenant_id"] = "22222222-2222-4222-8222-222222222222"
+    with TestClient(app) as client:
+        response = client.post(
+            PATHS[1], json=body,
+            headers={"X-Tenant-ID": str(TENANT),
+                     "X-Internal-API-Key": "test-secret-not-production"},
+        )
+    assert response.status_code == 403, response.text
