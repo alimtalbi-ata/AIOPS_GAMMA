@@ -220,3 +220,26 @@ def test_http_correlation_preview_requires_authentication(monkeypatch):
             headers={"X-Tenant-ID": str(TENANT)},
         )
     assert response.status_code == 401, response.text
+
+
+def test_http_correlation_group_ids_are_tenant_scoped(monkeypatch):
+    monkeypatch.setattr(settings, "internal_api_key", "test-secret-not-production")
+    body = valid_correlation_evidence_body()["correlation"]
+    tenant_b = "22222222-2222-4222-8222-222222222222"
+    with TestClient(app) as client:
+        first = client.post(
+            "/api/v1/incidents/correlation/preview", json=body,
+            headers={"X-Tenant-ID": str(TENANT),
+                     "X-Internal-API-Key": "test-secret-not-production"},
+        )
+        second = client.post(
+            "/api/v1/incidents/correlation/preview", json=body,
+            headers={"X-Tenant-ID": tenant_b,
+                     "X-Internal-API-Key": "test-secret-not-production"},
+        )
+    assert first.status_code == second.status_code == 200
+    assert first.json()["groups"][0]["group_id"] != second.json()["groups"][0]["group_id"]
+    assert first.headers["cache-control"] == "no-store"
+    assert second.headers["cache-control"] == "no-store"
+    assert first.json()["live_remediation_authorized"] is False
+    assert second.json()["live_remediation_authorized"] is False
