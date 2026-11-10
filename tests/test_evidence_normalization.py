@@ -57,3 +57,8 @@ def test_bounds_and_naive_now_rejected():
         normalize([evidence()], now=NOW, max_age_seconds=0)
     with pytest.raises(ValueError):
         normalize([evidence()], now=NOW.replace(tzinfo=None))
+
+
+def test_duplicate_event_with_changed_payload_is_not_silently_accepted():
+    result = normalize([evidence(), evidence(payload={"value": 0})], now=NOW)
+    assert all(row["state"] == "UNKNOWN" for row in result["items"])
