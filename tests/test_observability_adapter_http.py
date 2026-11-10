@@ -110,3 +110,28 @@ def test_http_to_adapter_backend_error_is_sanitized(monkeypatch):
     assert response.headers["cache-control"] == "no-store"
     assert "private-index" not in response.text
     assert state["closed"] is True
+
+
+def test_unauthorized_http_never_constructs_opensearch_client(monkeypatch):
+    monkeypatch.setattr(settings, "internal_api_key", KEY)
+    monkeypatch.setattr(settings, "enable_opensearch", True)
+
+    class ForbiddenClient:
+        def __init__(self, **kwargs):
+            raise AssertionError("Unauthorized caller reached OpenSearch")
+
+    module = ModuleType("opensearchpy")
+    module.AsyncOpenSearch = ForbiddenClient
+    monkeypatch.setitem(sys.modules, "opensearchpy", module)
+
+    with TestClient(main.app) as client:
+        for headers, expected in (
+            ({"X-Tenant-ID": str(TENANTS[0])}, 401),
+            ({"X-Internal-API-Key": "wrong", "X-Tenant-ID": str(TENANTS[0])}, 401),
+            ({"X-Internal-API-Key": KEY, "X-Tenant-ID": "invalid"}, 400),
+        ):
+            response = client.post(
+                "/api/v1/observability/logs/search",
+                json=payload("checkout"), headers=headers,
+            )
+            assert response.status_code == expected, response.text
