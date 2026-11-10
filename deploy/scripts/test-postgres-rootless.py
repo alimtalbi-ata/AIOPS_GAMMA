@@ -30,7 +30,13 @@ class PostgresRootlessPreflightTests(unittest.TestCase):
 
     def test_inherited_capability_additions_refused(self):
         pg = {"user": "10001:10001", "cap_drop": ["ALL"], "cap_add": ["CHOWN", "SETUID"]}
-        self.assertIn("capabilities", module.check({"postgres": pg}))
+        self.assertIn("cap_add", module.check({"postgres": pg}))
+
+    def test_malformed_cap_add_refused(self):
+        for value in (None, False, "", {}, "CHOWN", ["CHOWN"]):
+            with self.subTest(value=value):
+                pg = {"user": "10001:10001", "cap_drop": ["ALL"], "cap_add": value}
+                self.assertIn("cap_add", module.check({"postgres": pg}))
 
     def test_missing_drop_all_refused(self):
         for value in (None, [], ["NET_RAW"]):
