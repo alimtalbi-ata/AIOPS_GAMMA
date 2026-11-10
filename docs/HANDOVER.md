@@ -339,3 +339,8 @@
 - `d1b98b46`: Python, Compose, Helm, UI, and API/PostgreSQL jobs passed; single-directory-runtime was still running when checked.
 - Audit now rejects malformed configured numeric GIDs (empty, named, multiple colons) and zero-padded runtime UID 000, with offline regression tests.
 - New CI pending; genuine rootless Docker engine and PostgreSQL qualification remain outstanding.
+
+### 2026-11-10 — fail-closed disposable rootless smoke
+- Added explicit `GAMMA_ROOTLESS_SMOKE_DISPOSABLE=YES` opt-in and refuse nonempty `GAMMA_HOME/data/postgres` before Docker Compose startup.
+- New directories are created with restrictive umask; no permission changes to existing directories, no data deletion or cleanup.
+- CI for the new change is pending. This is not a rootless runtime qualification.
