@@ -22,7 +22,18 @@ for dir in "$GAMMA_HOME/data/postgres" "$GAMMA_HOME/data/opensearch"; do
   fi
 done
 export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-aiops-gamma-rootless-smoke}"
-echo "Using project $COMPOSE_PROJECT_NAME; cleanup is manual to preserve evidence."
+# A fresh local data directory does not imply a fresh Compose project.
+# Fail before any 'up' if this project already has containers (running or
+# stopped). Never replace another project's containers during qualification.
+existing=$(docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml ps --all -q) || {
+  echo "Unable to inspect existing Compose project; refusing smoke" >&2
+  exit 2
+}
+[ -z "$existing" ] || {
+  echo "Refusing rootless smoke: Compose project $COMPOSE_PROJECT_NAME already has containers" >&2
+  exit 2
+}
+echo "Using fresh project $COMPOSE_PROJECT_NAME; cleanup is manual to preserve evidence."
 # Never enable optional relay or insecure observability demo for the baseline smoke.
 docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml config --quiet
 docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml up -d --build --wait frontend api postgres
