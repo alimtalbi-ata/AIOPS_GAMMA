@@ -24,20 +24,24 @@ class DisposableSmokeTests(unittest.TestCase):
             "case \"$*\" in\n"
             "  *SecurityOptions*) echo '[\"name=rootless\"]' ;;\n"
             "  *DockerRootDir*) echo \"$GAMMA_HOME/docker-data\" ;;\n"
-            "  compose*) touch \"$MOCK_COMPOSE_MARKER\"; exit 77 ;;\n"
+            "  compose*) case \"$*\" in\n"
+            "    *\"ps --all -q\"*) printf '%s' \"$MOCK_EXISTING_CONTAINERS\"; exit 0 ;;\n"
+            "    *) touch \"$MOCK_COMPOSE_MARKER\"; exit 77 ;;\n"
+            "  esac ;;\n"
             "  *) exit 9 ;;\n"
             "esac\n",
             encoding="utf-8",
         )
         docker.chmod(0o755)
 
-    def run_smoke(self, opt_in=None):
+    def run_smoke(self, opt_in=None, existing=""):
         env = dict(
             os.environ,
             GAMMA_HOME=str(self.home),
             POSTGRES_PASSWORD="ci-only",
             INTERNAL_API_KEY="ci-only",
             MOCK_COMPOSE_MARKER=str(self.marker),
+            MOCK_EXISTING_CONTAINERS=existing,
             PATH=str(self.fakebin) + os.pathsep + os.environ["PATH"],
         )
         env.pop("GAMMA_ROOTLESS_SMOKE_DISPOSABLE", None)
@@ -68,6 +72,12 @@ class DisposableSmokeTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2, result.stderr)
         self.assertIn("not empty", result.stderr)
         self.assertEqual(sentinel.read_text(encoding="utf-8"), "preserve")
+        self.assertFalse(self.marker.exists())
+
+    def test_existing_compose_project_is_not_reused(self):
+        result = self.run_smoke("YES", existing="existing-container")
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertIn("already has containers", result.stderr)
         self.assertFalse(self.marker.exists())
 
     def test_empty_disposable_home_reaches_compose(self):
