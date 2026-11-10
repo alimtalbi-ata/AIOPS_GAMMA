@@ -160,3 +160,35 @@ def test_http_correlation_evidence_cross_tenant_denied(monkeypatch):
                      "X-Internal-API-Key": "test-secret-not-production"},
         )
     assert response.status_code == 403, response.text
+
+
+def test_http_correlation_evidence_rejects_missing_auth(monkeypatch):
+    monkeypatch.setattr(settings, "internal_api_key", "test-secret-not-production")
+    with TestClient(app) as client:
+        response = client.post(
+            PATHS[1], json=valid_correlation_evidence_body(),
+            headers={"X-Tenant-ID": str(TENANT)},
+        )
+    assert response.status_code == 401, response.text
+
+
+def test_http_correlation_evidence_rejects_invalid_tenant_header(monkeypatch):
+    monkeypatch.setattr(settings, "internal_api_key", "test-secret-not-production")
+    with TestClient(app) as client:
+        response = client.post(
+            PATHS[1], json=valid_correlation_evidence_body(),
+            headers={"X-Tenant-ID": "invalid-tenant",
+                     "X-Internal-API-Key": "test-secret-not-production"},
+        )
+    assert response.status_code == 400, response.text
+
+
+def test_http_correlation_evidence_rejects_missing_server_key_configuration(monkeypatch):
+    monkeypatch.setattr(settings, "internal_api_key", "")
+    with TestClient(app) as client:
+        response = client.post(
+            PATHS[1], json=valid_correlation_evidence_body(),
+            headers={"X-Tenant-ID": str(TENANT),
+                     "X-Internal-API-Key": "test-secret-not-production"},
+        )
+    assert response.status_code == 503, response.text
