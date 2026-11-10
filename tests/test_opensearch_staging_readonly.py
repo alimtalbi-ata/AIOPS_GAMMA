@@ -5,6 +5,7 @@ restricted service account. Never creates/deletes indices or documents.
 Run with GAMMA_OPENSEARCH_STAGING_TEST=1 and the variables below.
 """
 import os
+import re
 from datetime import datetime, timedelta
 from uuid import UUID
 
@@ -33,17 +34,29 @@ async def test_real_opensearch_tenant_and_service_isolation():
     if missing:
         pytest.fail("Missing staging configuration: " + ", ".join(missing))
 
-    tenants = [str(UUID(os.environ[key])) for key in required[:2]]
+    tenants = []
+    for key in required[:2]:
+        raw = os.environ[key]
+        parsed = UUID(raw)
+        assert parsed.int != 0 and raw == str(parsed), (
+            f"{key} must be a non-nil canonical UUID"
+        )
+        tenants.append(raw)
     assert tenants[0] != tenants[1], "Two distinct tenants are required"
     services = [os.environ[key] for key in required[2:4]]
     assert services[0] != services[1], "Two distinct services are required"
+    assert all(re.fullmatch(r"[A-Za-z0-9_.-]{1,255}", service) for service in services), (
+        "Staging service names must match the fixture generator"
+    )
 
     window = TimeWindow(
         start=datetime.fromisoformat(os.environ["GAMMA_STAGING_WINDOW_START"]),
         end=datetime.fromisoformat(os.environ["GAMMA_STAGING_WINDOW_END"]),
     )
     marker = os.environ["GAMMA_STAGING_FIXTURE_MARKER"]
-    assert len(marker) >= 8, "Use a unique fixture marker"
+    assert re.fullmatch(r"[A-Za-z0-9-]{8,128}", marker), (
+        "Use the same safe fixture marker format as the generator"
+    )
     assert window.end - window.start < timedelta(days=2), (
         "Window must be shorter than the fixture outside-window offset"
     )
@@ -52,7 +65,9 @@ async def test_real_opensearch_tenant_and_service_isolation():
     assert settings.opensearch_verify_certs, "Staging must verify TLS certificates"
     assert settings.opensearch_username, "Use a restricted authenticated service account"
     assert settings.opensearch_password, "Staging service account password required"
-    assert settings.opensearch_logs_index.startswith("staging-"), "Staging-only index pattern required"
+    assert re.fullmatch(r"staging-[a-z0-9][a-z0-9._-]{0,127}", settings.opensearch_logs_index), (
+        "Use one explicit staging index; no wildcard, alias list or cross-index expression"
+    )
 
     for tenant_index, tenant in enumerate(tenants):
         for service_index, service in enumerate(services):
