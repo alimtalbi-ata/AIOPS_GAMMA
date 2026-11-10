@@ -150,8 +150,10 @@ covered by `tests/test_opensearch_staging_fixtures.py`.
 The automated staging check requires **exactly one** document bearing
 `gamma_fixture_marker` for each tenant/service pair in the selected time
 window, with expected `ERROR` for the first service and `WARN` for the
-second. It also runs a mismatched severity search and checks that the
-generator's fifth, out-of-window fixture is absent.
+second. It also runs a mismatched severity search, checks that the
+generator's fifth, out-of-window fixture is absent from the normal window,
+and uses a separate narrow read-only query to **confirm that fixture exists**
+at its expected timestamp. A missing positive control fails qualification.
 
 Use a fresh marker and a clean disposable index per run. If a tenant/service, severity or time query returns **500 hits**, the test
 fails as **inconclusive**: the configured result cap may hide relevant
