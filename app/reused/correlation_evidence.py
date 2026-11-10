@@ -33,6 +33,7 @@ def preview(request: CorrelationEvidencePreview, tenant_id: str, *, now: datetim
         incident_ids = {e["incident_id"] for e in linked}
         group["evidence_state"] = "UNKNOWN" if (
             len(covered_events) != len(event_ids) or len(incident_ids) > 1
+            or group["conflicting_source_events"] > 0
             or any(e["state"] == "UNKNOWN" for e in linked)
         ) else "UNVERIFIED"
     corr["evidence_duplicates"] = evidence_result["duplicates"]
