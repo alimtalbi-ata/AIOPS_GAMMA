@@ -164,7 +164,7 @@ jobs:
           test "$(docker inspect --format '{{.Config.User}}' "$id")" = "10001:10001"
           test "$(docker inspect --format '{{.HostConfig.Privileged}}' "$id")" = false
           test "$(docker inspect --format '{{len .HostConfig.CapAdd}}' "$id")" = 0
-          test "$(docker exec "$id" sh -c "awk '/^Uid:/ {print \\$2}' /proc/1/status")" = 10001
+          test "$(docker exec "$id" sh -c "awk '/^Uid:/ {print \$2}' /proc/1/status")" = 10001
           docker exec "$id" pg_isready -U aiops -d aiops
           docker exec "$id" psql -v ON_ERROR_STOP=1 -U aiops -d aiops -c 'CREATE TABLE gamma_nonroot_ci (id integer PRIMARY KEY); INSERT INTO gamma_nonroot_ci VALUES (1);'
           echo "Rootful Docker non-root PostgreSQL initialization and write: OK"
