@@ -10,18 +10,17 @@ services:
   frontend:
     cap_drop: [ALL]
   postgres:
-    user: "10001:10001"
-    environment:
-      PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - type: bind
         source: ${GAMMA_HOME:?set absolute GAMMA_HOME}/data/postgres
         target: /var/lib/postgresql/data
-    # Non-root entrypoint path: avoid the upstream root-only chown and
-    # su-exec branch. PGDATA is a child of the owned bind directory so
-    # initdb can create it under the configured numeric UID.
-    # Actual initialization and bind ownership still require runtime proof.
+    # Upstream postgres entrypoint initializes ownership and permissions before
+    # dropping privileges to its postgres account. SETUID/SETGID are needed
+    # for the upstream gosu/su-exec user transition. CAP_DROP ALL alone prevents
+    # chown/chmod on fresh bind mounts. These caps apply only inside the
+    # container user namespace when the daemon is genuinely rootless.
     cap_drop: [ALL]
+    cap_add: [CHOWN, FOWNER, DAC_OVERRIDE, SETUID, SETGID]
   opensearch:
     volumes:
       - type: bind
