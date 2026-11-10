@@ -23,6 +23,13 @@ class EvidenceInput(BaseModel):
     def aware_timestamp(self):
         if self.observed_at.tzinfo is None:
             raise ValueError("observed_at requires timezone")
+        for name, limit in (("payload", 65536), ("provenance", 8192)):
+            try:
+                encoded = json.dumps(getattr(self, name), allow_nan=False, separators=(",", ":"))
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"{name} must be finite JSON") from exc
+            if len(encoded.encode("utf-8")) > limit:
+                raise ValueError(f"{name} exceeds {limit} bytes")
         return self
 
 
