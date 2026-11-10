@@ -51,6 +51,11 @@ def preview(request: CorrelationEvidencePreview, tenant_id: str, *, now: datetim
         unmatched == 0
         and all(group["evidence_missing_events"] == 0 for group in corr["groups"])
     )
+    # Coverage alone does not establish consistency or provenance authenticity.
+    corr["evidence_join_consistent"] = (
+        corr["evidence_join_complete"]
+        and all(group["evidence_state"] != "UNKNOWN" for group in corr["groups"])
+    )
     corr["evidence_duplicates"] = evidence_result["duplicates"]
     corr["schema_version"] = "aiops.gamma.correlation-evidence-preview.v1"
     corr["persisted"] = False
