@@ -100,3 +100,23 @@ def test_logs_reject_oversized_time_window_before_backend(monkeypatch):
         response = client.post("/api/v1/observability/logs/search",
                                json=payload, headers=headers(TENANT_A))
     assert response.status_code == 422
+
+
+def test_logs_reject_invalid_tenant_before_backend(monkeypatch):
+    monkeypatch.setattr(settings, "internal_api_key", KEY)
+    monkeypatch.setattr(settings, "enable_opensearch", True)
+
+    async def unexpected_backend(*args, **kwargs):
+        raise AssertionError("Invalid tenant reached backend")
+
+    monkeypatch.setattr(main, "search_logs", unexpected_backend)
+    with TestClient(main.app) as client:
+        response = client.post(
+            "/api/v1/observability/logs/search",
+            json=body(),
+            headers={
+                "X-Internal-API-Key": KEY,
+                "X-Tenant-ID": "not-a-uuid",
+            },
+        )
+    assert response.status_code == 400
