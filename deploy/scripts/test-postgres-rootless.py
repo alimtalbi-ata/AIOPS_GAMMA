@@ -26,7 +26,19 @@ class PostgresRootlessPreflightTests(unittest.TestCase):
     def test_numeric_nonroot_accepted_statically(self):
         for user in ("70", "10001:10001", "08:08"):
             with self.subTest(user=user):
-                self.assertIsNone(module.check({"postgres": {"user": user}}))
+                self.assertIsNone(module.check({"postgres": {"user": user, "cap_drop": ["ALL"], "cap_add": []}}))
+
+    def test_inherited_capability_additions_refused(self):
+        pg = {"user": "10001:10001", "cap_drop": ["ALL"], "cap_add": ["CHOWN", "SETUID"]}
+        self.assertIn("capabilities", module.check({"postgres": pg}))
+
+    def test_missing_drop_all_refused(self):
+        for value in (None, [], ["NET_RAW"]):
+            with self.subTest(value=value):
+                pg = {"user": "10001:10001", "cap_add": []}
+                if value is not None:
+                    pg["cap_drop"] = value
+                self.assertIn("drop ALL", module.check({"postgres": pg}))
 
     def test_missing_service_refused(self):
         self.assertIsNotNone(module.check({}))
