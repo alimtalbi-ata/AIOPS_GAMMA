@@ -28,7 +28,10 @@ for id in $ids; do
       failed=1
       ;;
     *)
-      if [ "$((configured_uid))" -eq 0 ]; then
+      # Strip zero digits without shell arithmetic (which may treat 08 as
+      # invalid octal on some POSIX shells).
+      nonzero_digits=$(printf '%s' "$configured_uid" | tr -d 0)
+      if [ -z "$nonzero_digits" ]; then
         echo "UNQUALIFIED CONFIG USER: $name ($user) — root UID" >&2
         failed=1
       fi
