@@ -342,3 +342,35 @@ def test_same_ci_identifier_groups_alerts_from_different_service_labels():
     result = correlate([a, b], TENANT)
     assert len(result["groups"]) == 1
     assert result["groups"][0]["event_count"] == 2
+
+
+def test_conflicting_evidence_is_order_independent():
+    base = request()
+    original = base.evidence[0]
+    conflicting = original.model_copy(update={
+        "payload": {"latency_ms": 100}, "provenance": {"collector": "other"},
+    })
+    a = request()
+    a.evidence = [original, conflicting]
+    b = request()
+    b.evidence = [conflicting, original]
+    first = preview(a, TENANT, now=NOW)
+    second = preview(b, TENANT, now=NOW)
+    assert first == second
+    assert first["evidence_duplicates"] == 1
+    assert first["evidence_join_consistent"] is False
+    assert first["groups"][0]["evidence_state"] == "UNKNOWN"
+
+
+def test_evidence_order_independence_across_incident_claims():
+    base = request()
+    first = base.evidence[0]
+    second = first.model_copy(update={"incident_id": "inc-2"})
+    a = request()
+    a.evidence = [first, second]
+    b = request()
+    b.evidence = [second, first]
+    result_a = preview(a, TENANT, now=NOW)
+    result_b = preview(b, TENANT, now=NOW)
+    assert result_a == result_b
+    assert result_a["groups"][0]["evidence_state"] == "UNKNOWN"
