@@ -7,4 +7,5 @@ services:
     environment:
       PGDATA: /var/lib/postgresql/data/pgdata
     cap_drop: [ALL]
-    cap_add: []
+    # Compose !reset clears the inherited capability additions from rootless overlay.
+    cap_add: !reset []
