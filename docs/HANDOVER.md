@@ -363,3 +363,8 @@
 - `3b9f4511`: Python and deployment CI both succeeded.
 - Rootless smoke now validates PostgreSQL's rendered configured numeric non-root UID **before** any `compose up`. The current official PostgreSQL Compose overlay is intentionally rejected, preventing an unqualified root-configured container from initializing data.
 - Offline unit tests and mocked smoke startup use a qualified test-only PostgreSQL user; wired into deployment CI. New CI pending; real rootless PostgreSQL compatibility remains unproven.
+
+### 2026-11-10 — isolated PostgreSQL non-root experiment
+- `d4bff1ea`: Python and deployment CI passed.
+- Added opt-in `deploy/compose/compose.postgres-nonroot.experimental.yaml` with PostgreSQL UID/GID 10001, PGDATA subdirectory and no capabilities, plus static Compose contract CI. Existing rootless overlay and runtime tests remain unchanged.
+- Important blocker: rootless Docker UID mapping can make user-owned 0700 bind data inaccessible to UID 10001. No rootless PostgreSQL runtime initialization or persistence has been demonstrated; new CI pending.
