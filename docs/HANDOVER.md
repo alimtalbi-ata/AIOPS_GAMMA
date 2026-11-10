@@ -348,3 +348,8 @@
 ### 2026-11-10 — offline disposable smoke guard regression tests
 - Added `deploy/scripts/test-rootless-smoke.py` and wired it into deployment CI. Mock Docker tests verify absent/wrong disposable opt-in blocks Compose, existing hidden PostgreSQL data is preserved and blocks Compose, and a fresh opted-in directory reaches Compose (mock exits intentionally).
 - `a56a062b` CI was in progress when checked. New CI for these tests is pending; no rootless daemon qualification has been performed.
+
+### 2026-11-10 — rootless smoke Compose project collision guard
+- `8a9e561b`: Python and deployment CI passed, including disposable smoke mock tests.
+- Rootless smoke now rejects any pre-existing Compose project containers before startup, and a new offline mock test covers the refusal.
+- CI for this change pending. Existing project inspection is non-atomic; dedicated isolated host remains required.
