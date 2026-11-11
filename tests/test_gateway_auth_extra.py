@@ -44,3 +44,18 @@ def test_service_actor_with_valid_tenant_attestation(monkeypatch):
     principal=verify_gateway_assertion(token,method='POST',path='/api/v1/observability/metrics/query',now=1030)
     assert principal.actor_type=='service'
     assert principal.subject=='service:collector'
+
+@pytest.mark.parametrize('fragment', ['NaN', 'Infinity', '-Infinity'])
+def test_nonfinite_nested_signed_claim_rejected(monkeypatch, fragment):
+    token = signed(monkeypatch)
+    encoded, _ = token.split('.')
+    raw = base64.urlsafe_b64decode(encoded + '=' * (-len(encoded) % 4)).decode()
+    raw = raw[:-1] + ',"nested":{"value":' + fragment + '}}'
+    encoded = base64.urlsafe_b64encode(raw.encode()).rstrip(b'=').decode()
+    signature = base64.urlsafe_b64encode(
+        hmac.new(b's' * 48, encoded.encode(), hashlib.sha256).digest()
+    ).rstrip(b'=').decode()
+    with pytest.raises(HTTPException) as exc:
+        verify_gateway_assertion(encoded + '.' + signature, method='POST',
+                                 path='/api/v1/observability/metrics/query', now=1030)
+    assert exc.value.status_code == 401
