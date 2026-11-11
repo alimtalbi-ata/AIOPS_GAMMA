@@ -118,3 +118,7 @@ The HTTP auth boundary tests now include a small in-test FastAPI probe route usi
 ### HTTP fail-closed configuration and expiry cases (2026-11-11)
 
 Added HTTP regression cases for missing gateway verification secret (expected `503` with service key and otherwise valid signed assertion) and expired but correctly HMAC-signed assertion (expected `401`). A **separate isolated FastAPI harness**, not the repository's `app.main` or actual security module, executed 3/3 assertions for valid, expired, and missing-secret behavior. The new repository tests have **not** been executed and must not be represented as passing. Real PostgreSQL replay consumption and actor→tenant/resource ACL are still unverified; HOLD / NO_GO.
+
+### Signed assertion time-boundary regression cases (2026-11-11)
+
+`tests/test_gateway_assertion.py` now explicitly tests `iat` more than five seconds in the future, boolean `iat`/`exp` values, expiration at issuance, a lifetime of 61 seconds against the 60-second policy, and rejection exactly at `now == exp`. These six tests are committed but **not executed in the full repository environment**. They do not validate Gateway ACL, shared replay state, PostgreSQL or LIVE readiness. HOLD / NO_GO.
