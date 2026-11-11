@@ -73,3 +73,17 @@ The helper `consume_assertion_before_access` now performs `reserve_assertion_onc
 `migrations/versions/0002_gateway_replay.py` now follows `0001_initial` and creates `gateway_assertion_replay` with a 64-character SHA-256 digest primary key and indexed timezone-aware `expires_at`. `app/models.py` registers the same table in SQLAlchemy metadata.
 
 An isolated SQLite/Alembic DDL smoke test verified upgrade, duplicate primary-key rejection and downgrade (3/3). **This is not a PostgreSQL transaction/concurrency test** and does not prove that the migration was deployed. The replay helper remains unwired to HTTP authentication. Do not apply this migration to production without DBA review, PostgreSQL qualification and a tested rollback plan.
+
+
+### Opt-in real PostgreSQL concurrency qualification (not yet executed)
+
+The test module `tests/test_gateway_replay_postgres.py` now provides two integration checks using **independent async PostgreSQL sessions**: two concurrent reservations of the same issuer/JTI must yield exactly one success, and a later session must reject a committed replay. The tests require an **explicit disposable** `GAMMA_REPLAY_TEST_DATABASE_URL` using the `postgresql+asyncpg://` driver and a database where reviewed migration `0002_gateway_replay` has already been applied. With no URL, the tests skip rather than touching an existing database; they only delete their own randomly generated reservation rows. Do not run them against production or staging.
+
+Suggested isolated qualification command after provisioning a disposable PostgreSQL database and applying Alembic migrations:
+
+```bash
+GAMMA_REPLAY_TEST_DATABASE_URL='postgresql+asyncpg://test_user:...@localhost:5432/gamma_replay_test' \
+  python -m pytest -q tests/test_gateway_replay_postgres.py
+```
+
+**No PostgreSQL server was available in the current ChatGPT lab**; these tests are committed but have not passed against PostgreSQL. HTTP replay rejection and the real gateway actor→tenant ACL remain unverified. Keep the replay helper unwired and the release on HOLD.
