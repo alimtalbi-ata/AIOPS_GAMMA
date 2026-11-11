@@ -114,7 +114,7 @@ async def test_invalid_replay_inputs_do_not_touch_database(issuer, jti, expiry):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("issuer,jti", [
-    ("gateway\\x00alternate", "valid-jti"),
+    ("gateway" + chr(0) + "alternate", "valid-jti"),
     ("gateway", "short"),
     ("gateway", "        "),
     ("gateway", "jti-abc\\n123"),
