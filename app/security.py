@@ -6,6 +6,7 @@ The service API key is a separate service-to-service credential, not a tenant
 authorization decision. Network policy/mTLS must prevent gateway bypass.
 """
 import base64
+import binascii
 import hashlib
 import hmac
 import json
@@ -33,6 +34,8 @@ def _b64url_decode(value: str) -> bytes:
 
 
 def verify_gateway_assertion(token: str, *, method: str, path: str, now: int | None = None) -> Principal:
+    if not isinstance(token, str) or len(token) > 8192:
+        raise HTTPException(status_code=401, detail="Invalid gateway principal assertion")
     secret = settings.gateway_assertion_secret
     if not secret or len(secret.encode("utf-8")) < 32:
         raise HTTPException(status_code=503, detail="Gateway assertion verification not configured")
@@ -83,7 +86,7 @@ def verify_gateway_assertion(token: str, *, method: str, path: str, now: int | N
                          assertion_id=assertion_id)
     except HTTPException:
         raise
-    except (ValueError, TypeError, KeyError, UnicodeError, json.JSONDecodeError) as exc:
+    except (ValueError, TypeError, KeyError, UnicodeError, binascii.Error, json.JSONDecodeError) as exc:
         raise HTTPException(status_code=401, detail="Invalid gateway principal assertion") from exc
 
 
