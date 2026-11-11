@@ -1,46 +1,48 @@
-# Trusted actor→tenant principal — integration gate (draft, NOT implemented)
+# Trusted actor→tenant principal — implementation status and release gate
 
-Status: **BLOCKED / NO_GO**. This document specifies a contract to be agreed with the Core/Gateway owner; it does not grant authority, enable any reads, or claim an implementation.
+Status: **PARTIAL IMPLEMENTATION / NO_GO**. GAMMA now verifies a signed gateway assertion in addition to its internal service credential. This is not production authorization approval: the Core/Gateway owner must implement and approve the signing contract, tenant-membership decision, network boundary, key management and replay controls.
 
-## Current boundary
+## Implemented in GAMMA
 
-`app/security.py:internal_principal` verifies `X-Internal-API-Key` against one shared service secret and parses caller-supplied `X-Tenant-ID` into a canonical non-nil UUID. `Principal` contains only `tenant_id`. A caller holding the shared key can select another tenant UUID. A gateway trust assumption in a comment is not enforced actor authentication or tenant ACL. Do not expose these endpoints to untrusted callers or treat tenant-filtered SQL as proof of authorization.
+`app/security.py` now requires both:
+- `X-Internal-API-Key`: authenticates the calling workload only; it does not authorize a tenant.
+- `X-Gateway-Principal`: a compact `base64url(payload).base64url(HMAC-SHA256)` assertion signed with a separate secret.
 
-`app/reused/upstream.py` sends the selected tenant UUID in `X-Tenant-Id` and checks that the upstream JSON echoes `tenant_id`; an echo is **not** an authorization attestation. The provisional upstream paths (`/api/v1/incidents`, `/api/v1/evidence`, `/api/v1/topology`) do not match inspected Core/Evidence/Twin routes. Do not remap them to global routes without a new reviewed contract.
+The assertion is bound to the exact HTTP method and path and must contain:
+- `iss` / `aud`: configured issuer and audience;
+- `sub` and `actor_type` (`user` or `service`);
+- canonical non-nil `tenant_id` and `tenant_access: true`;
+- integer `iat` / `exp` with a lifetime no longer than configured maximum (default 60 seconds);
+- unique-looking `jti` assertion identifier;
+- `method` and `path` matching the actual request.
 
-## Required Core/Gateway-owned contract (design only)
+The caller-supplied `X-Tenant-ID`, `X-Actor-ID`, role and user headers are not used to construct the principal. Missing/invalid signing configuration fails closed. The assertion secret must be at least 32 UTF-8 bytes. The internal service credential remains separately required.
 
-1. **Authenticated actor:** gateway authenticates a human or explicitly scoped workload identity, verifies issuer, audience, signature, expiry, not-before and subject; a service API key alone cannot impersonate a human. A stable actor identifier, actor type and request correlation ID must be available to the authorization decision.
-2. **Trusted boundary:** only an authenticated, network-restricted gateway may assert verified principal data; it must strip any inbound user-supplied identity/tenant headers before adding its own. Direct service bypass must be denied. Specify signed assertion or server-side introspection and key rotation, replay protection, TTL and failure behavior; never trust unsigned browser headers.
-3. **Server-owned tenant membership:** authorization service derives permitted tenants and resource-level privileges from a server-owned ACL for the verified actor. The requested tenant is an untrusted *selection*, not proof of membership. Deny absent/revoked membership and unauthorized resource IDs **before** fetching or serializing data.
-4. **Bounded read response:** upstream endpoints must be versioned and document their actual paths, request/response schemas, provenance, tenant scoping and freshness. Responses must be validated against the authorization decision; matching an echoed tenant string is insufficient. No mutation or ITSM write in read adapters.
-5. **Failure mode:** absent/invalid/expired principal, unreachable authorization service, stale membership or missing tenant-scope attestation must fail closed; no fallback to `X-Tenant-ID`, a service key, global endpoints, or demo data represented as LIVE.
+Configuration:
+- `GATEWAY_ASSERTION_SECRET` (unset by default; configure only after secret provisioning approval)
+- `GATEWAY_ASSERTION_ISSUER` (default `gamma-gateway`)
+- `GATEWAY_ASSERTION_AUDIENCE` (default `aiops-gamma`)
+- `GATEWAY_ASSERTION_MAX_TTL_SECONDS` (default `60`)
 
-## Mandatory executable HTTP acceptance matrix (not yet passed)
+## Required gateway behavior — NOT implemented/verified here
 
-| Case | Expected result |
-|---|---|
-| No credential or invalid service credential | Deny; no upstream request |
-| Valid shared service key only + tenant A | Deny as a human principal; no upstream request |
-| Same service key with tenant A then tenant B, without verified membership | Deny both or deny unauthorized tenant; no cross-tenant records |
-| Forged principal, actor, role or tenant headers | Ignore/deny; no privilege escalation |
-| Expired/bad-signature/wrong-audience assertion | Deny; no upstream request |
-| Verified actor with tenant A membership requests tenant B | 403 or deliberately non-disclosing 404; no tenant B data |
-| Verified actor with tenant A membership requests tenant B resource ID | Deny without revealing resource contents or existence |
-| Membership revoked after a prior successful request | Deny on next authorization decision under agreed revocation policy |
-| Authorization backend unavailable or ambiguous | Deny; never fall back to service-key/header-only access |
-| Verified actor with permitted tenant and resource | Scoped read only; prove no mixed-tenant rows, bounded response and provenance |
-| Upstream malformed, stale, oversized, redirect or timeout | Safe bounded error; no raw secret or upstream URL exposure |
+1. Authenticate actor using the organization's approved identity provider and validate issuer, audience, signature, expiry and subject.
+2. Query the server-owned ACL and authorize the actor for the selected tenant and requested resource. Only then may the gateway set `tenant_access: true` and sign the assertion.
+3. Strip inbound identity, role and tenant headers. Never trust a browser-supplied assertion.
+4. Sign with a separate high-entropy secret (or migrate to asymmetric signing with `kid` and key rotation). The secret must not be the internal service API key.
+5. Restrict network ingress so callers cannot bypass the gateway. Use mTLS/service identity where available.
+6. Add shared replay protection for `jti` (e.g. short-lived distributed one-time-use store). GAMMA currently enforces short TTL and method/path binding but does **not** keep a distributed replay cache; the same valid assertion could be replayed on the same method/path until expiry.
+7. Define revocation semantics and ensure membership revocation is reflected before the next authorized request.
 
-Tests must execute through real HTTP dependencies (including gateway bypass attempts), not just call a pure Python helper. Verify gateway and upstream independently; preserve logs and exact commit SHA.
+## Mandatory validation still outstanding
 
-## Release gates
+- [ ] Gateway owner approves assertion schema and implements actor→tenant/resource ACL.
+- [ ] Gateway and GAMMA share provisioned/rotatable signing secret; key rotation and compromise response tested.
+- [ ] Replay cache, gateway bypass restrictions and mTLS/network policy verified.
+- [ ] Real HTTP tests through the complete application verify tenant A cannot access tenant B data or resource IDs.
+- [ ] Positive tests prove an authorized actor can read only the permitted tenant.
+- [ ] Revocation and authorization-backend outage tests fail closed.
+- [ ] Versioned Core/Evidence/Twin contracts and source-side ACL independently verified.
+- [ ] Full repository tests and deployment qualification reviewed.
 
-- [ ] Core/Gateway owner approves issuer/audience/subject, actor types, tenant membership, revocation and gateway assertion verification.
-- [ ] Versioned Core/Evidence/Twin endpoints and source-side tenant/resource ACL verified, with real response schemas.
-- [ ] Negative and positive HTTP tests above run and pass in a controlled environment; evidence attached.
-- [ ] Network ingress/egress restrictions and secrets rotation qualified; no direct service bypass.
-- [ ] GitHub Actions or independently accepted equivalent complete repository test evidence reviewed; GitHub Actions currently fails before steps.
-- [ ] Security reviewer explicitly authorizes a separate staging enablement decision.
-
-Until then retain `enable_canonical_reads=False`, `enable_opensearch=False`, `enable_glpi_reads=False`, draft PR #1 and **NO_GO** for merge, deployment and LIVE.
+Until every gate is closed, keep `enable_canonical_reads=False`, `enable_opensearch=False`, `enable_glpi_reads=False`, draft PRs and **NO_GO** for merge, deployment and LIVE.
