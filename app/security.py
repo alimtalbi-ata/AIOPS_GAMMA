@@ -66,7 +66,10 @@ def verify_gateway_assertion(token: str, *, method: str, path: str, now: int | N
         ).digest()
         if not hmac.compare_digest(supplied_signature, expected_signature):
             raise ValueError("signature mismatch")
-        claims = json.loads(_b64url_decode(encoded), object_pairs_hook=_unique_claims)
+        claims = json.loads(
+            _b64url_decode(encoded), object_pairs_hook=_unique_claims,
+            parse_constant=lambda value: (_ for _ in ()).throw(ValueError("nonfinite JSON constant")),
+        )
         if not isinstance(claims, dict):
             raise ValueError("claims must be an object")
         current = int(time.time()) if now is None else now
