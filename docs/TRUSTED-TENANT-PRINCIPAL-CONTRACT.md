@@ -66,3 +66,10 @@ The helper's fake-session tests cover duplicate detection, issuer separation and
 The helper `consume_assertion_before_access` now performs `reserve_assertion_once`, then **commits the reservation before returning success**. Duplicate reservations return false after rollback. Commit failure triggers rollback and propagates the error (no access grant). This must use a dedicated session, not a later handler transaction. Fake-session tests cover successful commit, duplicate denial and commit failure; these are not real PostgreSQL transaction/concurrency proofs.
 
 **Do not enable or wire this helper yet.** First deploy a reviewed migration for the unique replay table, verify behavior with actual PostgreSQL across API replicas and ensure the gateway ACL and network boundary are approved. All sensitive reads and LIVE remain HOLD.
+
+
+### Replay migration staged (2026-11-11)
+
+`migrations/versions/0002_gateway_replay.py` now follows `0001_initial` and creates `gateway_assertion_replay` with a 64-character SHA-256 digest primary key and indexed timezone-aware `expires_at`. `app/models.py` registers the same table in SQLAlchemy metadata.
+
+An isolated SQLite/Alembic DDL smoke test verified upgrade, duplicate primary-key rejection and downgrade (3/3). **This is not a PostgreSQL transaction/concurrency test** and does not prove that the migration was deployed. The replay helper remains unwired to HTTP authentication. Do not apply this migration to production without DBA review, PostgreSQL qualification and a tested rollback plan.
