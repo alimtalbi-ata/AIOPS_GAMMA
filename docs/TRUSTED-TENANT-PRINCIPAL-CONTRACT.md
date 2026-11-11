@@ -98,3 +98,7 @@ The lab has neither PostgreSQL server binaries nor `asyncpg`; therefore **the re
 ### Replay test target restriction (2026-11-11)
 
 The opt-in PostgreSQL concurrency harness now additionally rejects **remote hosts**, even when the database name ends in `_replay_test`. Only `localhost`, `127.0.0.1` or `::1` are accepted. A local port-forward to a production database is still unsafe; the operator must provision an actually disposable isolated instance and verify its identity. Five targeted SQLAlchemy URL-parser checks passed in the ChatGPT container (2 local accepted, 3 unsafe driver/database/remote host rejected). The real PostgreSQL tests are still unexecuted; the lab has no PostgreSQL server or asyncpg. This change does not enable the replay gate or LIVE reads.
+
+### Trusted assertion expiry propagation (2026-11-11)
+
+The verified `Principal` now retains the integer signed `exp` as `expires_at` (commit `be5f71f`). The assertion verification test checks that a valid signed expiry is preserved (`1060` in the deterministic fixture). This prepares an eventual call to `consume_assertion_before_access` without taking expiry from untrusted request headers. **No replay reservation is invoked in `internal_principal` yet**, and the current API must not be represented as replay-protected. The updated full application tests have not been executed in this change; PostgreSQL qualification and Gateway ACL remain outstanding.
