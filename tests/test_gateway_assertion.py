@@ -208,3 +208,20 @@ def test_control_characters_in_signed_subject_denied(monkeypatch, subject):
             path="/api/v1/observability/metrics/query", now=1030,
         )
     assert exc.value.status_code == 401
+
+
+@pytest.mark.parametrize("nonfinite", ["NaN", "Infinity", "-Infinity"])
+def test_nonfinite_json_constant_in_signed_claims_denied(monkeypatch, nonfinite):
+    # Even a valid HMAC must not make non-standard JSON constants acceptable.
+    token = _token(monkeypatch)
+    encoded, _ = token.split(".")
+    payload = base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)).decode()
+    payload = payload[:-1] + ',"untrusted_extra":' + nonfinite + '}'
+    encoded = _b64(payload.encode())
+    signature = hmac.new(b"s" * 48, encoded.encode("ascii"), hashlib.sha256).digest()
+    with pytest.raises(HTTPException) as exc:
+        verify_gateway_assertion(
+            encoded + "." + _b64(signature), method="POST",
+            path="/api/v1/observability/metrics/query", now=1030,
+        )
+    assert exc.value.status_code == 401
