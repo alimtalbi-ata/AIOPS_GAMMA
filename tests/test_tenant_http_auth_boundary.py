@@ -29,31 +29,25 @@ def test_http_invalid_tenant_denied(monkeypatch):
         response = client.post(PATH, headers={
             "X-Internal-API-Key": "lab-secret", "X-Tenant-ID": "not-a-uuid"
         })
-    assert response.status_code == 400
+    assert response.status_code == 401
 
 
 def test_http_service_key_without_tenant_denied(monkeypatch):
     monkeypatch.setattr(settings, "internal_api_key", "lab-secret")
     with TestClient(app) as client:
         response = client.post(PATH, headers={"X-Internal-API-Key": "lab-secret"})
-    assert response.status_code == 400
+    assert response.status_code == 401
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="P0.1/P0.2 missing: shared key + caller-selected tenant currently passes auth",
-)
-def test_http_shared_service_key_must_not_switch_tenant_without_actor_acl(monkeypatch):
-    """Desired policy, currently violated. XPASS after a fix demands review."""
+def test_http_shared_service_key_and_caller_selected_tenant_are_insufficient(monkeypatch):
+    """A service key and untrusted tenant header cannot establish tenant access."""
     monkeypatch.setattr(settings, "internal_api_key", "lab-secret")
     tenant_a, tenant_b = str(uuid4()), str(uuid4())
     with TestClient(app) as client:
         responses = [client.post(PATH, headers={
             "X-Internal-API-Key": "lab-secret", "X-Tenant-ID": tenant
         }) for tenant in (tenant_a, tenant_b)]
-    # 501 means the request passed the principal dependency and reached the
-    # unimplemented metrics handler. Neither tenant may pass on a key alone.
-    assert all(response.status_code in (401, 403) for response in responses)
+    assert all(response.status_code == 401 for response in responses)
 
 
 
@@ -73,15 +67,11 @@ def test_http_nil_tenant_denied(monkeypatch):
             "X-Internal-API-Key": "lab-secret",
             "X-Tenant-ID": "00000000-0000-0000-0000-000000000000",
         })
-    assert response.status_code == 400
+    assert response.status_code == 401
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="P0.1/P0.2 missing: forged actor/role headers are not verified principal claims",
-)
 def test_http_forged_actor_headers_must_not_grant_principal(monkeypatch):
-    """A forged human actor header must never turn a service key into tenant ACL."""
+    """Unsigned actor/role headers must never establish a verified principal."""
     monkeypatch.setattr(settings, "internal_api_key", "lab-secret")
     with TestClient(app) as client:
         response = client.post(PATH, headers={
@@ -91,4 +81,4 @@ def test_http_forged_actor_headers_must_not_grant_principal(monkeypatch):
             "X-Actor-Role": "superadmin",
             "X-Authenticated-User": "admin",
         })
-    assert response.status_code in (401, 403)
+    assert response.status_code == 401
