@@ -154,3 +154,7 @@ The opt-in PostgreSQL replay fixture now requires `GAMMA_REPLAY_TEST_ALLOW_WRITE
 ### Replay digest delimiter and JTI canonicalization (2026-11-11)
 
 The replay helper now rejects NUL (`\\x00`) in the issuer to avoid ambiguous `issuer + NUL + jti` digest inputs, and rejects JTI values unless they are 8–128 printable, non-whitespace ASCII characters, matching the signed assertion verifier. Six regression cases cover NUL issuer, short/blank/newline/Unicode/oversized JTI. **Executed:** a local isolated pytest harness using a manually materialized copy of the updated replay helper, with six negative cases and one positive case: **7 passed in 0.23s**. This is not a synchronized checkout or full repository test execution, and it does not prove PostgreSQL concurrency or HTTP enforcement. HOLD / NO_GO.
+
+### Replay consume rollback error paths — local test execution (2026-11-11)
+
+Added two contract tests asserting `consume_assertion_before_access` rolls back and does not commit when a replay key is invalid or a simulated SQL INSERT fails. **Executed** against the manually materialized replay helper and test file in the internal lab: `python -m pytest -q tests/test_gateway_replay_contract.py` → **21 passed in 0.24s**. This is fake-session unit evidence, not a PostgreSQL integration run or byte-for-byte synchronized repository checkout. Gateway ACL, HTTP replay wiring, CI and live Postgres qualification remain outstanding. HOLD / NO_GO.
