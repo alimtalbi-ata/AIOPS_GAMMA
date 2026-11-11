@@ -11,7 +11,9 @@ import time
 from uuid import uuid4
 
 import pytest
+from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
+from app.security import Principal, internal_principal
 
 from app.main import app
 from app.settings import settings
@@ -153,17 +155,23 @@ def test_http_signed_assertion_cannot_bypass_wrong_service_key(monkeypatch):
 
 
 def test_http_signed_tenant_cannot_be_overridden_by_unsigned_headers(monkeypatch):
-    """Unsigned identity headers cannot replace the tenant in a signed principal."""
+    """Probe the actual auth dependency, not just an endpoint's 501 status."""
     monkeypatch.setattr(settings, "internal_api_key", "lab-secret")
     tenant_a, tenant_b = str(uuid4()), str(uuid4())
-    token = _signed_http_assertion(monkeypatch, tenant_id=tenant_a)
-    with TestClient(app) as client:
-        response = client.post(PATH, headers={
+    probe = FastAPI()
+
+    @probe.post("/tenant-probe")
+    def tenant_probe(principal: Principal = Depends(internal_principal)):
+        return {"tenant_id": str(principal.tenant_id), "subject": principal.subject}
+
+    token = _signed_http_assertion(monkeypatch, tenant_id=tenant_a, path="/tenant-probe")
+    with TestClient(probe) as client:
+        response = client.post("/tenant-probe", headers={
             "X-Internal-API-Key": "lab-secret",
             "X-Gateway-Principal": token,
             "X-Tenant-ID": tenant_b,
             "X-Actor-ID": "forged-admin",
             "X-Actor-Role": "superadmin",
         })
-    # The endpoint is intentionally unimplemented and has no tenant data.
-    assert response.status_code == 501
+    assert response.status_code == 200
+    assert response.json() == {"tenant_id": tenant_a, "subject": "test-user"}
