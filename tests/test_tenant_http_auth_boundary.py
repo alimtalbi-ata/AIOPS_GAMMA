@@ -208,3 +208,23 @@ def test_http_signed_assertion_with_expired_timestamp_denied(monkeypatch):
             "X-Gateway-Principal": expired_payload + "." + signature,
         })
     assert response.status_code == 401
+
+
+@pytest.mark.parametrize("method,path", [
+    ("GET", "/api/v1/topology/bindings"),
+    ("GET", "/api/v1/incidents/demo/evidence"),
+    ("POST", "/api/v1/observability/metrics/query"),
+])
+def test_tenant_api_auth_failures_are_never_cached(monkeypatch, method, path):
+    monkeypatch.setattr(settings, "internal_api_key", "lab-secret")
+    with TestClient(app) as client:
+        response = client.request(method, path)
+    assert response.status_code == 401
+    assert response.headers["Cache-Control"] == "no-store"
+
+
+def test_public_liveness_response_not_subject_to_tenant_cache_policy():
+    with TestClient(app) as client:
+        response = client.get("/api/v1/health/live")
+    assert response.status_code == 200
+    assert response.headers.get("Cache-Control") != "no-store"
