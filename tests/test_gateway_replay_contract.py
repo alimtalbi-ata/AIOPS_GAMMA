@@ -117,7 +117,7 @@ async def test_invalid_replay_inputs_do_not_touch_database(issuer, jti, expiry):
     ("gateway" + chr(0) + "alternate", "valid-jti"),
     ("gateway", "short"),
     ("gateway", "        "),
-    ("gateway", "jti-abc\\n123"),
+    ("gateway", "jti-abc" + chr(10) + "123"),
     ("gateway", "é" * 8),
     ("gateway", "x" * 129),
 ])
