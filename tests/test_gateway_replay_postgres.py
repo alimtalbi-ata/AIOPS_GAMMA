@@ -1,6 +1,7 @@
 """Opt-in REAL PostgreSQL replay concurrency tests.
 
 Run only against an isolated disposable DB with migration 0002 applied:
+    GAMMA_REPLAY_TEST_ALLOW_WRITE=I_UNDERSTAND_DISPOSABLE_DB \\
     GAMMA_REPLAY_TEST_DATABASE_URL=postgresql+asyncpg://... pytest -q tests/test_gateway_replay_postgres.py
 
 Never point this at staging/production; tests write replay reservations.
@@ -8,6 +9,7 @@ Never point this at staging/production; tests write replay reservations.
 import asyncio
 import hashlib
 import os
+import time
 from uuid import uuid4
 
 import pytest
@@ -37,6 +39,8 @@ async def replay_db():
     url = _require_disposable_database_url(
         os.environ.get("GAMMA_REPLAY_TEST_DATABASE_URL", "")
     )
+    if os.environ.get("GAMMA_REPLAY_TEST_ALLOW_WRITE") != "I_UNDERSTAND_DISPOSABLE_DB":
+        pytest.fail("Explicit disposable database write acknowledgement required")
     engine = create_async_engine(url, pool_size=4, max_overflow=0)
     try:
         async with engine.connect() as connection:
@@ -63,7 +67,7 @@ async def replay_db():
 async def test_two_concurrent_postgres_sessions_reserve_one_jti(replay_db):
     issuer = "gamma-replay-integration"
     jti = "test-" + uuid4().hex
-    expires_at = 4102444800
+    expires_at = int(time.time()) + 300
     digest = hashlib.sha256((issuer + "\x00" + jti).encode()).hexdigest()
 
     async def attempt():
@@ -101,10 +105,11 @@ async def test_committed_postgres_reservation_blocks_later_replay(replay_db):
     issuer = "gamma-replay-integration"
     jti = "test-" + uuid4().hex
     digest = hashlib.sha256((issuer + "\x00" + jti).encode()).hexdigest()
+    expires_at = int(time.time()) + 300
     try:
         async with replay_db() as first:
             assert await consume_assertion_before_access(
-                first, issuer=issuer, assertion_id=jti, expires_at=4102444800
+                first, issuer=issuer, assertion_id=jti, expires_at=expires_at
             )
         async with replay_db() as second:
             assert not await consume_assertion_before_access(
