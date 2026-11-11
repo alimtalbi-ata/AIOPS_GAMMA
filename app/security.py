@@ -25,6 +25,7 @@ class Principal:
     subject: str
     actor_type: str
     assertion_id: str
+    expires_at: int
 
 
 def _b64url_decode(value: str) -> bytes:
@@ -95,7 +96,7 @@ def verify_gateway_assertion(token: str, *, method: str, path: str, now: int | N
         if tenant.int == 0 or tenant_raw != str(tenant):
             raise ValueError("invalid tenant")
         return Principal(tenant_id=tenant, subject=subject, actor_type=actor_type,
-                         assertion_id=assertion_id)
+                         assertion_id=assertion_id, expires_at=expires_at)
     except HTTPException:
         raise
     except (ValueError, TypeError, KeyError, UnicodeError, binascii.Error, json.JSONDecodeError) as exc:
