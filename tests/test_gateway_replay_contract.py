@@ -177,3 +177,27 @@ async def test_replay_reservation_stores_only_digest_and_utc_expiry():
     assert store.params["expires_at"] == datetime.fromtimestamp(2000, tz=timezone.utc)
     assert "jti-12345678" not in str(store.params)
     assert "ON CONFLICT (assertion_digest) DO NOTHING" in store.statement
+
+
+@pytest.mark.asyncio
+async def test_distinct_issuer_jti_pairs_have_distinct_replay_digests():
+    store = FakeSession()
+    assert await reserve_assertion_once(
+        store, issuer="gateway-a", assertion_id="jti-12345678", expires_at=2000
+    )
+    assert await reserve_assertion_once(
+        store, issuer="gateway", assertion_id="a-jti-12345678", expires_at=2000
+    )
+    assert len(set(store.digests)) == 2
+
+
+@pytest.mark.asyncio
+async def test_replay_same_issuer_and_jti_is_rejected_despite_new_expiry():
+    store = FakeSession()
+    assert await reserve_assertion_once(
+        store, issuer="gateway", assertion_id="jti-12345678", expires_at=2000
+    )
+    assert not await reserve_assertion_once(
+        store, issuer="gateway", assertion_id="jti-12345678", expires_at=3000
+    )
+    assert store.digests[0] == store.digests[1]
