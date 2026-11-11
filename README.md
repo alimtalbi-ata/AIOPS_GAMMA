@@ -15,7 +15,7 @@ curl http://127.0.0.1:8000/api/v1/health/live
 docker compose exec api python -m app.init_db
 ```
 
-Swagger : http://127.0.0.1:8000/docs. Les endpoints métier nécessitent les en-têtes `X-Internal-Api-Key` et `X-Tenant-Id` (UUID), fournis exclusivement par une passerelle interne de confiance.
+Swagger : http://127.0.0.1:8000/docs. Les endpoints métier nécessitent `X-Internal-Api-Key` (authentification du workload) et `X-Gateway-Principal` (assertion HMAC courte, signée par la passerelle, liée à la méthode/route et attestant le tenant). `X-Tenant-Id` fourni par le client n'autorise plus l'accès. La passerelle doit authentifier l'acteur et vérifier son appartenance au tenant avant de signer. Voir [contrat de principal gateway](docs/TRUSTED-TENANT-PRINCIPAL-CONTRACT.md). Cette intégration est partielle et non qualifiée pour la production.
 
 ### API livrée
 
