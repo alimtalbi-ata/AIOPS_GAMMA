@@ -116,3 +116,28 @@ def test_noncanonical_base64url_signature_is_rejected(monkeypatch):
         verify_gateway_assertion(encoded + "." + signature + "=",
             method="POST", path="/api/v1/observability/metrics/query", now=1030)
     assert exc.value.status_code == 401
+
+
+@pytest.mark.parametrize("claim,value", [
+    ("iat", 1036),  # more than five seconds into the future
+    ("iat", True),  # bool is an int subclass but not a valid timestamp
+    ("exp", True),
+    ("exp", 1000),  # expires at issuance
+    ("exp", 1061),  # 61-second lifetime exceeds configured maximum
+])
+def test_invalid_signed_timestamp_boundaries_denied(monkeypatch, claim, value):
+    with pytest.raises(HTTPException) as exc:
+        verify_gateway_assertion(
+            _token(monkeypatch, **{claim: value}),
+            method="POST", path="/api/v1/observability/metrics/query", now=1030,
+        )
+    assert exc.value.status_code == 401
+
+
+def test_exact_expiry_boundary_is_denied(monkeypatch):
+    with pytest.raises(HTTPException) as exc:
+        verify_gateway_assertion(
+            _token(monkeypatch), method="POST",
+            path="/api/v1/observability/metrics/query", now=1060,
+        )
+    assert exc.value.status_code == 401
