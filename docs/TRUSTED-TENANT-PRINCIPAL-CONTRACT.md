@@ -114,3 +114,7 @@ The HTTP tampered-signature test now modifies the **first** Base64URL signature 
 ### HTTP tenant-header spoofing probe (2026-11-11)
 
 The HTTP auth boundary tests now include a small in-test FastAPI probe route using the **real** `internal_principal` dependency. It signs a principal for tenant A, sends unsigned `X-Tenant-ID` for tenant B and forged actor/role headers, then asserts the returned principal still contains tenant A and the signed subject. This checks the actual derived identity instead of merely inferring correctness from the metrics endpoint's 501 response. It does not read tenant resources or activate replay protection. The test has been committed but **not executed in this turn**; real Gateway ACL, PostgreSQL replay concurrency and network restrictions remain unverified. HOLD / NO_GO.
+
+### HTTP fail-closed configuration and expiry cases (2026-11-11)
+
+Added HTTP regression cases for missing gateway verification secret (expected `503` with service key and otherwise valid signed assertion) and expired but correctly HMAC-signed assertion (expected `401`). A **separate isolated FastAPI harness**, not the repository's `app.main` or actual security module, executed 3/3 assertions for valid, expired, and missing-secret behavior. The new repository tests have **not** been executed and must not be represented as passing. Real PostgreSQL replay consumption and actor→tenant/resource ACL are still unverified; HOLD / NO_GO.
