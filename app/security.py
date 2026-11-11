@@ -54,6 +54,9 @@ def verify_gateway_assertion(token: str, *, method: str, path: str, now: int | N
         raise HTTPException(status_code=503, detail="Gateway assertion verification not configured")
     if not settings.gateway_assertion_issuer or not settings.gateway_assertion_audience:
         raise HTTPException(status_code=503, detail="Gateway assertion policy not configured")
+    # A misconfigured deployment must never relax the 60-second security ceiling.
+    if not 1 <= settings.gateway_assertion_max_ttl_seconds <= 60:
+        raise HTTPException(status_code=503, detail="Gateway assertion TTL policy invalid")
     try:
         encoded, signature = token.split(".")
         supplied_signature = _b64url_decode(signature)
