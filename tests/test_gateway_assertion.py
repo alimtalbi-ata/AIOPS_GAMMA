@@ -75,3 +75,15 @@ def test_missing_verification_secret_fails_closed(monkeypatch):
         verify_gateway_assertion("anything", method="POST",
             path="/api/v1/observability/metrics/query", now=1030)
     assert exc.value.status_code == 503
+
+
+
+@pytest.mark.parametrize("token", ["abc.!!!", "x" * 9000, "not-a-token"])
+def test_malformed_or_oversized_assertion_is_denied(monkeypatch, token):
+    monkeypatch.setattr(settings, "gateway_assertion_secret", "s" * 48)
+    with pytest.raises(HTTPException) as exc:
+        verify_gateway_assertion(
+            token, method="POST",
+            path="/api/v1/observability/metrics/query", now=1030
+        )
+    assert exc.value.status_code == 401
