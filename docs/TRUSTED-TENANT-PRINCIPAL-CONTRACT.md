@@ -16,7 +16,7 @@ The assertion is bound to the exact HTTP method and path and must contain:
 - unique-looking `jti` assertion identifier;
 - `method` and `path` matching the actual request.
 
-The caller-supplied `X-Tenant-ID`, `X-Actor-ID`, role and user headers are not used to construct the principal. Missing/invalid signing configuration fails closed. The assertion secret must be at least 32 UTF-8 bytes. The internal service credential remains separately required.
+The caller-supplied `X-Tenant-ID`, `X-Actor-ID`, role and user headers are not used to construct the principal. Missing/invalid signing configuration fails closed. The assertion secret must be at least 32 UTF-8 bytes. Tokens are capped at 8 KiB and malformed base64/signatures fail closed. Docker Compose now forwards the gateway assertion settings to the API container; an unset secret keeps protected routes unavailable (503). The internal service credential remains separately required.
 
 Configuration:
 - `GATEWAY_ASSERTION_SECRET` (unset by default; configure only after secret provisioning approval)
@@ -33,6 +33,10 @@ Configuration:
 5. Restrict network ingress so callers cannot bypass the gateway. Use mTLS/service identity where available.
 6. Add shared replay protection for `jti` (e.g. short-lived distributed one-time-use store). GAMMA currently enforces short TTL and method/path binding but does **not** keep a distributed replay cache; the same valid assertion could be replayed on the same method/path until expiry.
 7. Define revocation semantics and ensure membership revocation is reflected before the next authorized request.
+
+## Replay and key-management limitations
+
+GAMMA currently validates `jti` syntax but does **not** persist or consume assertion IDs. A valid assertion can therefore be replayed on the same method/path until expiry. Short TTL and request binding reduce exposure but do not prevent replay. Before production, add a shared atomic one-time-use store (e.g. Redis `SET NX EX` or a PostgreSQL unique constraint with expiry cleanup), test concurrent duplicate submissions across API replicas, and fail closed if that store is unavailable. HMAC shared-secret rotation also requires a coordinated versioned key identifier/overlap policy; this is not implemented yet.
 
 ## Mandatory validation still outstanding
 
