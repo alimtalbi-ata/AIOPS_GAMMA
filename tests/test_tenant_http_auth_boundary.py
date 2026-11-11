@@ -175,3 +175,36 @@ def test_http_signed_tenant_cannot_be_overridden_by_unsigned_headers(monkeypatch
         })
     assert response.status_code == 200
     assert response.json() == {"tenant_id": tenant_a, "subject": "test-user"}
+
+
+def test_http_missing_gateway_verification_secret_fails_closed(monkeypatch):
+    monkeypatch.setattr(settings, "internal_api_key", "lab-secret")
+    token = _signed_http_assertion(monkeypatch)
+    monkeypatch.setattr(settings, "gateway_assertion_secret", "")
+    with TestClient(app) as client:
+        response = client.post(PATH, headers={
+            "X-Internal-API-Key": "lab-secret",
+            "X-Gateway-Principal": token,
+        })
+    assert response.status_code == 503
+
+
+def test_http_signed_assertion_with_expired_timestamp_denied(monkeypatch):
+    monkeypatch.setattr(settings, "internal_api_key", "lab-secret")
+    token = _signed_http_assertion(monkeypatch)
+    payload, _ = token.split(".")
+    claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+    claims["iat"] = int(time.time()) - 120
+    claims["exp"] = int(time.time()) - 60
+    expired_payload = base64.urlsafe_b64encode(
+        json.dumps(claims, separators=(",", ":")).encode()
+    ).rstrip(b"=").decode()
+    signature = base64.urlsafe_b64encode(
+        hmac.new(b"g" * 48, expired_payload.encode(), hashlib.sha256).digest()
+    ).rstrip(b"=").decode()
+    with TestClient(app) as client:
+        response = client.post(PATH, headers={
+            "X-Internal-API-Key": "lab-secret",
+            "X-Gateway-Principal": expired_payload + "." + signature,
+        })
+    assert response.status_code == 401
