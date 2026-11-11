@@ -2,7 +2,7 @@
 import pytest
 from sqlalchemy.exc import OperationalError
 
-from app.gateway_replay import reserve_assertion_once
+from app.gateway_replay import reserve_assertion_once, consume_assertion_before_access
 
 
 class FakeResult:
@@ -55,3 +55,44 @@ async def test_database_outage_propagates_fail_closed():
         await reserve_assertion_once(
             UnavailableSession(), issuer="gateway", assertion_id="jti-12345678", expires_at=2000
         )
+
+
+class TransactionalFakeSession(FakeSession):
+    def __init__(self, fail_commit=False):
+        super().__init__()
+        self.commits = 0
+        self.rollbacks = 0
+        self.fail_commit = fail_commit
+
+    async def commit(self):
+        if self.fail_commit:
+            raise OperationalError("COMMIT", {}, Exception("commit unavailable"))
+        self.commits += 1
+
+    async def rollback(self):
+        self.rollbacks += 1
+
+
+@pytest.mark.asyncio
+async def test_replay_is_committed_before_access_and_duplicate_is_denied():
+    store = TransactionalFakeSession()
+    assert await consume_assertion_before_access(
+        store, issuer="gateway", assertion_id="jti-12345678", expires_at=2000
+    )
+    assert store.commits == 1
+    assert not await consume_assertion_before_access(
+        store, issuer="gateway", assertion_id="jti-12345678", expires_at=2000
+    )
+    assert store.commits == 1
+    assert store.rollbacks == 1
+
+
+@pytest.mark.asyncio
+async def test_failed_commit_never_grants_access():
+    store = TransactionalFakeSession(fail_commit=True)
+    with pytest.raises(OperationalError):
+        await consume_assertion_before_access(
+            store, issuer="gateway", assertion_id="jti-12345678", expires_at=2000
+        )
+    assert store.commits == 0
+    assert store.rollbacks == 1
