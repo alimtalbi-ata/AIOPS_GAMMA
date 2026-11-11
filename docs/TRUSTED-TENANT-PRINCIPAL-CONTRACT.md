@@ -158,3 +158,12 @@ The replay helper now rejects NUL (`\\x00`) in the issuer to avoid ambiguous `is
 ### Replay consume rollback error paths — local test execution (2026-11-11)
 
 Added two contract tests asserting `consume_assertion_before_access` rolls back and does not commit when a replay key is invalid or a simulated SQL INSERT fails. **Executed** against the manually materialized replay helper and test file in the internal lab: `python -m pytest -q tests/test_gateway_replay_contract.py` → **21 passed in 0.24s**. This is fake-session unit evidence, not a PostgreSQL integration run or byte-for-byte synchronized repository checkout. Gateway ACL, HTTP replay wiring, CI and live Postgres qualification remain outstanding. HOLD / NO_GO.
+
+
+### Replay-store retention and availability gate (2026-11-11)
+
+**Unresolved operational prerequisite — not an authorization to enable replay enforcement.** The current migration creates an indexed `expires_at` column, but the reservation helper only inserts and checks uniqueness of `assertion_digest`; **it does not delete expired records**. An expired assertion cannot become valid again through cleanup: the signature verifier must continue enforcing `exp`, `iat`, maximum TTL, method/path and tenant claims independently. However, without an approved retention job, the replay table grows indefinitely, creating storage and availability risk.
+
+Before enabling replay enforcement, the owner must approve and test a bounded, observable PostgreSQL cleanup policy (for example, batched deletion of rows older than a conservative grace period), with a documented maximum storage budget, cleanup failure alerting, and concurrency tests proving no duplicate can be accepted during cleanup. Never delete unexpired reservations, never treat database errors as permission to proceed, and never rely on a process-local replay cache. The replay reservation must be committed in a dedicated transaction **before** any protected work. The exact cleanup interval/grace period remains **TBD** pending review; no cleanup is deployed or scheduled.
+
+**Evidence boundary:** this is a source-level gap identified by inspection of `app/gateway_replay.py` and migration schema, not a PostgreSQL load or retention test. Gateway actor→tenant/resource ACL, HTTP integration, migration approval and CI remain blocking. **HOLD / NO_GO**.
