@@ -79,9 +79,10 @@ async def test_two_concurrent_postgres_sessions_reserve_one_jti(replay_db):
     try:
         # Distinct DB connections compete for the same unique key.
         results = await asyncio.wait_for(
-            asyncio.gather(attempt(), attempt()), timeout=15
+            asyncio.gather(*(attempt() for _ in range(12))), timeout=30
         )
-        assert sorted(results) == [False, True]
+        assert results.count(True) == 1
+        assert results.count(False) == 11
         async with replay_db() as session:
             count = await session.scalar(
                 text("SELECT count(*) FROM gateway_assertion_replay "
