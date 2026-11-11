@@ -41,6 +41,7 @@ def test_valid_assertion_returns_signed_actor_and_tenant(monkeypatch):
     assert principal.actor_type == "user"
     assert str(principal.tenant_id) == "12345678-1234-4234-8234-123456789abc"
     assert principal.assertion_id == "assertion-123456"
+    assert principal.expires_at == 1060
 
 
 @pytest.mark.parametrize("method,path", [("GET", "/api/v1/observability/metrics/query"),
