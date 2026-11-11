@@ -143,7 +143,7 @@ def test_exact_expiry_boundary_is_denied(monkeypatch):
     assert exc.value.status_code == 401
 
 
-@pytest.mark.parametrize("configured_ttl", [0, -1, 61, 3600])
+@pytest.mark.parametrize("configured_ttl", [0, -1, 61, 3600, True, False, 30.5])
 def test_invalid_gateway_ttl_configuration_fails_closed(monkeypatch, configured_ttl):
     token = _token(monkeypatch)
     monkeypatch.setattr(settings, "gateway_assertion_max_ttl_seconds", configured_ttl)
