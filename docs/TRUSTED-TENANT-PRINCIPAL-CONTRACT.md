@@ -150,3 +150,7 @@ The opt-in PostgreSQL replay fixture now requires `GAMMA_REPLAY_TEST_ALLOW_WRITE
 ### Replay helper input type checks — local execution (2026-11-11)
 
 `reserve_assertion_once` now rejects non-string issuer/JTI and non-integer or nonpositive expiry values before issuing SQL. Eight new parametrized fake-session cases cover `None`, numeric IDs, boolean, fractional, string and zero expiry. **Executed locally** with the updated helper and contract test file: `python -m pytest -q tests/test_gateway_replay_contract.py` → **13 passed in 0.28s**. This validates the isolated helper with fake sessions, not PostgreSQL concurrency, the full repository test suite, or HTTP replay enforcement. HOLD / NO_GO.
+
+### Replay digest delimiter and JTI canonicalization (2026-11-11)
+
+The replay helper now rejects NUL (`\\x00`) in the issuer to avoid ambiguous `issuer + NUL + jti` digest inputs, and rejects JTI values unless they are 8–128 printable, non-whitespace ASCII characters, matching the signed assertion verifier. Six regression cases cover NUL issuer, short/blank/newline/Unicode/oversized JTI. **Executed:** a local isolated pytest harness using a manually materialized copy of the updated replay helper, with six negative cases and one positive case: **7 passed in 0.23s**. This is not a synchronized checkout or full repository test execution, and it does not prove PostgreSQL concurrency or HTTP enforcement. HOLD / NO_GO.
