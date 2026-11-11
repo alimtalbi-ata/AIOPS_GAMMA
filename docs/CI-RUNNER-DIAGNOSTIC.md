@@ -52,3 +52,12 @@ Head commit: `0e4e09205482133cd1c73da172cd04e62054a318`.
 - Deployment contract run [43108298991](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43108298991): completed / failure; all six jobs report `steps: null`.
 
 No step/log evidence is available from these job responses. Do not infer that any workflow command executed. CI remains not green and cannot qualify the newly added source-contract guard.
+
+
+## Dedicated disposable PostgreSQL replay job added — 2026-11-11
+
+Commit: `040171999c28a289103013e1e8662081a7162d67`.
+
+The Python workflow now defines `gateway-replay-postgres` with an ephemeral PostgreSQL 16 service and a database named `gamma_replay_test`. It installs the project test dependencies, applies `alembic upgrade head`, then runs only `tests/test_gateway_replay_postgres.py` with the explicit disposable-write acknowledgement. The test module additionally requires loopback PostgreSQL, the `*_replay_test` database suffix, and migration revision `0002_gateway_replay`; it tests two-session concurrent uniqueness and committed replay rejection, and deletes only its own digest rows.
+
+GitHub run [43108661421](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43108661421) for this commit completed failure. Its `frontend`, `test`, and new `gateway-replay-postgres` jobs all report `steps: null`. Therefore the PostgreSQL service, Alembic migration, and pytest integration command have **not been evidenced as executed**. This job addition is prepared, not qualified. CI remains not green; no merge/deploy/LIVE.
