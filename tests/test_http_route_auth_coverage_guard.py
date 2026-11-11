@@ -28,6 +28,12 @@ class InternalRouteDependencyGuard(unittest.TestCase):
                         and isinstance(func.value, ast.Name)
                         and func.value.id == "app"):
                     continue
+                # Middleware is not an HTTP endpoint; review other decorators.
+                if func.attr == "middleware":
+                    self.assertEqual(len(decorator.args), 1)
+                    self.assertIsInstance(decorator.args[0], ast.Constant)
+                    self.assertEqual(decorator.args[0].value, "http")
+                    continue
                 # Fail closed if a new app route uses a registration form this
                 # guard does not understand; otherwise it could be skipped.
                 self.assertIn(func.attr, HTTP_METHODS,
