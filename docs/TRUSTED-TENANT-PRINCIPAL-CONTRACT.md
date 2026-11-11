@@ -134,3 +134,7 @@ The verifier now requires `type(gateway_assertion_max_ttl_seconds) is int` as we
 ### Signed replay identifier input hardening (2026-11-11)
 
 The verifier now requires the signed `jti` to be an 8–128-character ASCII string containing only printable non-whitespace bytes (`!` through `~`). This prevents blank, control-character, and non-ASCII replay IDs from entering future shared replay reservations. Unit regression coverage includes missing/short/long IDs, whitespace-only, embedded newline and Unicode. **Nine isolated local Python checks** of the guard expression passed, but the full repository tests and real PostgreSQL replay tests have **not** been run. The replay helper remains unwired to HTTP, and Gateway actor→tenant ACL is still unverified. HOLD / NO_GO.
+
+### GitHub Actions verification — 2026-11-11
+
+At commit `c86cd485b3cac1d2462a36dd3f2458831710aa07`, GitHub reported two completed failed workflow runs: `Python checks` (`43082228771`) and `Deployment contract (static + runtime smoke)` (`43082228809`). The former contained failed jobs `frontend` and `test`; the latter contained failed jobs `postgres-nonroot-experiment`, `ui-image`, `compose`, `helm`, `single-directory-runtime`, and `api-postgres-runtime`. Job details returned no step summaries (`steps: null`), so this is **not evidence that tests ran and failed** or that any test passed. Do not use these runs as security qualification. Continue with independent disposable lab execution and preserve HOLD / NO_GO.
