@@ -48,6 +48,12 @@ async def replay_db():
                 text("SELECT to_regclass('gateway_assertion_replay')")
             )
             assert present is not None, "Apply reviewed migration 0002 to disposable test DB"
+            revision = await connection.scalar(
+                text("SELECT version_num FROM alembic_version")
+            )
+            assert revision == "0002_gateway_replay", (
+                "Disposable replay DB must be at reviewed Alembic revision 0002"
+            )
         yield async_sessionmaker(engine, expire_on_commit=False)
     finally:
         await engine.dispose()
