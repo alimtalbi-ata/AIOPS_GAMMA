@@ -26,3 +26,19 @@ This is consistent with jobs failing before runner execution, but **does not pro
 ## Release gate
 
 CI is **not green**. Offline tests and real OpenSearch staging tenant isolation remain **unqualified** until successfully executed and recorded. Do not merge or deploy based on the existence of these workflow runs.
+
+
+## Retry after replay migration contract guard — 2026-11-11
+
+Head commit: `966a1036440e0c72f6fce926019b7441d8a76f5b`.
+
+- Python checks, run [43106934410](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43106934410): completed / failure. Jobs `frontend` and `test` both report `steps: null`.
+- Deployment contract, run [43106934326](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43106934326): completed / failure after rerun. All six jobs report `steps: null`.
+- A further rerun was accepted for both workflows. The deployment run again completed with all jobs failed and no steps. Python checks also completed with both jobs failed and no steps.
+- Job log retrieval for Python `test` (job `130814615482`) and deployment `compose` (job `130814654213`) returned GitHub Actions artifact `BlobNotFound` / HTTP 404.
+
+Interpretation remains deliberately limited: the API response contains no runner-step evidence, and the log blobs are unavailable. This does **not** establish a code-level failure or a specific billing, policy, quota, or runner-capacity cause. Do not claim tests, Docker, Helm, or frontend build ran.
+
+## Release gate
+
+CI remains **not green**. The new replay migration AST guard, full-app HTTP boundary suite, actual PostgreSQL migration/concurrency, Gateway actor→tenant/resource ACL, and live replay wiring are not qualified. Keep replay helper unwired and retain **HOLD / NO_GO** for merge, deployment, and LIVE.
