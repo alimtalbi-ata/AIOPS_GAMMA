@@ -3,6 +3,9 @@
 This AST/source contract does not prove PostgreSQL behavior or concurrency safety.
 """
 import ast
+import sys
+
+import pytest
 from pathlib import Path
 
 SOURCE = Path(__file__).resolve().parents[1] / "app" / "gateway_replay.py"
@@ -70,3 +73,23 @@ def test_consume_commits_before_success_and_rolls_back_failure_paths():
     assert source.index("await session.commit()") < source.index("return True")
     assert "if not reserved:" in source
     assert "await session.rollback()" in source
+
+
+def test_guard_rejects_removed_atomic_conflict_clause(monkeypatch, tmp_path):
+    original = SOURCE.read_text(encoding="utf-8")
+    assert "ON CONFLICT (assertion_digest) DO NOTHING" in original
+    altered = tmp_path / "gateway_replay.py"
+    altered.write_text(original.replace("ON CONFLICT (assertion_digest) DO NOTHING", "ON CONFLICT (assertion_digest) DO UPDATE SET expires_at = EXCLUDED.expires_at"), encoding="utf-8")
+    monkeypatch.setattr(sys.modules[__name__], "SOURCE", altered)
+    with pytest.raises(AssertionError):
+        test_reservation_uses_sha256_digest_and_atomic_conflict_handling()
+
+
+def test_guard_rejects_success_before_commit(monkeypatch, tmp_path):
+    original = SOURCE.read_text(encoding="utf-8")
+    assert "await session.commit()\\n        return True" in original
+    altered = tmp_path / "gateway_replay.py"
+    altered.write_text(original.replace("await session.commit()\\n        return True", "return True\\n        await session.commit()"), encoding="utf-8")
+    monkeypatch.setattr(sys.modules[__name__], "SOURCE", altered)
+    with pytest.raises(AssertionError):
+        test_consume_commits_before_success_and_rolls_back_failure_paths()
