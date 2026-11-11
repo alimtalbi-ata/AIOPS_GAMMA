@@ -5,7 +5,6 @@ egress allowlist. Tenant-to-GLPI-entity mapping is configured server-side.
 """
 from __future__ import annotations
 
-import json
 from uuid import UUID
 
 import httpx
