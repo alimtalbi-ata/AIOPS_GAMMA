@@ -11,13 +11,14 @@ import os
 from uuid import uuid4
 
 import pytest
+import pytest_asyncio
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.gateway_replay import consume_assertion_before_access
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def replay_db():
     url = os.environ.get("GAMMA_REPLAY_TEST_DATABASE_URL", "")
     if not url:
