@@ -17,10 +17,10 @@ app = FastAPI(title="AIOPS_GAMMA", version="0.1.0")
 
 
 @app.middleware("http")
-async def prevent_log_search_caching(request, call_next):
-    """Apply no-store even when auth or request validation rejects the call."""
+async def prevent_tenant_api_caching(request, call_next):
+    """Apply no-store to tenant API responses, including rejected requests."""
     response = await call_next(request)
-    if request.url.path == "/api/v1/observability/logs/search":
+    if request.url.path.startswith("/api/v1/") and request.url.path != "/api/v1/health/live":
         response.headers["Cache-Control"] = "no-store"
     return response
 
