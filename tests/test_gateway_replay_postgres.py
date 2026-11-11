@@ -13,21 +13,34 @@ from uuid import uuid4
 import pytest
 import pytest_asyncio
 from sqlalchemy import text
+from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.gateway_replay import consume_assertion_before_access
 
 
+def _require_disposable_database_url(raw_url: str) -> str:
+    if not raw_url:
+        pytest.skip("No disposable PostgreSQL test URL configured")
+    parsed = make_url(raw_url)
+    if parsed.drivername != "postgresql+asyncpg":
+        pytest.fail("Replay integration test requires postgresql+asyncpg URL")
+    if not parsed.database or not parsed.database.endswith("_replay_test"):
+        pytest.fail("Replay tests require a database named *_replay_test")
+    return raw_url
+
+
 @pytest_asyncio.fixture
 async def replay_db():
-    url = os.environ.get("GAMMA_REPLAY_TEST_DATABASE_URL", "")
-    if not url:
-        pytest.skip("No disposable PostgreSQL test URL configured")
-    if not url.startswith("postgresql+asyncpg://"):
-        pytest.fail("Replay integration test requires postgresql+asyncpg URL")
+    url = _require_disposable_database_url(
+        os.environ.get("GAMMA_REPLAY_TEST_DATABASE_URL", "")
+    )
     engine = create_async_engine(url, pool_size=4, max_overflow=0)
     try:
         async with engine.connect() as connection:
+            # Verify the connected DB identity as well as the URL before writes.
+            db_name = await connection.scalar(text("SELECT current_database()"))
+            assert db_name and db_name.endswith("_replay_test"), "Unsafe database identity"
             # Fail rather than creating schema in an unqualified database.
             present = await connection.scalar(
                 text("SELECT to_regclass('gateway_assertion_replay')")
@@ -97,3 +110,18 @@ async def test_committed_postgres_reservation_blocks_later_replay(replay_db):
                 {"digest": digest},
             )
             await session.commit()
+
+
+@pytest.mark.parametrize("url", [
+    "postgresql+asyncpg://user:pass@localhost/production",
+    "postgresql+asyncpg://user:pass@localhost/staging",
+    "sqlite+aiosqlite:///tmp/replay_test",
+])
+def test_refuses_unsafe_test_database_urls(url):
+    with pytest.raises(pytest.fail.Exception):
+        _require_disposable_database_url(url)
+
+
+def test_accepts_explicit_disposable_test_database_url():
+    url = "postgresql+asyncpg://user:pass@localhost/gamma_replay_test"
+    assert _require_disposable_database_url(url) == url
