@@ -155,3 +155,25 @@ async def test_consume_database_outage_rolls_back_and_never_commits():
         )
     assert store.rollbacks == 1
     assert store.commits == 0
+
+
+@pytest.mark.asyncio
+async def test_replay_reservation_stores_only_digest_and_utc_expiry():
+    import hashlib
+    from datetime import datetime, timezone
+
+    class CapturingSession(FakeSession):
+        async def execute(self, statement, params):
+            self.statement = str(statement)
+            self.params = dict(params)
+            return await super().execute(statement, params)
+
+    store = CapturingSession()
+    assert await reserve_assertion_once(
+        store, issuer="gateway", assertion_id="jti-12345678", expires_at=2000
+    )
+    expected = hashlib.sha256(("gateway" + chr(0) + "jti-12345678").encode()).hexdigest()
+    assert store.params["digest"] == expected
+    assert store.params["expires_at"] == datetime.fromtimestamp(2000, tz=timezone.utc)
+    assert "jti-12345678" not in str(store.params)
+    assert "ON CONFLICT (assertion_digest) DO NOTHING" in store.statement
