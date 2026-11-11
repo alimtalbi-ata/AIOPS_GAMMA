@@ -122,3 +122,7 @@ Added HTTP regression cases for missing gateway verification secret (expected `5
 ### Signed assertion time-boundary regression cases (2026-11-11)
 
 `tests/test_gateway_assertion.py` now explicitly tests `iat` more than five seconds in the future, boolean `iat`/`exp` values, expiration at issuance, a lifetime of 61 seconds against the 60-second policy, and rejection exactly at `now == exp`. These six tests are committed but **not executed in the full repository environment**. They do not validate Gateway ACL, shared replay state, PostgreSQL or LIVE readiness. HOLD / NO_GO.
+
+### Fail-closed gateway assertion TTL configuration (2026-11-11)
+
+The verifier now rejects a configured `gateway_assertion_max_ttl_seconds` outside **1..60** with HTTP `503` before verifying the token. This prevents an operator misconfiguration from silently accepting long-lived signed assertions. A lower positive configured maximum remains supported and is enforced against signed `exp - iat`. Five new unit test cases cover 0, -1, 61, 3600 and a stricter 30-second limit. **These new repository tests have been committed but not executed in this turn**. This does not activate shared replay consumption or replace Gateway actor→tenant/resource ACL. HOLD / NO_GO.
