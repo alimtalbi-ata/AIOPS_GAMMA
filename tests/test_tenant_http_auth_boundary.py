@@ -139,3 +139,14 @@ def test_http_invalid_gateway_assertion_denied(monkeypatch, case):
             "X-Internal-API-Key": "lab-secret", "X-Gateway-Principal": token,
         })
     assert response.status_code == 401
+
+
+def test_http_signed_assertion_cannot_bypass_wrong_service_key(monkeypatch):
+    monkeypatch.setattr(settings, "internal_api_key", "lab-secret")
+    token = _signed_http_assertion(monkeypatch)
+    with TestClient(app) as client:
+        response = client.post(PATH, headers={
+            "X-Internal-API-Key": "wrong-service-key",
+            "X-Gateway-Principal": token,
+        })
+    assert response.status_code == 401
