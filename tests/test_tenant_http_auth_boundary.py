@@ -228,3 +228,29 @@ def test_public_liveness_response_not_subject_to_tenant_cache_policy():
         response = client.get("/api/v1/health/live")
     assert response.status_code == 200
     assert response.headers.get("Cache-Control") != "no-store"
+
+
+def test_http_authenticated_unimplemented_metrics_is_never_cached(monkeypatch):
+    """Authenticated 501 must be no-store, not only unauthenticated 401."""
+    monkeypatch.setattr(settings, "internal_api_key", "lab-secret")
+    token = _signed_http_assertion(monkeypatch)
+    with TestClient(app) as client:
+        response = client.post(PATH, headers={
+            "X-Internal-API-Key": "lab-secret",
+            "X-Gateway-Principal": token,
+        })
+    assert response.status_code == 501
+    assert response.headers["Cache-Control"] == "no-store"
+
+
+def test_http_invalid_gateway_assertion_is_never_cached(monkeypatch):
+    """Reject a signed assertion for the wrong route without caching the 401."""
+    monkeypatch.setattr(settings, "internal_api_key", "lab-secret")
+    token = _signed_http_assertion(monkeypatch, path="/api/v1/other")
+    with TestClient(app) as client:
+        response = client.post(PATH, headers={
+            "X-Internal-API-Key": "lab-secret",
+            "X-Gateway-Principal": token,
+        })
+    assert response.status_code == 401
+    assert response.headers["Cache-Control"] == "no-store"
