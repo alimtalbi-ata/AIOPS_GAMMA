@@ -146,3 +146,7 @@ The opt-in replay concurrency fixture now checks `SELECT version_num FROM alembi
 ### Explicit disposable PostgreSQL write opt-in and bounded test row expiry (2026-11-11)
 
 The opt-in PostgreSQL replay fixture now requires `GAMMA_REPLAY_TEST_ALLOW_WRITE=I_UNDERSTAND_DISPOSABLE_DB` **as well as** a loopback PostgreSQL URL naming `*_replay_test`, a matching connected database name, replay table, and exact Alembic revision `0002_gateway_replay`. The two integration tests now use `expires_at = int(time.time()) + 300` rather than year 2100, limiting the retention horizon of orphaned test rows **only if a separate expiry cleanup process exists**; expiry does not automatically delete rows. This acknowledgement is a safeguard, **not proof that a loopback/forwarded database is disposable**. No real PostgreSQL tests were executed; Gateway ACL, replay HTTP wiring, CI and ingress remain blocking. HOLD / NO_GO.
+
+### Replay helper input type checks — local execution (2026-11-11)
+
+`reserve_assertion_once` now rejects non-string issuer/JTI and non-integer or nonpositive expiry values before issuing SQL. Eight new parametrized fake-session cases cover `None`, numeric IDs, boolean, fractional, string and zero expiry. **Executed locally** with the updated helper and contract test file: `python -m pytest -q tests/test_gateway_replay_contract.py` → **13 passed in 0.28s**. This validates the isolated helper with fake sessions, not PostgreSQL concurrency, the full repository test suite, or HTTP replay enforcement. HOLD / NO_GO.
