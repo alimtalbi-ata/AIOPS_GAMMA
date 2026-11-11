@@ -87,3 +87,10 @@ GAMMA_REPLAY_TEST_DATABASE_URL='postgresql+asyncpg://test_user:...@localhost:543
 ```
 
 **No PostgreSQL server was available in the current ChatGPT lab**; these tests are committed but have not passed against PostgreSQL. HTTP replay rejection and the real gateway actor→tenant ACL remain unverified. Keep the replay helper unwired and the release on HOLD.
+
+
+### Disposable PostgreSQL test guard (2026-11-11)
+
+The opt-in PostgreSQL test fixture now refuses connection URLs that do not use `postgresql+asyncpg` and a database name ending in `_replay_test`. It checks `SELECT current_database()` after connection and before writing. Four isolated URL-guard checks passed in the ChatGPT lab (three unsafe URLs rejected; one disposable test URL accepted). These are **guard-only unit checks**, not the two PostgreSQL concurrency tests. An explicitly named test database is necessary but not sufficient: operators must still ensure the target is genuinely disposable and isolated.
+
+The lab has neither PostgreSQL server binaries nor `asyncpg`; therefore **the real PostgreSQL concurrency tests remain unexecuted**. The replay component remains unwired and HOLD / NO_GO remains in effect.
