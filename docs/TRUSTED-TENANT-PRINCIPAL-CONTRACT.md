@@ -94,3 +94,7 @@ GAMMA_REPLAY_TEST_DATABASE_URL='postgresql+asyncpg://test_user:...@localhost:543
 The opt-in PostgreSQL test fixture now refuses connection URLs that do not use `postgresql+asyncpg` and a database name ending in `_replay_test`. It checks `SELECT current_database()` after connection and before writing. Four isolated URL-guard checks passed in the ChatGPT lab (three unsafe URLs rejected; one disposable test URL accepted). These are **guard-only unit checks**, not the two PostgreSQL concurrency tests. An explicitly named test database is necessary but not sufficient: operators must still ensure the target is genuinely disposable and isolated.
 
 The lab has neither PostgreSQL server binaries nor `asyncpg`; therefore **the real PostgreSQL concurrency tests remain unexecuted**. The replay component remains unwired and HOLD / NO_GO remains in effect.
+
+### Replay test target restriction (2026-11-11)
+
+The opt-in PostgreSQL concurrency harness now additionally rejects **remote hosts**, even when the database name ends in `_replay_test`. Only `localhost`, `127.0.0.1` or `::1` are accepted. A local port-forward to a production database is still unsafe; the operator must provision an actually disposable isolated instance and verify its identity. Five targeted SQLAlchemy URL-parser checks passed in the ChatGPT container (2 local accepted, 3 unsafe driver/database/remote host rejected). The real PostgreSQL tests are still unexecuted; the lab has no PostgreSQL server or asyncpg. This change does not enable the replay gate or LIVE reads.
