@@ -50,3 +50,12 @@ GAMMA currently validates `jti` syntax but does **not** persist or consume asser
 - [ ] Full repository tests and deployment qualification reviewed.
 
 Until every gate is closed, keep `enable_canonical_reads=False`, `enable_opensearch=False`, `enable_glpi_reads=False`, draft PRs and **NO_GO** for merge, deployment and LIVE.
+
+
+## Proposed replay reservation implementation — not enabled
+
+The new isolated helper `app/gateway_replay.py:reserve_assertion_once` uses a PostgreSQL atomic `INSERT ... ON CONFLICT DO NOTHING RETURNING` on a SHA-256 digest of `issuer + NUL + jti`. The proposed `gateway_assertion_replay` table must have `assertion_digest` as its unique primary key and `expires_at` as a timezone-aware timestamp. It intentionally has **no automatic table creation or runtime integration**.
+
+Before wiring into `internal_principal`, an owner must review and deploy an Alembic migration, then ensure the reservation transaction is committed **before** a protected handler can run; rolling back the reservation with a later failed business transaction would reopen replay. Expired reservations must be cleaned only after the assertion expiry plus permitted clock skew, and the cleanup must never remove unexpired reservations. Concurrent requests across API replicas and a database outage must be tested. A duplicate reservation must return 401/409 without resource access, and any database error must fail closed. No process-local fallback is permitted.
+
+The helper's fake-session tests cover duplicate detection, issuer separation and database-error propagation, but **do not prove Postgres concurrency, migration safety or end-to-end protection**. The API currently does not call this helper; replay remains a release blocker.
