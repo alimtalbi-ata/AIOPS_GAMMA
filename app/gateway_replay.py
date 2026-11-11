@@ -18,8 +18,10 @@ async def reserve_assertion_once(
     Requires a reviewed database migration creating gateway_assertion_replay
     with assertion_digest as unique primary key. DB errors propagate closed.
     """
-    if (not isinstance(issuer, str) or not issuer
-            or not isinstance(assertion_id, str) or not assertion_id
+    if (not isinstance(issuer, str) or not issuer or "\x00" in issuer
+            or not isinstance(assertion_id, str) or not 8 <= len(assertion_id) <= 128
+            or not assertion_id.isascii()
+            or any(not 33 <= ord(ch) <= 126 for ch in assertion_id)
             or type(expires_at) is not int or expires_at <= 0):
         raise ValueError("invalid replay reservation")
     digest = hashlib.sha256((issuer + "\x00" + assertion_id).encode()).hexdigest()
