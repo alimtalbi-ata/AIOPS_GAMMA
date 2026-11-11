@@ -30,7 +30,19 @@ class Principal:
 def _b64url_decode(value: str) -> bytes:
     if not value or any(ch not in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_" for ch in value):
         raise ValueError("invalid base64url")
-    return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+    decoded = base64.b64decode(value + "=" * (-len(value) % 4), altchars=b"-_", validate=True)
+    if base64.urlsafe_b64encode(decoded).rstrip(b"=").decode("ascii") != value:
+        raise ValueError("noncanonical base64url")
+    return decoded
+
+
+def _unique_claims(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    claims = {}
+    for key, value in pairs:
+        if key in claims:
+            raise ValueError("duplicate assertion claim")
+        claims[key] = value
+    return claims
 
 
 def verify_gateway_assertion(token: str, *, method: str, path: str, now: int | None = None) -> Principal:
@@ -49,7 +61,7 @@ def verify_gateway_assertion(token: str, *, method: str, path: str, now: int | N
         ).digest()
         if not hmac.compare_digest(supplied_signature, expected_signature):
             raise ValueError("signature mismatch")
-        claims = json.loads(_b64url_decode(encoded))
+        claims = json.loads(_b64url_decode(encoded), object_pairs_hook=_unique_claims)
         if not isinstance(claims, dict):
             raise ValueError("claims must be an object")
         current = int(time.time()) if now is None else now
