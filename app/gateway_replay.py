@@ -34,3 +34,26 @@ async def reserve_assertion_once(
         },
     )
     return result.scalar_one_or_none() is not None
+
+
+async def consume_assertion_before_access(
+    session: AsyncSession, *, issuer: str, assertion_id: str, expires_at: int
+) -> bool:
+    """Atomically reserve and COMMIT replay state before any protected work.
+
+    False means duplicate assertion. A failed commit raises; never grant access.
+    Use a dedicated short-lived session, not the handler's business transaction.
+    This helper is NOT wired to authentication until DB migration is qualified.
+    """
+    try:
+        reserved = await reserve_assertion_once(
+            session, issuer=issuer, assertion_id=assertion_id, expires_at=expires_at
+        )
+        if not reserved:
+            await session.rollback()
+            return False
+        await session.commit()
+        return True
+    except Exception:
+        await session.rollback()
+        raise
