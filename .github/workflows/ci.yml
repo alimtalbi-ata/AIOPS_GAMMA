@@ -55,5 +55,27 @@ jobs:
       - run: pip install -e '.[test]'
       - name: Apply reviewed migrations to disposable PostgreSQL
         run: alembic upgrade head
+      - name: Verify replay migration downgrade and re-upgrade on disposable PostgreSQL
+        run: |
+          alembic downgrade 0001_initial
+          alembic upgrade 0002_gateway_replay
+          python - <<'PY'
+          import asyncio
+          import os
+          from sqlalchemy import text
+          from sqlalchemy.ext.asyncio import create_async_engine
+
+          async def check():
+              engine = create_async_engine(os.environ["DATABASE_URL"])
+              try:
+                  async with engine.connect() as conn:
+                      assert await conn.scalar(text("SELECT current_database()")) == "gamma_replay_test"
+                      assert await conn.scalar(text("SELECT version_num FROM alembic_version")) == "0002_gateway_replay"
+                      assert await conn.scalar(text("SELECT to_regclass('gateway_assertion_replay')")) is not None
+              finally:
+                  await engine.dispose()
+
+          asyncio.run(check())
+          PY
       - name: Exercise real PostgreSQL replay concurrency and commit behavior
         run: python -m pytest -q tests/test_gateway_replay_postgres.py
