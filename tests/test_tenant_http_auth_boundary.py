@@ -131,7 +131,9 @@ def test_http_invalid_gateway_assertion_denied(monkeypatch, case):
         access=(case != "access_denied"),
     )
     if case == "tampered_signature":
-        token = token[:-1] + ("A" if token[-1] != "A" else "B")
+        payload, signature = token.split(".")
+        signature = ("A" if signature[0] != "A" else "B") + signature[1:]
+        token = payload + "." + signature
     with TestClient(app) as client:
         response = client.post(PATH, headers={
             "X-Internal-API-Key": "lab-secret", "X-Gateway-Principal": token,
