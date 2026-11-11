@@ -27,6 +27,8 @@ def _require_disposable_database_url(raw_url: str) -> str:
         pytest.fail("Replay integration test requires postgresql+asyncpg URL")
     if not parsed.database or not parsed.database.endswith("_replay_test"):
         pytest.fail("Replay tests require a database named *_replay_test")
+    if parsed.host not in ("localhost", "127.0.0.1", "::1"):
+        pytest.fail("Replay tests require loopback PostgreSQL; use a local disposable instance")
     return raw_url
 
 
@@ -116,6 +118,7 @@ async def test_committed_postgres_reservation_blocks_later_replay(replay_db):
     "postgresql+asyncpg://user:pass@localhost/production",
     "postgresql+asyncpg://user:pass@localhost/staging",
     "sqlite+aiosqlite:///tmp/replay_test",
+    "postgresql+asyncpg://user:pass@production.internal/gamma_replay_test",
 ])
 def test_refuses_unsafe_test_database_urls(url):
     with pytest.raises(pytest.fail.Exception):
