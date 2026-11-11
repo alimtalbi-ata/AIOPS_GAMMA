@@ -96,3 +96,17 @@ async def test_failed_commit_never_grants_access():
         )
     assert store.commits == 0
     assert store.rollbacks == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("issuer,jti,expiry", [
+    (None, "valid-jti", 2000), (123, "valid-jti", 2000),
+    ("gateway", None, 2000), ("gateway", 42, 2000),
+    ("gateway", "valid-jti", True), ("gateway", "valid-jti", 30.5),
+    ("gateway", "valid-jti", "2000"), ("gateway", "valid-jti", 0),
+])
+async def test_invalid_replay_inputs_do_not_touch_database(issuer, jti, expiry):
+    store = FakeSession()
+    with pytest.raises(ValueError):
+        await reserve_assertion_once(store, issuer=issuer, assertion_id=jti, expires_at=expiry)
+    assert not store.digests
