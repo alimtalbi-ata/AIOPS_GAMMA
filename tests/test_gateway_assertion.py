@@ -141,3 +141,26 @@ def test_exact_expiry_boundary_is_denied(monkeypatch):
             path="/api/v1/observability/metrics/query", now=1060,
         )
     assert exc.value.status_code == 401
+
+
+@pytest.mark.parametrize("configured_ttl", [0, -1, 61, 3600])
+def test_invalid_gateway_ttl_configuration_fails_closed(monkeypatch, configured_ttl):
+    token = _token(monkeypatch)
+    monkeypatch.setattr(settings, "gateway_assertion_max_ttl_seconds", configured_ttl)
+    with pytest.raises(HTTPException) as exc:
+        verify_gateway_assertion(
+            token, method="POST",
+            path="/api/v1/observability/metrics/query", now=1030,
+        )
+    assert exc.value.status_code == 503
+
+
+def test_stricter_gateway_ttl_configuration_is_enforced(monkeypatch):
+    token = _token(monkeypatch)
+    monkeypatch.setattr(settings, "gateway_assertion_max_ttl_seconds", 30)
+    with pytest.raises(HTTPException) as exc:
+        verify_gateway_assertion(
+            token, method="POST",
+            path="/api/v1/observability/metrics/query", now=1030,
+        )
+    assert exc.value.status_code == 401
