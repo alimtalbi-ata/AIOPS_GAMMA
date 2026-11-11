@@ -195,3 +195,16 @@ def test_unicode_service_key_header_denied_without_uncaught_type_error(monkeypat
             x_gateway_principal="not-a-valid-assertion",
         )
     assert exc.value.status_code == 401
+
+
+@pytest.mark.parametrize("subject", [
+    "user\\nadmin", "user\\radmin", "user\\tadmin",
+    "user\\x00admin", "user\\x7fadmin",
+])
+def test_control_characters_in_signed_subject_denied(monkeypatch, subject):
+    with pytest.raises(HTTPException) as exc:
+        verify_gateway_assertion(
+            _token(monkeypatch, sub=subject), method="POST",
+            path="/api/v1/observability/metrics/query", now=1030,
+        )
+    assert exc.value.status_code == 401
