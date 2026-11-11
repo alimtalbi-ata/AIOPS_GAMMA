@@ -26,12 +26,18 @@ class InternalRouteDependencyGuard(unittest.TestCase):
                 func = decorator.func
                 if not (isinstance(func, ast.Attribute)
                         and isinstance(func.value, ast.Name)
-                        and func.value.id == "app"
-                        and func.attr in HTTP_METHODS
-                        and decorator.args
-                        and isinstance(decorator.args[0], ast.Constant)
-                        and isinstance(decorator.args[0].value, str)):
+                        and func.value.id == "app"):
                     continue
+                # Fail closed if a new app route uses a registration form this
+                # guard does not understand; otherwise it could be skipped.
+                self.assertIn(func.attr, HTTP_METHODS,
+                              "Unreviewed app decorator; update auth guard")
+                self.assertTrue(decorator.args,
+                                "Route must have a literal path")
+                self.assertIsInstance(decorator.args[0], ast.Constant,
+                                      "Dynamic route path needs review")
+                self.assertIsInstance(decorator.args[0].value, str,
+                                      "Route path must be a literal string")
                 route = (func.attr.upper(), decorator.args[0].value)
                 found.add(route)
                 if route in PUBLIC_ROUTES:
@@ -55,6 +61,7 @@ class InternalRouteDependencyGuard(unittest.TestCase):
         self.assertIn(("POST", "/api/v1/observability/metrics/query"), found)
         self.assertIn(("GET", "/api/v1/canonical/{resource}/snapshot"), found)
         self.assertEqual(found & PUBLIC_ROUTES, PUBLIC_ROUTES)
+        self.assertGreaterEqual(len(found), 19, "Unexpected route removal; review coverage")
 
     def test_public_route_allowlist_is_narrow(self):
         self.assertEqual(PUBLIC_ROUTES, {("GET", "/api/v1/health/live")})
