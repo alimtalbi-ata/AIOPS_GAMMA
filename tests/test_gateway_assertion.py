@@ -170,6 +170,8 @@ def test_stricter_gateway_ttl_configuration_is_enforced(monkeypatch):
     ("sub", ""), ("sub", "   "), ("sub", "x" * 257),
     ("jti", ""), ("jti", "short"), ("jti", "x" * 129),
     ("jti", None), ("sub", None),
+    ("jti", "        "), ("jti", "abc\\n12345"),
+    ("jti", "é" * 8),
 ])
 def test_invalid_signed_actor_identity_fields_denied(monkeypatch, claim, value):
     with pytest.raises(HTTPException) as exc:
