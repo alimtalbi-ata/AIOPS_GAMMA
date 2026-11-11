@@ -110,3 +110,21 @@ async def test_invalid_replay_inputs_do_not_touch_database(issuer, jti, expiry):
     with pytest.raises(ValueError):
         await reserve_assertion_once(store, issuer=issuer, assertion_id=jti, expires_at=expiry)
     assert not store.digests
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("issuer,jti", [
+    ("gateway\\x00alternate", "valid-jti"),
+    ("gateway", "short"),
+    ("gateway", "        "),
+    ("gateway", "jti-abc\\n123"),
+    ("gateway", "é" * 8),
+    ("gateway", "x" * 129),
+])
+async def test_ambiguous_or_noncanonical_replay_keys_never_reach_database(issuer, jti):
+    store = FakeSession()
+    with pytest.raises(ValueError):
+        await reserve_assertion_once(
+            store, issuer=issuer, assertion_id=jti, expires_at=2000
+        )
+    assert not store.digests
