@@ -52,7 +52,8 @@ def _uses_internal_principal(node):
 
 def test_every_tenant_route_has_gateway_principal_dependency():
     routes = list(_routes())
-    expected = {\n        ("GET", "/api/v1/health/live"),
+    expected = {
+        ("GET", "/api/v1/health/live"),
         ("POST", "/api/v1/observability/logs/search"),
         ("POST", "/api/v1/observability/metrics/query"),
         ("POST", "/api/v1/integrations/opensearch/alerts"),
