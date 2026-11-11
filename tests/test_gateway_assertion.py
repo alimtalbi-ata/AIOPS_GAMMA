@@ -87,3 +87,31 @@ def test_malformed_or_oversized_assertion_is_denied(monkeypatch, token):
             path="/api/v1/observability/metrics/query", now=1030
         )
     assert exc.value.status_code == 401
+
+
+def test_duplicate_signed_claim_is_rejected(monkeypatch):
+    _token(monkeypatch)
+    payload = (
+        '{"iss":"trusted-gateway","iss":"trusted-gateway",'
+        '"aud":"gamma-api","sub":"user:123","actor_type":"user",'
+        '"tenant_id":"12345678-1234-4234-8234-123456789abc",'
+        '"tenant_access":true,"iat":1000,"exp":1060,'
+        '"jti":"assertion-123456","method":"POST",'
+        '"path":"/api/v1/observability/metrics/query"}'
+    )
+    encoded = _b64(payload.encode())
+    signature = hmac.new(b"s" * 48, encoded.encode(), hashlib.sha256).digest()
+    with pytest.raises(HTTPException) as exc:
+        verify_gateway_assertion(encoded + "." + _b64(signature),
+            method="POST", path="/api/v1/observability/metrics/query", now=1030)
+    assert exc.value.status_code == 401
+
+
+def test_noncanonical_base64url_signature_is_rejected(monkeypatch):
+    token = _token(monkeypatch)
+    encoded, signature = token.split(".")
+    # Padding is not part of the canonical unpadded base64url wire format.
+    with pytest.raises(HTTPException) as exc:
+        verify_gateway_assertion(encoded + "." + signature + "=",
+            method="POST", path="/api/v1/observability/metrics/query", now=1030)
+    assert exc.value.status_code == 401
