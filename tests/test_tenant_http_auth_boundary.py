@@ -150,3 +150,20 @@ def test_http_signed_assertion_cannot_bypass_wrong_service_key(monkeypatch):
             "X-Gateway-Principal": token,
         })
     assert response.status_code == 401
+
+
+def test_http_signed_tenant_cannot_be_overridden_by_unsigned_headers(monkeypatch):
+    """Unsigned identity headers cannot replace the tenant in a signed principal."""
+    monkeypatch.setattr(settings, "internal_api_key", "lab-secret")
+    tenant_a, tenant_b = str(uuid4()), str(uuid4())
+    token = _signed_http_assertion(monkeypatch, tenant_id=tenant_a)
+    with TestClient(app) as client:
+        response = client.post(PATH, headers={
+            "X-Internal-API-Key": "lab-secret",
+            "X-Gateway-Principal": token,
+            "X-Tenant-ID": tenant_b,
+            "X-Actor-ID": "forged-admin",
+            "X-Actor-Role": "superadmin",
+        })
+    # The endpoint is intentionally unimplemented and has no tenant data.
+    assert response.status_code == 501
