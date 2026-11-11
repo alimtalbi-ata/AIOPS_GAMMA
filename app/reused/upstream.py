@@ -16,6 +16,25 @@ from fastapi import HTTPException
 from app.settings import settings
 
 MAX_BYTES = 262144
+
+
+def _unique_json_object(pairs):
+    """Reject ambiguous duplicate keys in upstream security attestations."""
+    obj = {}
+    for key, value in pairs:
+        if key in obj:
+            raise ValueError("duplicate upstream JSON key")
+        obj[key] = value
+    return obj
+
+
+def parse_unique_json(data):
+    """Parse upstream JSON without duplicate keys or non-finite constants."""
+    def reject_constant(value):
+        raise ValueError("non-finite upstream JSON constant")
+
+    return json.loads(data, object_pairs_hook=_unique_json_object,
+                      parse_constant=reject_constant)
 ALLOWED_RESOURCES = {
     "core": ("core_read_url", "/api/v1/incidents"),
     "evidence": ("evidence_read_url", "/api/v1/evidence"),
@@ -82,7 +101,7 @@ async def fetch_canonical(resource: str, tenant_id: UUID) -> dict:
                         raise HTTPException(502, "Canonical upstream response too large")
                 if "application/json" not in response.headers.get("content-type", "").lower():
                     raise HTTPException(502, "Canonical upstream content type invalid")
-        decoded = json.loads(data)
+        decoded = parse_unique_json(data)
         if not isinstance(decoded, dict):
             raise HTTPException(502, "Canonical upstream response shape invalid")
         # Do not assert authorization merely because upstream echoed a tenant.
@@ -90,5 +109,5 @@ async def fetch_canonical(resource: str, tenant_id: UUID) -> dict:
         if decoded.get("tenant_id") != str(tenant_id):
             raise HTTPException(502, "Canonical upstream tenant attestation missing")
         return decoded
-    except (httpx.RequestError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+    except (httpx.RequestError, ValueError, UnicodeDecodeError) as exc:
         raise HTTPException(502, "Canonical upstream unavailable") from exc
