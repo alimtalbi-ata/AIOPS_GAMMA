@@ -128,3 +128,30 @@ async def test_ambiguous_or_noncanonical_replay_keys_never_reach_database(issuer
             store, issuer=issuer, assertion_id=jti, expires_at=2000
         )
     assert not store.digests
+
+
+@pytest.mark.asyncio
+async def test_consume_invalid_input_rolls_back_without_commit_or_sql():
+    store = TransactionalFakeSession()
+    with pytest.raises(ValueError):
+        await consume_assertion_before_access(
+            store, issuer="gateway", assertion_id="short", expires_at=2000
+        )
+    assert store.rollbacks == 1
+    assert store.commits == 0
+    assert not store.digests
+
+
+@pytest.mark.asyncio
+async def test_consume_database_outage_rolls_back_and_never_commits():
+    class UnavailableTransactionalSession(TransactionalFakeSession):
+        async def execute(self, statement, params):
+            raise OperationalError("INSERT", {}, Exception("database unavailable"))
+
+    store = UnavailableTransactionalSession()
+    with pytest.raises(OperationalError):
+        await consume_assertion_before_access(
+            store, issuer="gateway", assertion_id="jti-12345678", expires_at=2000
+        )
+    assert store.rollbacks == 1
+    assert store.commits == 0
