@@ -164,3 +164,17 @@ def test_stricter_gateway_ttl_configuration_is_enforced(monkeypatch):
             path="/api/v1/observability/metrics/query", now=1030,
         )
     assert exc.value.status_code == 401
+
+
+@pytest.mark.parametrize("claim,value", [
+    ("sub", ""), ("sub", "   "), ("sub", "x" * 257),
+    ("jti", ""), ("jti", "short"), ("jti", "x" * 129),
+    ("jti", None), ("sub", None),
+])
+def test_invalid_signed_actor_identity_fields_denied(monkeypatch, claim, value):
+    with pytest.raises(HTTPException) as exc:
+        verify_gateway_assertion(
+            _token(monkeypatch, **{claim: value}), method="POST",
+            path="/api/v1/observability/metrics/query", now=1030,
+        )
+    assert exc.value.status_code == 401
