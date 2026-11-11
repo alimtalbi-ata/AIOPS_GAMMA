@@ -138,3 +138,7 @@ The verifier now requires the signed `jti` to be an 8–128-character ASCII stri
 ### GitHub Actions verification — 2026-11-11
 
 At commit `c86cd485b3cac1d2462a36dd3f2458831710aa07`, GitHub reported two completed failed workflow runs: `Python checks` (`43082228771`) and `Deployment contract (static + runtime smoke)` (`43082228809`). The former contained failed jobs `frontend` and `test`; the latter contained failed jobs `postgres-nonroot-experiment`, `ui-image`, `compose`, `helm`, `single-directory-runtime`, and `api-postgres-runtime`. Job details returned no step summaries (`steps: null`), so this is **not evidence that tests ran and failed** or that any test passed. Do not use these runs as security qualification. Continue with independent disposable lab execution and preserve HOLD / NO_GO.
+
+### Disposable PostgreSQL schema revision preflight (2026-11-11)
+
+The opt-in replay concurrency fixture now checks `SELECT version_num FROM alembic_version` and requires the exact reviewed revision `0002_gateway_replay` **before test writes**, in addition to checking the connected database name and replay table presence. Missing `alembic_version`, a wrong revision, or a database error fail the fixture closed. This change has **not** been exercised against a real PostgreSQL instance; it does not demonstrate that the migration applies or that concurrent reservations work. A loopback connection can still be a tunnel to a sensitive database, so human confirmation of a disposable target remains mandatory. HOLD / NO_GO.
