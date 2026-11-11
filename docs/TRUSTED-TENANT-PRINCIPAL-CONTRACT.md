@@ -130,3 +130,7 @@ The verifier now rejects a configured `gateway_assertion_max_ttl_seconds` outsid
 ### Strict TTL configuration type check (2026-11-11)
 
 The verifier now requires `type(gateway_assertion_max_ttl_seconds) is int` as well as a value between 1 and 60 inclusive. This closes Python's `bool`-as-`int` corner case and rejects fractional policy overrides in tests. The repository parametrized regression includes `True`, `False` and `30.5`. A **separate local pytest harness reproducing only this TTL guard** passed 10/10 cases (7 invalid, 3 valid); **the repository's actual verifier and full test suite were not executed**. No PostgreSQL replay, Gateway ACL or ingress qualification; HOLD / NO_GO.
+
+### Signed replay identifier input hardening (2026-11-11)
+
+The verifier now requires the signed `jti` to be an 8–128-character ASCII string containing only printable non-whitespace bytes (`!` through `~`). This prevents blank, control-character, and non-ASCII replay IDs from entering future shared replay reservations. Unit regression coverage includes missing/short/long IDs, whitespace-only, embedded newline and Unicode. **Nine isolated local Python checks** of the guard expression passed, but the full repository tests and real PostgreSQL replay tests have **not** been run. The replay helper remains unwired to HTTP, and Gateway actor→tenant ACL is still unverified. HOLD / NO_GO.
