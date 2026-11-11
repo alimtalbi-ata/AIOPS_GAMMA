@@ -64,6 +64,34 @@ async def replay_db():
 
 
 @pytest.mark.asyncio
+async def test_postgres_replay_schema_and_expiry_index_match_migration(replay_db):
+    """Inspect the actual PostgreSQL schema, not just migration source."""
+    async with replay_db() as session:
+        columns = (await session.execute(text(
+            "SELECT column_name, data_type, is_nullable, character_maximum_length "
+            "FROM information_schema.columns "
+            "WHERE table_schema = current_schema() "
+            "AND table_name = 'gateway_assertion_replay'"
+        ))).all()
+        indexes = (await session.execute(text(
+            "SELECT indexname, indexdef FROM pg_indexes "
+            "WHERE schemaname = current_schema() "
+            "AND tablename = 'gateway_assertion_replay'"
+        ))).all()
+    assert {row.column_name: (row.data_type, row.is_nullable, row.character_maximum_length)
+            for row in columns} == {
+        "assertion_digest": ("character varying", "NO", 64),
+        "expires_at": ("timestamp with time zone", "NO", None),
+    }
+    index_defs = {row.indexname: row.indexdef for row in indexes}
+    assert "gateway_assertion_replay_pkey" in index_defs
+    assert "ix_gateway_assertion_replay_expires_at" in index_defs
+    assert "UNIQUE" in index_defs["gateway_assertion_replay_pkey"].upper()
+    assert "expires_at" in index_defs["ix_gateway_assertion_replay_expires_at"]
+    assert "UNIQUE" not in index_defs["ix_gateway_assertion_replay_expires_at"].upper()
+
+
+@pytest.mark.asyncio
 async def test_two_concurrent_postgres_sessions_reserve_one_jti(replay_db):
     issuer = "gamma-replay-integration"
     jti = "test-" + uuid4().hex
