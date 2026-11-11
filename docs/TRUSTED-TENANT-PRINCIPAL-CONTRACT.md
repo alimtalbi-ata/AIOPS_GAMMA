@@ -126,3 +126,7 @@ Added HTTP regression cases for missing gateway verification secret (expected `5
 ### Fail-closed gateway assertion TTL configuration (2026-11-11)
 
 The verifier now rejects a configured `gateway_assertion_max_ttl_seconds` outside **1..60** with HTTP `503` before verifying the token. This prevents an operator misconfiguration from silently accepting long-lived signed assertions. A lower positive configured maximum remains supported and is enforced against signed `exp - iat`. Five new unit test cases cover 0, -1, 61, 3600 and a stricter 30-second limit. **These new repository tests have been committed but not executed in this turn**. This does not activate shared replay consumption or replace Gateway actor→tenant/resource ACL. HOLD / NO_GO.
+
+### Strict TTL configuration type check (2026-11-11)
+
+The verifier now requires `type(gateway_assertion_max_ttl_seconds) is int` as well as a value between 1 and 60 inclusive. This closes Python's `bool`-as-`int` corner case and rejects fractional policy overrides in tests. The repository parametrized regression includes `True`, `False` and `30.5`. A **separate local pytest harness reproducing only this TTL guard** passed 10/10 cases (7 invalid, 3 valid); **the repository's actual verifier and full test suite were not executed**. No PostgreSQL replay, Gateway ACL or ingress qualification; HOLD / NO_GO.
