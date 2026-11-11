@@ -110,3 +110,7 @@ The verified `Principal` now retains the integer signed `exp` as `expires_at` (c
 ### HTTP regression reliability and dual-credential check (2026-11-11)
 
 The HTTP tampered-signature test now modifies the **first** Base64URL signature character, not the last (which may only change unused padding bits). An isolated Python HMAC/Base64URL check confirmed that the first-character mutation changes the decoded signature bytes. Added an HTTP regression requiring `401` when a valid signed gateway assertion is supplied with an invalid internal service key. These HTTP tests are committed but **not executed in the full FastAPI test suite**. The standalone signature-byte check is not an HTTP test. PostgreSQL replay concurrency, Gateway ACL and network ingress remain unverified; HOLD / NO_GO.
+
+### HTTP tenant-header spoofing probe (2026-11-11)
+
+The HTTP auth boundary tests now include a small in-test FastAPI probe route using the **real** `internal_principal` dependency. It signs a principal for tenant A, sends unsigned `X-Tenant-ID` for tenant B and forged actor/role headers, then asserts the returned principal still contains tenant A and the signed subject. This checks the actual derived identity instead of merely inferring correctness from the metrics endpoint's 501 response. It does not read tenant resources or activate replay protection. The test has been committed but **not executed in this turn**; real Gateway ACL, PostgreSQL replay concurrency and network restrictions remain unverified. HOLD / NO_GO.
