@@ -118,7 +118,7 @@ def internal_principal(
     if not settings.internal_api_key:
         raise HTTPException(status_code=503, detail="Internal service authentication not configured")
     if not x_internal_api_key or not hmac.compare_digest(
-        x_internal_api_key, settings.internal_api_key
+        x_internal_api_key.encode("utf-8"), settings.internal_api_key.encode("utf-8")
     ):
         raise HTTPException(status_code=401, detail="Unauthorized")
     if not x_gateway_principal:
