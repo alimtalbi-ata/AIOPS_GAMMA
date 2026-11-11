@@ -11,6 +11,28 @@ ROOT = Path(__file__).resolve().parents[1]
 MAIN = ROOT / "app/main.py"
 PUBLIC_ROUTES = {("GET", "/api/v1/health/live")}
 HTTP_METHODS = {"get", "post", "put", "patch", "delete"}
+EXPECTED_ROUTES = {
+    ("GET", "/api/v1/health/live"),
+    ("POST", "/api/v1/observability/logs/search"),
+    ("POST", "/api/v1/observability/metrics/query"),
+    ("POST", "/api/v1/integrations/opensearch/alerts"),
+    ("POST", "/api/v1/topology/bindings"),
+    ("GET", "/api/v1/topology/bindings"),
+    ("POST", "/api/v1/incidents/{incident_id}/evidence"),
+    ("GET", "/api/v1/incidents/{incident_id}/evidence"),
+    ("POST", "/api/v1/topology/impact/estimate"),
+    ("POST", "/api/v1/policy/remediation/preview"),
+    ("POST", "/api/v1/incidents/correlation/preview"),
+    ("GET", "/api/v1/canonical/{resource}/snapshot"),
+    ("POST", "/api/v1/itil4/workflow/preview"),
+    ("POST", "/api/v1/itil4/incidents/sync-preview"),
+    ("GET", "/api/v1/itil4/glpi/incidents/{ticket_id}/snapshot"),
+    ("POST", "/api/v1/observability/llm/kpis/preview"),
+    ("POST", "/api/v1/incidents/investigation/preview"),
+    ("POST", "/api/v1/incidents/evidence/preview"),
+    ("POST", "/api/v1/incidents/correlation-evidence/preview"),
+}
+
 
 
 class InternalRouteDependencyGuard(unittest.TestCase):
@@ -67,7 +89,8 @@ class InternalRouteDependencyGuard(unittest.TestCase):
         self.assertIn(("POST", "/api/v1/observability/metrics/query"), found)
         self.assertIn(("GET", "/api/v1/canonical/{resource}/snapshot"), found)
         self.assertEqual(found & PUBLIC_ROUTES, PUBLIC_ROUTES)
-        self.assertGreaterEqual(len(found), 19, "Unexpected route removal; review coverage")
+        self.assertEqual(found, EXPECTED_ROUTES,
+                         "HTTP route inventory changed; review ACL and update allowlist")
 
     def test_public_route_allowlist_is_narrow(self):
         self.assertEqual(PUBLIC_ROUTES, {("GET", "/api/v1/health/live")})
