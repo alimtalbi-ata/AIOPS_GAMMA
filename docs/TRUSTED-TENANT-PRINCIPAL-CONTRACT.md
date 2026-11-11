@@ -106,3 +106,7 @@ The verified `Principal` now retains the integer signed `exp` as `expires_at` (c
 ### HTTP gateway-assertion boundary regression coverage (2026-11-11)
 
 `tests/test_tenant_http_auth_boundary.py` now contains an HTTP test that sends a correctly signed short-lived gateway assertion plus the separate service key to `POST /api/v1/observability/metrics/query`, expecting its intentional `501` (the route performs no tenant read). Three HTTP negative cases require `401`: wrong signed path, `tenant_access: false`, and a modified signature. These are regression tests **committed but not yet executed against the full repository**; do not infer passing HTTP coverage. This is signed-assertion validation, **not** replay-consumption or actor→tenant ACL verification. The replay helper is still unwired and HOLD / NO_GO remains.
+
+### HTTP regression reliability and dual-credential check (2026-11-11)
+
+The HTTP tampered-signature test now modifies the **first** Base64URL signature character, not the last (which may only change unused padding bits). An isolated Python HMAC/Base64URL check confirmed that the first-character mutation changes the decoded signature bytes. Added an HTTP regression requiring `401` when a valid signed gateway assertion is supplied with an invalid internal service key. These HTTP tests are committed but **not executed in the full FastAPI test suite**. The standalone signature-byte check is not an HTTP test. PostgreSQL replay concurrency, Gateway ACL and network ingress remain unverified; HOLD / NO_GO.
