@@ -56,3 +56,11 @@ class Evidence(Base):
     source_ref: Mapped[str] = mapped_column(Text)
     summary: Mapped[str | None] = mapped_column(Text)
     observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+
+class GatewayAssertionReplay(Base):
+    """Replay reservation; do not store raw gateway assertions or raw JTI."""
+    __tablename__ = "gateway_assertion_replay"
+    assertion_digest: Mapped[str] = mapped_column(String(64), primary_key=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
