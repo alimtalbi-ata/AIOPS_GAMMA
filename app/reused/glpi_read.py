@@ -11,7 +11,7 @@ from uuid import UUID
 import httpx
 from fastapi import HTTPException
 
-from app.reused.upstream import MAX_BYTES, validate_origin
+from app.reused.upstream import MAX_BYTES, validate_origin, parse_unique_json
 from app.settings import settings
 
 
@@ -56,7 +56,7 @@ async def read_glpi_incident(tenant_id: UUID, ticket_id: int) -> dict:
                     raw.extend(chunk)
                     if len(raw) > MAX_BYTES:
                         raise HTTPException(502, "GLPI response too large")
-        payload = json.loads(raw)
+        payload = parse_unique_json(raw)
         if (not isinstance(payload, dict) or type(payload.get("id")) is not int
                 or payload["id"] != ticket_id
                 or type(payload.get("entities_id")) is not int
@@ -74,5 +74,5 @@ async def read_glpi_incident(tenant_id: UUID, ticket_id: int) -> dict:
             "type": 1,
             "read_only": True,
         }
-    except (httpx.RequestError, httpx.DecodingError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+    except (httpx.RequestError, httpx.DecodingError, ValueError, UnicodeDecodeError) as exc:
         raise HTTPException(502, "GLPI upstream unavailable") from exc
