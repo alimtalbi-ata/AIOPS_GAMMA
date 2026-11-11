@@ -52,7 +52,27 @@ def _uses_internal_principal(node):
 
 def test_every_tenant_route_has_gateway_principal_dependency():
     routes = list(_routes())
-    assert len(routes) >= 19, "Route inventory unexpectedly shrank: review the security guard"
+    expected = {\n        ("GET", "/api/v1/health/live"),
+        ("POST", "/api/v1/observability/logs/search"),
+        ("POST", "/api/v1/observability/metrics/query"),
+        ("POST", "/api/v1/integrations/opensearch/alerts"),
+        ("POST", "/api/v1/topology/bindings"),
+        ("GET", "/api/v1/topology/bindings"),
+        ("POST", "/api/v1/incidents/{incident_id}/evidence"),
+        ("GET", "/api/v1/incidents/{incident_id}/evidence"),
+        ("POST", "/api/v1/topology/impact/estimate"),
+        ("POST", "/api/v1/policy/remediation/preview"),
+        ("POST", "/api/v1/incidents/correlation/preview"),
+        ("GET", "/api/v1/canonical/{resource}/snapshot"),
+        ("POST", "/api/v1/itil4/workflow/preview"),
+        ("POST", "/api/v1/itil4/incidents/sync-preview"),
+        ("GET", "/api/v1/itil4/glpi/incidents/{ticket_id}/snapshot"),
+        ("POST", "/api/v1/observability/llm/kpis/preview"),
+        ("POST", "/api/v1/incidents/investigation/preview"),
+        ("POST", "/api/v1/incidents/evidence/preview"),
+        ("POST", "/api/v1/incidents/correlation-evidence/preview"),
+    }
+    assert {(method, path) for method, path, _ in routes} == expected, "Route inventory changed: review the security guard"
     public = {("GET", "/api/v1/health/live")}
     assert {(method, path) for method, path, _ in routes if (method, path) in public} == public
     for method, path, node in routes:
