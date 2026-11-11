@@ -170,7 +170,7 @@ def test_stricter_gateway_ttl_configuration_is_enforced(monkeypatch):
     ("sub", ""), ("sub", "   "), ("sub", "x" * 257),
     ("jti", ""), ("jti", "short"), ("jti", "x" * 129),
     ("jti", None), ("sub", None),
-    ("jti", "        "), ("jti", "abc\\n12345"),
+    ("jti", "        "), ("jti", "abc\n12345"),
     ("jti", "é" * 8),
 ])
 def test_invalid_signed_actor_identity_fields_denied(monkeypatch, claim, value):
@@ -198,8 +198,8 @@ def test_unicode_service_key_header_denied_without_uncaught_type_error(monkeypat
 
 
 @pytest.mark.parametrize("subject", [
-    "user\\nadmin", "user\\radmin", "user\\tadmin",
-    "user\\x00admin", "user\\x7fadmin",
+    "user\nadmin", "user\radmin", "user\tadmin",
+    "user\x00admin", "user\x7fadmin",
 ])
 def test_control_characters_in_signed_subject_denied(monkeypatch, subject):
     with pytest.raises(HTTPException) as exc:
