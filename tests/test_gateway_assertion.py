@@ -180,3 +180,18 @@ def test_invalid_signed_actor_identity_fields_denied(monkeypatch, claim, value):
             path="/api/v1/observability/metrics/query", now=1030,
         )
     assert exc.value.status_code == 401
+
+
+def test_unicode_service_key_header_denied_without_uncaught_type_error(monkeypatch):
+    from starlette.requests import Request
+    from app.security import internal_principal
+
+    monkeypatch.setattr(settings, "internal_api_key", "lab-secret")
+    request = Request({"type": "http", "method": "POST", "path": "/probe",
+                       "headers": [], "query_string": b""})
+    with pytest.raises(HTTPException) as exc:
+        internal_principal(
+            request, x_internal_api_key="clé-invalide",
+            x_gateway_principal="not-a-valid-assertion",
+        )
+    assert exc.value.status_code == 401
