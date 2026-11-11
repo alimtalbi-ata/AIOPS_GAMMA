@@ -59,3 +59,10 @@ The new isolated helper `app/gateway_replay.py:reserve_assertion_once` uses a Po
 Before wiring into `internal_principal`, an owner must review and deploy an Alembic migration, then ensure the reservation transaction is committed **before** a protected handler can run; rolling back the reservation with a later failed business transaction would reopen replay. Expired reservations must be cleaned only after the assertion expiry plus permitted clock skew, and the cleanup must never remove unexpired reservations. Concurrent requests across API replicas and a database outage must be tested. A duplicate reservation must return 401/409 without resource access, and any database error must fail closed. No process-local fallback is permitted.
 
 The helper's fake-session tests cover duplicate detection, issuer separation and database-error propagation, but **do not prove Postgres concurrency, migration safety or end-to-end protection**. The API currently does not call this helper; replay remains a release blocker.
+
+
+### Committed replay-reservation helper (still not wired)
+
+The helper `consume_assertion_before_access` now performs `reserve_assertion_once`, then **commits the reservation before returning success**. Duplicate reservations return false after rollback. Commit failure triggers rollback and propagates the error (no access grant). This must use a dedicated session, not a later handler transaction. Fake-session tests cover successful commit, duplicate denial and commit failure; these are not real PostgreSQL transaction/concurrency proofs.
+
+**Do not enable or wire this helper yet.** First deploy a reviewed migration for the unique replay table, verify behavior with actual PostgreSQL across API replicas and ensure the gateway ACL and network boundary are approved. All sensitive reads and LIVE remain HOLD.
