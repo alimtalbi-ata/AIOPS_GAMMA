@@ -42,3 +42,13 @@ Interpretation remains deliberately limited: the API response contains no runner
 ## Release gate
 
 CI remains **not green**. The new replay migration AST guard, full-app HTTP boundary suite, actual PostgreSQL migration/concurrency, Gateway actor→tenant/resource ACL, and live replay wiring are not qualified. Keep replay helper unwired and retain **HOLD / NO_GO** for merge, deployment, and LIVE.
+
+
+## Retry after replay helper source guard — 2026-11-11
+
+Head commit: `0e4e09205482133cd1c73da172cd04e62054a318`.
+
+- Python checks run [43108299474](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43108299474): completed / failure; both `frontend` and `test` jobs report `steps: null`.
+- Deployment contract run [43108298991](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43108298991): completed / failure; all six jobs report `steps: null`.
+
+No step/log evidence is available from these job responses. Do not infer that any workflow command executed. CI remains not green and cannot qualify the newly added source-contract guard.
