@@ -42,11 +42,17 @@ def test_reservation_uses_sha256_digest_and_atomic_conflict_handling():
 def test_reservation_validates_inputs_before_database_execute():
     tree = _module()
     function = _function(tree, "reserve_assertion_once")
-    calls = [
-        child.func.attr for child in ast.walk(function)
+    sha_call = next(
+        child for child in ast.walk(function)
         if isinstance(child, ast.Call) and isinstance(child.func, ast.Attribute)
-    ]
-    assert calls.index("execute") > calls.index("sha256")
+        and child.func.attr == "sha256"
+    )
+    execute_call = next(
+        child for child in ast.walk(function)
+        if isinstance(child, ast.Call) and isinstance(child.func, ast.Attribute)
+        and child.func.attr == "execute"
+    )
+    assert execute_call.lineno > sha_call.lineno
     source = ast.get_source_segment(SOURCE.read_text(encoding="utf-8"), function)
     assert "isinstance(issuer, str)" in source
     assert "assertion_id.isascii()" in source
