@@ -102,3 +102,7 @@ The opt-in PostgreSQL concurrency harness now additionally rejects **remote host
 ### Trusted assertion expiry propagation (2026-11-11)
 
 The verified `Principal` now retains the integer signed `exp` as `expires_at` (commit `be5f71f`). The assertion verification test checks that a valid signed expiry is preserved (`1060` in the deterministic fixture). This prepares an eventual call to `consume_assertion_before_access` without taking expiry from untrusted request headers. **No replay reservation is invoked in `internal_principal` yet**, and the current API must not be represented as replay-protected. The updated full application tests have not been executed in this change; PostgreSQL qualification and Gateway ACL remain outstanding.
+
+### HTTP gateway-assertion boundary regression coverage (2026-11-11)
+
+`tests/test_tenant_http_auth_boundary.py` now contains an HTTP test that sends a correctly signed short-lived gateway assertion plus the separate service key to `POST /api/v1/observability/metrics/query`, expecting its intentional `501` (the route performs no tenant read). Three HTTP negative cases require `401`: wrong signed path, `tenant_access: false`, and a modified signature. These are regression tests **committed but not yet executed against the full repository**; do not infer passing HTTP coverage. This is signed-assertion validation, **not** replay-consumption or actor→tenant ACL verification. The replay helper is still unwired and HOLD / NO_GO remains.
