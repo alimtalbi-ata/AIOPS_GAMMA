@@ -70,3 +70,51 @@ def test_correlation_and_investigation_use_authenticated_tenant_context():
     assert "str(principal.tenant_id)" in correlation
     assert "principal: Principal = Depends(internal_principal)" in investigation
     assert "evaluate_investigation(req, principal.tenant_id)" in investigation
+
+
+def test_public_create_schemas_do_not_accept_caller_selected_tenant():
+    schemas = ast.parse((ROOT / "app" / "schemas.py").read_text(encoding="utf-8"))
+    models = {
+        node.name: node for node in schemas.body
+        if isinstance(node, ast.ClassDef)
+    }
+    for name in ("BindingIn", "EvidenceIn"):
+        fields = {
+            target.id
+            for node in models[name].body if isinstance(node, ast.AnnAssign)
+            and isinstance((target := node.target), ast.Name)
+        }
+        assert "tenant_id" not in fields
+
+
+def test_persisted_tenant_owned_models_require_non_nullable_tenant_id():
+    models = ast.parse((ROOT / "app" / "models.py").read_text(encoding="utf-8"))
+    classes = {
+        node.name: node for node in models.body if isinstance(node, ast.ClassDef)
+    }
+    for name in ("InboxEvent", "OutboxEvent", "ServiceBinding", "Evidence"):
+        tenant_column = next(
+            node.value for node in classes[name].body
+            if isinstance(node, ast.AnnAssign)
+            and isinstance(node.target, ast.Name)
+            and node.target.id == "tenant_id"
+        )
+        source = ast.unparse(tenant_column)
+        assert "nullable=False" in source
+
+
+def test_service_binding_natural_key_is_tenant_scoped():
+    models = ast.parse((ROOT / "app" / "models.py").read_text(encoding="utf-8"))
+    binding = next(node for node in models.body if isinstance(node, ast.ClassDef)
+                   and node.name == "ServiceBinding")
+    args = [
+        ast.literal_eval(arg)
+        for node in binding.body if isinstance(node, ast.Assign)
+        and any(isinstance(target, ast.Name) and target.id == "__table_args__"
+                for target in node.targets)
+        for call in ast.walk(node.value)
+        if isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
+        and call.func.id == "UniqueConstraint"
+        for arg in call.args
+    ]
+    assert args == ["tenant_id", "cmdb_service_id", "otel_service_name", "environment"]
