@@ -80,3 +80,13 @@ def test_nginx_rejects_non_demo_api_paths_before_spa_fallback():
     assert nginx.index("location = /api/v1/demo/correlation") < nginx.index("location ^~ /api/")
     assert nginx.index("location = /api/v1/demo/investigation") < nginx.index("location ^~ /api/")
     assert nginx.index("location ^~ /api/") < nginx.index("location / { try_files")
+
+
+def test_vite_rejects_unknown_api_routes_before_proxy():
+    vite = (ROOT / "frontend/vite.config.ts").read_text(encoding="utf-8")
+    assert 'name: "deny-non-demo-api"' in vite
+    assert 'path.startsWith("/api/") && !publicDemoPaths.has(path)' in vite
+    assert "res.statusCode = 404;" in vite
+    assert 'res.setHeader("Cache-Control", "no-store")' in vite
+    assert '"/api/v1/demo/correlation"' in vite
+    assert '"/api/v1/demo/investigation"' in vite
