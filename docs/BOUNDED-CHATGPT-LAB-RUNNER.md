@@ -79,3 +79,13 @@ throwaway environment with no production network or credentials.
 A local ChatGPT Python 3.13.5 / pytest 9.0.2 smoke command
 `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -p pytest_asyncio.plugin --version`
 returned `pytest 9.0.2`; it did **not** execute GAMMA tests.
+
+
+### Quality audit regression coverage
+
+The fixed source-only allowlist now includes
+`tests/test_quality_p0_imports.py`: it parses all application Python files,
+imports the corrected schema/outbox/bootstrap modules with engine creation
+forbidden, and tests POC bootstrap engine disposal against a fake engine.
+No database, webhook, or external network is needed for these cases.
+**Presence on the allowlist does not mean the full suite has run.**
