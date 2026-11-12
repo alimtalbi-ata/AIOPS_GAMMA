@@ -84,7 +84,7 @@ jobs:
       - name: Assert UI image non-root user and unprivileged port
         run: |
           test "$(docker image inspect gamma-ui:ci --format '{{.Config.User}}')" = "101:101"
-          docker run --rm --cap-drop ALL --security-opt no-new-privileges --user 101:101 --entrypoint nginx gamma-ui:ci -t
+          docker run --rm --add-host api:127.0.0.1 --cap-drop ALL --security-opt no-new-privileges --user 101:101 --entrypoint nginx gamma-ui:ci -t
       - name: Smoke test running UI with dropped capabilities
         run: |
           set -eu
