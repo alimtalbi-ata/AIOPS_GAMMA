@@ -50,6 +50,9 @@ def main() -> int:
     if missing:
         print("Refusing incomplete checkout: " + ", ".join(missing), file=sys.stderr)
         return 2
+    if (root / ".env").exists():
+        print("Refusing checkout with .env: application settings auto-load it", file=sys.stderr)
+        return 2
     if any(key in os.environ for key in UNSAFE_ENV_KEYS):
         print("Refusing inherited database/replay test environment", file=sys.stderr)
         return 2
@@ -57,6 +60,9 @@ def main() -> int:
     dest = args.report.resolve() if args.report else None
     if dest is not None and (dest == root or root in dest.parents):
         print("Report must be outside repository checkout", file=sys.stderr)
+        return 2
+    if any(key in os.environ for key in ("PYTEST_ADDOPTS", "PYTEST_PLUGINS", "PYTHONPATH")):
+        print("Refusing inherited pytest/Python execution overrides", file=sys.stderr)
         return 2
     if args.check_only:
         print(json.dumps({
