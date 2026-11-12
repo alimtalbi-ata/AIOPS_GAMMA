@@ -250,3 +250,12 @@ Toute autre URL commençant par `/api/` reçoit HTTP 404 et n'est
 ni transmise à FastAPI ni convertie en page HTML SPA. Les routes tenant
 authentifiées restent accessibles uniquement par le backend/gateway
 prévu à cet effet, pas par la console de démonstration.
+
+### Tests négatifs de jointure de preuves
+
+`python -m pytest -q tests/test_evidence_join_fail_closed.py` couvre
+les cas d'échec indispensables : preuve d'un autre tenant refusée,
+événement non correspondant, preuve absente, deux incidents contradictoires
+dans un même groupe et absence de validation de provenance même lorsque
+la jointure par identifiant réussit. Ces tests restent locaux, sans VM
+ni intégration externe. Leur exécution réussie n'est pas encore confirmée.
