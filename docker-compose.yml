@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     depends_on:
       api:
-        condition: service_started
+        condition: service_healthy
   api:
     build: .
     ports: ["127.0.0.1:8000:8000"]
@@ -19,6 +19,12 @@ services:
       OPENSEARCH_URL: http://opensearch:9200
       ENABLE_OPENSEARCH: ${ENABLE_OPENSEARCH:-false}
       ENABLE_ALERT_INGESTION: ${ENABLE_ALERT_INGESTION:-false}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json,urllib.request; assert json.load(urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/live', timeout=3)) == {'status': 'ok'}"]
+      interval: 5s
+      timeout: 4s
+      retries: 12
+      start_period: 5s
     depends_on:
       migrate:
         condition: service_completed_successfully
