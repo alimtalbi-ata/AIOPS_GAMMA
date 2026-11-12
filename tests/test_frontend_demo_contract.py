@@ -58,4 +58,14 @@ def test_compose_frontend_waits_for_api_before_nginx_upstream_resolution():
     frontend = compose.split("  frontend:", 1)[1].split("\n  api:", 1)[0]
     assert "depends_on:" in frontend
     assert "api:" in frontend
-    assert "condition: service_started" in frontend
+    assert "condition: service_healthy" in frontend
+
+
+def test_api_healthcheck_uses_actual_liveness_without_tenant_credentials():
+    compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+    api = compose.split("\n  api:", 1)[1].split("\n  migrate:", 1)[0]
+    assert "healthcheck:" in api
+    assert "/api/v1/health/live" in api
+    assert "127.0.0.1:8000" in api
+    assert "INTERNAL_API_KEY" not in api.split("healthcheck:", 1)[1]
+    assert "condition: service_completed_successfully" in api
