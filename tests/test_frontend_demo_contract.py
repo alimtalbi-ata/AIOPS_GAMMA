@@ -166,3 +166,18 @@ def test_nginx_demo_proxy_does_not_forward_arbitrary_browser_headers():
         assert "proxy_pass_request_headers off;" in block
         # Host is deliberately supplied by the proxy, not inherited from the browser.
         assert "proxy_set_header Host api;" in block
+
+
+def test_nginx_demo_routes_are_get_only_and_drop_request_bodies():
+    nginx = (ROOT / "frontend/nginx.conf").read_text(encoding="utf-8")
+    for route in ("correlation", "investigation"):
+        block = nginx.split(f"location = /api/v1/demo/{route} {{", 1)[1]
+        # The method guard is the last directive in the location; its nested
+        # closing brace must not be confused with the location's closing brace.
+        block = block.split("limit_except GET { deny all; }", 1)[0]
+        assert "proxy_pass_request_body off;" in block
+        assert 'proxy_set_header Content-Length "";' in block
+        assert 'proxy_pass_request_headers off;' in block
+        assert "limit_except GET { deny all; }" in nginx.split(
+            f"location = /api/v1/demo/{route} {{", 1
+        )[1].split("location ", 1)[0]
