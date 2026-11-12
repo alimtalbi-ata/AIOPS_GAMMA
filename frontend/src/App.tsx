@@ -48,9 +48,9 @@ export function App(){
      const response=await fetch("/api/v1/demo/investigation",{cache:"no-store"});
      if(!response.ok) throw new Error("HTTP "+response.status);
      const payload:unknown=await response.json();
-     if(!payload || typeof payload!=="object" || !("mode" in payload) || payload.mode!=="synthetic_demo" || !("authoritative" in payload) || payload.authoritative!==false || !("investigation" in payload)) throw new Error("Réponse invalide");
+     if(!payload || typeof payload!=="object" || !("mode" in payload) || payload.mode!=="synthetic_demo" || !("authoritative" in payload) || payload.authoritative!==false || !("evidence_source_verified" in payload) || payload.evidence_source_verified!==false || !("investigation" in payload)) throw new Error("Réponse invalide");
      const result=payload.investigation;
-     if(!result || typeof result!=="object" || !("groups" in result) || !Array.isArray(result.groups) || !("evidence_join_complete" in result) || result.evidence_join_complete!==true) throw new Error("Preuves non reliées");
+     if(!result || typeof result!=="object" || !("groups" in result) || !Array.isArray(result.groups) || result.groups.length!==1 || !("evidence_join_complete" in result) || result.evidence_join_complete!==true || !("evidence_join_consistent" in result) || result.evidence_join_consistent!==true || !("persisted" in result) || result.persisted!==false || !("live_remediation_authorized" in result) || result.live_remediation_authorized!==false) throw new Error("Preuves non reliées");
      const group=result.groups[0];
      if(!group || typeof group!=="object" || !("evidence" in group) || !Array.isArray(group.evidence) || !("evidence_state" in group)) throw new Error("Groupe invalide");
      if(group.evidence_state!=="UNVERIFIED" || group.evidence.length!==2) throw new Error("Preuves inattendues");
