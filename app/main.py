@@ -30,6 +30,13 @@ async def live():
     return {"status": "ok"}
 
 
+@app.get("/api/v1/demo/correlation")
+async def demo_correlation():
+    """Public, static synthetic demo; never touches tenants, IdP or database."""
+    from app.demo import synthetic_correlation_demo
+    return synthetic_correlation_demo()
+
+
 @app.post("/api/v1/observability/logs/search")
 async def logs(req: LogSearchRequest, response: Response, principal: Principal = Depends(internal_principal)):
     response.headers["Cache-Control"] = "no-store"
