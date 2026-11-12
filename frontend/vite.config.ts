@@ -18,12 +18,13 @@ export default defineConfig({
           return;
         }
         if (publicDemoPaths.has(path)) {
-          // Mirror the production Nginx boundary for public synthetic endpoints.
-          for (const header of [
-            "authorization", "cookie", "x-tenant-id", "x-forwarded-user",
-            "x-internal-api-key", "x-gateway-principal",
-          ]) {
-            delete req.headers[header];
+          // Public synthetic demos need no caller identity or custom headers.
+          // Keep only transport/content negotiation headers for the dev proxy.
+          const allowedHeaders = new Set(["host", "accept", "user-agent"]);
+          for (const header of Object.keys(req.headers)) {
+            if (!allowedHeaders.has(header)) {
+              delete req.headers[header];
+            }
           }
         }
         next();
