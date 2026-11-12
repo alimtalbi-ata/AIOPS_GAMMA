@@ -1,0 +1,37 @@
+# GitHub Actions pre-step failures — operator triage
+
+**Observed:** 2026-11-12. **Security release status:** HOLD / NO_GO.  
+**Repository:** `alimtalbi-ata/AIOPS_GAMMA`  
+**Commit:** `15a021285953fa3c613cc2837c03125f550c2c11`
+
+## Direct GitHub API evidence
+
+| Workflow | Run | Result | Jobs |
+| --- | --- | --- | --- |
+| Python checks | [43191691027](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43191691027) | failure | test, frontend, gateway-replay-postgres |
+| Deployment contract | [43191691038](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43191691038) | failure | compose, postgres-nonroot-experiment, ui-image, api-postgres-runtime, helm, single-directory-runtime |
+
+- All **nine** job records returned `conclusion=failure` and `steps=null`.
+- Separate `fetch_workflow_job_steps` calls for job IDs `131092333382`, `131092333732`, and `131092333770` returned empty arrays.
+- Separate job-log retrievals for the same three IDs returned GitHub API HTTP 404 with Azure `BlobNotFound` (blob does not exist). This is a log-storage/retrieval observation, **not** a proven root cause for the failed jobs.
+- The checked workflow files `.github/workflows/ci.yml` and `.github/workflows/deployment-contract.yml` each define `runs-on: ubuntu-latest`, checkout and subsequent executable steps. No workflow step execution is evidenced.
+- Similar pre-step failures appeared on preceding commits. Re-running unchanged jobs without a new diagnosis has not provided useful evidence.
+
+## Operator-only triage checklist
+
+1. Open both run links above in GitHub Actions. Inspect the run summary, **Annotations**, the failing job's **Set up job** panel (if present), and any banner shown *before* step execution. Capture the exact message and time, without secrets.
+2. In repository **Settings → Actions → General**, verify Actions are enabled, the workflows are allowed, and any organization/enterprise policy permits the selected actions and GitHub-hosted runners. Check whether branch/PR restrictions or approval requirements are shown.
+3. Check organization/enterprise **Actions runner availability**, usage limits and **billing/spending limits** for GitHub-hosted runners. Record any service incident or account restriction shown. This is a hypothesis to check, not an established cause.
+4. Inspect [GitHub Status](https://www.githubstatus.com/) for an Actions/log-storage incident matching the UTC run timestamps. `BlobNotFound` by itself does not establish a platform outage.
+5. If the UI exposes a diagnostic annotation or runner provisioning error, attach the **redacted** exact text to PR #1. If not, raise a GitHub Support ticket with repo, run/job IDs, time, `steps=null`, and the 404 `BlobNotFound` response. Do **not** paste tokens, private URLs, assertion contents, credentials or production logs.
+6. Only after the failure mechanism is understood, perform a single controlled retry or a narrowly scoped diagnostic workflow. Require non-empty steps and retained logs before treating it as a valid CI run.
+7. When the runner works, execute Python, frontend, disposable PostgreSQL replay/migration, Compose and Helm jobs. Then separately qualify real actor/tenant/resource ACL and cross-tenant PostgreSQL/HTTP tests. CI success alone is not deployment approval.
+
+## Explicitly not concluded
+
+- No proof that Python tests, PostgreSQL, frontend, Compose, Helm or Docker actually started on these runs.
+- No proof that `BlobNotFound` **caused** the workflow failures.
+- No proof that a source-code change, test fix, runner-version change or workflow YAML edit would resolve them.
+- No permission to run against Debian, production PostgreSQL, real tenants or LIVE.
+
+**Next evidence needed:** exact Actions UI pre-step annotation or runner provisioning message, followed by a run showing executed steps and accessible logs.
