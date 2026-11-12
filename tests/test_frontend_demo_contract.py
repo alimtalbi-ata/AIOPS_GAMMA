@@ -102,3 +102,10 @@ def test_investigation_ui_rejects_verified_or_live_claims():
         "result.groups.length!==1",
     ):
         assert field in app
+
+
+def test_both_public_demo_requests_have_bounded_timeout():
+    app = (ROOT / "frontend/src/App.tsx").read_text(encoding="utf-8")
+    assert 'fetch("/api/v1/demo/correlation",{cache:"no-store",signal:AbortSignal.timeout(8000)})' in app
+    assert 'fetch("/api/v1/demo/investigation",{cache:"no-store",signal:AbortSignal.timeout(8000)})' in app
+    assert 'payload.authoritative!==false' in app
