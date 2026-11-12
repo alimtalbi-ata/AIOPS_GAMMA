@@ -96,6 +96,21 @@ jobs:
               docker inspect --format '{{.State.Running}}' gamma-ui-smoke | grep -qx true
               docker inspect --format '{{.HostConfig.Privileged}}' gamma-ui-smoke | grep -qx false
               test "$(docker inspect --format '{{.Config.User}}' gamma-ui-smoke)" = "101:101"
+              # A public demo location must keep its security headers even
+              # though location-level Cache-Control overrides add_header inheritance.
+              for route in correlation investigation; do
+                headers=$(mktemp)
+                status=$(curl --silent --show-error --max-time 3 -o /dev/null -D "$headers" -w '%{http_code}' -X POST "http://127.0.0.1:18080/api/v1/demo/$route")
+                test "$status" = 403
+                grep -Eqi '^X-Content-Type-Options: nosniff' "$headers"
+                grep -Eqi '^Referrer-Policy: no-referrer' "$headers"
+                grep -Eqi '^X-Frame-Options: DENY' "$headers"
+                grep -Eqi '^Content-Security-Policy: ' "$headers"
+                grep -Eqi '^Cache-Control: no-store' "$headers"
+                rm -f "$headers"
+              done
+              status=$(curl --silent --show-error --max-time 3 -o /dev/null -w '%{http_code}' http://127.0.0.1:18080/api/v1/private)
+              test "$status" = 404
               exit 0
             fi
             sleep 1
