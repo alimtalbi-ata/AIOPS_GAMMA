@@ -45,7 +45,7 @@ export function App(){
    setInvestigationSummary("");
    setInvestigationEvidence([]);
    try {
-     const response=await fetch("/api/v1/demo/investigation",{cache:"no-store"});
+     const response=await fetch("/api/v1/demo/investigation",{cache:"no-store",signal:AbortSignal.timeout(8000)});
      if(!response.ok) throw new Error("HTTP "+response.status);
      const payload:unknown=await response.json();
      if(!payload || typeof payload!=="object" || !("mode" in payload) || payload.mode!=="synthetic_demo" || !("authoritative" in payload) || payload.authoritative!==false || !("evidence_source_verified" in payload) || payload.evidence_source_verified!==false || !("investigation" in payload)) throw new Error("Réponse invalide");
@@ -70,10 +70,10 @@ export function App(){
  const runSyntheticDemo=async()=>{
    setDemoStatus("Exécution…");
    try {
-     const response=await fetch("/api/v1/demo/correlation",{cache:"no-store"});
+     const response=await fetch("/api/v1/demo/correlation",{cache:"no-store",signal:AbortSignal.timeout(8000)});
      if(!response.ok) throw new Error("HTTP "+response.status);
      const payload:unknown=await response.json();
-     if(!payload || typeof payload!=="object" || !("mode" in payload) || payload.mode!=="synthetic_demo" || !("correlation" in payload)) throw new Error("Réponse invalide");
+     if(!payload || typeof payload!=="object" || !("mode" in payload) || payload.mode!=="synthetic_demo" || !("authoritative" in payload) || payload.authoritative!==false || !("correlation" in payload)) throw new Error("Réponse invalide");
      const correlation=payload.correlation;
      if(!correlation || typeof correlation!=="object" || !("groups" in correlation) || !Array.isArray(correlation.groups) || !("source_events" in correlation) || typeof correlation.source_events!=="number") throw new Error("Corrélation invalide");
      setDemoGroups(correlation.groups.length);
