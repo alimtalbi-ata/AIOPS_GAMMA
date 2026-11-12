@@ -1,5 +1,13 @@
 # Canonical read adapter — qualification contract
 
+**Security status (2026-11-12): HARD HOLD / NO_GO.** The endpoint `GET /api/v1/canonical/{resource}/snapshot` now refuses all allowlisted resources with HTTP 503 `Canonical actor/tenant/resource ACL not qualified`, **even when** `ENABLE_CANONICAL_READS=true`. It performs no upstream network request. Unknown resources still return 404. This prevents a misconfigured feature flag or an echoed tenant ID from being mistaken for independently verified actor→tenant→resource authorization.
+
+The original prototype and its planned transport contract are historical design context only, **not active code**. Source of truth: `app/reused/upstream.py` and `tests/test_upstream.py`. The `validate_origin` helper remains available for future configuration qualification; it does not authorize any fetch.
+
+Before a future separately reviewed activation: choose an authoritative IdP/gateway, verify the actor and tenant membership server-side, enforce per-resource Core/Evidence/Twin ACL upstream, test cross-tenant and revoked identities with real HTTP/PostgreSQL, and validate egress/transport controls. Related aiops design review: https://github.com/alimtalbi-ata/aiops/pull/668. No provider has been selected by assumption.
+
+---
+
 Status: **prototype, disabled by default**. This is a first bounded network adapter, not proof of upstream API compatibility.
 
 - Endpoint: `GET /api/v1/canonical/{resource}/snapshot`, where resource is strictly `core`, `evidence`, or `twin`. Internal API key + tenant UUID required.
