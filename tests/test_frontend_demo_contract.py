@@ -181,3 +181,13 @@ def test_nginx_demo_routes_are_get_only_and_drop_request_bodies():
         assert "limit_except GET { deny all; }" in nginx.split(
             f"location = /api/v1/demo/{route} {{", 1
         )[1].split("location ", 1)[0]
+
+
+def test_vite_demo_proxy_rejects_mutating_methods_before_forwarding():
+    vite = (ROOT / "frontend/vite.config.ts").read_text(encoding="utf-8")
+    assert 'if (req.method !== "GET" && req.method !== "HEAD") {' in vite
+    assert "res.statusCode = 405;" in vite
+    assert 'res.setHeader("Allow", "GET, HEAD");' in vite
+    assert 'res.setHeader("Cache-Control", "no-store");' in vite
+    assert 'res.end("Method not allowed");' in vite
+    assert vite.index('if (req.method !== "GET"') < vite.index("const allowedHeaders")
