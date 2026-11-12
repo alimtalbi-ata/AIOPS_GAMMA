@@ -109,3 +109,18 @@ def test_both_public_demo_requests_have_bounded_timeout():
     assert 'fetch("/api/v1/demo/correlation",{cache:"no-store",signal:AbortSignal.timeout(8000)})' in app
     assert 'fetch("/api/v1/demo/investigation",{cache:"no-store",signal:AbortSignal.timeout(8000)})' in app
     assert 'payload.authoritative!==false' in app
+
+
+def test_correlation_ui_rejects_unexpected_or_live_demo_results():
+    app = (ROOT / "frontend/src/App.tsx").read_text(encoding="utf-8")
+    handler = app.split("const runSyntheticDemo=async()=>{", 1)[1].split("const [query,setQuery]", 1)[0]
+    for required in (
+        "payload.authoritative!==false",
+        "correlation.groups.length!==1",
+        "correlation.source_events!==2",
+        "correlation.persisted!==false",
+        "correlation.live_remediation_authorized!==false",
+    ):
+        assert required in handler
+    assert handler.count("setDemoGroups(0);") == 2
+    assert handler.count("setDemoEvents(0);") == 2
