@@ -39,6 +39,18 @@ def main() -> int:
             assert payload["correlation"]["live_remediation_authorized"] is False
             print("PASS real correlation engine on 2 synthetic events → 1 group")
 
+            investigation = client.get("/api/v1/demo/investigation")
+            assert investigation.status_code == 200
+            investigation_payload = investigation.json()
+            assert investigation_payload["mode"] == "synthetic_demo"
+            assert investigation_payload["authoritative"] is False
+            joined = investigation_payload["investigation"]
+            assert joined["evidence_join_complete"] is True
+            assert joined["groups"][0]["evidence_state"] == "UNVERIFIED"
+            assert joined["groups"][0]["evidence_covered_events"] == 2
+            assert joined["live_remediation_authorized"] is False
+            print("PASS real evidence join on 2 synthetic events (source UNVERIFIED)")
+
             denied = client.get("/api/v1/topology/bindings", headers={
                 "X-Tenant-ID": "00000000-0000-0000-0000-000000000001",
             })
