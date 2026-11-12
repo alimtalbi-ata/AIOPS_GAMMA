@@ -69,3 +69,14 @@ def test_api_healthcheck_uses_actual_liveness_without_tenant_credentials():
     assert "127.0.0.1:8000" in api
     assert "INTERNAL_API_KEY" not in api.split("healthcheck:", 1)[1]
     assert "condition: service_completed_successfully" in api
+
+
+def test_nginx_rejects_non_demo_api_paths_before_spa_fallback():
+    nginx = (ROOT / "frontend/nginx.conf").read_text(encoding="utf-8")
+    assert "location ^~ /api/ {" in nginx
+    api_block = nginx.split("location ^~ /api/ {", 1)[1].split("}", 1)[0]
+    assert "return 404;" in api_block
+    assert "proxy_pass" not in api_block
+    assert nginx.index("location = /api/v1/demo/correlation") < nginx.index("location ^~ /api/")
+    assert nginx.index("location = /api/v1/demo/investigation") < nginx.index("location ^~ /api/")
+    assert nginx.index("location ^~ /api/") < nginx.index("location / { try_files")
