@@ -19,6 +19,7 @@ SAFE_TESTS = (
     "tests/test_canonical_route_http_hold.py",
     "tests/test_resource_list_http_tenant_isolation.py",
     "tests/test_resource_list_http_denied_before_db.py",
+    "tests/test_quality_p0_imports.py",
     "tests/test_gateway_dependency_http_isolated.py",
     "tests/test_gateway_resource_acl_contract.py",
     "tests/test_upstream.py",
