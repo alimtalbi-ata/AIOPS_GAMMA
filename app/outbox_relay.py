@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 import httpx
 from sqlalchemy import or_, select
 
-from app.db import session_factory
+from app.db import get_session_factory
 from app.models import OutboxEvent
 from app.reused.redaction import redact_text
 
@@ -25,7 +25,7 @@ def retry_delay(attempts: int) -> timedelta:
 
 
 async def dispatch_once(client: httpx.AsyncClient, endpoint: str, token: str) -> bool:
-    async with session_factory() as session:
+    async with get_session_factory()() as session:
         async with session.begin():
             now = datetime.now(timezone.utc)
             stmt = (
