@@ -17,6 +17,15 @@ services:
       ENABLE_OPENSEARCH: ${ENABLE_OPENSEARCH:-false}
       ENABLE_ALERT_INGESTION: ${ENABLE_ALERT_INGESTION:-false}
     depends_on:
+      migrate:
+        condition: service_completed_successfully
+  migrate:
+    build: .
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://aiops:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/aiops
+    depends_on:
       postgres:
         condition: service_healthy
   postgres:
