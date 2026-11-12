@@ -508,3 +508,10 @@
 - Updated `scripts/run_bounded_lab.py` to reject `.env` and inherited `PYTEST_ADDOPTS`, `PYTEST_PLUGINS`, `PYTHONPATH` (including empty values), before both `--check-only` and test subprocess execution.
 - Added four synthetic preflight regression cases and one mocked-subprocess case. Adjusted existing runner test fixtures to scrub these inherited execution overrides. **Tests committed, not executed on a complete checkout**; previous 13-pass result applies only to the prior source version.
 - GitHub Actions untouched; HOLD / NO_GO unchanged.
+
+### 2026-11-12 — bounded lab timeout guard
+
+- Added `LAB_TIMEOUT_SECONDS = 180` to the source-only lab runner. A timed-out pytest subprocess produces nonzero exit code `124` and explicit JSON `result: "timeout"`; normal pass/fail status is preserved.
+- Added mocked-subprocess regression coverage for timeout reporting and timeout invocation; updated lab documentation.
+- **Committed, not executed against a complete private checkout.** The previously observed 13-pass lab result does not apply to this latest source revision.
+- HOLD / NO_GO; no GitHub Actions changes, merge, deployment or LIVE operations.
