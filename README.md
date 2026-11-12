@@ -174,3 +174,18 @@ pas être présentés comme de la télémétrie réelle.
 
 Sur un poste sans VM, `python scripts/smoke_no_vm.py` vérifie aussi cette
 corrélation via l'application ASGI en mémoire.
+
+## Investigation interactive de démonstration — sans VM
+
+Dans l'interface React locale, ouvrir **Incidents & RCA** et cliquer sur
+**« Relier les preuves »**. Le navigateur appelle uniquement
+`GET /api/v1/demo/investigation` (proxy Vite local ou Nginx exact).
+Cette API exécute le moteur existant de corrélation **et** le moteur existant
+de jointure de preuves, avec deux événements et deux preuves synthétiques.
+L'interface affiche le nombre de preuves liées et l'état `UNVERIFIED` :
+la correspondance des identifiants est démontrée, **pas** l'authenticité
+des sources ni une cause racine confirmée. Un échec HTTP affiche FAIL.
+
+Le test `python scripts/smoke_no_vm.py` vérifie également cette jointure,
+sans base de données ni VM. Aucun appel vers les endpoints métier protégés
+n'est fait par l'interface. Aucun accès LIVE ni écriture n'est autorisé.
