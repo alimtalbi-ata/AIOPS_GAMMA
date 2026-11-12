@@ -25,6 +25,15 @@ export default defineConfig({
             res.end("Method not allowed");
             return;
           }
+          // Do not proxy unexpected request bodies on public GET/HEAD demos.
+          if (req.headers["transfer-encoding"] !== undefined ||
+              (req.headers["content-length"] !== undefined &&
+               req.headers["content-length"] !== "0")) {
+            res.statusCode = 400;
+            res.setHeader("Cache-Control", "no-store");
+            res.end("Request body not allowed");
+            return;
+          }
           // Public synthetic demos need no caller identity or custom headers.
           // Keep only transport/content negotiation headers for the dev proxy.
           const allowedHeaders = new Set(["host", "accept", "user-agent"]);
