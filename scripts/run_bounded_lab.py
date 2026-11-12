@@ -31,6 +31,8 @@ REQUIRED_FILES = (
     "pyproject.toml", "app/main.py", "app/security.py",
     "app/reused/upstream.py", *SAFE_TESTS,
 )
+LAB_TIMEOUT_SECONDS = 180
+
 UNSAFE_ENV_KEYS = (
     "DATABASE_URL", "GAMMA_REPLAY_TEST_DATABASE_URL",
     "GAMMA_REPLAY_TEST_ALLOW_WRITE",
@@ -79,7 +81,15 @@ def main() -> int:
     env = os.environ.copy()
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     started = datetime.now(timezone.utc).isoformat()
-    result = subprocess.run(cmd, cwd=root, env=env, check=False)
+    try:
+        result = subprocess.run(
+            cmd, cwd=root, env=env, check=False, timeout=LAB_TIMEOUT_SECONDS
+        )
+        exit_code = result.returncode
+        outcome = "pass" if exit_code == 0 else "fail"
+    except subprocess.TimeoutExpired:
+        exit_code = 124
+        outcome = "timeout"
     finished = datetime.now(timezone.utc).isoformat()
     report = {
         "kind": "gamma-bounded-source-lab",
@@ -88,15 +98,16 @@ def main() -> int:
         "python": sys.version.split()[0],
         "tests": list(SAFE_TESTS),
         "command": cmd,
-        "exit_code": result.returncode,
-        "result": "pass" if result.returncode == 0 else "fail",
+        "exit_code": exit_code,
+        "result": outcome,
+        "timeout_seconds": LAB_TIMEOUT_SECONDS,
         "scope": "source-only; no real PostgreSQL, IdP, Docker or LIVE qualification",
     }
     if dest is not None:
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(report, indent=2))
-    return result.returncode
+    return exit_code
 
 
 if __name__ == "__main__":
