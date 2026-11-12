@@ -36,9 +36,10 @@ def test_report_and_exit_code_are_faithful(simulated_runner, tmp_path, monkeypat
     assert lab.main() == code
     assert len(calls) == 1
     cmd, kwargs = calls[0]
-    assert cmd == [sys.executable, "-m", "pytest", "-q", *lab.SAFE_TESTS]
+    assert cmd == [sys.executable, "-m", "pytest", "-q", "-p", "pytest_asyncio.plugin", *lab.SAFE_TESTS]
     assert kwargs["cwd"] == simulated_runner
     assert kwargs["env"]["PYTHONDONTWRITEBYTECODE"] == "1"
+    assert kwargs["env"]["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] == "1"
     assert kwargs["check"] is False
     assert kwargs["timeout"] == lab.LAB_TIMEOUT_SECONDS
     result = json.loads(report_path.read_text())
