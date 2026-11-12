@@ -26,7 +26,8 @@ class LogSearchRequest(BaseModel):
     service_name: str = Field(min_length=1, max_length=255, pattern=r"^[a-zA-Z0-9_.-]+$")
     window: TimeWindow
     severity: list[Annotated[str, Field(min_length=1, max_length=32, pattern=r"^[A-Za-z0-9_.-]+$")]] = Field(
-        default_factory=list, max_length=10\n    )
+        default_factory=list, max_length=10
+    )
     limit: int = Field(default=100, ge=1, le=500)
 
 
