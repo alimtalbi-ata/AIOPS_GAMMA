@@ -470,3 +470,9 @@
 - Added `docs/CHATGPT-LAB-TEST-REPORT-20261112.md`: disposable Python 3.13.5 lab ran a reconstructed **subset** of exact GitHub adapter/static-test source with a stub settings module and lab-only runtime checks. Command `python -m pytest -q tests/test_canonical_acl_hard_hold_static.py tests/test_canonical_lab.py` yielded **5 passed in 0.23s**.
 - Private GitHub repo could not be cloned in the lab (DNS/network unavailable); full repository, real FastAPI route, PostgreSQL 16, frontend, Helm, Docker and IdP/ACL tests **not** executed. This is not a GitHub Actions replacement or production qualification.
 - Existing GitHub Actions workflows preserved; a permanent runner requires separately provisioned infrastructure. HOLD / NO_GO unchanged.
+
+### 2026-11-12 — reproducible bounded ChatGPT lab runner
+
+- Added `scripts/run_bounded_lab.py` with a fixed ten-file source-only pytest allowlist, incomplete-checkout checks, inherited database/replay environment guard, exit-code preservation and optional JSON report outside the checkout. See `docs/BOUNDED-CHATGPT-LAB-RUNNER.md`.
+- The runner requires a real checkout and installed dependencies. It is **not yet executed** against a complete GAMMA checkout. It cannot replace persistent GitHub Actions, PostgreSQL 16 integration, Docker/Helm or real IdP ACL qualification.
+- Existing GitHub Actions remain unchanged. HOLD / NO_GO unchanged.
