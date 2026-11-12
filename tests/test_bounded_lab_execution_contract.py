@@ -17,7 +17,7 @@ def simulated_runner(tmp_path, monkeypatch):
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text("placeholder\n", encoding="utf-8")
     monkeypatch.setattr(lab, "__file__", str(root / "scripts" / "run_bounded_lab.py"))
-    for key in lab.UNSAFE_ENV_KEYS:
+    for key in (*lab.UNSAFE_ENV_KEYS, "PYTEST_ADDOPTS", "PYTEST_PLUGINS", "PYTHONPATH"):
         monkeypatch.delenv(key, raising=False)
     return root
 
@@ -62,5 +62,15 @@ def test_db_guard_is_checked_before_pytest(simulated_runner, monkeypatch):
 
     monkeypatch.setattr(lab.subprocess, "run", forbidden)
     monkeypatch.setenv("DATABASE_URL", "")
+    monkeypatch.setattr(sys, "argv", ["runner"])
+    assert lab.main() == 2
+
+
+def test_dotenv_guard_runs_before_pytest(simulated_runner, monkeypatch):
+    def forbidden(*args, **kwargs):
+        raise AssertionError("pytest must not start")
+
+    monkeypatch.setattr(lab.subprocess, "run", forbidden)
+    (simulated_runner / ".env").write_text("DATABASE_URL=unsafe\\n", encoding="utf-8")
     monkeypatch.setattr(sys, "argv", ["runner"])
     assert lab.main() == 2
