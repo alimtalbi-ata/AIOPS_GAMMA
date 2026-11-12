@@ -62,8 +62,8 @@ async def test_canonical_redirects_are_not_followed(monkeypatch, status):
     requests = stub(monkeypatch, status=status)
     with pytest.raises(HTTPException) as e:
         await upstream.fetch_canonical('core', TENANT)
-    assert e.value.status_code == 502
-    assert len(requests) == 1
+    assert e.value.status_code == 503
+    assert not requests
 
 
 @pytest.mark.asyncio
@@ -83,7 +83,7 @@ async def test_canonical_missing_tenant_attestation_rejected(monkeypatch):
     stub(monkeypatch, content=b'{"items":[]}')
     with pytest.raises(HTTPException) as e:
         await upstream.fetch_canonical('core', TENANT)
-    assert e.value.status_code == 502
+    assert e.value.status_code == 503
 
 
 @pytest.mark.asyncio
@@ -101,7 +101,7 @@ async def test_canonical_oversize_rejected(monkeypatch):
     stub(monkeypatch, content=b' ' * (upstream.MAX_BYTES + 1))
     with pytest.raises(HTTPException) as e:
         await upstream.fetch_canonical('core', TENANT)
-    assert e.value.status_code == 502
+    assert e.value.status_code == 503
 
 
 @pytest.mark.asyncio
