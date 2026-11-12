@@ -31,12 +31,17 @@ def configure(monkeypatch):
     monkeypatch.setattr(settings, 'gateway_assertion_audience', 'gamma-api')
     monkeypatch.setattr(settings, 'gateway_assertion_max_ttl_seconds', 60)
 
-def signed(*, method='POST', path='/api/v1/probe', tenant_access=True):
+def signed(*, method='POST', path='/api/v1/probe', tenant_access=True, overrides=None):
     now = int(time.time())
     claims = {'iss':'trusted-gateway','aud':'gamma-api','sub':'user:123',
               'actor_type':'user','tenant_id':str(uuid4()),'tenant_access':tenant_access,
               'iat':now,'exp':now+30,'jti':'assertion-123456', 'method':method,'path':path}
-    encoded = base64.urlsafe_b64encode(json.dumps(claims).encode()).rstrip(b'=').decode()
+    claims.update(overrides or {})
+    return signed_json(json.dumps(claims, separators=(',', ':')))
+
+
+def signed_json(raw_claims):
+    encoded = base64.urlsafe_b64encode(raw_claims.encode()).rstrip(b'=').decode()
     signature = base64.urlsafe_b64encode(hmac.new(b's'*48,encoded.encode(),hashlib.sha256).digest()).rstrip(b'=').decode()
     return encoded+'.'+signature
 
@@ -76,3 +81,70 @@ def test_missing_gateway_secret_fails_closed(monkeypatch):
     with TestClient(app) as client:
         r=client.post('/api/v1/probe',headers={'X-Internal-API-Key':'service-secret','X-Gateway-Principal':token})
     assert r.status_code == 503
+
+
+def test_path_bound_assertion_cannot_cross_endpoint():
+    token = signed(path='/api/v1/other')
+    with TestClient(app) as client:
+        response = client.post('/api/v1/probe', headers={
+            'X-Internal-API-Key': 'service-secret', 'X-Gateway-Principal': token,
+        })
+    assert response.status_code == 401
+
+
+@pytest.mark.parametrize('overrides', [
+    {'exp': int(time.time()) - 1},
+    {'iat': int(time.time()) + 30},
+    {'exp': int(time.time()) + 120},
+    {'iss': 'untrusted-gateway'},
+    {'aud': 'another-api'},
+    {'actor_type': 'administrator'},
+    {'tenant_id': '00000000-0000-0000-0000-000000000000'},
+    {'jti': 'short'},
+])
+def test_invalid_assertion_claims_are_rejected(overrides):
+    token = signed(overrides=overrides)
+    with TestClient(app) as client:
+        response = client.post('/api/v1/probe', headers={
+            'X-Internal-API-Key': 'service-secret', 'X-Gateway-Principal': token,
+        })
+    assert response.status_code == 401
+
+
+def test_duplicate_json_claim_is_rejected():
+    now = int(time.time())
+    tenant = str(uuid4())
+    raw = (
+        '{"iss":"trusted-gateway","iss":"trusted-gateway",'
+        '"aud":"gamma-api","sub":"user:123","actor_type":"user",'
+        f'"tenant_id":"{tenant}","tenant_access":true,'
+        f'"iat":{now},"exp":{now + 30},'
+        '"jti":"assertion-123456","method":"POST","path":"/api/v1/probe"}'
+    )
+    with TestClient(app) as client:
+        response = client.post('/api/v1/probe', headers={
+            'X-Internal-API-Key': 'service-secret', 'X-Gateway-Principal': signed_json(raw),
+        })
+    assert response.status_code == 401
+
+
+def test_noncanonical_base64url_assertion_is_rejected():
+    token = signed()
+    encoded, signature = token.split('.')
+    with TestClient(app) as client:
+        response = client.post('/api/v1/probe', headers={
+            'X-Internal-API-Key': 'service-secret',
+            'X-Gateway-Principal': encoded + '=' + '.' + signature,
+        })
+    assert response.status_code == 401
+
+
+def test_tampered_assertion_signature_is_rejected():
+    encoded, signature = signed().split('.')
+    replacement = ('A' if signature[0] != 'A' else 'B') + signature[1:]
+    with TestClient(app) as client:
+        response = client.post('/api/v1/probe', headers={
+            'X-Internal-API-Key': 'service-secret',
+            'X-Gateway-Principal': encoded + '.' + replacement,
+        })
+    assert response.status_code == 401
