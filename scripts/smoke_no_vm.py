@@ -29,6 +29,16 @@ def main() -> int:
             assert "/api/v1/incidents/{incident_id}/evidence" in paths
             print("PASS OpenAPI topology/evidence route registration")
 
+            demo = client.get("/api/v1/demo/correlation")
+            assert demo.status_code == 200
+            payload = demo.json()
+            assert payload["mode"] == "synthetic_demo"
+            assert payload["authoritative"] is False
+            assert payload["correlation"]["source_events"] == 2
+            assert len(payload["correlation"]["groups"]) == 1
+            assert payload["correlation"]["live_remediation_authorized"] is False
+            print("PASS real correlation engine on 2 synthetic events → 1 group")
+
             denied = client.get("/api/v1/topology/bindings", headers={
                 "X-Tenant-ID": "00000000-0000-0000-0000-000000000001",
             })
