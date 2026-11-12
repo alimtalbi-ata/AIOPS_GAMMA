@@ -37,6 +37,13 @@ async def demo_correlation():
     return synthetic_correlation_demo()
 
 
+@app.get("/api/v1/demo/investigation")
+async def demo_investigation():
+    """Public fixed synthetic evidence join; no tenant or upstream access."""
+    from app.demo import synthetic_investigation_demo
+    return synthetic_investigation_demo()
+
+
 @app.post("/api/v1/observability/logs/search")
 async def logs(req: LogSearchRequest, response: Response, principal: Principal = Depends(internal_principal)):
     response.headers["Cache-Control"] = "no-store"
