@@ -18,6 +18,13 @@ export default defineConfig({
           return;
         }
         if (publicDemoPaths.has(path)) {
+          if (req.method !== "GET" && req.method !== "HEAD") {
+            res.statusCode = 405;
+            res.setHeader("Allow", "GET, HEAD");
+            res.setHeader("Cache-Control", "no-store");
+            res.end("Method not allowed");
+            return;
+          }
           // Public synthetic demos need no caller identity or custom headers.
           // Keep only transport/content negotiation headers for the dev proxy.
           const allowedHeaders = new Set(["host", "accept", "user-agent"]);
