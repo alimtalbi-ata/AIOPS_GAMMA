@@ -202,3 +202,15 @@ publier accidentellement la démonstration sur le réseau local.
 **Validation restant à effectuer** : `npm run build`, tests Python sur
 checkout complet, lancement des deux processus sur un poste utilisateur.
 Aucun PASS d'exécution bout en bout n'est affirmé.
+
+### Fiabilité du démarrage
+
+Docker Compose attend désormais que le service API ait démarré avant de
+lancer le frontend Nginx, afin que le nom d'hôte `api` de l'upstream
+puisse être résolu. Cela ne remplace **pas** une sonde de disponibilité
+fonctionnelle de l'API. Les commandes `npm run dev` et `npm run preview`
+restent toutes deux limitées à `127.0.0.1`.
+
+Le code n'a pas été exécuté dans un checkout complet ici : le réseau de
+l'environnement d'exécution ne résout pas github.com. Aucun résultat
+PASS de build ou de tests n'est revendiqué.
