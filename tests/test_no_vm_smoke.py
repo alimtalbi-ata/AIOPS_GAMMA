@@ -18,13 +18,13 @@ def test_no_vm_smoke_refuses_real_credentials(monkeypatch, capsys):
 
 def test_synthetic_correlation_http_is_real_engine_and_has_no_db(monkeypatch):
     from fastapi.testclient import TestClient
-    from app.main import app
-    import app.db
+    from app.main import app as gamma_app
+    import app.db as gamma_db
 
     def forbidden():
         raise AssertionError("demo must never access DB")
-    monkeypatch.setattr(app.db, "get_session_factory", forbidden)
-    with TestClient(app) as client:
+    monkeypatch.setattr(gamma_db, "get_session_factory", forbidden)
+    with TestClient(gamma_app) as client:
         response = client.get("/api/v1/demo/correlation")
     assert response.status_code == 200
     assert response.headers["Cache-Control"] == "no-store"
