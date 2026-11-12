@@ -137,14 +137,12 @@ def test_nginx_demo_proxy_strips_browser_credentials_and_tenant_identity():
             assert f'proxy_set_header {header} "";' in block
 
 
-def test_vite_dev_demo_proxy_strips_identity_and_credentials():
+def test_vite_dev_demo_proxy_allowlists_only_non_identity_headers():
     vite = (ROOT / "frontend/vite.config.ts").read_text(encoding="utf-8")
     assert "if (publicDemoPaths.has(path)) {" in vite
-    for header in (
-        "authorization", "cookie", "x-tenant-id", "x-forwarded-user",
-        "x-internal-api-key", "x-gateway-principal",
-    ):
-        assert f'"{header}"' in vite
+    assert 'const allowedHeaders = new Set(["host", "accept", "user-agent"]);' in vite
+    assert "for (const header of Object.keys(req.headers)) {" in vite
+    assert "if (!allowedHeaders.has(header)) {" in vite
     assert "delete req.headers[header];" in vite
 
 
