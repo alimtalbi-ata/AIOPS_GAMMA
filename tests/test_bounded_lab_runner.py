@@ -30,7 +30,7 @@ def fake_checkout(tmp_path):
 
 def invoke(runner, *args, env=None):
     clean = os.environ.copy()
-    for key in run_bounded_lab.UNSAFE_ENV_KEYS:
+    for key in (*run_bounded_lab.UNSAFE_ENV_KEYS, "PYTEST_ADDOPTS", "PYTEST_PLUGINS", "PYTHONPATH"):
         clean.pop(key, None)
     if env:
         clean.update(env)
@@ -85,3 +85,19 @@ def test_preflight_accepts_report_outside_checkout_without_creating_it(fake_chec
     result = invoke(runner, "--report", report)
     assert result.returncode == 0
     assert not report.exists()
+
+
+def test_preflight_rejects_dotenv_checkout(fake_checkout):
+    root, runner = fake_checkout
+    (root / ".env").write_text("DATABASE_URL=postgresql://unsafe-host/db\\n", encoding="utf-8")
+    result = invoke(runner)
+    assert result.returncode == 2
+    assert "auto-load" in result.stderr
+
+
+@pytest.mark.parametrize("key", ("PYTEST_ADDOPTS", "PYTEST_PLUGINS", "PYTHONPATH"))
+def test_preflight_rejects_pytest_execution_overrides(fake_checkout, key):
+    _, runner = fake_checkout
+    result = invoke(runner, env={key: ""})
+    assert result.returncode == 2
+    assert "pytest/Python execution overrides" in result.stderr
