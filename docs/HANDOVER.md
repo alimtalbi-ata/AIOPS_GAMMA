@@ -495,3 +495,9 @@
 - Executed `python -m pytest -q tests/test_bounded_lab_runner.py tests/test_bounded_lab_execution_contract.py` in disposable ChatGPT Python 3.13.5 lab on manually reconstructed files: **13 passed in 5.55s**.
 - Provenance and limitations in `docs/CHATGPT-LAB-EXECUTION-CONTRACT-20261112.md`. This does **not** establish full private checkout, exact-head CI, real PostgreSQL, IdP/ACL, Docker/Helm or production qualification.
 - HOLD / NO_GO; no merge or deploy.
+
+### 2026-11-12 — negative HTTP authorization before database access
+
+- Added `tests/test_resource_list_http_denied_before_db.py` with **14 parametrized cases** (two real FastAPI GET list routes × seven invalid/missing signed-principal scenarios). A forbidden DB dependency spy asserts authentication failure precedes any DB session entry; responses must be 401 and `Cache-Control: no-store`.
+- Included the new test file in the bounded ChatGPT lab allowlist (now 11 files). Tests are **committed but not yet executed** against a complete private checkout; no PostgreSQL/IdP/resource ACL qualification.
+- GitHub Actions remain unchanged; HOLD / NO_GO, no merge/deploy/LIVE.
