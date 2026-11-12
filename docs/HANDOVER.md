@@ -437,3 +437,10 @@
 - All reported jobs have `steps: null`; job-log retrieval for representative Python and Helm jobs returned `404 BlobNotFound`. Therefore the failure stage/root cause remains **unknown**; do not attribute it to code, tests, runner policy or billing without evidence.
 - No pytest, frontend build, Helm validation, Compose smoke, Alembic or PostgreSQL test pass is claimed for this HEAD.
 - Operator follow-up remains: inspect Actions run UI/annotations and repository/org Actions runner/usage policy; obtain a run where job steps actually execute before assessing test results.
+
+### 2026-11-12 — legacy canonical test alignment
+
+- Exact previous HEAD `00d3efea897966b2234d6d3b0c96b23c2888a68f`: Python checks run `43185367060` and deployment contract run `43185366913` both concluded FAILURE. Every inspected job reported `steps: null`; therefore no pytest/Helm/frontend/PostgreSQL step execution is evidenced and root cause remains unknown.
+- Updated legacy canonical HTTP-mock suites `test_upstream_http_mock.py`, `test_upstream_transport_boundary.py`, and `test_upstream_fail_closed_extra.py` to assert 503/no network for canonical reads instead of obsolete successful tenant-echo/502 transport behavior. GLPI cases were not deliberately changed.
+- Added `tests/test_canonical_acl_hard_hold_static.py` to guard the exact fail-closed canonical adapter AST shape (allowlist 404 then unconditional 503; no await or return). This is source-level regression coverage, not real upstream ACL qualification.
+- Current HEAD CI and runtime tests remain to be checked; no production access, merge, deploy, replay authentication wiring or LIVE action performed.
