@@ -48,6 +48,11 @@ def main() -> int:
             assert joined["evidence_join_complete"] is True
             assert joined["groups"][0]["evidence_state"] == "UNVERIFIED"
             assert joined["groups"][0]["evidence_covered_events"] == 2
+            assert joined["groups"][0]["evidence_missing_events"] == 0
+            assert joined["groups"][0]["root_cause_state"] == "UNKNOWN"
+            assert joined["groups"][0]["itsm_ticket_state"] == "NOT_CREATED"
+            assert len(joined["groups"][0]["evidence"]) == 2
+            assert all(e["integrity"] == "UNVERIFIED" for e in joined["groups"][0]["evidence"])
             assert joined["live_remediation_authorized"] is False
             print("PASS real evidence join on 2 synthetic events (source UNVERIFIED)")
 
