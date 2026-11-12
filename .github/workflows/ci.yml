@@ -11,8 +11,10 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e '.[test]'
-      - run: python -m pytest -q
-      - run: python -m compileall -q app
+      - name: Compile application and tests before importing pytest
+        run: python -m compileall -q app tests scripts migrations deploy/scripts
+      - name: Run full Python test suite
+        run: python -m pytest -q
 
   frontend:
     runs-on: ubuntu-latest
