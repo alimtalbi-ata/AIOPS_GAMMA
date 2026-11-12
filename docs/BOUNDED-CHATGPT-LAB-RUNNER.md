@@ -65,3 +65,17 @@ and `timeout_seconds: 180` in its JSON report (when requested), then exits
 nonzero. A timeout is never reported as a passing test run. This bounds the
 wait, not the capabilities of the environment: use only a disposable isolated
 checkout without production connectivity.
+
+
+### Pytest plugin isolation
+
+The runner sets `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` for the child pytest
+process and explicitly enables only `pytest_asyncio.plugin` with
+`-p pytest_asyncio.plugin`. This avoids silently importing unrelated
+installed pytest entry-point plugins. It does not sandbox Python imports,
+repository `conftest.py`, or pytest configuration: execute only in a
+throwaway environment with no production network or credentials.
+
+A local ChatGPT Python 3.13.5 / pytest 9.0.2 smoke command
+`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -p pytest_asyncio.plugin --version`
+returned `pytest 9.0.2`; it did **not** execute GAMMA tests.
