@@ -529,3 +529,9 @@
 - Fixed `app/init_db.py` import of nonexistent `app.db.engine`; POC-only bootstrap now obtains the bound engine from the lazy sessionmaker, disposes it and clears the factory cache. Reviewed Alembic migrations remain mandatory for existing databases.
 - Added `tests/test_quality_p0_imports.py` to parse all application Python files, check imports without DB initialization and assert lazy factory references.
 - **These tests have been committed but not executed on the full repository checkout.** Prior CI runs did not provide test-step evidence. No PostgreSQL/IdP/ACL qualification; HOLD / NO_GO, no merge/deploy/LIVE.
+
+### 2026-11-12 — P0 quality regressions promoted to bounded suite
+
+- Added a fake-engine test for `app.init_db.main()` to assert the expected begin/run_sync/dispose/cache-clear sequence without connecting to a database.
+- Added `tests/test_quality_p0_imports.py` to the fixed bounded lab allowlist, with updated lab documentation.
+- **New tests not executed against a full checkout**. These are regression contracts, not proof of end-to-end startup or PostgreSQL qualification. HOLD / NO_GO remains.
