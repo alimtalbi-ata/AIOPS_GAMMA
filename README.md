@@ -4,6 +4,29 @@ Socle d'intégration AIOps **Python/FastAPI + PostgreSQL + OpenSearch Observabil
 
 > **Version de paquet 0.2.0 : MVP de développement, pas encore prêt pour la production.** Les moteurs de corrélation, CMDB, RCA et agents IA restent ceux de la plateforme existante : ce dépôt fournit leurs futurs points d'intégration, pas une réimplémentation fictive.
 
+## Tester GAMMA sans VM ni Docker
+
+Sur un poste avec Python 3.11+ et un clone de cette branche, dans un
+environnement virtuel **isolé** (ne pas utiliser de secrets ou de `.env` réels) :
+
+```bash
+python -m venv .venv
+. .venv/bin/activate
+python -m pip install -e '.[test]'
+python scripts/smoke_no_vm.py
+python -m pytest -q tests/test_no_vm_smoke.py tests/test_quality_p0_imports.py
+```
+
+Sous Windows, activer l'environnement virtuel avec
+`.venv\\Scripts\\activate` avant les commandes Python.
+
+Le smoke utilise `fastapi.testclient.TestClient` et n'ouvre **aucun port**.
+Il vérifie la santé, les routes déclarées et le refus d'un en-tête tenant
+non fiable. Il **refuse de s'exécuter** si des secrets de gateway/service
+sont configurés. Ce n'est ni un test d'installation Docker, ni une validation
+PostgreSQL, frontend ou IdP. Les tests doivent afficher un PASS réel sur
+la machine qui les exécute ; ils n'ont pas encore été exécutés ici.
+
 ## Démarrage (Docker Compose)
 
 ```bash
