@@ -482,3 +482,9 @@
 - Added `--check-only` to `scripts/run_bounded_lab.py` for no-pytest checkout validation; moved report-path safety validation before subprocess invocation; refuse inherited database/replay environment variables even when empty.
 - Added `tests/test_bounded_lab_runner.py`: synthetic-checkout preflight acceptance, missing source refusal, three inherited DB variable refusals, inside-checkout report refusal and outside-checkout dry-run. No external services or real database.
 - These are committed test definitions, **not** proof of execution in a complete GAMMA checkout. GitHub Actions unchanged; HOLD / NO_GO unchanged.
+
+### 2026-11-12 — ChatGPT lab preflight tests executed
+
+- Executed `python -m pytest -q tests/test_bounded_lab_runner.py` in a disposable Python 3.13.5 / pytest 9.0.2 ChatGPT container using a manually reproduced two-file subset of the current PR source: **8 passed in 5.53s**.
+- Details and strict provenance in `docs/CHATGPT-LAB-RUNNER-TEST-RESULT-20261112.md`. This is **not** a complete private repository checkout or a full application test run. PostgreSQL, frontend, Docker, Helm, IdP and real resource ACL remain unqualified.
+- No changes to GitHub Actions, no merge/deployment/LIVE; HOLD / NO_GO remains.
