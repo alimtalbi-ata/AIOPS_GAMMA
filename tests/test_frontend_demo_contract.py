@@ -39,3 +39,9 @@ def test_investigation_demo_has_exact_proxy_and_failure_state():
     assert "Relier les preuves" in app
     assert "FAIL · Investigation API indisponible" in app
     assert "source NON VÉRIFIÉE" in app
+
+
+def test_vite_dev_command_is_loopback_only():
+    import json
+    package = json.loads((ROOT / "frontend/package.json").read_text(encoding="utf-8"))
+    assert package["scripts"]["dev"] == "vite --host 127.0.0.1"
