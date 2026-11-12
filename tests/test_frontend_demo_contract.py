@@ -159,3 +159,12 @@ def test_nginx_public_demo_upstream_is_bounded_and_unbuffered():
             "proxy_buffering off;",
         ):
             assert directive in block
+
+
+def test_nginx_demo_proxy_does_not_forward_arbitrary_browser_headers():
+    nginx = (ROOT / "frontend/nginx.conf").read_text(encoding="utf-8")
+    for route in ("correlation", "investigation"):
+        block = nginx.split(f"location = /api/v1/demo/{route} {{", 1)[1].split("}", 1)[0]
+        assert "proxy_pass_request_headers off;" in block
+        # Host is deliberately supplied by the proxy, not inherited from the browser.
+        assert "proxy_set_header Host api;" in block
