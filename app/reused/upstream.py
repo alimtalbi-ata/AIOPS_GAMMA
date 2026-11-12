@@ -67,56 +67,14 @@ def validate_origin(origin: str) -> str:
 
 
 async def fetch_canonical(resource: str, tenant_id: UUID) -> dict:
+    """HOLD: no canonical reads until independently verified upstream ACL.
+
+    A caller-supplied X-Tenant-Id and an echoed tenant_id are not proof of
+    actor-to-tenant-to-resource authorization. Do not make a network request,
+    even if the legacy feature flag is enabled by accident. Re-enable only
+    with a separately reviewed identity, resource ACL and cross-tenant E2E
+    contract for Core, Evidence and Twin.
+    """
     if resource not in ALLOWED_RESOURCES:
         raise HTTPException(404, "Unknown upstream resource")
-    # HOLD: no canonical upstream currently proves actor→tenant→resource ACL.
-    # A service bearer, X-Tenant-Id request header and echoed tenant_id are
-    # not independent authorization evidence. Fail before any network I/O,
-    # including when enable_canonical_reads is accidentally enabled.
     raise HTTPException(503, "Canonical actor/tenant/resource ACL not qualified")
-
-    # Historical prototype retained below for a separately reviewed future
-    # integration; it is deliberately unreachable until the ACL gate is
-    # replaced with independently qualified upstream authorization.
-    setting_name, path = ALLOWED_RESOURCES[resource]
-    origin = getattr(settings, setting_name)
-    if not settings.enable_canonical_reads or not origin or not settings.canonical_read_token:
-        raise HTTPException(503, "Canonical read adapter disabled")
-    try:
-        base = validate_origin(origin)
-    except ValueError as exc:
-        raise HTTPException(503, "Canonical upstream configuration invalid") from exc
-    try:
-        async with httpx.AsyncClient(
-            timeout=httpx.Timeout(3.0, connect=1.0),
-            follow_redirects=False,
-            trust_env=False,
-            verify=True,
-        ) as client:
-            async with client.stream(
-                "GET", base + path,
-                headers={
-                    "Authorization": "Bearer " + settings.canonical_read_token,
-                    "X-Tenant-Id": str(tenant_id),
-                    "Accept": "application/json",
-                },
-            ) as response:
-                if response.status_code != 200:
-                    raise HTTPException(502, "Canonical upstream unavailable")
-                data = bytearray()
-                async for chunk in response.aiter_bytes():
-                    data.extend(chunk)
-                    if len(data) > MAX_BYTES:
-                        raise HTTPException(502, "Canonical upstream response too large")
-                if "application/json" not in response.headers.get("content-type", "").lower():
-                    raise HTTPException(502, "Canonical upstream content type invalid")
-        decoded = parse_unique_json(data)
-        if not isinstance(decoded, dict):
-            raise HTTPException(502, "Canonical upstream response shape invalid")
-        # Do not assert authorization merely because upstream echoed a tenant.
-        # A production integration must validate the upstream tenant ACL contract.
-        if decoded.get("tenant_id") != str(tenant_id):
-            raise HTTPException(502, "Canonical upstream tenant attestation missing")
-        return decoded
-    except (httpx.RequestError, ValueError, UnicodeDecodeError) as exc:
-        raise HTTPException(502, "Canonical upstream unavailable") from exc
