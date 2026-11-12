@@ -541,3 +541,11 @@
 - Reordered `.github/workflows/ci.yml` Python test job: `python -m compileall -q app tests scripts migrations deploy/scripts` now runs **before** the full `python -m pytest -q` suite.
 - This makes malformed Python source (such as the earlier literal `\\n` in `app/schemas.py`) fail explicitly at the syntax gate instead of being obscured by test collection.
 - This is a workflow change only: **no GitHub Actions step execution is yet evidenced at this commit**. Runner availability, full tests, PostgreSQL/IdP/ACL remain unqualified. HOLD / NO_GO.
+
+### 2026-11-12 — first installable local MVP path (not yet runtime-qualified)
+
+- API Dockerfile now includes `migrations/` and `alembic.ini`.
+- Default Docker Compose now runs a one-shot `migrate` service with `alembic upgrade head` after PostgreSQL health, and gates API startup on successful completion.
+- `scripts/smoke_local_mvp.py` provides read-only checks for loopback API health, frontend HTML and PostgreSQL Alembic head (`0002_gateway_replay`); `tests/test_local_mvp_install_contract.py` checks source wiring.
+- README now describes the actual migration and smoke path rather than manual `app.init_db` initialization.
+- **Not executed:** Docker is unavailable in the current workspace, and GitHub Actions failed before steps. No full Compose build, migration or smoke PASS is claimed. Frontend remains synthetic, not wired to authenticated API. No real IdP or tenant ACL qualification; HOLD / NO_GO for production/merge/LIVE.
