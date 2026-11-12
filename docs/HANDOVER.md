@@ -555,3 +555,13 @@
 - User has no test VM. Added `scripts/smoke_no_vm.py` (actual FastAPI TestClient, health, OpenAPI topology/evidence registration, unauthenticated tenant denial, no DB/network/containers) and `tests/test_no_vm_smoke.py`.
 - README includes local venv installation and commands; the smoke refuses configured service/gateway secrets. This is a useful testable intermediate milestone, **not** proof of an installable end-to-end stack.
 - Not executed against a full checkout in this session; CI runner pre-step failures persist. Production, external IdP, PostgreSQL, and frontend integration remain HOLD / NO_GO.
+
+
+### 2026-11-12 — frontend synthetic demo boundary and CI runner blocker
+
+- The synthetic-only frontend now limits Nginx and Vite proxying to exact `/api/v1/demo/correlation` and `/api/v1/demo/investigation` paths; other `/api/` requests are denied. Both proxies remove browser credentials and tenant/principal identity headers before forwarding.
+- Nginx has bounded upstream connect/send/read timeouts; frontend fetches have 8-second abort signals. UI rejects authoritative, persisted, LIVE-authorized or structurally unexpected demo responses and clears stale correlation counters on error.
+- `tests/test_frontend_demo_contract.py` covers the source contracts. A connector-side **static inspection** of 39 source invariants returned 39/39 matching; this is **not a test run, build or runtime security validation**.
+- GitHub Actions workflows on recent commits fail within seconds with no assigned runner (`runner_id: 0`, `steps: []` for `test`, `frontend` and `gateway-replay-postgres`). Root cause **not established**; retrieve the GitHub job UI error annotation and check Actions permissions / billing only if indicated.
+- Resume in order: (1) diagnose runner provisioning, (2) obtain successful `compileall`, full `pytest`, TypeScript/Vite build and disposable PostgreSQL migration/replay on **current HEAD**, (3) review tenant/auth and integration gates. No VM is available; no production qualification can be inferred.
+- PR #1 stays draft, **HOLD / NO_GO**; no merge, deploy, or LIVE actions.
