@@ -125,3 +125,21 @@ Les premiers manifests sont disponibles dans [`deploy/`](deploy/README.md) : sur
 ## Installation monorépertoire et rootless
 
 La cible impose une installation sous une racine configurable `GAMMA_HOME`, sans écriture dans `/bin`, `/sbin`, `/var` ou `/tmp` **sur l'hôte**, avec Docker Engine rootless et workloads Kubernetes non-root. Voir le [contrat rootless](docs/ROOTLESS-SINGLE-DIRECTORY.md), l'[overlay Compose expérimental](deploy/compose/compose.rootless.yaml) et le [précontrôle](deploy/scripts/check-rootless-home.sh). Les images et le runtime peuvent nécessiter des dépendances Linux internes ou des prérequis système : la conformité totale n'est pas encore démontrée.
+
+## Scénario fonctionnel de démonstration — sans données client
+
+L'API publique `GET /api/v1/demo/correlation` utilise le **vrai moteur**
+`app.reused.correlation.correlate` avec deux signaux **fixes et synthétiques**
+(payment-timeout). Elle retourne un groupe corrélé, sans lire PostgreSQL,
+OpenSearch, GLPI, un tenant réel ou un fournisseur d'identité. Résultat
+explicitement `mode=synthetic_demo`, `authoritative=false`,
+`persisted=false`, `live_remediation_authorized=false`.
+
+La console React affiche un bouton **« Exécuter le scénario »** dans Overview :
+le navigateur appelle cette API via une règle Nginx limitée au seul endpoint
+de démonstration. Un échec de connexion est affiché FAIL, jamais un PASS
+fictif. Les autres tableaux restent **des exemples statiques** et ne doivent
+pas être présentés comme de la télémétrie réelle.
+
+Sur un poste sans VM, `python scripts/smoke_no_vm.py` vérifie aussi cette
+corrélation via l'application ASGI en mémoire.
