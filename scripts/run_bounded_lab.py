@@ -40,6 +40,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--report", type=Path, default=None,
                         help="Write machine-readable results outside the repo")
+    parser.add_argument("--check-only", action="store_true",
+                        help="Validate checkout and safety guards without running pytest")
     args = parser.parse_args()
 
     root = Path(__file__).resolve().parents[1]
@@ -47,9 +49,22 @@ def main() -> int:
     if missing:
         print("Refusing incomplete checkout: " + ", ".join(missing), file=sys.stderr)
         return 2
-    if any(os.environ.get(key) for key in UNSAFE_ENV_KEYS):
+    if any(key in os.environ for key in UNSAFE_ENV_KEYS):
         print("Refusing inherited database/replay test environment", file=sys.stderr)
         return 2
+
+    dest = args.report.resolve() if args.report else None
+    if dest is not None and (dest == root or root in dest.parents):
+        print("Report must be outside repository checkout", file=sys.stderr)
+        return 2
+    if args.check_only:
+        print(json.dumps({
+            "kind": "gamma-bounded-source-lab-preflight",
+            "status": "ready",
+            "test_files": list(SAFE_TESTS),
+            "note": "No pytest tests executed",
+        }, indent=2))
+        return 0
 
     # An explicit fixed allowlist: never run the real-Postgres or staging tests
     # in a generic ChatGPT lab, even when they are present in the checkout.
@@ -70,11 +85,7 @@ def main() -> int:
         "result": "pass" if result.returncode == 0 else "fail",
         "scope": "source-only; no real PostgreSQL, IdP, Docker or LIVE qualification",
     }
-    if args.report:
-        dest = args.report.resolve()
-        if dest == root or root in dest.parents:
-            print("Report must be outside repository checkout", file=sys.stderr)
-            return 2
+    if dest is not None:
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(report, indent=2))
