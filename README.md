@@ -27,6 +27,37 @@ sont configurés. Ce n'est ni un test d'installation Docker, ni une validation
 PostgreSQL, frontend ou IdP. Les tests doivent afficher un PASS réel sur
 la machine qui les exécute ; ils n'ont pas encore été exécutés ici.
 
+## Démonstration interactive sans VM ni Docker
+
+Deux terminaux sur **le même poste**, avec un clone de la branche :
+
+```bash
+# Terminal 1 — API FastAPI, environnement Python isolé
+python -m venv .venv
+. .venv/bin/activate
+python -m pip install -e '.[test]'
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+```bash
+# Terminal 2 — interface React/Vite
+cd frontend
+npm install --no-audit --no-fund
+npm run dev
+```
+
+Ouvrir **http://127.0.0.1:5173/** → **Overview** →
+**« Exécuter le scénario »**. Vite ne relaie vers FastAPI **que**
+`/api/v1/demo/correlation`; aucun endpoint tenant authentifié n'est exposé
+par cette configuration de développement. Le résultat attendu est
+`PASS · Moteur de corrélation API`, **2 signaux → 1 groupe**.
+
+`python scripts/smoke_no_vm.py` permet une validation sans navigateur ni
+port réseau. Ce parcours reste **synthétique et non persistant** ; il ne
+prouve pas que le frontend ou PostgreSQL fonctionnent en production.
+N'utilisez aucun secret réel, aucune `.env` de production et n'exposez
+pas ces ports sur une interface publique.
+
 ## Démarrage (Docker Compose)
 
 ```bash
