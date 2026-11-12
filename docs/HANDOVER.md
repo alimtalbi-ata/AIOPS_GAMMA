@@ -458,3 +458,9 @@
 - Added `tests/test_resource_list_http_tenant_isolation.py` against the real FastAPI GET topology binding and incident evidence routes. A signed Gateway principal for tenant A/B is deliberately paired with a forged opposite `X-Tenant-ID` and `X-Actor-ID`. A dependency-injected SQLAlchemy statement spy asserts the exact bound tenant filter, evidence incident filter, 500-row limit, and per-tenant response separation; it also checks `Cache-Control: no-store`.
 - This is a two-tenant **HTTP + SQL-expression** regression using in-memory rows and a fake session. It is **not** a real PostgreSQL transaction, RLS, real actor membership or upstream Core/Evidence/Twin ACL test. Do not use it as a release gate substitute for disposable PostgreSQL 16 and real identity qualification.
 - No merge, deployment, LIVE, replay-auth wiring, Debian operation or production database access performed.
+
+### 2026-11-12 — CI pre-step root-cause triage
+
+- Exact prior HEAD `15a021285953fa3c613cc2837c03125f550c2c11` Python run `43191691027` and deployment contract run `43191691038` failed. All nine jobs returned `steps: null`. Independent step fetch for three Python jobs returned `[]`; independent job-log fetch for the same jobs returned HTTP 404 `BlobNotFound`.
+- Added `docs/GITHUB-ACTIONS-PRESTEP-TRIAGE-20261112.md` with exact run/job IDs, observed evidence, operator UI/policy/billing/runner/status/support checks, and required acceptance evidence. `BlobNotFound` is not asserted as the root cause.
+- No speculative workflow changes, job retries, test success claims, deployment, production database or Debian operations. HOLD / NO_GO remains.
