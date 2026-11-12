@@ -410,3 +410,14 @@
 - Extended `deploy/scripts/check-postgres-rootless.py` to reject effective Compose PostgreSQL configurations with any inherited `cap_add` or without `cap_drop: [ALL]`, in addition to requiring numeric non-root UID. This catches Compose overlay merge behavior that silently retained capabilities.
 - Updated offline unit cases and rootless smoke mock to cover the hardened preflight. The baseline rootless smoke remains intentionally blocked by upstream root-configured PostgreSQL; the experimental override is not automatically enabled.
 - GitHub Actions billing restriction remains unresolved as last observed. These changes are **not CI-validated**; run the offline tests and full CI when runners are restored. No rootless host runtime qualification, merge, or production deployment.
+
+
+## 2026-11-12 — upstream tenant ACL compatibility audit (#2)
+
+- Inspected exact source blobs in `alimtalbi-ata/aiops`: Core `43b61a08d4dd099c7c28ee0d73e5a3e1f681cdca`, Evidence `c581d407c8e84de87acbdf749a4e2aa8f052dedf`, Twin `e098ec039b5f352f537ed8985e721067a1386508`.
+- **Blocking finding:** inspected Core/Evidence/Twin route handlers do not establish per-resource tenant authorization. Core uses a shared internal token; Evidence and Twin GET routes inspected show no tenant principal/filter. Core route paths also differ from GAMMA's provisional `/api/v1/...` adapter paths. An imported helper name is not proof of route enforcement.
+- GAMMA canonical adapter blob `e7a34575a02803de243c56b8d69ed4910c8d7943` has useful transport controls (fixed HTTPS origins, GET-only, no redirects/proxy, TLS, timeout, 256 KiB bound), but its tenant echo check is not upstream ACL. Keep `ENABLE_CANONICAL_READS=false`.
+- Added `docs/AIOPS-UPSTREAM-ACL-AUDIT.md` at commit `70fae1d1699c7d42079fcad14a9276fda792d219`, recording exact blobs, route mismatches, reuse boundaries and required gates.
+- Reuse review: `aiops` remains canonical incident/Policy/Evidence/Twin owner; `observability-stack` is the OTel/Data Prepper/OpenSearch/Cortex candidate; Aurora/HolmesGPT/Akmatori/IncidentFox remain shadow-mode investigation candidates only. No large upstream project copied and no tool executor enabled.
+- Validation: source inspection and documentation commit only. No upstream runtime, PostgreSQL multi-tenant or HTTP integration test executed; no ACL qualification claimed.
+- Next: repair tenant identity/membership and resource query filtering in the canonical `aiops` services, with two-tenant tests, before changing GAMMA adapters. Preserve draft PR and HOLD / NO_GO.
