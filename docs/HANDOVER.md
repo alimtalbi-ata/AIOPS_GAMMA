@@ -8,7 +8,7 @@
 - Repo: https://github.com/alimtalbi-ata/AIOPS_GAMMA
 - Active draft PR: https://github.com/alimtalbi-ata/AIOPS_GAMMA/pull/1
 - Branch: `feat/observability-foundation`; `main` does **not** contain the feature branch.
-- Current branch HEAD before this documentation update: `839feec3226321f3e3b6b41e3a67359ea41ff558`. The older green Python checks run `42679137227` was for an earlier commit and does **not** qualify current HEAD. Latest Python checks run `43123118315` and deployment contract run `43123118243` failed before evidenced step execution (`steps: null` for Python jobs). **Do not report pytest, Alembic or PostgreSQL qualification as passed.**
+- Historical branch HEAD at the previous replay CI review: `839feec3226321f3e3b6b41e3a67359ea41ff558`. The older green Python checks run `42679137227` was for an earlier commit and does **not** qualify current HEAD. Latest Python checks run `43123118315` and deployment contract run `43123118243` failed before evidenced step execution (`steps: null` for Python jobs). **Do not report pytest, Alembic or PostgreSQL qualification as passed.**
 - Working language: French for operator/product communication; code/docs may be English.
 - Main docs: `docs/PROJECT-STATUS.md`, `docs/ROADMAP.md`, `docs/AI-SRE-PLATFORM.md`, `docs/THREE-SOURCE-INTEGRATION.md`, `docs/OPERATIONS.md`, `docs/DECISIONS.md`.
 
@@ -29,6 +29,14 @@
 - Python checks: https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43123118315 — `frontend`, `test`, and `gateway-replay-postgres` failed with `steps: null`. Deployment contract: https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43123118243 — failed. A prior replay job log download returned `404 BlobNotFound`. Root cause **not established**.
 - **Operator action:** inspect the GitHub Actions run page banner/annotations and repository/org Actions policy, runner entitlement, usage/billing and approvals. Only after a runner actually starts should Alembic, pytest, concurrency and HTTP tests be evaluated. Record job steps, logs, migration results and connected database identity; do not infer green from static source.
 - **Security gate:** no merge, deployment, LIVE remediation or replay authentication integration; external Gateway membership and actor→tenant→resource ACL must be independently qualified.
+
+## Canonical read hard HOLD (2026-11-12)
+
+- aiops draft review PR #668 (commit `fc970284bfcc991dbf146fe4fbec640d1ff2e14a`) documented reuse of #631 (Runs tenant groundwork), #246 (OIDC preflight) and #520 (signed GLPI xref/replay). Its Quality run `43128026513` completed SUCCESS; this is **not** real production IdP, resource ACL or GLPI actor authorization.
+- GAMMA `app/reused/upstream.py` now unconditionally refuses `core`, `evidence` and `twin` canonical snapshot reads with HTTP 503 before any upstream network access. The former provisional transport was removed from the active function. An echoed tenant ID and service bearer are not authorization.
+- `tests/test_upstream.py` now requires denial and zero upstream HTTP for all three resources even with `enable_canonical_reads=True` and configured token/origins. Unknown resources still return 404; fixed HTTPS origin validator tests remain.
+- `docs/CANONICAL-READ-ADAPTER.md` records the hard HOLD and the prerequisite independent actor→tenant→resource ACL for Core/Evidence/Twin. No provider was assumed; no migrations, LIVE/HITL, replay authentication wiring, or Debian operations.
+- This change is a **code safety fence**, not a qualified canonical read integration. Verify new exact-head CI before claiming pytest passed; GitHub Actions runner failures with `steps: null` are not test failures.
 
 ## Immediate priorities
 1. Authenticated, tenant-qualified read-only Core/Evidence/Twin/GLPI adapters; strict fixed origins, no redirects, timeouts, bounded JSON, no secrets in frontend.
