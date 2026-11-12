@@ -189,3 +189,16 @@ des sources ni une cause racine confirmée. Un échec HTTP affiche FAIL.
 Le test `python scripts/smoke_no_vm.py` vérifie également cette jointure,
 sans base de données ni VM. Aucun appel vers les endpoints métier protégés
 n'est fait par l'interface. Aucun accès LIVE ni écriture n'est autorisé.
+
+### Détails de preuves dans l'interface
+
+Après **Incidents & RCA → Relier les preuves**, la console montre maintenant
+chaque identifiant d'événement, son observation et son état `UNVERIFIED`,
+pas seulement un compteur. Les résultats sont rejetés par l'interface si
+le format ou le statut attendu diffère. Le serveur Vite de développement
+écoute explicitement **127.0.0.1** (pas `0.0.0.0`) afin de ne pas
+publier accidentellement la démonstration sur le réseau local.
+
+**Validation restant à effectuer** : `npm run build`, tests Python sur
+checkout complet, lancement des deux processus sur un poste utilisateur.
+Aucun PASS d'exécution bout en bout n'est affirmé.
