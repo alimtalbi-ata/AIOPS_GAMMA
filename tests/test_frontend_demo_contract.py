@@ -45,3 +45,17 @@ def test_vite_dev_command_is_loopback_only():
     import json
     package = json.loads((ROOT / "frontend/package.json").read_text(encoding="utf-8"))
     assert package["scripts"]["dev"] == "vite --host 127.0.0.1"
+
+
+def test_frontend_preview_command_is_loopback_only():
+    import json
+    package = json.loads((ROOT / "frontend/package.json").read_text(encoding="utf-8"))
+    assert package["scripts"]["preview"] == "vite preview --host 127.0.0.1"
+
+
+def test_compose_frontend_waits_for_api_before_nginx_upstream_resolution():
+    compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+    frontend = compose.split("  frontend:", 1)[1].split("\n  api:", 1)[0]
+    assert "depends_on:" in frontend
+    assert "api:" in frontend
+    assert "condition: service_started" in frontend
