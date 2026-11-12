@@ -26,7 +26,7 @@ python scripts/run_bounded_lab.py --check-only
 python -m pytest -q tests/test_bounded_lab_runner.py
 ```
 
-The preflight refuses even **empty** inherited database/replay variables,
+The preflight refuses a checkout containing `.env` (automatically loaded by `app/settings.py`), inherited `PYTEST_ADDOPTS`, `PYTEST_PLUGINS`, or `PYTHONPATH`, and even **empty** inherited database/replay variables,
 and validates the JSON report destination before any test process starts.
 The new unit tests use a synthetic disposable checkout and do not run the
 application or contact external services. These commands are **instructions**,
