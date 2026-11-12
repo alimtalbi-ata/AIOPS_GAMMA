@@ -240,3 +240,13 @@ services externes et ne sont pas un substitut à un test d'intégration.
 tous avant de fournir des étapes ou journaux exploitables. Vérifier dans
 GitHub Actions les restrictions d'exécution, la facturation/quota et les
 runners du dépôt avant d'attribuer les échecs à une assertion Python.
+
+### Frontend : aucune route API métier exposée
+
+Les serveurs frontend Vite (développement) et Nginx (conteneur)
+n'autorisent que les chemins exacts
+`/api/v1/demo/correlation` et `/api/v1/demo/investigation`.
+Toute autre URL commençant par `/api/` reçoit HTTP 404 et n'est
+ni transmise à FastAPI ni convertie en page HTML SPA. Les routes tenant
+authentifiées restent accessibles uniquement par le backend/gateway
+prévu à cet effet, pas par la console de démonstration.
