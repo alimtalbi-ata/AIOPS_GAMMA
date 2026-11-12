@@ -38,51 +38,30 @@ async def test_unknown_resource_is_not_arbitrary_url():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("status,payload,ctype,expected", [
-    (200, b'{"tenant_id":"WRONG"}', "application/json", 502),
-    (200, b'{"hello":true}', "application/json", 502),
-    (200, b'[]', "application/json", 502),
-    (200, b'{"x":1}', "text/html", 502),
-    (302, b'', "text/html", 502),
-    (200, b'x' * (upstream.MAX_BYTES + 1), "application/json", 502),
-])
-async def test_fail_closed_upstream(monkeypatch, status, payload, ctype, expected):
+@pytest.mark.parametrize("resource", ["core", "evidence", "twin"])
+async def test_canonical_reads_refuse_even_with_flag_and_tenant_echo(monkeypatch, resource):
+    """An echoed tenant ID and service token cannot authorize a user resource."""
     tenant = uuid4()
     monkeypatch.setattr(upstream.settings, "enable_canonical_reads", True)
     monkeypatch.setattr(upstream.settings, "canonical_read_token", "test-secret")
-    monkeypatch.setattr(upstream.settings, "core_read_url", "https://core.internal")
-    original = httpx.AsyncClient
+    for setting in ("core_read_url", "evidence_read_url", "twin_read_url"):
+        monkeypatch.setattr(upstream.settings, setting, "https://upstream.internal")
 
-    def fake_client(*args, **kwargs):
-        assert kwargs["follow_redirects"] is False
-        assert kwargs["trust_env"] is False
-        transport = httpx.MockTransport(
-            lambda req: httpx.Response(status, content=payload, headers={"content-type": ctype})
-        )
-        return original(*args, transport=transport, **kwargs)
+    def forbid_network(*args, **kwargs):
+        raise AssertionError("canonical upstream network I/O before actor/resource ACL")
 
-    monkeypatch.setattr(upstream.httpx, "AsyncClient", fake_client)
+    monkeypatch.setattr(upstream.httpx, "AsyncClient", forbid_network)
     with pytest.raises(HTTPException) as exc:
-        await upstream.fetch_canonical("core", tenant)
-    assert exc.value.status_code == expected
+        await upstream.fetch_canonical(resource, tenant)
+    assert exc.value.status_code == 503
+    assert exc.value.detail == "Canonical actor/tenant/resource ACL not qualified"
 
 
 @pytest.mark.asyncio
-async def test_valid_tenant_attested_response(monkeypatch):
-    tenant = uuid4()
+async def test_canonical_reads_reject_unknown_resource_before_network(monkeypatch):
     monkeypatch.setattr(upstream.settings, "enable_canonical_reads", True)
-    monkeypatch.setattr(upstream.settings, "canonical_read_token", "test-secret")
-    monkeypatch.setattr(upstream.settings, "core_read_url", "https://core.internal")
-    original = httpx.AsyncClient
-
-    def fake_client(*args, **kwargs):
-        def handle(req):
-            assert req.method == "GET"
-            assert req.url.path == "/api/v1/incidents"
-            assert req.headers["X-Tenant-Id"] == str(tenant)
-            return httpx.Response(200, json={"tenant_id": str(tenant), "incidents": []})
-        return original(*args, transport=httpx.MockTransport(handle), **kwargs)
-
-    monkeypatch.setattr(upstream.httpx, "AsyncClient", fake_client)
-    result = await upstream.fetch_canonical("core", tenant)
-    assert result["incidents"] == []
+    monkeypatch.setattr(upstream.httpx, "AsyncClient",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("network")))
+    with pytest.raises(HTTPException) as exc:
+        await upstream.fetch_canonical("arbitrary", uuid4())
+    assert exc.value.status_code == 404
