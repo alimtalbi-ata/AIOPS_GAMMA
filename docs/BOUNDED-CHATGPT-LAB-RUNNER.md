@@ -55,3 +55,13 @@ GitHub Actions workflows remain in place. A session-scoped ChatGPT lab cannot
 be registered as a persistent hosted runner. Full validation still requires
 an approved runner, disposable PostgreSQL 16 and independently qualified real
 actor/tenant/resource ACL. HOLD / NO_GO remains in effect.
+
+
+### Runtime bound
+
+The source-only pytest subprocess has a hard **180-second timeout**. If the
+limit is reached, the runner records `result: "timeout"`, `exit_code: 124`
+and `timeout_seconds: 180` in its JSON report (when requested), then exits
+nonzero. A timeout is never reported as a passing test run. This bounds the
+wait, not the capabilities of the environment: use only a disposable isolated
+checkout without production connectivity.
