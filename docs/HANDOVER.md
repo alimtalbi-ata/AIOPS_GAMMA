@@ -488,3 +488,10 @@
 - Executed `python -m pytest -q tests/test_bounded_lab_runner.py` in a disposable Python 3.13.5 / pytest 9.0.2 ChatGPT container using a manually reproduced two-file subset of the current PR source: **8 passed in 5.53s**.
 - Details and strict provenance in `docs/CHATGPT-LAB-RUNNER-TEST-RESULT-20261112.md`. This is **not** a complete private repository checkout or a full application test run. PostgreSQL, frontend, Docker, Helm, IdP and real resource ACL remain unqualified.
 - No changes to GitHub Actions, no merge/deployment/LIVE; HOLD / NO_GO remains.
+
+### 2026-11-12 — lab runner execution contract, 13 passing local tests
+
+- Added `tests/test_bounded_lab_execution_contract.py` with five mocked-subprocess cases for exit-code propagation, JSON report fidelity and refusal before test execution.
+- Executed `python -m pytest -q tests/test_bounded_lab_runner.py tests/test_bounded_lab_execution_contract.py` in disposable ChatGPT Python 3.13.5 lab on manually reconstructed files: **13 passed in 5.55s**.
+- Provenance and limitations in `docs/CHATGPT-LAB-EXECUTION-CONTRACT-20261112.md`. This does **not** establish full private checkout, exact-head CI, real PostgreSQL, IdP/ACL, Docker/Helm or production qualification.
+- HOLD / NO_GO; no merge or deploy.
