@@ -1,12 +1,14 @@
 # AIOPS_GAMMA — Handover / session recovery
 
-**Snapshot: 2026-11-09.** Read this first when taking over work, after a session interruption, or when changing developer/agent.
+**Snapshot: 2026-11-12.** Read this first when taking over work, after a session interruption, or when changing developer/agent.
+
+> **CURRENT SECURITY GATE — HOLD / NO_GO.** Draft PR #1 must not be merged or deployed. Do not activate LIVE, wire replay into `app/security.py` / `app/main.py`, or treat Gateway actor→tenant→resource ACL as qualified. Real PostgreSQL, HTTP and upstream authorization remain unqualified until executable evidence exists.
 
 ## Current working state
 - Repo: https://github.com/alimtalbi-ata/AIOPS_GAMMA
 - Active draft PR: https://github.com/alimtalbi-ata/AIOPS_GAMMA/pull/1
 - Branch: `feat/observability-foundation`; `main` does **not** contain the feature branch.
-- Last verified implementation commit: `73ab13356767de690cde89da975d4de9e2d4a7e1`; GitHub Actions Python checks passed (run `42679137227`). **Recheck current HEAD and CI before changing or merging.**
+- Current branch HEAD before this documentation update: `839feec3226321f3e3b6b41e3a67359ea41ff558`. The older green Python checks run `42679137227` was for an earlier commit and does **not** qualify current HEAD. Latest Python checks run `43123118315` and deployment contract run `43123118243` failed before evidenced step execution (`steps: null` for Python jobs). **Do not report pytest, Alembic or PostgreSQL qualification as passed.**
 - Working language: French for operator/product communication; code/docs may be English.
 - Main docs: `docs/PROJECT-STATUS.md`, `docs/ROADMAP.md`, `docs/AI-SRE-PLATFORM.md`, `docs/THREE-SOURCE-INTEGRATION.md`, `docs/OPERATIONS.md`, `docs/DECISIONS.md`.
 
@@ -18,6 +20,15 @@
 5. Run `pytest`, frontend build, migration and integration checks as applicable; inspect GitHub Actions on the **new HEAD**.
 6. Update status, decisions and this handover with delivered code, SHA, tests, known failures, next issue and security qualifications.
 7. Leave PR draft until reviewed and safe; do not auto-merge or enable LIVE remediation.
+
+## Latest replay security/CI handover (2026-11-12)
+
+- Branch `feat/observability-foundation`, draft PR #1: https://github.com/alimtalbi-ata/AIOPS_GAMMA/pull/1
+- Commit `d2b6cfa47f591a3e70ffc64398b6df5f2f6dd61a`: four static regression checks in `tests/test_gateway_replay_rollout_hold.py` covering no replay-to-auth wiring, disposable PostgreSQL CI settings, and integration-test database safety gates. Source/AST guard review only; no new pytest execution claimed.
+- Commit `839feec3226321f3e3b6b41e3a67359ea41ff558`: CI job `gateway-replay-postgres` now stages Alembic `upgrade head`, `downgrade 0001_initial`, `upgrade 0002_gateway_replay`, then database identity/revision/table checks before the real PostgreSQL concurrency tests. Confirmed command order from committed workflow blob; **not executed**.
+- Python checks: https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43123118315 — `frontend`, `test`, and `gateway-replay-postgres` failed with `steps: null`. Deployment contract: https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43123118243 — failed. A prior replay job log download returned `404 BlobNotFound`. Root cause **not established**.
+- **Operator action:** inspect the GitHub Actions run page banner/annotations and repository/org Actions policy, runner entitlement, usage/billing and approvals. Only after a runner actually starts should Alembic, pytest, concurrency and HTTP tests be evaluated. Record job steps, logs, migration results and connected database identity; do not infer green from static source.
+- **Security gate:** no merge, deployment, LIVE remediation or replay authentication integration; external Gateway membership and actor→tenant→resource ACL must be independently qualified.
 
 ## Immediate priorities
 1. Authenticated, tenant-qualified read-only Core/Evidence/Twin/GLPI adapters; strict fixed origins, no redirects, timeouts, bounded JSON, no secrets in frontend.
