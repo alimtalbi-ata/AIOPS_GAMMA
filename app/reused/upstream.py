@@ -69,6 +69,15 @@ def validate_origin(origin: str) -> str:
 async def fetch_canonical(resource: str, tenant_id: UUID) -> dict:
     if resource not in ALLOWED_RESOURCES:
         raise HTTPException(404, "Unknown upstream resource")
+    # HOLD: no canonical upstream currently proves actor→tenant→resource ACL.
+    # A service bearer, X-Tenant-Id request header and echoed tenant_id are
+    # not independent authorization evidence. Fail before any network I/O,
+    # including when enable_canonical_reads is accidentally enabled.
+    raise HTTPException(503, "Canonical actor/tenant/resource ACL not qualified")
+
+    # Historical prototype retained below for a separately reviewed future
+    # integration; it is deliberately unreachable until the ACL gate is
+    # replaced with independently qualified upstream authorization.
     setting_name, path = ALLOWED_RESOURCES[resource]
     origin = getattr(settings, setting_name)
     if not settings.enable_canonical_reads or not origin or not settings.canonical_read_token:
