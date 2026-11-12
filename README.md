@@ -227,3 +227,16 @@ Cette sonde prouve uniquement la disponibilité HTTP du processus FastAPI,
 **pas** l'accès PostgreSQL ni la disponibilité des intégrations. Les jobs
 GitHub Actions de la dernière exécution consultée étaient tous en échec,
 sans étapes ni journaux exploitables ; aucun succès CI n'est revendiqué.
+
+### Contrôles supplémentaires de la démonstration
+
+`python -m pytest -q tests/test_demo_invariants.py tests/test_no_vm_smoke.py`
+vérifie la stabilité du scénario et le fait que la jointure des preuves
+ne constitue ni une preuve d'authenticité, ni une RCA confirmée, ni un
+ticket ITSM, ni une autorisation de remédiation. Ces tests sont sans
+services externes et ne sont pas un substitut à un test d'intégration.
+
+**CI bloquante** : les derniers jobs GitHub Actions consultés échouent
+tous avant de fournir des étapes ou journaux exploitables. Vérifier dans
+GitHub Actions les restrictions d'exécution, la facturation/quota et les
+runners du dépôt avant d'attribuer les échecs à une assertion Python.
