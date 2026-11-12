@@ -11,9 +11,14 @@ cp .env.example .env
 # Modifier impérativement POSTGRES_PASSWORD et INTERNAL_API_KEY
 docker compose up --build -d
 curl http://127.0.0.1:8000/api/v1/health/live
-# Appliquer les tables de démarrage (nouvelle instance uniquement)
-docker compose exec api python -m app.init_db
+# Les migrations Alembic sont appliquées par le service Compose migrate.
+# Vérifier API + interface + version PostgreSQL :
+python scripts/smoke_local_mvp.py
 ```
+
+Interface de démonstration : http://127.0.0.1:5173/ (données synthétiques, non connectées à l'API).
+
+Le service `migrate` applique `alembic upgrade head` sur la base locale avant de démarrer l'API. Si la migration échoue, l'API ne démarre pas. Le script `scripts/smoke_local_mvp.py` vérifie uniquement les réponses HTTP et la révision de schéma ; il ne valide pas l'authentification multi-tenant.
 
 Swagger : http://127.0.0.1:8000/docs. Les endpoints métier nécessitent `X-Internal-Api-Key` (authentification du workload) et `X-Gateway-Principal` (assertion HMAC courte, signée par la passerelle, liée à la méthode/route et attestant le tenant). `X-Tenant-Id` fourni par le client n'autorise plus l'accès. La passerelle doit authentifier l'acteur et vérifier son appartenance au tenant avant de signer. Voir [contrat de principal gateway](docs/TRUSTED-TENANT-PRINCIPAL-CONTRACT.md). Cette intégration est partielle et non qualifiée pour la production.
 
