@@ -32,9 +32,9 @@ The new unit tests use a synthetic disposable checkout and do not run the
 application or contact external services. These commands are **instructions**,
 not a claim that the full checkout was executed in this ChatGPT session.
 
-The runner uses a fixed allowlist of ten existing test files covering canonical
+The runner uses a fixed allowlist of eleven existing test files covering canonical
 HOLD, actual FastAPI canonical route, signed Gateway assertions, tenant-bound
-SQLAlchemy list routes, and upstream transport contracts. It deliberately
+SQLAlchemy list routes, deny-before-database HTTP authentication, and upstream transport contracts. It deliberately
 excludes PostgreSQL replay, migration, staging, Docker and integration suites.
 It refuses incomplete checkouts and inherited `DATABASE_URL`,
 `GAMMA_REPLAY_TEST_DATABASE_URL`, or `GAMMA_REPLAY_TEST_ALLOW_WRITE`.
