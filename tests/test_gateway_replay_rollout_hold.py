@@ -71,3 +71,47 @@ def test_postgres_integration_fixture_refuses_non_disposable_urls():
     assert '"127.0.0.1"' in test_source
     assert 'SELECT current_database()' in test_source
     assert 'revision == "0002_gateway_replay"' in test_source
+
+
+
+def test_disposable_postgres_ci_roundtrip_precedes_concurrency_tests():
+    """Guard migration rollback/reapply coverage without claiming it ran."""
+    workflow = _source(".github/workflows/ci.yml")
+    job = workflow.split("  gateway-replay-postgres:", 1)[1]
+    required = (
+        "run: alembic upgrade head",
+        "alembic downgrade 0001_initial",
+        "alembic upgrade 0002_gateway_replay",
+        'SELECT current_database()',
+        'SELECT version_num FROM alembic_version',
+        "SELECT to_regclass('gateway_assertion_replay')",
+        "run: python -m pytest -q tests/test_gateway_replay_postgres.py",
+    )
+    positions = [job.index(marker) for marker in required]
+    assert positions == sorted(positions)
+    assert '== "gamma_replay_test"' in job
+    assert '== "0002_gateway_replay"' in job
+
+
+def test_replay_migration_downgrade_is_scoped_to_replay_objects():
+    """Prevent accidental broad schema drops in the replay-only migration."""
+    migration = ast.parse(_source("migrations/versions/0002_gateway_replay.py"))
+    downgrade = next(
+        node for node in migration.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name == "downgrade"
+    )
+    calls = [
+        node for node in ast.walk(downgrade)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+    ]
+    drop_calls = [
+        node for node in calls if node.func.attr.startswith("drop_")
+    ]
+    assert len(drop_calls) == 2
+    assert {node.func.attr for node in drop_calls} == {"drop_index", "drop_table"}
+    for node in drop_calls:
+        assert isinstance(node.args[0], ast.Constant)
+        assert node.args[0].value in {
+            "ix_gateway_assertion_replay_expires_at", "gateway_assertion_replay"
+        }
