@@ -19,6 +19,19 @@ environment (including a ChatGPT lab when the repository files are supplied).
 python scripts/run_bounded_lab.py --report /tmp/gamma-bounded-lab.json
 ```
 
+To validate the safety preflight without launching pytest:
+
+```bash
+python scripts/run_bounded_lab.py --check-only
+python -m pytest -q tests/test_bounded_lab_runner.py
+```
+
+The preflight refuses even **empty** inherited database/replay variables,
+and validates the JSON report destination before any test process starts.
+The new unit tests use a synthetic disposable checkout and do not run the
+application or contact external services. These commands are **instructions**,
+not a claim that the full checkout was executed in this ChatGPT session.
+
 The runner uses a fixed allowlist of ten existing test files covering canonical
 HOLD, actual FastAPI canonical route, signed Gateway assertions, tenant-bound
 SQLAlchemy list routes, and upstream transport contracts. It deliberately
