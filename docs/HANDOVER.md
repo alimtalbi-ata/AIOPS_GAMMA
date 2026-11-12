@@ -501,3 +501,10 @@
 - Added `tests/test_resource_list_http_denied_before_db.py` with **14 parametrized cases** (two real FastAPI GET list routes × seven invalid/missing signed-principal scenarios). A forbidden DB dependency spy asserts authentication failure precedes any DB session entry; responses must be 401 and `Cache-Control: no-store`.
 - Included the new test file in the bounded ChatGPT lab allowlist (now 11 files). Tests are **committed but not yet executed** against a complete private checkout; no PostgreSQL/IdP/resource ACL qualification.
 - GitHub Actions remain unchanged; HOLD / NO_GO, no merge/deploy/LIVE.
+
+### 2026-11-12 — dotenv and pytest environment isolation
+
+- Source audit found `app/settings.py` uses `SettingsConfigDict(env_file=".env")`; the bounded lab runner previously rejected only selected environment variables, not a checkout `.env` file.
+- Updated `scripts/run_bounded_lab.py` to reject `.env` and inherited `PYTEST_ADDOPTS`, `PYTEST_PLUGINS`, `PYTHONPATH` (including empty values), before both `--check-only` and test subprocess execution.
+- Added four synthetic preflight regression cases and one mocked-subprocess case. Adjusted existing runner test fixtures to scrub these inherited execution overrides. **Tests committed, not executed on a complete checkout**; previous 13-pass result applies only to the prior source version.
+- GitHub Actions untouched; HOLD / NO_GO unchanged.
