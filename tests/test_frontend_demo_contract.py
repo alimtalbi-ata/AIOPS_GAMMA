@@ -124,3 +124,14 @@ def test_correlation_ui_rejects_unexpected_or_live_demo_results():
         assert required in handler
     assert handler.count("setDemoGroups(0);") == 2
     assert handler.count("setDemoEvents(0);") == 2
+
+
+def test_nginx_demo_proxy_strips_browser_credentials_and_tenant_identity():
+    nginx = (ROOT / "frontend/nginx.conf").read_text(encoding="utf-8")
+    for route in ("correlation", "investigation"):
+        block = nginx.split(f"location = /api/v1/demo/{route} {{", 1)[1].split("}", 1)[0]
+        for header in (
+            "Authorization", "Cookie", "X-Tenant-ID", "X-Forwarded-User",
+            "X-Internal-Api-Key", "X-Gateway-Principal",
+        ):
+            assert f'proxy_set_header {header} "";' in block
