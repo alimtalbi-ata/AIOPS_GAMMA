@@ -77,9 +77,12 @@ def main() -> int:
 
     # An explicit fixed allowlist: never run the real-Postgres or staging tests
     # in a generic ChatGPT lab, even when they are present in the checkout.
-    cmd = [sys.executable, "-m", "pytest", "-q", *SAFE_TESTS]
+    cmd = [sys.executable, "-m", "pytest", "-q", "-p", "pytest_asyncio.plugin", *SAFE_TESTS]
     env = os.environ.copy()
     env["PYTHONDONTWRITEBYTECODE"] = "1"
+    # Prevent third-party pytest entry-point plugins from auto-loading in the lab.
+    # The async test plugin is explicitly allowlisted via -p above.
+    env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
     started = datetime.now(timezone.utc).isoformat()
     try:
         result = subprocess.run(
