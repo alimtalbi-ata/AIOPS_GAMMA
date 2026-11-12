@@ -40,6 +40,7 @@ def test_report_and_exit_code_are_faithful(simulated_runner, tmp_path, monkeypat
     assert kwargs["cwd"] == simulated_runner
     assert kwargs["env"]["PYTHONDONTWRITEBYTECODE"] == "1"
     assert kwargs["check"] is False
+    assert kwargs["timeout"] == lab.LAB_TIMEOUT_SECONDS
     result = json.loads(report_path.read_text())
     assert result["exit_code"] == code
     assert result["result"] == expected
@@ -74,3 +75,18 @@ def test_dotenv_guard_runs_before_pytest(simulated_runner, monkeypatch):
     (simulated_runner / ".env").write_text("DATABASE_URL=unsafe\\n", encoding="utf-8")
     monkeypatch.setattr(sys, "argv", ["runner"])
     assert lab.main() == 2
+
+
+def test_pytest_timeout_is_reported_as_failure(simulated_runner, tmp_path, monkeypatch, capsys):
+    def expired(cmd, **kwargs):
+        raise lab.subprocess.TimeoutExpired(cmd, kwargs["timeout"])
+
+    monkeypatch.setattr(lab.subprocess, "run", expired)
+    report_path = tmp_path / "timeout.json"
+    monkeypatch.setattr(sys, "argv", ["runner", "--report", str(report_path)])
+    assert lab.main() == 124
+    report = json.loads(report_path.read_text())
+    assert report["result"] == "timeout"
+    assert report["exit_code"] == 124
+    assert report["timeout_seconds"] == lab.LAB_TIMEOUT_SECONDS
+    assert json.loads(capsys.readouterr().out) == report
