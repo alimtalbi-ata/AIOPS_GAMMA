@@ -69,17 +69,21 @@ export function App(){
  const [demoEvents,setDemoEvents]=useState(0);
  const runSyntheticDemo=async()=>{
    setDemoStatus("Exécution…");
+   setDemoGroups(0);
+   setDemoEvents(0);
    try {
      const response=await fetch("/api/v1/demo/correlation",{cache:"no-store",signal:AbortSignal.timeout(8000)});
      if(!response.ok) throw new Error("HTTP "+response.status);
      const payload:unknown=await response.json();
      if(!payload || typeof payload!=="object" || !("mode" in payload) || payload.mode!=="synthetic_demo" || !("authoritative" in payload) || payload.authoritative!==false || !("correlation" in payload)) throw new Error("Réponse invalide");
      const correlation=payload.correlation;
-     if(!correlation || typeof correlation!=="object" || !("groups" in correlation) || !Array.isArray(correlation.groups) || !("source_events" in correlation) || typeof correlation.source_events!=="number") throw new Error("Corrélation invalide");
+     if(!correlation || typeof correlation!=="object" || !("groups" in correlation) || !Array.isArray(correlation.groups) || correlation.groups.length!==1 || !("source_events" in correlation) || correlation.source_events!==2 || !("persisted" in correlation) || correlation.persisted!==false || !("live_remediation_authorized" in correlation) || correlation.live_remediation_authorized!==false) throw new Error("Corrélation invalide");
      setDemoGroups(correlation.groups.length);
      setDemoEvents(correlation.source_events);
      setDemoStatus("PASS · Moteur de corrélation API");
    } catch {
+     setDemoGroups(0);
+     setDemoEvents(0);
      setDemoStatus("FAIL · API de démonstration indisponible");
    }
  };
