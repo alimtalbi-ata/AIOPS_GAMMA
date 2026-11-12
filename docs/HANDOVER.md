@@ -549,3 +549,9 @@
 - `scripts/smoke_local_mvp.py` provides read-only checks for loopback API health, frontend HTML and PostgreSQL Alembic head (`0002_gateway_replay`); `tests/test_local_mvp_install_contract.py` checks source wiring.
 - README now describes the actual migration and smoke path rather than manual `app.init_db` initialization.
 - **Not executed:** Docker is unavailable in the current workspace, and GitHub Actions failed before steps. No full Compose build, migration or smoke PASS is claimed. Frontend remains synthetic, not wired to authenticated API. No real IdP or tenant ACL qualification; HOLD / NO_GO for production/merge/LIVE.
+
+### 2026-11-12 — No-VM local FastAPI smoke
+
+- User has no test VM. Added `scripts/smoke_no_vm.py` (actual FastAPI TestClient, health, OpenAPI topology/evidence registration, unauthenticated tenant denial, no DB/network/containers) and `tests/test_no_vm_smoke.py`.
+- README includes local venv installation and commands; the smoke refuses configured service/gateway secrets. This is a useful testable intermediate milestone, **not** proof of an installable end-to-end stack.
+- Not executed against a full checkout in this session; CI runner pre-step failures persist. Production, external IdP, PostgreSQL, and frontend integration remain HOLD / NO_GO.
