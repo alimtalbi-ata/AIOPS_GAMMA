@@ -515,3 +515,9 @@
 - Added mocked-subprocess regression coverage for timeout reporting and timeout invocation; updated lab documentation.
 - **Committed, not executed against a complete private checkout.** The previously observed 13-pass lab result does not apply to this latest source revision.
 - HOLD / NO_GO; no GitHub Actions changes, merge, deployment or LIVE operations.
+
+### 2026-11-12 — pytest plugin autoload boundary
+
+- The bounded runner now sets `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` in its child process and explicitly loads `pytest_asyncio.plugin` with `-p`; the mocked subprocess contract asserts both properties.
+- ChatGPT lab smoke check `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -p pytest_asyncio.plugin --version` succeeded with pytest 9.0.2. **This is a plugin-loading smoke check, not a GAMMA application test run.**
+- GitHub Actions remain unchanged; exact-head full checkout tests and PostgreSQL/IdP qualification remain pending. HOLD / NO_GO.
