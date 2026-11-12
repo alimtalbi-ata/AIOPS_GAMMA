@@ -207,15 +207,18 @@ def test_vite_demo_proxy_rejects_request_bodies_before_stripping_headers():
 
 def test_nginx_demo_responses_keep_security_headers_despite_add_header_inheritance():
     nginx = (ROOT / "frontend/nginx.conf").read_text(encoding="utf-8")
-    security_headers = (
-        "X-Content-Type-Options nosniff",
-        "Referrer-Policy no-referrer",
-        "X-Frame-Options DENY",
-        "Content-Security-Policy ",
+    # Match the complete directives, not just header names: a weakened CSP or
+    # missing "always" must fail the contract check.
+    security_headers = tuple(
+        line.strip()
+        for line in nginx.split("location = /api/v1/demo/investigation", 1)[0].splitlines()
+        if line.strip().startswith("add_header ")
     )
+    assert len(security_headers) == 4
     for route in ("correlation", "investigation"):
         block = nginx.split(f"location = /api/v1/demo/{route} {{", 1)[1]
         block = block.split("limit_except GET { deny all; }", 1)[0]
-        assert 'add_header Cache-Control "no-store" always;' in block
-        for header in security_headers:
-            assert f"add_header {header}" in block
+        directives = [line.strip() for line in block.splitlines()]
+        assert directives.count('add_header Cache-Control "no-store" always;') == 1
+        for directive in security_headers:
+            assert directives.count(directive) == 1
