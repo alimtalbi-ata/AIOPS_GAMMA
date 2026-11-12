@@ -1,0 +1,28 @@
+"""No-Docker contract checks for the explicitly synthetic frontend/API demo."""
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_vite_dev_server_only_proxies_public_synthetic_demo():
+    config = (ROOT / "frontend/vite.config.ts").read_text(encoding="utf-8")
+    assert '"/api/v1/demo/correlation"' in config
+    assert 'target: "http://127.0.0.1:8000"' in config
+    assert 'host: "127.0.0.1"' in config
+    assert '"/api/v1/"' not in config
+
+
+def test_nginx_only_proxies_public_synthetic_demo():
+    nginx = (ROOT / "frontend/nginx.conf").read_text(encoding="utf-8")
+    assert "location = /api/v1/demo/correlation" in nginx
+    assert "proxy_pass http://api:8000/api/v1/demo/correlation;" in nginx
+    assert 'proxy_set_header X-Gateway-Principal "";' in nginx
+    assert "location /api/v1/" not in nginx
+
+
+def test_frontend_has_real_api_demo_button_and_failure_state():
+    source = (ROOT / "frontend/src/App.tsx").read_text(encoding="utf-8")
+    assert 'fetch("/api/v1/demo/correlation"' in source
+    assert "Exécuter le scénario" in source
+    assert "FAIL · API de démonstration indisponible" in source
+    assert "PASS · Moteur de corrélation API" in source
