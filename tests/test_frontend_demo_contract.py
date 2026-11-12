@@ -191,3 +191,15 @@ def test_vite_demo_proxy_rejects_mutating_methods_before_forwarding():
     assert 'res.setHeader("Cache-Control", "no-store");' in vite
     assert 'res.end("Method not allowed");' in vite
     assert vite.index('if (req.method !== "GET"') < vite.index("const allowedHeaders")
+
+
+def test_vite_demo_proxy_rejects_request_bodies_before_stripping_headers():
+    vite = (ROOT / "frontend/vite.config.ts").read_text(encoding="utf-8")
+    assert 'req.headers["transfer-encoding"] !== undefined' in vite
+    assert 'req.headers["content-length"] !== undefined' in vite
+    assert 'req.headers["content-length"] !== "0"' in vite
+    assert "res.statusCode = 400;" in vite
+    assert 'res.end("Request body not allowed");' in vite
+    assert vite.index('req.headers["transfer-encoding"]') < vite.index(
+        "const allowedHeaders"
+    )
