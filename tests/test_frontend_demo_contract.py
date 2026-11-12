@@ -26,3 +26,16 @@ def test_frontend_has_real_api_demo_button_and_failure_state():
     assert "Exécuter le scénario" in source
     assert "FAIL · API de démonstration indisponible" in source
     assert "PASS · Moteur de corrélation API" in source
+
+
+def test_investigation_demo_has_exact_proxy_and_failure_state():
+    vite = (ROOT / "frontend/vite.config.ts").read_text(encoding="utf-8")
+    nginx = (ROOT / "frontend/nginx.conf").read_text(encoding="utf-8")
+    app = (ROOT / "frontend/src/App.tsx").read_text(encoding="utf-8")
+    assert '"/api/v1/demo/investigation"' in vite
+    assert "location = /api/v1/demo/investigation" in nginx
+    assert "proxy_pass http://api:8000/api/v1/demo/investigation;" in nginx
+    assert 'fetch("/api/v1/demo/investigation"' in app
+    assert "Relier les preuves" in app
+    assert "FAIL · Investigation API indisponible" in app
+    assert "source NON VÉRIFIÉE" in app
