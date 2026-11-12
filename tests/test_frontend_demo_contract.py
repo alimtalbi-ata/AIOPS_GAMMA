@@ -90,3 +90,15 @@ def test_vite_rejects_unknown_api_routes_before_proxy():
     assert 'res.setHeader("Cache-Control", "no-store")' in vite
     assert '"/api/v1/demo/correlation"' in vite
     assert '"/api/v1/demo/investigation"' in vite
+
+
+def test_investigation_ui_rejects_verified_or_live_claims():
+    app = (ROOT / "frontend/src/App.tsx").read_text(encoding="utf-8")
+    for field in (
+        "payload.evidence_source_verified!==false",
+        "result.evidence_join_consistent!==true",
+        "result.persisted!==false",
+        "result.live_remediation_authorized!==false",
+        "result.groups.length!==1",
+    ):
+        assert field in app
