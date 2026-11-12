@@ -39,3 +39,46 @@ def test_outbox_and_bootstrap_use_lazy_factory():
     assert "from app.db import get_session_factory" in bootstrap
     assert "get_session_factory().kw[\"bind\"]" in bootstrap
     assert "from app.db import engine" not in bootstrap
+
+
+def test_poc_bootstrap_disposes_engine_without_real_database(monkeypatch):
+    """Exercise POC bootstrap with fake async engine and SQLAlchemy sessionmaker."""
+    import asyncio
+    from types import SimpleNamespace
+    import app.init_db as bootstrap
+
+    events = []
+
+    class FakeConnection:
+        async def run_sync(self, fn):
+            events.append(("run_sync", fn))
+
+    class FakeBegin:
+        async def __aenter__(self):
+            events.append("begin")
+            return FakeConnection()
+
+        async def __aexit__(self, exc_type, exc, tb):
+            events.append("end")
+
+    class FakeEngine:
+        def begin(self):
+            return FakeBegin()
+
+        async def dispose(self):
+            events.append("dispose")
+
+    class FakeFactory:
+        kw = {"bind": FakeEngine()}
+
+    def factory():
+        events.append("factory")
+        return FakeFactory()
+
+    factory.cache_clear = lambda: events.append("clear")
+    monkeypatch.setattr(bootstrap, "get_session_factory", factory)
+    asyncio.run(bootstrap.main())
+    assert events == [
+        "factory", "begin", ("run_sync", bootstrap.Base.metadata.create_all),
+        "end", "dispose", "clear",
+    ]
