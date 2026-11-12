@@ -35,7 +35,7 @@ async def test_canonical_wrong_content_type_rejected(monkeypatch):
     stub(monkeypatch, content=b'{"tenant_id":"12345678-1234-4234-8234-123456789abc"}', content_type="text/html")
     with pytest.raises(HTTPException) as exc:
         await upstream.fetch_canonical("core", TENANT)
-    assert exc.value.status_code == 502
+    assert exc.value.status_code == 503
 
 
 @pytest.mark.asyncio
@@ -58,7 +58,7 @@ async def test_canonical_network_failure_sanitized(monkeypatch):
     monkeypatch.setattr(httpx, "AsyncClient", lambda *a, **kw: real_client(*a, transport=httpx.MockTransport(handler), **kw))
     with pytest.raises(HTTPException) as exc:
         await upstream.fetch_canonical("core", TENANT)
-    assert exc.value.status_code == 502
+    assert exc.value.status_code == 503
     assert "internal-secret-hostname" not in str(exc.value.detail)
 
 
