@@ -17,6 +17,15 @@ export default defineConfig({
           res.end("Not found");
           return;
         }
+        if (publicDemoPaths.has(path)) {
+          // Mirror the production Nginx boundary for public synthetic endpoints.
+          for (const header of [
+            "authorization", "cookie", "x-tenant-id", "x-forwarded-user",
+            "x-internal-api-key", "x-gateway-principal",
+          ]) {
+            delete req.headers[header];
+          }
+        }
         next();
       });
     },
