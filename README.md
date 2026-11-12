@@ -214,3 +214,16 @@ restent toutes deux limitées à `127.0.0.1`.
 Le code n'a pas été exécuté dans un checkout complet ici : le réseau de
 l'environnement d'exécution ne résout pas github.com. Aucun résultat
 PASS de build ou de tests n'est revendiqué.
+
+### Healthcheck Compose API
+
+Le frontend attend désormais `service_healthy` et non seulement
+`service_started` pour l'API. Le conteneur API vérifie avec la bibliothèque
+standard Python que `GET /api/v1/health/live` retourne exactement
+`{"status":"ok"}`. Le endpoint est public et ne nécessite aucun secret
+tenant. La migration PostgreSQL reste une dépendance préalable de l'API.
+
+Cette sonde prouve uniquement la disponibilité HTTP du processus FastAPI,
+**pas** l'accès PostgreSQL ni la disponibilité des intégrations. Les jobs
+GitHub Actions de la dernière exécution consultée étaient tous en échec,
+sans étapes ni journaux exploitables ; aucun succès CI n'est revendiqué.
