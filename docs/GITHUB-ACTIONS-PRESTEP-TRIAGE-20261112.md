@@ -35,3 +35,12 @@
 - No permission to run against Debian, production PostgreSQL, real tenants or LIVE.
 
 **Next evidence needed:** exact Actions UI pre-step annotation or runner provisioning message, followed by a run showing executed steps and accessible logs.
+
+
+## Latest exact-head recheck — 2026-11-12, commit 529d97f1417654620c96066b958ec9fabdcdff16
+
+- Python checks: [run 43226459064](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43226459064), `completed/failure`, created 13:21:09Z and updated 13:21:12Z. All three jobs failed with `steps=null`: test `131210783891`, frontend `131210784103`, gateway-replay-postgres `131210783482`. Separate steps API returned `[]` for all three.
+- Deployment contract: [run 43226458894](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43226458894), `completed/failure`, created 13:21:09Z and updated 13:21:13Z. Six jobs failed with `steps=null`: postgres-nonroot-experiment, api-postgres-runtime, compose, single-directory-runtime, ui-image and helm.
+- The run-level API confirms `event=pull_request`, `run_attempt=1` and the exact head SHA above. These observations do **not** establish the root cause or prove that any `compileall`, pytest, npm, Docker, PostgreSQL or Helm command ran.
+- **Operator action needed:** inspect each run's GitHub Actions UI annotations and repository/org Actions runner availability, policies, and billing; capture the actual pre-step error before modifying workflows or retrying. No automatic retry or production operation is authorized.
+- Quality P0 fixes and the new CI syntax gate remain unqualified by GitHub Actions. HOLD / NO_GO.
