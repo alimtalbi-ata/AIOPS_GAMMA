@@ -444,3 +444,10 @@
 - Updated legacy canonical HTTP-mock suites `test_upstream_http_mock.py`, `test_upstream_transport_boundary.py`, and `test_upstream_fail_closed_extra.py` to assert 503/no network for canonical reads instead of obsolete successful tenant-echo/502 transport behavior. GLPI cases were not deliberately changed.
 - Added `tests/test_canonical_acl_hard_hold_static.py` to guard the exact fail-closed canonical adapter AST shape (allowlist 404 then unconditional 503; no await or return). This is source-level regression coverage, not real upstream ACL qualification.
 - Current HEAD CI and runtime tests remain to be checked; no production access, merge, deploy, replay authentication wiring or LIVE action performed.
+
+### 2026-11-12 — canonical route HTTP HOLD regression
+
+- Previous HEAD `10595a9f9c54284272cd01ca4282aaad7807ff8c` GitHub Actions Python run `43185641514` and deployment contract run `43185641672` both failed. All nine inspected jobs returned `steps: null`; no test step or log-based root cause is established.
+- Added `tests/test_canonical_route_http_hold.py` against the real `app.main` FastAPI route, with a locally signed request-bound gateway assertion. Parametrized Core/Evidence/Twin cases assert 503 even with the canonical feature flag enabled and a configured service token, plus no network and `Cache-Control: no-store`. Key-only/forged identity and `tenant_access=false` must return 401; unknown resource with valid assertion must return 404.
+- These are in-repository HTTP test definitions; no pytest execution or real upstream/IdP/PostgreSQL qualification is claimed until an executable runner produces results.
+- Reuse boundary remains: `aiops` PR #631 Runs-only groundwork, #246 actor introspection candidate, #520 GLPI signed xref candidate; no assumptions about the real IdP.
