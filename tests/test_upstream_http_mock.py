@@ -53,8 +53,8 @@ async def test_canonical_rejects_ambiguous_json(monkeypatch, payload):
     mock_http(monkeypatch, payload)
     with pytest.raises(HTTPException) as exc:
         await upstream.fetch_canonical("core", TENANT)
-    assert exc.value.status_code == 502
-    assert exc.value.detail == "Canonical upstream unavailable"
+    assert exc.value.status_code == 503
+    assert exc.value.detail == "Canonical actor/tenant/resource ACL not qualified"
 
 
 @pytest.mark.asyncio
@@ -73,13 +73,13 @@ async def test_glpi_rejects_ambiguous_json(monkeypatch, payload):
 
 
 @pytest.mark.asyncio
-async def test_canonical_accepts_valid_attestation(monkeypatch):
+async def test_canonical_tenant_echo_never_grants_access(monkeypatch):
     configure_canonical(monkeypatch)
     requests = mock_http(monkeypatch, b'{"tenant_id":"12345678-1234-4234-8234-123456789abc","items":[]}')
-    result = await upstream.fetch_canonical("core", TENANT)
-    assert result["items"] == []
-    assert requests[0].headers["X-Tenant-Id"] == str(TENANT)
-    assert requests[0].method == "GET"
+    with pytest.raises(HTTPException) as exc:
+        await upstream.fetch_canonical("core", TENANT)
+    assert exc.value.status_code == 503
+    assert not requests
 
 
 @pytest.mark.asyncio
