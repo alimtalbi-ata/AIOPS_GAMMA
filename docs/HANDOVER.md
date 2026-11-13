@@ -586,3 +586,13 @@
 - Security: preview-only; no ITSM writes, persistence, LIVE authorization or tenant ACL capability. Issue #2 remains blocked by the absent upstream actor→tenant authorization contract and unqualified Core/Evidence/Twin handlers.
 - Decision: HOLD / NO_GO; PR #1 stays draft; no merge, deployment or LIVE activation.
 - Next: diagnose GitHub Actions runner provisioning and run focused ITSM tests plus full Python/frontend/PostgreSQL gates on exact HEAD.
+
+### 2026-11-13 — checkpoint after cross-repository ACL re-audit
+
+- Re-read GAMMA issue #2 and its latest security findings, and checked the canonical `alimtalbi-ata/aiops` backlog. No verified gateway→actor→tenant membership/ACL contract is evidenced for GAMMA consumption; the upstream P0.1/P0.2 work remains a dependency, not a GAMMA-only implementation task.
+- The prior finding remains: a shared service token plus caller-selected `X-Tenant-ID` authenticates a service caller but does not authorize that actor for the selected tenant. Existing Core/Evidence/Twin routes and the prototype GAMMA paths/schemas must not be assumed to provide resource-level tenant ACL.
+- No speculative JWT/HMAC, issuer/audience, claim names, gateway namespace/pod selectors or route remapping added. Keep canonical reads and OpenSearch disabled for shared/staging/live.
+- Current PR #1 HEAD before this documentation checkpoint: `b87c4d1ed0e44a87dc60a6591a93eceeed07d306`. The exact-HEAD workflow lookup returned no PR-triggered runs and no combined statuses; this is **not** CI PASS. The workflow-list connector is not available here, and historical missing-step jobs/logs do not prove why runners did not start.
+- Refreshed `docs/PROJECT-STATUS.md` with the current security/CI decision. This handover entry records the cross-repository dependency.
+- Decision remains **HOLD / NO_GO**: no merge, deployment, LIVE activation, tenant reads or ITSM writes.
+- Next actionable dependency: the gateway/IdP and Core owners must provide a versioned, cryptographically verifiable caller identity and server-side actor→tenant/resource ACL contract, including issuer, audience, subject, membership/revocation semantics, key/JWKS or introspection lifecycle, and the actual read-only API routes/schemas. After that, implement and test authorization before data access, then run exact-HEAD CI and staging two-principal tests.
