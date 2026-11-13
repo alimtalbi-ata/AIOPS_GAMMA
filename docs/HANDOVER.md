@@ -1055,3 +1055,17 @@
 - Added two versioned correlation/evidence regressions: cross-tenant evidence must be rejected **before** the correlation function is called; a fully covered and internally consistent join must still retain `evidence_state=UNVERIFIED`, per-item `integrity=UNVERIFIED`, `persisted=False`, and `live_remediation_authorized=False`. Commit `ded9a4f01d3efc7a819dabd193ec7638021beaa8`.
 - Internal lab `python -m pytest -q`: **26 passed in 0.07s** — 18 normalization cases plus 8 focused correlation/evidence join cases (exact application modules copied from GitHub). The 18-case local normalization test file still has a 5-byte content difference from the committed test file's Git blob; its SHA does not match, so no exact test-file execution claim. The 8 correlation tests are focused local equivalents, not the full committed `tests/test_correlation_evidence.py`.
 - No GitHub Actions, PostgreSQL, real IdP, independent actor→tenant→resource ACL, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Correlation time-window, timezone and source-identity boundaries
+
+- Added three versioned tests to `tests/test_correlation.py`:
+  - Correlation window is inclusive at exactly 300 seconds and splits at 301 seconds.
+  - Two timezone representations of the same instant produce the same canonical group ID and UTC output timestamp.
+  - The same external event ID from distinct sources is not deduplicated (identity is the exact `(source, external_event_id)` pair).
+  Commit: `874f81b3852a9b83df580d5f5b146bce46ce6b2f`.
+- Internal lab `/mnt/data/gamma_evidence_unit`: confirmed local Git blob hashes exactly match current GitHub application sources:
+  - correlation `53c1fdf1b16485d6f26d8f3b7337abc46fe5beb8`
+  - correlation/evidence join `083f56d1e91487f95dc7b431a971497722e78c85`
+  - evidence normalizer `7e5b24cc300e1d956ae87494cd1c8df6129f6b2f`
+- Added equivalent focused cases to the local lab and ran `python -m pytest -q`: **30 passed in 0.06s** (18 normalization tests + 12 correlation/evidence lab tests). The local join test file is a focused lab suite, not byte-identical to committed `tests/test_correlation.py`; do not claim execution of the exact full committed correlation test module. The three new cases are represented equivalently and the production modules are exact-source verified.
+- No GitHub Actions, PostgreSQL, real IdP, independent actor→tenant→resource ACL, merge, deploy or LIVE. **HOLD / NO_GO**.
