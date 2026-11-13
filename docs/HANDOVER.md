@@ -917,3 +917,12 @@
 - Exercised signed HMAC gateway assertions against the **real metrics route**: correctly signed request bound to method/path reached expected **HTTP 501** (unimplemented feature); correctly signed assertion bound to a different path returned **HTTP 401**. Both responses included `Cache-Control: no-store`.
 - Command `cd /mnt/data/gamma_business_http_lab && pytest -q test_real_main_http.py` => **23 passed in 0.70s**.
 - **Qualification limit:** isolated partial-source TestClient harness, not a full authentic repo checkout or real DB/business adapter integration; test harness currently local only, not yet promoted into the GitHub repo. No external service or PostgreSQL was contacted. Actor→tenant→resource ACL, real IdP, PostgreSQL, upstream, replay and full integration remain unqualified. No GitHub Actions, DB, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Real FastAPI route HTTP tenant mismatch and forged header checks
+
+- Extended the local partial-source `/mnt/data/gamma_business_http_lab/test_real_main_http.py` harness (actual `app/main.py` and `app/security.py` with isolated external module stubs) to exercise two more real route wrapper behaviors:
+  - Signed actor POST to `/api/v1/incidents/evidence/preview` with an item carrying a different tenant ID returns **HTTP 403** and `Cache-Control: no-store`.
+  - Signed actor POST to `/api/v1/observability/metrics/query` with a conflicting forged `X-Tenant-ID` header still reaches the protected stub implementation and returns **HTTP 501**, rather than accepting the header as principal authority.
+- Local command `cd /mnt/data/gamma_business_http_lab && python -m pytest -q test_real_main_http.py`: **25 passed in 0.60s** (previously 23).
+- **Scope:** this test harness is still local, not promoted to the GitHub repository. Business schema/model dependencies and external adapters are stubbed; actual route wrappers, middleware and signed gateway dependency are used. This does not prove independent actor→tenant membership, source ACL, real PostgreSQL tenant isolation, IdP or upstream contracts.
+- No GitHub Actions, DB, merge, deploy or LIVE. **HOLD / NO_GO**.
