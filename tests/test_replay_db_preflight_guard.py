@@ -65,3 +65,33 @@ def test_replay_db_preflight_checks_actual_server_before_yield():
     ):
         if required not in fixture_source:
             pytest.fail(f"Replay DB preflight missing before yield: {required}")
+
+def test_replay_db_refuses_optimized_python_before_connection():
+    """Prevent -O from eliding assert expressions that perform DB operations."""
+    source = (Path(__file__).parent / "test_gateway_replay_postgres.py").read_text(
+        encoding="utf-8"
+    )
+    tree = ast.parse(source)
+    fixtures = [
+        node for node in tree.body
+        if isinstance(node, ast.AsyncFunctionDef) and node.name == "replay_db"
+    ]
+    if len(fixtures) != 1:
+        pytest.fail("Expected exactly one replay_db fixture")
+    fixture = fixtures[0]
+    first = fixture.body[0] if fixture.body else None
+    if not isinstance(first, ast.If):
+        pytest.fail("Replay DB fixture must reject -O before database setup")
+    if not isinstance(first.test, ast.UnaryOp) or not isinstance(first.test.op, ast.Not):
+        pytest.fail("Replay DB fixture must check not __debug__")
+    if not isinstance(first.test.operand, ast.Name) or first.test.operand.id != "__debug__":
+        pytest.fail("Replay DB fixture must check not __debug__")
+    if not any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == "pytest"
+        and node.func.attr == "fail"
+        for statement in first.body for node in ast.walk(statement)
+    ):
+        pytest.fail("Optimized Python must fail before any DB access")
