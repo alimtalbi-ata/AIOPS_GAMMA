@@ -119,3 +119,22 @@ def test_quoted_credentials_with_spaces_do_not_leak_suffix():
         result = redact_text(diagnostic)
         assert all(fragment not in result for fragment in fragments), result
         assert "[REDACTED]" in result
+
+
+def test_unclosed_quoted_credentials_fail_closed():
+    examples = (
+        ('password="alpha beta', ('alpha', 'beta')),
+        ("client_secret='first second", ('first', 'second')),
+        ('password="alpha beta\nother=something', ('alpha', 'beta', 'something')),
+    )
+    for diagnostic, fragments in examples:
+        result = redact_text(diagnostic)
+        assert '[REDACTED]' in result
+        assert all(fragment not in result for fragment in fragments), result
+
+
+def test_escaped_quotes_do_not_expose_credential_suffix():
+    result = redact_text('password = "a\\"b secret"')
+    assert '[REDACTED]' in result
+    assert 'secret' not in result
+
