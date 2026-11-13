@@ -756,3 +756,10 @@
 - Retrieved actual GitHub source `app/reused/tenant_scope.py` and its actual test module `tests/test_tenant_scope_guard.py`, materialized both under `/mnt/data/gamma_authentic_subset/` without changing their logic.
 - Executed `cd /mnt/data/gamma_authentic_subset && python -m pytest -q tests/test_tenant_scope_guard.py tests/test_python_source_parse_contract.py -k 'not postgres'`: **23 passed, 2 deselected in 0.07s**. This includes real `reject_unqualified_tenant_scope` implementation and its tests, plus source-guard tests. No DB, network or GitHub Actions involved.
 - Scope remains **partial checkout**: PostgreSQL AST contract tests deselected; no complete GAMMA source tree, FastAPI app tests, real PostgreSQL, gateway/IdP or source-side ACL qualification. No production action, merge, deployment or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Genuine tenant-scope tuple bypass found and fixed
+
+- Ran the actual `reject_unqualified_tenant_scope` from `app/reused/tenant_scope.py` in the internal ChatGPT lab against two untrusted nested tuple payloads containing `tenant_id`: **both were accepted before the fix**. The scanner previously descended into `dict` and `list` but not `tuple`.
+- Updated the scanner to recurse into both lists and tuples (commit `eb0f38d759e5b8b04653bb15e9c449ee1fd83d55`). Added three malicious tuple nesting cases and one benign tuple case to the actual `tests/test_tenant_scope_guard.py` (commit `f543cec0a95904d754b95fb6c61c2c7fae7f80df`).
+- Applied the exact minimal source change and test additions to the existing partial ChatGPT lab copy and executed `python -m pytest -q tests/test_tenant_scope_guard.py tests/test_python_source_parse_contract.py -k 'not postgres'`: **27 passed, 2 deselected in 0.06s**.
+- This is a diagnostic metadata guard, **not** actor→tenant or source-side resource authorization. Full checkout/HTTP/PostgreSQL/IdP/ACL/replay qualifications outstanding. No GitHub Actions, DB, merge, deployment or LIVE. **HOLD / NO_GO**.
