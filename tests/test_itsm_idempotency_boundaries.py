@@ -61,3 +61,35 @@ def test_key_scoped_to_tenant_operation_and_ticket():
     )
     keys = {result["idempotency_key"] for result in (create_a, create_b, enrich1, enrich2)}
     assert len(keys) == 4
+
+
+def test_key_distinguishes_incident_and_itsm_system_with_same_ticket_id():
+    tenant = uuid4()
+    incident_a = _incident(tenant)
+    incident_b = _incident(tenant).model_copy(update={"incident_id": "INC-124"})
+    create_a = plan_incident_sync(
+        IncidentSyncPreview(incident=incident_a, matrix=_matrix()), tenant,
+    )
+    create_b = plan_incident_sync(
+        IncidentSyncPreview(incident=incident_b, matrix=_matrix()), tenant,
+    )
+    glpi = ITSMReference(system="glpi", external_id="101")
+    servicenow = ITSMReference(system="servicenow", external_id="101")
+    enrich_glpi = plan_incident_sync(
+        IncidentSyncPreview(
+            incident=_incident(tenant, ref=glpi), matrix=_matrix(),
+            operation="propose_enrichment", expected_itsm_ref=glpi,
+        ), tenant,
+    )
+    enrich_servicenow = plan_incident_sync(
+        IncidentSyncPreview(
+            incident=_incident(tenant, ref=servicenow), matrix=_matrix(),
+            operation="propose_enrichment", expected_itsm_ref=servicenow,
+        ), tenant,
+    )
+    assert len({item["idempotency_key"] for item in (
+        create_a, create_b, enrich_glpi, enrich_servicenow,
+    )}) == 4
+    assert all(item["live_remediation_authorized"] is False for item in (
+        create_a, create_b, enrich_glpi, enrich_servicenow,
+    ))
