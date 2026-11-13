@@ -1164,3 +1164,14 @@
 - Queried the exact attempt-2 jobs endpoint: all three jobs have empty `steps`, `runner_id=0`, empty runner name/group, and start/finish timestamps within approximately two seconds. This is consistent with a failure before normal runner/step execution; it is **not evidence of a code/test assertion failure**.
 - The previous deployment-contract run `43438200264` (attempt 1) also failed across its six jobs. Its logs could not be retrieved through the connected GitHub log endpoint (GitHub returned BlobNotFound/404). Therefore the precise root cause is **unavailable**; do not attribute it to code, runner capacity, billing, or permissions without annotations/logs.
 - The rerun is not a qualification pass. No PostgreSQL integration execution is confirmed; no step-level evidence was available. Keep replay unwired and **HOLD / NO_GO**. No merge, deploy or LIVE.
+
+### 2026-11-13 — Database-free unit qualification for staged replay helper
+
+- Added `tests/test_gateway_replay_unit.py` (commit `2cb5bf3fa5bab5e4b41ca8ad33caa44b8c9179aa`) with nine cases:
+  - issuer + JTI are hashed into a 64-character digest and expiry is bound as UTC;
+  - successful reservation commits before returning `True`;
+  - duplicate reservation rolls back and returns `False`;
+  - commit failure rolls back and propagates (no success);
+  - empty issuer, malformed/short JTI, boolean expiry and non-positive expiry fail before database I/O.
+- Internal Python lab: **9 passed in 0.24s**, using async mocks and a local transcription of the current `app/gateway_replay.py` implementation. Local helper blob SHA **fddd6371b7be1b18e81a60db572e94151a8e60ef** does **not** equal GitHub blob SHA **6f3407a9ff66d4c29d7ecf3b78af75df40670473**; therefore this is a focused contract check, not exact-source execution.
+- No PostgreSQL server or real DB concurrency was exercised. The 12-way PostgreSQL test remains unrun; replay remains deliberately unwired in `app/security.py` and `app/main.py`. No GitHub Actions rerun, merge, deploy or LIVE. **HOLD / NO_GO**.
