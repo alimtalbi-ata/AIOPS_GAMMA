@@ -327,3 +327,18 @@ async def test_invalid_unicode_issuer_is_rejected_before_sql(issuer):
     session.execute.assert_not_awaited()
     session.commit.assert_not_awaited()
     session.rollback.assert_awaited_once()
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("expiry", [10**30, 2**63 - 1])
+async def test_out_of_range_expiry_rejected_before_sql(expiry):
+    session = SimpleNamespace(
+        execute=AsyncMock(), commit=AsyncMock(), rollback=AsyncMock()
+    )
+    with pytest.raises(ValueError, match="invalid replay reservation"):
+        await consume_assertion_before_access(
+            session, issuer="trusted-gateway", assertion_id="assertion-123456",
+            expires_at=expiry,
+        )
+    session.execute.assert_not_awaited()
+    session.commit.assert_not_awaited()
+    session.rollback.assert_awaited_once()
