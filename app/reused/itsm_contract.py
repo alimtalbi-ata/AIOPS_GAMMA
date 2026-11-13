@@ -59,7 +59,8 @@ def plan_incident_sync(req: IncidentSyncPreview, tenant_id: UUID) -> dict:
                  if r.impact == incident.impact and r.urgency == incident.urgency), None)
     if not incident.evidence_refs:
         raise ValueError("Incident requires evidence before ITSM sync proposal")
-    if any(not ref.strip() or len(ref) > 255 for ref in incident.evidence_refs):
+    if any(not ref.strip() or len(ref) > 255 or any(ord(char) < 32 or ord(char) == 127 for char in ref)
+           for ref in incident.evidence_refs):
         raise ValueError("Invalid evidence reference")
     # Identity of a logical proposed operation does not change with model output,
     # timestamps or enterprise priority mapping. Durable uniqueness and receipts
