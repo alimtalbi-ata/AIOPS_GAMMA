@@ -1116,3 +1116,15 @@
   Commit: `3bdc37335cb4dec080459a611d94de4d05a4543c`.
 - Internal lab executed three focused equivalent tests against exact GitHub application modules in `/mnt/data/gamma_evidence_unit`: **3 passed in 0.05s**. Verified local Git blob hashes against GitHub source hashes: `correlation.py` **53c1fdf1b16485d6f26d8f3b7337abc46fe5beb8**, `correlation_evidence.py` **083f56d1e91487f95dc7b431a971497722e78c85**, `evidence.py` **7e5b24cc300e1d956ae87494cd1c8df6129f6b2f**. The focused test file is a local equivalent, not the exact committed test module; no full suite execution is claimed.
 - No GitHub Actions, PostgreSQL, real IdP, independent actor→tenant→resource ACL, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Gateway assertion policy and TTL fail-closed boundary tests
+
+- Extended `tests/test_gateway_auth_extra.py` with 11 parameterized security cases:
+  - TTL values 1, 30 and 60 seconds are accepted at the exact configured ceiling.
+  - Misconfigured TTL values 0, -1, 61, boolean `True`, and float 1.5 fail closed with HTTP 503.
+  - Missing issuer or audience policy fails closed with HTTP 503.
+  - A 31-character HMAC secret fails closed with HTTP 503 (minimum is 32 UTF-8 bytes).
+  Commit: `712a4d9665495d6b824a04c8f73d8721c0f37df3`.
+- Internal lab `/mnt/data/gamma_security_lab`: added equivalent tests and ran `python -m pytest -q tests/test_gateway_auth_extra.py`: **29 passed in 0.26s** (18 existing + 11 new cases).
+- **Exact-source caveat:** local `app/security.py` blob `4f5852e02c443ee02d41273ff81ed96f42363ae4` does not match current GitHub source blob `06f7bd7bb309133823efefd68dddb8d7784d90ca`; local `app/settings.py` blob `0572953d116fa1b525cbaa693d2941384b839767` is also not newly verified against GitHub in this cycle. Thus the 29-pass result is a local compatibility check against the existing lab source, **not** a qualification run against the exact current committed verifier/test files.
+- Authorization boundary remains explicit: the signed `tenant_access=true` assertion is trusted as a Gateway attestation. This verifier does not independently query IdP membership, role/scope entitlements, resource ownership, or tenant membership; those must be enforced by the trusted Gateway and/or a separately qualified authorization layer. No PostgreSQL, real IdP, GitHub Actions, merge, deploy or LIVE. **HOLD / NO_GO**.
