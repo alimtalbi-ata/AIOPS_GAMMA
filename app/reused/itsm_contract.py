@@ -50,6 +50,8 @@ def plan_incident_sync(req: IncidentSyncPreview, tenant_id: UUID) -> dict:
     incident = req.incident
     if incident.tenant_id != tenant_id:
         raise ValueError("Tenant mismatch")
+    if not incident.incident_id.strip() or any(ord(char) < 32 or ord(char) == 127 for char in incident.incident_id):
+        raise ValueError("Invalid incident identifier")
     if req.operation == "propose_create" and (incident.itsm_ref or req.expected_itsm_ref):
         raise ValueError("Existing ITSM reference cannot be used to propose creation")
     if req.operation == "propose_enrichment":
