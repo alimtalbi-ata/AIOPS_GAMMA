@@ -171,3 +171,13 @@ def test_unsigned_tenant_header_cannot_authenticate():
             'X-Tenant-ID': str(uuid4()),
         })
     assert response.status_code == 401
+
+@pytest.mark.parametrize('bad_subject', ['user:\ud800', 'user:\udfff'])
+def test_http_signed_unpaired_surrogate_subject_rejected(bad_subject):
+    token = signed(overrides={'sub': bad_subject})
+    with TestClient(app) as client:
+        response = client.post('/api/v1/probe', headers={
+            'X-Internal-API-Key': 'service-secret',
+            'X-Gateway-Principal': token,
+        })
+    assert response.status_code == 401
