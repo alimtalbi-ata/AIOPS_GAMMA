@@ -15,6 +15,7 @@ import json
 import os
 import time
 from datetime import datetime, timezone
+from ipaddress import ip_address
 from uuid import UUID, uuid4
 
 import pytest
@@ -64,6 +65,16 @@ def tenant_postgres():
         async with engine.connect() as connection:
             db_name = await connection.scalar(text("SELECT current_database()"))
             assert db_name and db_name.endswith("_tenant_test"), "Unsafe connected database"
+            server_address = await connection.scalar(text("SELECT inet_server_addr()"))
+            assert server_address is not None and ip_address(str(server_address)).is_loopback, (
+                "Connected PostgreSQL server is not loopback TCP"
+            )
+            superuser = await connection.scalar(text(
+                "SELECT rolsuper FROM pg_roles WHERE rolname = current_user"
+            ))
+            assert superuser is False, "Disposable tenant test refuses PostgreSQL superuser"
+            version = await connection.scalar(text("SHOW server_version_num"))
+            assert 160000 <= int(version) < 170000, "Disposable tenant test requires PostgreSQL 16"
             revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
             assert revision == "0002_gateway_replay", (
                 "Disposable tenant database must be migrated to reviewed Alembic head 0002"
