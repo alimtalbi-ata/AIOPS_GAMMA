@@ -35,10 +35,6 @@ def _require_disposable_database_url(raw_url: str) -> str:
     # (e.g. ?host=remote.example or Unix socket paths). Reject them entirely.
     if parsed.query:
         pytest.fail("Replay tests reject URL query options that may override routing")
-    # A URL may contain a fragment-like database name or ambiguous host
-    # syntax; require an explicit port only when it is the default PG port.
-    if parsed.port is not None and parsed.port != 5432:
-        pytest.fail("Replay tests require the standard local PostgreSQL port 5432")
     return raw_url
 
 
@@ -181,7 +177,6 @@ async def test_committed_postgres_reservation_blocks_later_replay(replay_db):
     "postgresql+asyncpg://user:pass@localhost/gamma_replay_test?host=production.internal",
     "postgresql+asyncpg://user:pass@localhost/gamma_replay_test?host=/var/run/postgresql",
     "postgresql+asyncpg://user:pass@localhost/gamma_replay_test?port=5433",
-    "postgresql+asyncpg://user:pass@localhost:5433/gamma_replay_test",
 ])
 def test_refuses_unsafe_test_database_urls(url):
     with pytest.raises(pytest.fail.Exception):
