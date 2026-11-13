@@ -1188,3 +1188,12 @@
   Commits: `73aee1a6bce49377fff7446439be875608e3f5aa`, then digest-test correction `e8990b7ebd1e6a167c822bda6d562b18cccc3ca7`.
 - Corrected an actual defect in the earlier invalid-JTI test: it had used the two literal characters backslash+n, not a newline/control character, so it did not exercise the rejection path. The test now constructs a real LF using `chr(10)`. Commit: `677413c0e4d469f075bd98f44a5aad9a1ace6a08`. Exact-source suite now passes all 11 cases.
 - This qualifies helper unit behavior only. It does **not** qualify PostgreSQL locking/concurrency, migration round-trip, expiry cleanup, multi-process behavior, or runtime wiring. No PostgreSQL server/asyncpg/Docker in this lab. Replay remains deliberately unwired; no Actions rerun, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Replay migration source contract added to exact-source lab
+
+- Materialized the committed migration and migration contract test byte-for-byte into `/mnt/data/gamma_replay_exact`; Git blob hashes match:
+  - `migrations/versions/0002_gateway_replay.py`: **4bf3158e8ed1e45844774b80295ee79ffe49b02b**
+  - `tests/test_gateway_replay_migration_contract.py`: **71e6837a3926362aae841247ed4ea2953562c120**
+- Re-ran both exact-source suites together: `python -m pytest -q tests/test_gateway_replay_unit.py tests/test_gateway_replay_migration_contract.py` => **15 passed in 0.30s** (11 replay-helper unit tests + 4 static migration-contract tests).
+- This confirms source-level revision chaining, digest primary key, timezone-aware non-null expiry, non-unique expiry index, and scoped downgrade ordering. It does not execute Alembic against PostgreSQL or prove actual database schema/locking/concurrency.
+- Runtime replay remains intentionally unwired. No PostgreSQL instance/asyncpg/Docker is available in the internal lab. No GitHub Actions, merge, deploy or LIVE. **HOLD / NO_GO**.
