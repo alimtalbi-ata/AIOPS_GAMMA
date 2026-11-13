@@ -45,7 +45,7 @@ def test_itsm_preview_rejects_control_characters_in_evidence(bad_ref):
         plan_incident_sync(IncidentSyncPreview(incident=incident, matrix=matrix), tenant)
 
 
-@pytest.mark.parametrize("incident_id", [" ", "INC\\n2", "INC\\r2", "INC\\t2", "INC\\x00", "INC\\x7f"])
+@pytest.mark.parametrize("incident_id", [" ", "INC\n2", "INC\r2", "INC\t2", "INC\x00", "INC\x7f"])
 def test_incident_identifier_must_be_safe_for_sync_key(incident_id):
     tenant = uuid4()
     incident = IncidentAssessment(
