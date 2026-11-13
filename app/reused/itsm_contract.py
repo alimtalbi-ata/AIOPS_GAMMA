@@ -29,6 +29,13 @@ class PriorityMatrix(BaseModel):
     rules: list[PriorityRule] = Field(min_length=9, max_length=9)
 
     @model_validator(mode="after")
+    def safe_policy_identity(self):
+        for value in (self.policy_id, self.version):
+            if not value.strip() or any(ord(char) < 32 or ord(char) == 127 for char in value):
+                raise ValueError("Invalid priority policy identity")
+        return self
+
+    @model_validator(mode="after")
     def complete_matrix(self):
         pairs = [(r.impact, r.urgency) for r in self.rules]
         expected = {(i, u) for i in ("high", "medium", "low")
