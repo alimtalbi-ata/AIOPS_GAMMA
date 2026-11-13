@@ -717,3 +717,10 @@
 - Re-ran the **existing local reconstructed harness** `python -m pytest -q /mnt/data/gamma_lab`: **34 passed in 0.29s**. Independently parsed the four Python files in that local harness successfully.
 - **Do not conflate evidence:** the newly committed source parsing test has not run against a full authenticated repository checkout. Local container cannot resolve github.com, and the GitHub connector does not mount a checkout into the container. Full repository syntax/pytest/HTTP/PostgreSQL qualification remains outstanding.
 - No GitHub Actions reruns, production or disposable DB access, merge, deployment, upstream read, canonical enablement or LIVE action. **HOLD / NO_GO**.
+
+### 2026-11-13 — Python -O safe disposable PostgreSQL preflight
+
+- Identified that the pre-write disposable PostgreSQL identity/emptiness checks in `tests/test_resource_list_http_postgres.py` used bare `assert`, which Python removes under `-O`. Replaced them with explicit `if ...: pytest.fail(...)` checks for connected database suffix, actual loopback TCP server, non-superuser, PostgreSQL 16, exact Alembic revision, required tables, and empty tenant tables. Commit `856a804dd339f65c47ae0b61c38f6159c9829143`.
+- Added static AST regression test `test_disposable_postgres_preflight_never_uses_optimizable_assertions` in `tests/test_python_source_parse_contract.py`; requires fail-closed checks and prohibits bare `assert` in the connected-server preflight. Commit `cb1d92449d8fb2eee56d4624c8298e67284081a6`.
+- Executed `python -m pytest -q /mnt/data/gamma_lab/test_preflight_optimization_contract.py` in ChatGPT lab: **2 passed in 0.04s**, covering six denied preflight conditions under both Python optimize levels 0 and 2. This local test is a **reconstructed preflight pattern**, not the authentic repository module or a real PostgreSQL session.
+- No GitHub Actions rerun, DB connection, migration, production write, runtime change, merge or LIVE access. PR Draft, canonical reads hard disabled, **HOLD / NO_GO**.
