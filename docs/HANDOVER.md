@@ -1157,3 +1157,10 @@
   - `app/security.py` verifies the signed assertion but does not independently query actor membership, roles/scopes or resource ownership. The trusted Gateway ACL and network/mTLS boundary remain external release dependencies.
 - **No test count added:** this cycle was a source/architecture audit only; no new code or tests were executed. The previous 37-pass adapted-lab result remains non-exact-source and must not be represented as current branch qualification.
 - Next safe actions: run the existing replay suite only against the explicitly disposable PostgreSQL 16 fixture (internal lab preferred); separately obtain Gateway owner approval and a verifiable actor→tenant→resource contract before wiring replay into `internal_principal`. Never use a process-local replay cache. No production/staging DB, no merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — GitHub Actions retry completed but failed before runner execution
+
+- Re-ran failed jobs for Python checks run `43438200263` (attempt 2). It completed with **failure** again; jobs `test`, `frontend`, and `gateway-replay-postgres` all failed.
+- Queried the exact attempt-2 jobs endpoint: all three jobs have empty `steps`, `runner_id=0`, empty runner name/group, and start/finish timestamps within approximately two seconds. This is consistent with a failure before normal runner/step execution; it is **not evidence of a code/test assertion failure**.
+- The previous deployment-contract run `43438200264` (attempt 1) also failed across its six jobs. Its logs could not be retrieved through the connected GitHub log endpoint (GitHub returned BlobNotFound/404). Therefore the precise root cause is **unavailable**; do not attribute it to code, runner capacity, billing, or permissions without annotations/logs.
+- The rerun is not a qualification pass. No PostgreSQL integration execution is confirmed; no step-level evidence was available. Keep replay unwired and **HOLD / NO_GO**. No merge, deploy or LIVE.
