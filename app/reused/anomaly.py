@@ -6,7 +6,7 @@ seasonality, forecast capacity or assert causality.
 """
 from __future__ import annotations
 
-from math import isfinite
+from math import copysign, isfinite
 from statistics import median
 
 from pydantic import BaseModel, Field, model_validator
@@ -35,11 +35,14 @@ def detect_anomalies(series: MetricSeries) -> dict:
             "median": baseline, "mad": mad, "anomalies": [], "truncated": False,
             "causal_inference": False, "live_remediation_authorized": False,
         }
-    points = [
-        {"index": i, "value": v, "robust_z": round(0.6745 * (v - baseline) / mad, 4)}
-        for i, v in enumerate(series.values)
-        if abs(0.6745 * (v - baseline) / mad) >= series.threshold
-    ]
+    points = []
+    for i, v in enumerate(series.values):
+        z = 0.6745 * ((v - baseline) / mad)
+        if abs(z) >= series.threshold:
+            # Extremely small MAD can overflow a finite measurement's z-score.
+            # Keep the preview JSON-serializable without implying calibrated certainty.
+            bounded_z = copysign(1e12, z) if not isfinite(z) else z
+            points.append({"index": i, "value": v, "robust_z": round(bounded_z, 4)})
     return {
         "metric_name": series.metric_name, "state": "EVALUATED",
         "median": baseline, "mad": mad, "anomalies": points[:100],
