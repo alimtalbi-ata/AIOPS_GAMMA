@@ -152,7 +152,7 @@ def test_ci_timestamp_with_nonfunctional_tzinfo_is_rejected():
         )
 
 
-@pytest.mark.parametrize("cmdb_ci_id", [None, "", " ", "\\t", "  \\n  "])
+@pytest.mark.parametrize("cmdb_ci_id", [None, "", " ", "\t", "  \n  "])
 def test_verified_ci_requires_nonempty_cmdb_identifier(cmdb_ci_id):
     with pytest.raises(ValidationError, match="CMDB identifier"):
         ObservedCI(
