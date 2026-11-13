@@ -40,7 +40,10 @@ def _require_disposable_url(raw_url: str) -> str:
     if not raw_url:
         pytest.skip("No explicitly disposable tenant PostgreSQL URL configured")
     parsed = make_url(raw_url)
-    # URL query keys such as ?host= can override the apparent loopback host.\n    if parsed.query:\n        pytest.fail("Tenant integration refuses connection URL query overrides")\n    if parsed.drivername != "postgresql+asyncpg":
+    # URL query keys such as ?host= can override the apparent loopback host.
+    if parsed.query:
+        pytest.fail("Tenant integration refuses connection URL query overrides")
+    if parsed.drivername != "postgresql+asyncpg":
         pytest.fail("Tenant integration requires postgresql+asyncpg")
     if not parsed.database or not parsed.database.endswith("_tenant_test"):
         pytest.fail("Tenant integration requires a database named *_tenant_test")
