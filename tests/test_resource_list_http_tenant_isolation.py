@@ -29,9 +29,9 @@ OTHER_INCIDENT = "incident-other-id"
 def signed_headers(path, tenant, *, claimed_tenant=None):
     now = int(time.time())
     claims = {
-        "iss": "trusted-gateway", "aud": "gamma-api", "sub": "user:123",
+        "iss": "trusted-gateway", "aud": "gamma-api", "sub": f"user:tenant-isolation-test:{tenant}",
         "actor_type": "user", "tenant_id": str(tenant), "tenant_access": True,
-        "iat": now, "exp": now + 30, "jti": "isolation-test-123456",
+        "iat": now, "exp": now + 30, "jti": "isolation-test-" + uuid4().hex,
         "method": "GET", "path": path,
     }
     encoded = base64.urlsafe_b64encode(
@@ -100,11 +100,10 @@ class TenantScopedSession:
 
 @pytest.mark.parametrize("resource", ["bindings", "evidence"])
 def test_real_http_list_routes_isolate_tenants_and_ignore_forged_headers(resource):
-    common = {"id": uuid4()}
     if resource == "bindings":
         def row(tenant, name):
             return ServiceBinding(
-                **common, tenant_id=tenant, cmdb_service_id=uuid4(),
+                id=uuid4(), tenant_id=tenant, cmdb_service_id=uuid4(),
                 otel_service_name=name, environment="production",
             )
         rows = [row(TENANT_A, "alpha"), row(TENANT_B, "bravo")]
