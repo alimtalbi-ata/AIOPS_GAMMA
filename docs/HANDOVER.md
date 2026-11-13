@@ -866,3 +866,11 @@
 - Created `tests/test_demo_source_guard.py` to AST-check the public demo helper module's permitted imports and call forms, and to mutation-test introduction of a network import/call or changing `authoritative=False` to `True`. Executed `python -m pytest -q tests/test_demo_source_guard.py`: **3 passed in 0.04s**.
 - Promoted the new static test to GAMMA branch, commit `3d2c11b0898a81cae649a5d76ab125cca191bb02`.
 - Static review of demo source only. The reused helper implementations and real business-route HTTP are **not** qualified by this test; `tests/test_route_security_static.py` still needs execution against full `app/main.py`. No GitHub Actions, DB, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Route inventory alternate-registration guard
+
+- Fetched actual `app/main.py` from GitHub; textual declaration scan found **21 `@app.get/post/...` routes**, no duplicate method/path pairs, and no existing `include_router`, `add_api_route`, `APIRouter` or `mount` calls. This is source-text inspection, not execution of the full route AST suite.
+- Added `_assert_no_unreviewed_route_registration` to `tests/test_route_security_static.py`, rejecting alternative FastAPI route registrations and non-`app` route decorators, commit `a864c0639cf11f11c3eefe7a134f3ef4c9435f0f`.
+- Ran representative AST guard logic in the ChatGPT internal lab against one allowed and six forbidden source snippets: **7 passed in 0.03s**. These were local targeted snippets, not the committed test file against authentic `app/main.py`.
+- Extended guard to `api_route`, websocket and route variants, commit `2abd1ff5b8442925f8a80d4eea54d241468bcec6`; corrected escaping in the new mutation fixtures so the snippets are valid Python, commit `d18b671f5a9be96bcbc95b6ae0b97e846e646a2a`. The extended committed suite is **not yet executed** in the lab.
+- This is inventory integrity only; it does not qualify the actual business-route HTTP behavior, actor→tenant→resource ACL, PostgreSQL, upstream or real IdP. No GitHub Actions, DB, merge, deploy or LIVE. **HOLD / NO_GO**.
