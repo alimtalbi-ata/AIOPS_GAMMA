@@ -55,6 +55,12 @@ class IncidentSyncPreview(BaseModel):
 
 
 def plan_incident_sync(req: IncidentSyncPreview, tenant_id: UUID) -> dict:
+    # The request model is mutable; defend the boundary against post-validation
+    # replacement of nested models before dereferencing their attributes.
+    if (not isinstance(req, IncidentSyncPreview)
+            or not isinstance(req.incident, IncidentAssessment)
+            or not isinstance(req.matrix, PriorityMatrix)):
+        raise ValueError("Invalid ITSM sync request structure")
     incident = req.incident
     if req.operation not in ("propose_create", "propose_enrichment"):
         raise ValueError("Invalid ITSM sync operation")
@@ -63,11 +69,18 @@ def plan_incident_sync(req: IncidentSyncPreview, tenant_id: UUID) -> dict:
            any(ord(char) < 32 or ord(char) == 127 for char in value)
            for value in (req.matrix.policy_id, req.matrix.version)):
         raise ValueError("Invalid priority policy identity")
-    # The matrix is mutable: recheck its complete mapping at the execution boundary.
+    # The matrix and its rules are mutable: recheck their shape and values.
+    if (not isinstance(req.matrix.rules, list) or len(req.matrix.rules) != 9
+            or any(not isinstance(rule, PriorityRule) for rule in req.matrix.rules)):
+        raise ValueError("Invalid priority matrix mapping")
+    allowed_levels = {"high", "medium", "low"}
+    if any(rule.impact not in allowed_levels or rule.urgency not in allowed_levels
+           for rule in req.matrix.rules):
+        raise ValueError("Invalid priority matrix mapping")
     pairs = [(rule.impact, rule.urgency) for rule in req.matrix.rules]
     expected = {(impact, urgency) for impact in ("high", "medium", "low")
                 for urgency in ("high", "medium", "low")}
-    if len(pairs) != 9 or set(pairs) != expected:
+    if set(pairs) != expected:
         raise ValueError("Invalid priority matrix mapping")
     if any(not isinstance(rule.priority, str) or
            fullmatch(r"[a-zA-Z0-9_.-]{1,32}", rule.priority) is None
