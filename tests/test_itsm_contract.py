@@ -246,3 +246,29 @@ def test_sync_accepts_valid_mutated_incident_identifier():
     result = plan_incident_sync(req, TENANT)
     assert result["incident_id"] == "INC-456"
     assert result["itsm_mutations_performed"] is False
+
+@pytest.mark.parametrize("target,value", [
+    ("incident", None),
+    ("matrix", None),
+    ("rules", None),
+    ("rules", 123),
+])
+def test_sync_rejects_mutated_request_and_matrix_shapes(target, value):
+    req = IncidentSyncPreview(incident=incident(), matrix=matrix())
+    if target in ("incident", "matrix"):
+        setattr(req, target, value)
+    else:
+        req.matrix.rules = value
+    with pytest.raises(ValueError, match="Invalid ITSM sync request structure|Invalid priority matrix mapping"):
+        plan_incident_sync(req, TENANT)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("impact", None), ("impact", ["high"]),
+    ("urgency", 123), ("urgency", ["medium"]),
+])
+def test_sync_rejects_mutated_priority_rule_levels(field, value):
+    req = IncidentSyncPreview(incident=incident(), matrix=matrix())
+    setattr(req.matrix.rules[0], field, value)
+    with pytest.raises(ValueError, match="Invalid priority matrix mapping"):
+        plan_incident_sync(req, TENANT)
