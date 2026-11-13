@@ -309,3 +309,21 @@ async def test_task_cancellation_rolls_back_and_never_returns_authorized(cancel_
         session.commit.assert_not_awaited()
     else:
         session.commit.assert_awaited_once()
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("issuer", [
+    chr(0xD800),
+    "gateway-" + chr(0xDFFF),
+])
+async def test_invalid_unicode_issuer_is_rejected_before_sql(issuer):
+    session = SimpleNamespace(
+        execute=AsyncMock(), commit=AsyncMock(), rollback=AsyncMock()
+    )
+    with pytest.raises(ValueError, match="invalid replay reservation"):
+        await consume_assertion_before_access(
+            session, issuer=issuer, assertion_id="assertion-123456",
+            expires_at=1_800_000_000,
+        )
+    session.execute.assert_not_awaited()
+    session.commit.assert_not_awaited()
+    session.rollback.assert_awaited_once()
