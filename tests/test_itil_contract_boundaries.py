@@ -86,3 +86,15 @@ def test_naive_ci_timestamp_rejected():
             service_name="checkout", discovery_source="otel",
             last_observed_at=datetime(2026, 11, 13),
         )
+
+
+def test_duplicate_verified_cmdb_ids_have_consistent_observation_counts():
+    tenant = uuid4()
+    inc = _incident(tenant)
+    inc.affected_cis.append(inc.affected_cis[0].model_copy())
+    result = preview_itil_workflow(inc, change=_change(tenant))
+    counts = result["service_configuration_management"]
+    assert counts["observed_cis"] == 2
+    assert counts["verified_cis"] == 2
+    assert counts["unverified_cis"] == 0
+    assert counts["observed_cis"] == counts["verified_cis"] + counts["unverified_cis"]
