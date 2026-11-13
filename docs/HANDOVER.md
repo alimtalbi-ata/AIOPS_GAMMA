@@ -1004,3 +1004,10 @@
 - Updated subprocess launcher expectation to **36 passed**, commit `4e48d572ba49e0ff1082d1e630aed165cd1d8443`.
 - ChatGPT internal partial lab: targeted case **1 passed**; full `python -m pytest -q tests/support/real_route_http_probe.py tests/test_real_route_http_isolation.py` => **37 passed in 3.81s** (36 HTTP cases + 1 launcher). Uses locally adapted source and reconstructed evidence normalizer, not a fresh byte-identical checkout.
 - No GitHub Actions, PostgreSQL, independent actor→tenant→resource ACL, upstream access, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Real canonical HOLD adapter through signed FastAPI HTTP routes
+
+- Removed the fake `app.reused.upstream` module from the isolated real-route HTTP probe. Added four signed GET route cases for `/api/v1/canonical/{resource}/snapshot`: allowlisted `core`, `evidence`, `twin` must return **503**; unknown `unlisted` must return **404**. Each requires `Cache-Control: no-store`; monkeypatching `httpx.AsyncClient` to raise ensures the request path does not instantiate an upstream HTTP client. Probe commit `0ae45de3832cf5ab74e24450d9c4ed9a42b8056a`.
+- Updated subprocess launcher expected count to **40**, commit `9e86aa4933cd2600a6dd86d0d763b0e88ada35c8`.
+- ChatGPT internal partial lab: copied `app/reused/upstream.py` from the fetched GitHub source into the isolated lab and ran `python -m pytest -q tests/support/real_route_http_probe.py`: **40 passed in 0.96s**. After updating the local launcher, `python -m pytest -q tests/support/real_route_http_probe.py tests/test_real_route_http_isolation.py`: **41 passed in 3.65s**. The copied upstream source has local Git blob SHA `8aa5ba94ef422e35ab86863c4319ea422b880e46`; no GitHub SHA comparison was completed in this cycle. Other business modules remain stubbed.
+- These tests confirm the current intentional **HOLD** for canonical reads, not that actor→tenant→resource ACL or upstream contracts are qualified. No GitHub Actions, PostgreSQL, external upstream calls, merge, deploy or LIVE. **HOLD / NO_GO**.
