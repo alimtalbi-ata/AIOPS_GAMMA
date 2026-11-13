@@ -313,3 +313,27 @@ def test_conflicting_evidence_versions_never_become_verified():
     assert result["persisted"] is False
     assert result["live_remediation_authorized"] is False
     assert response.headers["cache-control"] == "no-store"
+
+def test_cross_tenant_batch_does_not_invoke_normalizer(monkeypatch):
+    from app.security import verify_gateway_assertion
+    import app.main as main_module
+
+    path = "/api/v1/incidents/evidence/preview"
+    token = signed("POST", path)
+    tenant = str(verify_gateway_assertion(token, method="POST", path=path).tenant_id)
+    calls = []
+    original = main_module.normalize_evidence
+
+    def tracked_normalize(*args, **kwargs):
+        calls.append((args, kwargs))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(main_module, "normalize_evidence", tracked_normalize)
+    with TestClient(app) as client:
+        response = client.post(path, headers={
+            "X-Internal-API-Key": "service-secret",
+            "X-Gateway-Principal": token,
+        }, json={"items": [evidence_item(tenant), evidence_item(str(uuid4()))]})
+    assert response.status_code == 403, response.text
+    assert calls == []
+    assert response.headers["cache-control"] == "no-store"
