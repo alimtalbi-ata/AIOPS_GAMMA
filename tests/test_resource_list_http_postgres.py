@@ -224,8 +224,11 @@ def test_foreign_rows_and_foreign_incident_are_not_serialized(resource, tenant_p
         assert response.status_code == 200, response.text
         values = [item["otel_service_name"] for item in response.json()] if resource == "bindings" \
             else [item["source_ref"] for item in response.json()]
-        assert all(value.startswith("tenant-a-") for value in values)
-        assert not any(value.startswith("tenant-b-") for value in values)
+        # Exact positive result prevents vacuous success on an empty response.
+        expected = ["tenant-a-service" if resource == "bindings" else "tenant-a-evidence"]
+        assert values == expected
+        assert "tenant-b-service" not in values
+        assert "tenant-b-evidence" not in values
         assert "tenant-a-other-incident" not in values
     finally:
         app.dependency_overrides.pop(get_session, None)
