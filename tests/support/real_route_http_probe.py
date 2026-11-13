@@ -354,3 +354,27 @@ def test_canonical_http_hold_without_network(resource, expected, monkeypatch):
         })
     assert response.status_code == expected, response.text
     assert response.headers["cache-control"] == "no-store"
+
+@pytest.mark.parametrize("resource", ["core", "evidence", "twin"])
+def test_canonical_legacy_enable_flag_cannot_bypass_hold(resource, monkeypatch):
+    import httpx
+
+    monkeypatch.setattr(settings, "enable_canonical_reads", True)
+    monkeypatch.setattr(settings, "canonical_read_token", "unused-test-token")
+    monkeypatch.setattr(settings, "core_read_url", "https://core.example.invalid")
+    monkeypatch.setattr(settings, "evidence_read_url", "https://evidence.example.invalid")
+    monkeypatch.setattr(settings, "twin_read_url", "https://twin.example.invalid")
+
+    def forbidden_client(*args, **kwargs):
+        raise AssertionError("Legacy enable flag must not open an upstream connection")
+
+    monkeypatch.setattr(httpx, "AsyncClient", forbidden_client)
+    monkeypatch.setattr(httpx, "Client", forbidden_client)
+    path = f"/api/v1/canonical/{resource}/snapshot"
+    with TestClient(app) as client:
+        response = client.get(path, headers={
+            "X-Internal-API-Key": "service-secret",
+            "X-Gateway-Principal": signed("GET", path),
+        })
+    assert response.status_code == 503, response.text
+    assert response.headers["cache-control"] == "no-store"
