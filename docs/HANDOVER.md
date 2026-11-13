@@ -838,3 +838,10 @@
 - Updated the partial local copy of `tests/test_python_source_parse_contract.py` with the committed expanded `prepare()` AST guard and its new pre-write mutation regression. `python -m pytest -q tests/test_python_source_parse_contract.py`: **9 passed in 0.06s**, including both formerly deselected PostgreSQL AST checks and the new mutation test.
 - Full local authentic-module subset: `python -m pytest -q tests/test_python_source_parse_contract.py tests/test_tenant_scope_guard.py tests/test_redaction.py tests/test_upstream.py tests/test_canonical_acl_hard_hold_static.py`: **67 passed in 0.30s**. The PostgreSQL HTTP integration tests themselves were **not run**: no PostgreSQL 16, asyncpg or disposable DB was provisioned.
 - This is AST/syntax/static source evidence, **not** real actor→tenant→resource authorization, database isolation, actual GAMMA route HTTP, IdP or upstream ACL qualification. No GitHub Actions, DB connection, merge, deployment or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Signed gateway subject unpaired-surrogate rejection
+
+- Tested exact GitHub `app/security.py` in the ChatGPT internal lab: a correctly HMAC-signed assertion with `sub="user:\\ud800"` was **accepted**, producing a `Principal.subject` that fails ordinary UTF-8 encoding with `UnicodeEncodeError`.
+- Added a fail-closed subject validation check rejecting Unicode surrogate code points U+D800–U+DFFF, commit `3e40a6e51be2e568f8c8391439f27039f1fb4fbb`. Added two signed regression cases (U+D800 and U+DFFF) to `tests/test_gateway_auth_extra.py`, commit `2b011cacbc7783e82861f7d42ab3012c4f354e2b`.
+- Local lab executed the corresponding updated authentic security module and regression tests: `python -m pytest -q tests/test_gateway_auth_extra.py tests/test_http_gateway_probe.py` => **20 passed in 0.32s**. The probe file is local and is not a complete GAMMA route integration suite.
+- This prevents a malformed signed subject from entering downstream code; it does **not** establish actor→tenant membership, upstream resource ACL, PostgreSQL isolation, replay qualification or a real IdP/gateway. No GitHub Actions, DB, merge, deploy or LIVE. **HOLD / NO_GO**.
