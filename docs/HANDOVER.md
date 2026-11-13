@@ -665,3 +665,11 @@
 - The repeat rules out a one-off transient runner allocation delay but does not identify the account/repository-level root cause. Workflow YAML declares `ubuntu-latest`; repository Actions permissions/runners configuration could not be inspected through the available GitHub connector. An authorized repository administrator must inspect Actions settings/billing/runner availability and check-suite annotations.
 - No code changes made to CI workflows to mask this infrastructure failure. No test result has been inferred from the red check state.
 - Exact HEAD remains `e5197c194d760308ca98d9f755ee12382a9b4b9e`; PR #1 open Draft/unmerged. Canonical reads remain hard 503. **HOLD / NO_GO**.
+
+### 2026-11-13 — ChatGPT local lab first, no GitHub Actions reruns
+
+- User directed local ChatGPT lab as primary test environment. No GitHub Actions rerun or workflow modification was requested or performed in this cycle.
+- Corrected `tests/test_resource_list_http_postgres.py`: signed request helpers now use independent actor `sub` values for tenant A and tenant B (previously both used the same actor ID), and a new non-regression test verifies distinct subjects, tenants, JTIs, and identical bound GET path/method. Commit `a31cb0177c85157d1f35d2f8b0451fb3fcf7a33b`.
+- Ran seven isolated Python/pytest assertions in the disposable ChatGPT environment (0.18s): reconstructed HMAC principal signing/verification and actor isolation plus six PostgreSQL URL allow/deny cases. **7 passed**.
+- **Evidence limitation:** the local module was reconstructed from the relevant helper, not imported from a complete authenticated repository checkout. This is not an execution of the committed repository test module, nor FastAPI HTTP, asyncpg/PostgreSQL, migration or full CI qualification. PostgreSQL integration tests remain **NOT EXECUTED**.
+- No PostgreSQL server, Docker, external network, gateway, GLPI or LIVE resources accessed. Canonical reads remain hard-disabled; PR #1 stays Draft. **HOLD / NO_GO**.
