@@ -113,3 +113,34 @@ def test_duplicate_event_with_equivalent_provenance_stays_unverified():
     ], now=NOW)
     assert result["duplicates"] == 1
     assert result["items"][0]["state"] == "UNVERIFIED"
+
+def test_conflicting_duplicate_result_is_independent_of_arrival_order():
+    first = evidence(payload={"status": "down"})
+    second = evidence(payload={"status": "up"})
+    forward = normalize([first, second], now=NOW)
+    reverse = normalize([second, first], now=NOW)
+    assert forward == reverse
+    assert forward["duplicates"] == 1
+    assert forward["items"][0]["state"] == "UNKNOWN"
+    assert forward["items"][0]["integrity"] == "UNVERIFIED"
+
+
+def test_freshness_inclusive_boundaries():
+    at_now = evidence(observed_at=NOW)
+    at_limit = evidence(external_id="evt-2", observed_at=NOW - timedelta(seconds=60))
+    future = evidence(external_id="evt-3", observed_at=NOW + timedelta(microseconds=1))
+    stale = evidence(external_id="evt-4", observed_at=NOW - timedelta(seconds=61))
+    result = normalize([at_now, at_limit, future, stale], now=NOW, max_age_seconds=60)
+    by_id = {entry["external_id"]: entry for entry in result["items"]}
+    assert by_id["evt-1"]["freshness"] == "FRESH"
+    assert by_id["evt-2"]["freshness"] == "FRESH"
+    assert by_id["evt-3"]["freshness"] == "UNKNOWN"
+    assert by_id["evt-4"]["freshness"] == "UNKNOWN"
+
+
+def test_same_claim_with_different_payloads_is_unknown():
+    one = evidence(external_id="evt-1", payload={"status": "down"})
+    two = evidence(external_id="evt-2", payload={"status": "up"})
+    result = normalize([one, two], now=NOW)
+    assert len(result["items"]) == 2
+    assert {entry["state"] for entry in result["items"]} == {"UNKNOWN"}
