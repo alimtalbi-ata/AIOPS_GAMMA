@@ -11,7 +11,7 @@ export default defineConfig({
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const path = (req.url || "").split("?", 1)[0];
-        if (path.startsWith("/api/") && !publicDemoPaths.has(path)) {
+        if ((path === "/api" || path.startsWith("/api/")) && !publicDemoPaths.has(path)) {
           res.statusCode = 404;
           res.setHeader("Cache-Control", "no-store");
           res.end("Not found");
