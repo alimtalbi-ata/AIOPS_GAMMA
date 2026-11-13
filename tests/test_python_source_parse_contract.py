@@ -78,3 +78,29 @@ def test_disposable_postgres_preflight_never_uses_optimizable_assertions():
         "SELECT count(*)", "pytest.fail",
     ):
         assert required in preflight_source
+
+def test_source_parser_detects_invalid_python_in_disposable_tree(tmp_path, monkeypatch):
+    """Exercise the real source guard, including its failure path."""
+    import sys
+
+    module = sys.modules[__name__]
+    directory = tmp_path / "app"
+    directory.mkdir()
+    (directory / "broken.py").write_text("x = 1\\n    if True:\\n", encoding="utf-8")
+    monkeypatch.setattr(module, "ROOT", tmp_path)
+    import pytest
+
+    with pytest.raises(AssertionError, match="Invalid Python source"):
+        test_all_python_sources_parse_without_imports()
+
+
+def test_source_parser_accepts_valid_python_in_disposable_tree(tmp_path, monkeypatch):
+    """The parser must not reject ordinary valid source files."""
+    import sys
+
+    module = sys.modules[__name__]
+    directory = tmp_path / "app"
+    directory.mkdir()
+    (directory / "valid.py").write_text("x = 1\n", encoding="utf-8")
+    monkeypatch.setattr(module, "ROOT", tmp_path)
+    test_all_python_sources_parse_without_imports()
