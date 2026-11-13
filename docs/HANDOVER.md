@@ -1106,3 +1106,13 @@
   Commit: `9dd36e6a3244e31e67d02dfb20bda90cd24e5506`.
 - **Execution status:** these three committed tests have not been executed in the internal lab in this cycle. No test-pass count is claimed. Previous focused lab result remains 33 passed (from the preceding cycle), not including these additions.
 - No GitHub Actions, PostgreSQL, real IdP, independently enforced actor→tenant→resource ACL, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Mixed-tenant rejection is fail-fast before correlation and normalization
+
+- Added three tests to `tests/test_correlation_evidence.py`:
+  - A mixed-tenant evidence batch (one valid tenant item plus one foreign-tenant item) raises `PermissionError` before either `correlate` or `normalize` is invoked.
+  - An all-foreign-tenant batch is rejected before either processing stage.
+  - A single source-event identity claimed by two incident IDs remains fully visible (no false duplicate/unmatched count), but is explicitly `UNKNOWN`; join coverage is complete while consistency remains false, and persistence/LIVE remain disabled.
+  Commit: `3bdc37335cb4dec080459a611d94de4d05a4543c`.
+- Internal lab executed three focused equivalent tests against exact GitHub application modules in `/mnt/data/gamma_evidence_unit`: **3 passed in 0.05s**. Verified local Git blob hashes against GitHub source hashes: `correlation.py` **53c1fdf1b16485d6f26d8f3b7337abc46fe5beb8**, `correlation_evidence.py` **083f56d1e91487f95dc7b431a971497722e78c85**, `evidence.py` **7e5b24cc300e1d956ae87494cd1c8df6129f6b2f**. The focused test file is a local equivalent, not the exact committed test module; no full suite execution is claimed.
+- No GitHub Actions, PostgreSQL, real IdP, independent actor→tenant→resource ACL, merge, deploy or LIVE. **HOLD / NO_GO**.
