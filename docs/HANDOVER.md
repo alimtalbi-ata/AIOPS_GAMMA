@@ -689,3 +689,10 @@
 - Reproduced the guard in a standalone local ChatGPT lab test file `/mnt/data/gamma_lab/test_pg_url_query_guard.py` using the actual installed SQLAlchemy URL parser: **10 passed in 0.16s** (7 denied URLs + 3 allowed loopback variants). This is a faithful isolated reproduction of the helper, **not** a run of the repository module or a PostgreSQL connection.
 - Updated test documentation: total declared repository test cases now **13** (4 HTTP requiring PostgreSQL + 7 unsafe URL + 1 safe URL + 1 distinct-actor).
 - No GitHub Actions invocation, external database, network, migration, runtime application, gateway or LIVE change. PostgreSQL-backed HTTP tenant isolation remains **NOT EXECUTED**. PR Draft; canonical reads hard-disabled; **HOLD / NO_GO**.
+
+### 2026-11-13 — ChatGPT lab PostgreSQL connected-server preflight
+
+- Extended `tests/test_resource_list_http_postgres.py` to verify, before any test-data insertion, that PostgreSQL's **actual** `inet_server_addr()` is loopback TCP (no remote server or Unix socket), the current role is **not** a superuser, and `server_version_num` is PostgreSQL 16. This adds a second independent defense beyond the already strict URL guard and connected database-name check. Commit `67494922e85a80c40670bd8eb4c22fd7e3beff86`.
+- In the disposable ChatGPT Python lab, ran `python -m pytest -q test_pg_server_identity.py test_pg_url_query_guard.py test_principal_contract.py` => **27 passed in 0.18s**. The 10 new cases cover allowed IPv4/IPv6 loopback, remote/socket rejection, superuser/unverified role rejection and unsupported PostgreSQL version rejection.
+- **Evidence boundary:** these tests exercise isolated reconstructed predicates, not an authentic repository checkout, actual FastAPI route, real PostgreSQL connection, Alembic migration or end-to-end actor→tenant authorization. The repository PostgreSQL HTTP tests remain **NOT EXECUTED**. The local lab did not contact a database or GitHub Actions.
+- No runtime application, migration, gateway, canonical adapter, production resource or LIVE state changed. PR #1 remains Draft, canonical reads hard 503, **HOLD / NO_GO**.
