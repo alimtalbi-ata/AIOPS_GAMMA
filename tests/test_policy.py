@@ -93,3 +93,18 @@ def test_live_readonly_at_confidence_boundary():
         result = evaluate(proposal(command="OBSERVE", confidence=confidence))
         assert result["state"] == expected
         assert result["live_execution_authorized"] is False
+
+
+@pytest.mark.parametrize("confidence", [float("nan"), float("inf"), float("-inf")])
+def test_nonfinite_confidence_rejected(confidence):
+    with pytest.raises(ValidationError):
+        proposal(confidence=confidence)
+
+
+@pytest.mark.parametrize("mode,command", [
+    ("LIVE", "OBSERVE"), ("LIVE", "ENRICH"),
+])
+def test_readonly_commands_never_authorize_effect(mode, command):
+    result = evaluate(proposal(mode=mode, command=command))
+    assert result["decision"] == "ALLOW_READ_ONLY"
+    assert result["live_execution_authorized"] is False
