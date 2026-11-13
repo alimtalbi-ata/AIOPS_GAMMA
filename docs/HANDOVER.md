@@ -1011,3 +1011,10 @@
 - Updated subprocess launcher expected count to **40**, commit `9e86aa4933cd2600a6dd86d0d763b0e88ada35c8`.
 - ChatGPT internal partial lab: copied `app/reused/upstream.py` from the fetched GitHub source into the isolated lab and ran `python -m pytest -q tests/support/real_route_http_probe.py`: **40 passed in 0.96s**. After updating the local launcher, `python -m pytest -q tests/support/real_route_http_probe.py tests/test_real_route_http_isolation.py`: **41 passed in 3.65s**. The copied upstream source has local Git blob SHA `8aa5ba94ef422e35ab86863c4319ea422b880e46`; no GitHub SHA comparison was completed in this cycle. Other business modules remain stubbed.
 - These tests confirm the current intentional **HOLD** for canonical reads, not that actor→tenant→resource ACL or upstream contracts are qualified. No GitHub Actions, PostgreSQL, external upstream calls, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Canonical HOLD survives accidental legacy enable flag
+
+- Confirmed the exact local `app/reused/upstream.py` Git blob SHA **8aa5ba94ef422e35ab86863c4319ea422b880e46** equals the fetched GitHub blob SHA. This closes the upstream adapter source-provenance gap.
+- Added three parametrized signed HTTP tests with `settings.enable_canonical_reads=True`, a configured token and plausible HTTPS origins. `core`, `evidence` and `twin` must still return **503** with `Cache-Control: no-store`. Both `httpx.AsyncClient` and `httpx.Client` are replaced with fail-fast guards to detect accidental outbound client construction. Probe commit `3898bb1d7312657428e03cc3a8881442b823a9ae`; subprocess launcher expects **43 passed**, commit `38ccb150b5fba3406c96e07608dc23eb37430864`.
+- Internal partial lab: `python -m pytest -q tests/support/real_route_http_probe.py` => **43 passed in 0.77s**; combined probe + launcher => **44 passed in 3.70s**. This cycle's local probe is adapted, not SHA-identical to the newly committed probe; local evidence normalizer is also reconstructed. No full-checkout or production claim.
+- No GitHub Actions, PostgreSQL, real upstream traffic, independent actor→tenant→resource ACL, merge, deploy or LIVE. **HOLD / NO_GO**.
