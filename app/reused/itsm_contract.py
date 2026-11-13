@@ -77,7 +77,7 @@ def plan_incident_sync(req: IncidentSyncPreview, tenant_id: UUID) -> dict:
         "priority_state": "PROPOSED_BY_ENTERPRISE_MATRIX" if rule else "UNKNOWN",
         "priority_policy_id": req.matrix.policy_id,
         "priority_policy_version": req.matrix.version,
-        "evidence_refs": incident.evidence_refs,
+        "evidence_refs": list(incident.evidence_refs),
         "itsm_reference": incident.itsm_ref.model_dump() if incident.itsm_ref else None,
         "cmdb_state": "VERIFICATION_REQUIRED",
         "approval_state": "NOT_REQUESTED",
