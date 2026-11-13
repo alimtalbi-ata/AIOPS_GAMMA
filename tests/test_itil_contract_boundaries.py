@@ -199,3 +199,29 @@ def test_itil_preview_accepts_normal_incident_identifier():
     result = preview_itil_workflow(_incident(uuid4(), incident_id="INC-123"))
     assert result["incident"]["reference"] == "INC-123"
     assert result["execution"]["live_remediation_authorized"] is False
+
+
+@pytest.mark.parametrize("unvalidated_verified_flag", ["false", "true", 1, None])
+def test_preview_does_not_trust_nonboolean_cmdb_verification(unvalidated_verified_flag):
+    tenant = uuid4()
+    inc = _incident(tenant)
+    inc.affected_cis[0] = inc.affected_cis[0].model_copy(
+        update={"verified_against_cmdb": unvalidated_verified_flag},
+    )
+    preview = preview_itil_workflow(inc)
+    counts = preview["service_configuration_management"]
+    assert counts["verified_cis"] == 0
+    assert counts["unverified_cis"] == 1
+    with pytest.raises(ValueError, match="verified CMDB"):
+        preview_itil_workflow(inc, change=_change(tenant))
+
+
+def test_preview_does_not_crash_on_unvalidated_nonstring_cmdb_id():
+    tenant = uuid4()
+    inc = _incident(tenant)
+    inc.affected_cis[0] = inc.affected_cis[0].model_copy(update={"cmdb_ci_id": 123})
+    counts = preview_itil_workflow(inc)["service_configuration_management"]
+    assert counts["verified_cis"] == 0
+    assert counts["unverified_cis"] == 1
+    with pytest.raises(ValueError, match="verified CMDB"):
+        preview_itil_workflow(inc, change=_change(tenant, ci_id="123"))
