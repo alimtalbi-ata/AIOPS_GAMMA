@@ -71,6 +71,10 @@ def tenant_postgres():
             for table in ("telemetry_service_bindings", "investigation_evidence"):
                 present = await connection.scalar(text("SELECT to_regclass(:name)"), {"name": table})
                 assert present is not None, f"Required migrated table missing: {table}"
+                count = await connection.scalar(text(f"SELECT count(*) FROM {table}"))
+                assert count == 0, (
+                    f"Disposable database must start empty; {table} contains {count} rows"
+                )
 
         async with factory() as session:
             session.add_all([
@@ -103,15 +107,18 @@ def tenant_postgres():
             ])
             await session.commit()
 
-    asyncio.run(prepare())
+    prepared = False
     try:
+        asyncio.run(prepare())
+        prepared = True
         yield factory
     finally:
         async def cleanup():
-            async with factory() as session:
-                await session.execute(delete(Evidence).where(Evidence.id.in_(evidence_ids)))
-                await session.execute(delete(ServiceBinding).where(ServiceBinding.id.in_(binding_ids)))
-                await session.commit()
+            if prepared:
+                async with factory() as session:
+                    await session.execute(delete(Evidence).where(Evidence.id.in_(evidence_ids)))
+                    await session.execute(delete(ServiceBinding).where(ServiceBinding.id.in_(binding_ids)))
+                    await session.commit()
             await engine.dispose()
         asyncio.run(cleanup())
 
