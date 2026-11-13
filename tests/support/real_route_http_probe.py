@@ -151,3 +151,16 @@ def test_forged_tenant_header_cannot_override_signed_actor():
         response = client.post(path, headers=forged)
     assert response.status_code == 501
     assert response.headers["cache-control"] == "no-store"
+
+def test_tampered_signed_actor_rejected():
+    path = "/api/v1/observability/metrics/query"
+    token = signed("POST", path)
+    payload, signature = token.split(".")
+    tampered = payload + "." + ("A" if signature[0] != "A" else "B") + signature[1:]
+    with TestClient(app) as client:
+        response = client.post(path, headers={
+            "X-Internal-API-Key": "service-secret",
+            "X-Gateway-Principal": tampered,
+        })
+    assert response.status_code == 401
+    assert response.headers["cache-control"] == "no-store"
