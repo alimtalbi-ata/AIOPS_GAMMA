@@ -1197,3 +1197,12 @@
 - Re-ran both exact-source suites together: `python -m pytest -q tests/test_gateway_replay_unit.py tests/test_gateway_replay_migration_contract.py` => **15 passed in 0.30s** (11 replay-helper unit tests + 4 static migration-contract tests).
 - This confirms source-level revision chaining, digest primary key, timezone-aware non-null expiry, non-unique expiry index, and scoped downgrade ordering. It does not execute Alembic against PostgreSQL or prove actual database schema/locking/concurrency.
 - Runtime replay remains intentionally unwired. No PostgreSQL instance/asyncpg/Docker is available in the internal lab. No GitHub Actions, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Exact-source replay unit suite rerun; PostgreSQL integration remains skipped
+
+- Re-fetched current branch files. Materialized exact GitHub blobs into the internal Python lab and confirmed byte-level Git blob matches:
+  - `app/gateway_replay.py`: **6f3407a9ff66d4c29d7ecf3b78af75df40670473**
+  - `tests/test_gateway_replay_unit.py`: **02166f7350636798d54d949f870f9d03b22dd1ae**
+- Ran the exact committed unit test file against the exact committed helper: **11 passed in 0.22s**. This is the first exact-source unit qualification for this helper in this cycle.
+- Reconstructed the PostgreSQL integration test file in the lab from the fetched source, but its local blob SHA **350045d70fb41ec20d00bf80f3eadaca5ba51d04** does not match GitHub blob **25b508661c7e2eeaa544c10edaa7ada4cc646066**. That local adapted test run returned **5 passed, 3 skipped in 0.26s**: the five safety/URL contract cases ran; the three database-backed fixture cases were skipped because no disposable PostgreSQL URL was configured. **No live PostgreSQL schema, 12-way concurrency, cross-session replay, or migration round-trip was exercised.**
+- Replay remains deliberately unwired from authentication. No GitHub Actions rerun, no staging/production DB, no merge, deploy or LIVE. **HOLD / NO_GO**.
