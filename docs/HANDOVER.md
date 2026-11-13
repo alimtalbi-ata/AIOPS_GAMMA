@@ -771,3 +771,10 @@
 - Updated the named-credential regex to consume an entire quoted value (single or double quotes) rather than only the first whitespace-delimited token; commit `3f12c33bcc1a6d7aefeb5b2f3d9cd6c81268977f`. Added a regression covering password, JSON api_key and client_secret with spaces; commit `93eccbd5623559220269ff96f11bc921a1f41330`.
 - Applied the exact code and test edits in ChatGPT lab: `python -m pytest -q tests/test_redaction.py` => **14 passed in 0.05s**. This validates the real module and test file in a partial checkout, **not** complete repository/HTTP/PostgreSQL/IdP/ACL qualifications.
 - No GitHub Actions, DB, merge, deployment or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Additional genuine diagnostic secret leak repaired
+
+- Ran actual `app/reused/redaction.py` in partial ChatGPT lab. Confirmed **unclosed quoted credentials** (e.g. `password="alpha beta`) passed through unredacted, including multiline input; an **escaped quote** inside a credential left its suffix visible.
+- Updated the named-secret regex to recognize escaped characters in closed quoted values and conservatively redact the remaining text for unclosed quoted values. Code commit `7073fc75c2e39ae625a814bb18e52c7ad14431e9`; regression tests commit `0ea3f57931ba5cf0ebd9e4274af11eda7650f9ea`.
+- Applied matching code and tests to the local authentic partial checkout. `python -m pytest -q tests/test_redaction.py` => **16 passed in 0.06s**. Three additional adversarial examples were separately checked. This is module-level evidence only, not end-to-end logging, HTTP, PostgreSQL, IdP or resource ACL qualification.
+- No GitHub Actions, DB, merge, deploy or LIVE. **HOLD / NO_GO**.
