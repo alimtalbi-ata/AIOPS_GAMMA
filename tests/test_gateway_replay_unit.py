@@ -139,3 +139,93 @@ async def test_same_jti_from_different_issuers_uses_distinct_replay_keys():
         ).hexdigest()
 
     assert digests[0] != digests[1]
+
+@pytest.mark.asyncio
+async def test_successful_consumption_orders_insert_before_commit():
+    events = []
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = "reserved"
+
+    async def execute(*args, **kwargs):
+        events.append("insert")
+        return result
+
+    async def commit():
+        events.append("commit")
+
+    async def rollback():
+        events.append("rollback")
+
+    session = SimpleNamespace(
+        execute=AsyncMock(side_effect=execute),
+        commit=AsyncMock(side_effect=commit),
+        rollback=AsyncMock(side_effect=rollback),
+    )
+    assert await consume_assertion_before_access(
+        session, issuer="gateway", assertion_id="assertion-123456",
+        expires_at=1_800_000_000,
+    ) is True
+    assert events == ["insert", "commit"]
+
+
+@pytest.mark.asyncio
+async def test_duplicate_never_commits_even_after_successful_sql_statement():
+    events = []
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = None
+
+    async def execute(*args, **kwargs):
+        events.append("insert-conflict")
+        return result
+
+    async def commit():
+        events.append("commit")
+
+    async def rollback():
+        events.append("rollback")
+
+    session = SimpleNamespace(
+        execute=AsyncMock(side_effect=execute),
+        commit=AsyncMock(side_effect=commit),
+        rollback=AsyncMock(side_effect=rollback),
+    )
+    assert await consume_assertion_before_access(
+        session, issuer="gateway", assertion_id="assertion-123456",
+        expires_at=1_800_000_000,
+    ) is False
+    assert events == ["insert-conflict", "rollback"]
+
+
+@pytest.mark.asyncio
+async def test_same_issuer_different_jtis_produce_distinct_digests():
+    digests = []
+    for jti in ("assertion-123456", "assertion-123457"):
+        result = MagicMock()
+        result.scalar_one_or_none.return_value = "reserved"
+        session = SimpleNamespace(execute=AsyncMock(return_value=result))
+        assert await reserve_assertion_once(
+            session, issuer="gateway", assertion_id=jti, expires_at=1_800_000_000
+        )
+        digests.append(session.execute.await_args.args[1]["digest"])
+    assert digests[0] != digests[1]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("jti", [
+    "a" * 129,
+    "bad" + chr(0) + "assertion",
+    "bad" + chr(127) + "assertion",
+    "assertion-" + chr(233),
+])
+async def test_noncanonical_replay_jti_fails_before_sql(jti):
+    session = SimpleNamespace(
+        execute=AsyncMock(), commit=AsyncMock(), rollback=AsyncMock()
+    )
+    with pytest.raises(ValueError, match="invalid replay reservation"):
+        await consume_assertion_before_access(
+            session, issuer="gateway", assertion_id=jti,
+            expires_at=1_800_000_000,
+        )
+    session.execute.assert_not_awaited()
+    session.commit.assert_not_awaited()
+    session.rollback.assert_awaited_once()
