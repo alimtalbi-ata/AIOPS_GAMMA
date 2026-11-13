@@ -211,3 +211,52 @@ def test_gateway_dependency_shape_mutations():
     for source, expected in cases:
         node = ast.parse(source).body[0]
         assert _uses_internal_principal(node) is expected, source
+
+def _assert_exact_cache_middleware(source):
+    """Fail closed if the tenant cache-control middleware changes semantics."""
+    expected = '''
+@app.middleware("http")
+async def prevent_tenant_api_caching(request, call_next):
+    """Apply no-store to tenant API responses, including rejected requests."""
+    response = await call_next(request)
+    if request.url.path.startswith("/api/v1/") and request.url.path != "/api/v1/health/live":
+        response.headers["Cache-Control"] = "no-store"
+    return response
+'''
+    tree = ast.parse(source)
+    found = [
+        node for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name == "prevent_tenant_api_caching"
+    ]
+    assert len(found) == 1, "Missing or duplicate tenant cache middleware"
+    assert ast.dump(found[0], include_attributes=False) == ast.dump(
+        ast.parse(expected).body[0], include_attributes=False
+    ), "Tenant cache middleware semantics changed: explicit review required"
+
+
+def test_tenant_cache_middleware_exact_semantics():
+    _assert_exact_cache_middleware(MAIN.read_text(encoding="utf-8"))
+
+
+def test_tenant_cache_middleware_mutations_rejected():
+    import pytest
+
+    source = '''
+@app.middleware("http")
+async def prevent_tenant_api_caching(request, call_next):
+    """Apply no-store to tenant API responses, including rejected requests."""
+    response = await call_next(request)
+    if request.url.path.startswith("/api/v1/") and request.url.path != "/api/v1/health/live":
+        response.headers["Cache-Control"] = "no-store"
+    return response
+'''
+    _assert_exact_cache_middleware(source)
+    for mutated in (
+        source.replace('response.headers["Cache-Control"] = "no-store"', 'unused = ("Cache-Control", "no-store")'),
+        source.replace('response = await call_next(request)', 'response = None'),
+        source.replace('and request.url.path != "/api/v1/health/live"', 'and False'),
+        source.replace('return response', 'return None'),
+    ):
+        with pytest.raises(AssertionError):
+            _assert_exact_cache_middleware(mutated)
