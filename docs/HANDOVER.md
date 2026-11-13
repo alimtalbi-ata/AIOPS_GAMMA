@@ -997,3 +997,10 @@
 - Updated subprocess wrapper expectation to **35 passed**, commit `d29dd7a24addaa53e4710b7afac5dd7880f8d9fd`.
 - Internal partial lab `python -m pytest -q tests/support/real_route_http_probe.py tests/test_real_route_http_isolation.py`: **36 passed in 3.73s** (35 HTTP cases + one launcher). **Provenance:** the local probe and evidence normalizer remain manually adapted and have not been byte-for-byte verified against the new GitHub versions; do not present this as a full exact-source integration test.
 - No real IdP, independent actor→tenant→resource ACL, upstream source authorization, PostgreSQL, GitHub Actions, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Mixed-tenant evidence must not enter normalization
+
+- Added a targeted FastAPI HTTP regression that monkeypatches **`app.main.normalize_evidence`**, the imported function actually called by the route (rather than `app.reused.evidence.normalize`, which would be a vacuous spy). A batch containing one signed-tenant evidence item and one foreign-tenant item must return HTTP **403** with `Cache-Control: no-store` and **zero normalizer invocations**. Commit `75a4d55d09639ee22d50c0abb7748e31f6ca02b8`.
+- Updated subprocess launcher expectation to **36 passed**, commit `4e48d572ba49e0ff1082d1e630aed165cd1d8443`.
+- ChatGPT internal partial lab: targeted case **1 passed**; full `python -m pytest -q tests/support/real_route_http_probe.py tests/test_real_route_http_isolation.py` => **37 passed in 3.81s** (36 HTTP cases + 1 launcher). Uses locally adapted source and reconstructed evidence normalizer, not a fresh byte-identical checkout.
+- No GitHub Actions, PostgreSQL, independent actor→tenant→resource ACL, upstream access, merge, deploy or LIVE. **HOLD / NO_GO**.
