@@ -673,3 +673,11 @@
 - Ran seven isolated Python/pytest assertions in the disposable ChatGPT environment (0.18s): reconstructed HMAC principal signing/verification and actor isolation plus six PostgreSQL URL allow/deny cases. **7 passed**.
 - **Evidence limitation:** the local module was reconstructed from the relevant helper, not imported from a complete authenticated repository checkout. This is not an execution of the committed repository test module, nor FastAPI HTTP, asyncpg/PostgreSQL, migration or full CI qualification. PostgreSQL integration tests remain **NOT EXECUTED**.
 - No PostgreSQL server, Docker, external network, gateway, GLPI or LIVE resources accessed. Canonical reads remain hard-disabled; PR #1 stays Draft. **HOLD / NO_GO**.
+
+### 2026-11-13 — ChatGPT lab-first follow-up, no Actions invocation
+
+- User requested that the disposable ChatGPT lab take priority over blocked GitHub Actions. No Actions runs, retries or CI edits were initiated.
+- Re-ran the existing local reconstructed principal/URL test harness in `/mnt/data/gamma_lab/test_principal_contract.py`: `python -m pytest -q test_principal_contract.py` => **7 passed in 0.19s**. This is local harness evidence only, not a full GitHub checkout or a run of repository `tests/test_resource_list_http_postgres.py`.
+- Updated the PostgreSQL HTTP test documentation to reflect the prior code correction: two **distinct** actor subjects and **10** declared test cases (4 HTTP cases requiring PostgreSQL, 4 unsafe-URL cases, 1 safe-URL case, 1 actor-distinctness case). The HTTP/PostgreSQL tests are still **NOT EXECUTED**.
+- The environment has pytest, FastAPI, SQLAlchemy and Alembic, but no asyncpg or PostgreSQL server executable; network access to github.com is unavailable from the container. Do not treat this as full source qualification.
+- No database, network, production resource, gateway, GLPI, feature flag, upstream route or LIVE access changed. PR #1 remains Draft, canonical reads hard-disabled. **HOLD / NO_GO**.
