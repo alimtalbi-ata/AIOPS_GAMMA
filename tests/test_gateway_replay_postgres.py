@@ -266,8 +266,12 @@ async def test_postgres_competing_insert_waits_for_rollback_then_succeeds(replay
     started = asyncio.Event()
 
     async def competing_attempt():
-        started.set()
         async with replay_db() as second:
+            # Ensure the contender owns a real DB connection before signalling.
+            # Signalling before session checkout could make the wait assertion
+            # pass solely because the pool has not scheduled the contender.
+            await second.connection()
+            started.set()
             return await consume_assertion_before_access(
                 second, issuer=issuer, assertion_id=jti,
                 expires_at=expires_at,
@@ -312,8 +316,12 @@ async def test_postgres_competing_insert_after_commit_is_rejected(replay_db):
     started = asyncio.Event()
 
     async def competing_attempt():
-        started.set()
         async with replay_db() as second:
+            # Ensure the contender owns a real DB connection before signalling.
+            # Signalling before session checkout could make the wait assertion
+            # pass solely because the pool has not scheduled the contender.
+            await second.connection()
+            started.set()
             return await consume_assertion_before_access(
                 second, issuer=issuer, assertion_id=jti,
                 expires_at=expires_at,
