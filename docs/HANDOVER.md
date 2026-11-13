@@ -1075,3 +1075,14 @@
 - Added four tests to `tests/test_correlation.py`: adjacent rolling gaps (events at 0/250/500 seconds remain one group for a 300-second window), a 301-second adjacent gap starts a new group, duplicate counts are scoped to exact source+event identity, and conflicting duplicate representatives/results are independent of arrival order while remaining non-persistent/non-live. Commit `4edd2d86eeb0476338dbaf8c190690a4c45b1ba1`.
 - Internal lab copied to writable `/tmp/gamma_correlation_lab`, retaining exact-source verified correlation/evidence modules. Added equivalent focused cases and ran `python -m pytest -q`: **34 passed in 0.08s** (prior 30 + four new focused checks). This does not claim byte-identical execution of the complete committed `tests/test_correlation.py`; the local correlation/evidence lab remains a focused subset.
 - No GitHub Actions, PostgreSQL, real IdP, independent actor→tenant→resource ACL, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Correlation grouping namespaces and collision boundaries
+
+- Added four tests to `tests/test_correlation.py`:
+  - Distinct services group together only when they explicitly share the same non-null CI identity; distinct CI IDs remain separate.
+  - Environment and symptom are hard grouping boundaries.
+  - CI identity and service-name identity use separate namespaces and cannot collide merely because their strings match.
+  - Conflicting duplicate accounting is scoped to exact `(source, external_event_id)`; another source with the same external ID remains an independent event.
+  Commit: `8e0b70dcb106242ecdf466fc51b655f6caaf1736`.
+- Internal isolated lab `/tmp/gamma_correlation_lab` using exact-source-verified `app/reused/correlation.py`, `correlation_evidence.py`, and `evidence.py`: added equivalent focused checks and ran `python -m pytest -q`: **38 passed in 0.10s** (34 previous focused cases + 4 new grouping-boundary cases).
+- **Qualification limit:** these four new cases were run as equivalent local focused tests, not as the byte-identical complete committed `tests/test_correlation.py`; no full repository suite was executed. No PostgreSQL, IdP, independently enforced actor→tenant→resource ACL, GitHub Actions, merge, deploy or LIVE. **HOLD / NO_GO**.
