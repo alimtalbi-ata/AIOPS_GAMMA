@@ -178,8 +178,8 @@ def test_alternate_route_registration_mutations_are_rejected():
         '@app.api_route("/api/v1/unsafe")\ndef handler():\n    return {}',
         '@app.websocket("/ws")\ndef handler():\n    return {}',
         'router = APIRouter()',
-        '@app.get(path="/api/v1/unsafe")\\ndef handler():\\n    return {}',
-        '@app.get("/api/v1/unsafe", path="/api/v1/health/live")\\ndef handler():\\n    return {}',
+        '@app.get(path="/api/v1/unsafe")\ndef handler():\n    return {}',
+        '@app.get("/api/v1/unsafe", path="/api/v1/health/live")\ndef handler():\n    return {}',
         '@router.get("/api/v1/unsafe")\ndef handler():\n    return {}',
     )
     for mutation in mutations:
