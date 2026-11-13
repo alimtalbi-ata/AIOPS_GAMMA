@@ -168,3 +168,70 @@ def test_refuses_unsafe_test_database_urls(url):
 def test_accepts_explicit_disposable_test_database_url():
     url = "postgresql+asyncpg://user:pass@localhost/gamma_replay_test"
     assert _require_disposable_database_url(url) == url
+
+@pytest.mark.asyncio
+async def test_postgres_rollback_releases_uncommitted_reservation(replay_db):
+    """A reservation that was not committed must not consume a JTI."""
+    issuer = "gamma-replay-integration"
+    jti = "test-" + uuid4().hex
+    digest = hashlib.sha256((issuer + "\x00" + jti).encode()).hexdigest()
+    expires_at = int(time.time()) + 300
+    try:
+        async with replay_db() as first:
+            from app.gateway_replay import reserve_assertion_once
+
+            assert await reserve_assertion_once(
+                first, issuer=issuer, assertion_id=jti, expires_at=expires_at,
+            )
+            await first.rollback()
+        async with replay_db() as second:
+            assert await consume_assertion_before_access(
+                second, issuer=issuer, assertion_id=jti, expires_at=expires_at,
+            )
+        async with replay_db() as verifier:
+            assert await verifier.scalar(
+                text("SELECT count(*) FROM gateway_assertion_replay "
+                     "WHERE assertion_digest = :digest"),
+                {"digest": digest},
+            ) == 1
+    finally:
+        async with replay_db() as cleanup:
+            await cleanup.execute(
+                text("DELETE FROM gateway_assertion_replay "
+                     "WHERE assertion_digest = :digest"),
+                {"digest": digest},
+            )
+            await cleanup.commit()
+
+
+@pytest.mark.asyncio
+async def test_postgres_same_jti_is_independent_across_issuers(replay_db):
+    """Issuer is part of the unique replay key, not only the assertion ID."""
+    jti = "test-" + uuid4().hex
+    issuers = ("gamma-replay-issuer-a", "gamma-replay-issuer-b")
+    expires_at = int(time.time()) + 300
+    digests = [
+        hashlib.sha256((issuer + "\x00" + jti).encode()).hexdigest()
+        for issuer in issuers
+    ]
+    try:
+        for issuer in issuers:
+            async with replay_db() as session:
+                assert await consume_assertion_before_access(
+                    session, issuer=issuer, assertion_id=jti,
+                    expires_at=expires_at,
+                )
+        for issuer in issuers:
+            async with replay_db() as session:
+                assert not await consume_assertion_before_access(
+                    session, issuer=issuer, assertion_id=jti,
+                    expires_at=expires_at,
+                )
+    finally:
+        async with replay_db() as cleanup:
+            await cleanup.execute(
+                text("DELETE FROM gateway_assertion_replay "
+                     "WHERE assertion_digest IN (:first, :second)"),
+                {"first": digests[0], "second": digests[1]},
+            )
+            await cleanup.commit()
