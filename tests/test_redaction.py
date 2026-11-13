@@ -96,3 +96,15 @@ def test_common_prefixed_credentials_are_redacted():
         result = redact_text(diagnostic)
         assert secret not in result, diagnostic
         assert "[REDACTED]" in result, diagnostic
+
+
+def test_basic_authorization_and_short_bearer_tokens_redacted():
+    examples = [
+        ("Authorization: Basic dXNlcjpwYXNz", "dXNlcjpwYXNz"),
+        ("Bearer abc", "abc"),
+        ("bAsIc dGVzdDp0ZXN0", "dGVzdDp0ZXN0"),
+    ]
+    for diagnostic, credential in examples:
+        result = redact_text(diagnostic)
+        assert credential not in result, diagnostic
+        assert "[REDACTED]" in result, diagnostic
