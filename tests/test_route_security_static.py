@@ -75,7 +75,9 @@ def test_every_tenant_route_has_gateway_principal_dependency():
         ("POST", "/api/v1/incidents/evidence/preview"),
         ("POST", "/api/v1/incidents/correlation-evidence/preview"),
     }
-    assert {(method, path) for method, path, _ in routes} == expected, "Route inventory changed: review the security guard"
+    actual = [(method, path) for method, path, _ in routes]
+    assert len(actual) == len(set(actual)), "Duplicate method/path route registration"
+    assert set(actual) == expected, "Route inventory changed: review the security guard"
     public = {
         ("GET", "/api/v1/health/live"),
         ("GET", "/api/v1/demo/correlation"),
@@ -131,6 +133,20 @@ def _assert_no_unreviewed_route_registration(source):
     tree = ast.parse(source)
     forbidden_calls = {"include_router", "add_api_route", "add_route", "mount", "api_route", "websocket", "websocket_route", "route"}
     for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            for decorator in node.decorator_list:
+                if (isinstance(decorator, ast.Call)
+                    and isinstance(decorator.func, ast.Attribute)
+                    and isinstance(decorator.func.value, ast.Name)
+                    and decorator.func.value.id == "app"
+                    and decorator.func.attr in {"get", "post", "put", "patch", "delete"}):
+                    assert (len(decorator.args) == 1
+                            and isinstance(decorator.args[0], ast.Constant)
+                            and isinstance(decorator.args[0].value, str)
+                            and decorator.args[0].value.startswith("/api/v1/")
+                            and not any(keyword.arg == "path" for keyword in decorator.keywords)), (
+                        "Unreviewed route declaration form"
+                    )
         if isinstance(node, ast.Call):
             func = node.func
             if isinstance(func, ast.Attribute) and func.attr in forbidden_calls:
@@ -162,6 +178,8 @@ def test_alternate_route_registration_mutations_are_rejected():
         '@app.api_route("/api/v1/unsafe")\ndef handler():\n    return {}',
         '@app.websocket("/ws")\ndef handler():\n    return {}',
         'router = APIRouter()',
+        '@app.get(path="/api/v1/unsafe")\\ndef handler():\\n    return {}',
+        '@app.get("/api/v1/unsafe", path="/api/v1/health/live")\\ndef handler():\\n    return {}',
         '@router.get("/api/v1/unsafe")\ndef handler():\n    return {}',
     )
     for mutation in mutations:
