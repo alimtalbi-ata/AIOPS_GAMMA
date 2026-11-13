@@ -435,3 +435,21 @@ async def test_replay_rejects_wrong_types_and_negative_expiry_before_sql(
     session.execute.assert_not_awaited()
     session.commit.assert_not_awaited()
     session.rollback.assert_awaited_once()
+
+@pytest.mark.asyncio
+async def test_result_read_failure_rolls_back_without_commit():
+    """Failure while reading INSERT RETURNING must not grant access."""
+    result = MagicMock()
+    result.scalar_one_or_none.side_effect = RuntimeError("result unavailable")
+    session = SimpleNamespace(
+        execute=AsyncMock(return_value=result),
+        commit=AsyncMock(),
+        rollback=AsyncMock(),
+    )
+    with pytest.raises(RuntimeError, match="result unavailable"):
+        await consume_assertion_before_access(
+            session, issuer="gateway", assertion_id="assertion-123456",
+            expires_at=1_800_000_000,
+        )
+    session.commit.assert_not_awaited()
+    session.rollback.assert_awaited_once()
