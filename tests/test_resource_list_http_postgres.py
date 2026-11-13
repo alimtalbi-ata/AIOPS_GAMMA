@@ -67,28 +67,29 @@ def tenant_postgres():
     async def prepare():
         async with engine.connect() as connection:
             db_name = await connection.scalar(text("SELECT current_database()"))
-            assert db_name and db_name.endswith("_tenant_test"), "Unsafe connected database"
+            if not db_name or not db_name.endswith("_tenant_test"):
+                pytest.fail("Unsafe connected database")
             server_address = await connection.scalar(text("SELECT inet_server_addr()"))
-            assert server_address is not None and ip_address(str(server_address)).is_loopback, (
-                "Connected PostgreSQL server is not loopback TCP"
-            )
+            if server_address is None or not ip_address(str(server_address)).is_loopback:
+                pytest.fail("Connected PostgreSQL server is not loopback TCP")
             superuser = await connection.scalar(text(
                 "SELECT rolsuper FROM pg_roles WHERE rolname = current_user"
             ))
-            assert superuser is False, "Disposable tenant test refuses PostgreSQL superuser"
+            if superuser is not False:
+                pytest.fail("Disposable tenant test refuses PostgreSQL superuser")
             version = await connection.scalar(text("SHOW server_version_num"))
-            assert 160000 <= int(version) < 170000, "Disposable tenant test requires PostgreSQL 16"
+            if not 160000 <= int(version) < 170000:
+                pytest.fail("Disposable tenant test requires PostgreSQL 16")
             revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
-            assert revision == "0002_gateway_replay", (
-                "Disposable tenant database must be migrated to reviewed Alembic head 0002"
-            )
+            if revision != "0002_gateway_replay":
+                pytest.fail("Disposable tenant database must be at reviewed Alembic head 0002")
             for table in ("telemetry_service_bindings", "investigation_evidence"):
                 present = await connection.scalar(text("SELECT to_regclass(:name)"), {"name": table})
-                assert present is not None, f"Required migrated table missing: {table}"
+                if present is None:
+                    pytest.fail(f"Required migrated table missing: {table}")
                 count = await connection.scalar(text(f"SELECT count(*) FROM {table}"))
-                assert count == 0, (
-                    f"Disposable database must start empty; {table} contains {count} rows"
-                )
+                if count != 0:
+                    pytest.fail(f"Disposable database must start empty; {table} contains {count} rows")
 
         async with factory() as session:
             session.add_all([
