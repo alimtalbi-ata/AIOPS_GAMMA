@@ -228,3 +228,33 @@ def test_signed_same_tenant_evidence_preview_uses_real_normalizer():
     assert result["items"][0]["integrity"] == "UNVERIFIED"
     assert result["items"][0]["tenant_id"] == str(principal.tenant_id)
     assert response.headers["cache-control"] == "no-store"
+
+def test_evidence_preview_rejects_incomplete_item_before_tenant_logic():
+    path = "/api/v1/incidents/evidence/preview"
+    with TestClient(app) as client:
+        response = client.post(path, headers=headers(path),
+                               json={"items": [{"tenant_id": str(uuid4())}]})
+    assert response.status_code == 422, response.text
+    assert response.headers["cache-control"] == "no-store"
+
+
+def test_same_tenant_evidence_preview_remains_unverified_with_duplicate():
+    from app.security import verify_gateway_assertion
+
+    path = "/api/v1/incidents/evidence/preview"
+    token = signed("POST", path)
+    tenant = str(verify_gateway_assertion(token, method="POST", path=path).tenant_id)
+    item = evidence_item(tenant)
+    with TestClient(app) as client:
+        response = client.post(path, headers={
+            "X-Internal-API-Key": "service-secret",
+            "X-Gateway-Principal": token,
+        }, json={"items": [item, item]})
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["duplicates"] == 1
+    assert len(result["items"]) == 1
+    assert result["items"][0]["integrity"] == "UNVERIFIED"
+    assert result["persisted"] is False
+    assert result["live_remediation_authorized"] is False
+    assert response.headers["cache-control"] == "no-store"
