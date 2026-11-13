@@ -16,6 +16,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
+from sqlalchemy.exc import ArgumentError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.gateway_replay import consume_assertion_before_access
@@ -24,7 +25,12 @@ from app.gateway_replay import consume_assertion_before_access
 def _require_disposable_database_url(raw_url: str) -> str:
     if not raw_url:
         pytest.skip("No disposable PostgreSQL test URL configured")
-    parsed = make_url(raw_url)
+    try:
+        parsed = make_url(raw_url)
+        # SQLAlchemy defers parsing malformed port text until .port is read.
+        _ = parsed.port
+    except (ArgumentError, ValueError, TypeError) as exc:
+        pytest.fail(f"Malformed disposable PostgreSQL test URL: {type(exc).__name__}")
     if parsed.drivername != "postgresql+asyncpg":
         pytest.fail("Replay integration test requires postgresql+asyncpg URL")
     if not parsed.database or not parsed.database.endswith("_replay_test"):
@@ -177,6 +183,8 @@ async def test_committed_postgres_reservation_blocks_later_replay(replay_db):
     "postgresql+asyncpg://user:pass@localhost/gamma_replay_test?host=production.internal",
     "postgresql+asyncpg://user:pass@localhost/gamma_replay_test?host=/var/run/postgresql",
     "postgresql+asyncpg://user:pass@localhost/gamma_replay_test?port=5433",
+    "not-a-database-url",
+    "postgresql+asyncpg://user:pass@localhost:notaport/gamma_replay_test",
 ])
 def test_refuses_unsafe_test_database_urls(url):
     with pytest.raises(pytest.fail.Exception):
