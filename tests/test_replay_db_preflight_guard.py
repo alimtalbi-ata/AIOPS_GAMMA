@@ -95,3 +95,47 @@ def test_replay_db_refuses_optimized_python_before_connection():
         for statement in first.body for node in ast.walk(statement)
     ):
         pytest.fail("Optimized Python must fail before any DB access")
+
+def test_replay_db_rejects_non_loopback_server_before_yield():
+    """A dead if False branch must not count as a loopback safety check."""
+    source = (Path(__file__).parent / "test_gateway_replay_postgres.py").read_text(
+        encoding="utf-8"
+    )
+    tree = ast.parse(source)
+    fixtures = [
+        node for node in tree.body
+        if isinstance(node, ast.AsyncFunctionDef) and node.name == "replay_db"
+    ]
+    if len(fixtures) != 1:
+        pytest.fail("Expected exactly one replay_db fixture")
+    fixture = fixtures[0]
+    yields = [node for node in ast.walk(fixture) if isinstance(node, ast.Yield)]
+    if len(yields) != 1:
+        pytest.fail("Expected exactly one session yield")
+
+    def is_rejection(node):
+        if not isinstance(node, ast.If) or node.lineno >= yields[0].lineno:
+            return False
+        condition = node.test
+        if not (
+            isinstance(condition, ast.Compare)
+            and isinstance(condition.left, ast.Name)
+            and condition.left.id == "is_loopback"
+            and len(condition.ops) == 1
+            and isinstance(condition.ops[0], ast.IsNot)
+            and len(condition.comparators) == 1
+            and isinstance(condition.comparators[0], ast.Constant)
+            and condition.comparators[0].value is True
+        ):
+            return False
+        return any(
+            isinstance(call, ast.Call)
+            and isinstance(call.func, ast.Attribute)
+            and isinstance(call.func.value, ast.Name)
+            and call.func.value.id == "pytest"
+            and call.func.attr == "fail"
+            for stmt in node.body for call in ast.walk(stmt)
+        )
+
+    if not any(is_rejection(node) for node in ast.walk(fixture)):
+        pytest.fail("Missing effective non-loopback rejection before session yield")
