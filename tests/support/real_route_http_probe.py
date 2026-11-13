@@ -98,12 +98,14 @@ def test_public_route(path):
         assert response.headers["cache-control"] == "no-store"
 
 
-def signed(method, path):
+def signed(method, path, *, issued_at=None, expires_at=None):
     now = int(time.time())
     claims = {
         "iss": "trusted-gateway", "aud": "gamma-api", "sub": "user:123",
         "actor_type": "user", "tenant_id": str(uuid4()), "tenant_access": True,
-        "iat": now, "exp": now + 30, "jti": "probe-assertion-123",
+        "iat": now if issued_at is None else issued_at,
+        "exp": now + 30 if expires_at is None else expires_at,
+        "jti": "probe-assertion-123",
         "method": method, "path": path,
     }
     raw = base64.urlsafe_b64encode(json.dumps(claims, separators=(",", ":")).encode()).rstrip(b"=")
@@ -161,6 +163,31 @@ def test_tampered_signed_actor_rejected():
         response = client.post(path, headers={
             "X-Internal-API-Key": "service-secret",
             "X-Gateway-Principal": tampered,
+        })
+    assert response.status_code == 401
+    assert response.headers["cache-control"] == "no-store"
+
+
+def test_wrong_signed_method_rejected():
+    path = "/api/v1/observability/metrics/query"
+    with TestClient(app) as client:
+        response = client.post(path, headers={
+            "X-Internal-API-Key": "service-secret",
+            "X-Gateway-Principal": signed("GET", path),
+        })
+    assert response.status_code == 401
+    assert response.headers["cache-control"] == "no-store"
+
+
+def test_expired_signed_actor_rejected():
+    path = "/api/v1/observability/metrics/query"
+    now = int(time.time())
+    with TestClient(app) as client:
+        response = client.post(path, headers={
+            "X-Internal-API-Key": "service-secret",
+            "X-Gateway-Principal": signed(
+                "POST", path, issued_at=now - 30, expires_at=now - 1
+            ),
         })
     assert response.status_code == 401
     assert response.headers["cache-control"] == "no-store"
