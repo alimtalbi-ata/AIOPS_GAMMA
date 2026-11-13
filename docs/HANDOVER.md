@@ -750,3 +750,9 @@
 - Ran the four selected **authentic source-guard test functions** in `/mnt/data/gamma_authentic_subset`: `python -m pytest -q tests/test_python_source_parse_contract.py -k 'source_parser or all_python_sources_parse'` => **4 passed, 2 deselected in 0.04s**. The tested functions include the source scan on the partial tree, invalid-source rejection, valid-source acceptance and missing-source rejection.
 - **Scope limitation:** partial checkout contains only the source-guard test module and local helper files, not all GAMMA Python sources. The two deselected AST contract tests require authentic PostgreSQL test source not yet present locally. This is not a full-repository syntax scan, FastAPI execution, PostgreSQL validation, IdP or upstream ACL qualification.
 - No GitHub Actions, DB connection, runtime change, merge, deploy or LIVE operation. PR #1 Draft; **HOLD / NO_GO**.
+
+### 2026-11-13 — Authentic tenant-scope code and tests in ChatGPT lab
+
+- Retrieved actual GitHub source `app/reused/tenant_scope.py` and its actual test module `tests/test_tenant_scope_guard.py`, materialized both under `/mnt/data/gamma_authentic_subset/` without changing their logic.
+- Executed `cd /mnt/data/gamma_authentic_subset && python -m pytest -q tests/test_tenant_scope_guard.py tests/test_python_source_parse_contract.py -k 'not postgres'`: **23 passed, 2 deselected in 0.07s**. This includes real `reject_unqualified_tenant_scope` implementation and its tests, plus source-guard tests. No DB, network or GitHub Actions involved.
+- Scope remains **partial checkout**: PostgreSQL AST contract tests deselected; no complete GAMMA source tree, FastAPI app tests, real PostgreSQL, gateway/IdP or source-side ACL qualification. No production action, merge, deployment or LIVE. **HOLD / NO_GO**.
