@@ -32,7 +32,7 @@ def detect_anomalies(series: MetricSeries) -> dict:
     if mad == 0:
         return {
             "metric_name": series.metric_name, "state": "INSUFFICIENT_VARIABILITY",
-            "median": baseline, "mad": mad, "anomalies": [],
+            "median": baseline, "mad": mad, "anomalies": [], "truncated": False,
             "causal_inference": False, "live_remediation_authorized": False,
         }
     points = [
