@@ -54,7 +54,7 @@ def test_canonical_hold_guard_rejects_network_before_denial(tmp_path, monkeypatc
     original = SOURCE.read_text(encoding="utf-8")
     changed = original.replace(
         '    raise HTTPException(503, "Canonical actor/tenant/resource ACL not qualified")',
-        '    await httpx.AsyncClient().get("https://example.invalid")\\n'
+        '    await httpx.AsyncClient().get("https://example.invalid")\n'
         '    raise HTTPException(503, "Canonical actor/tenant/resource ACL not qualified")',
     )
     assert changed != original
