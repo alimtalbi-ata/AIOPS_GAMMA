@@ -990,3 +990,10 @@
 - Subprocess wrapper updated to expect **34 passed**, commit `891019a97b2c91eb076dba97b6108801b19c2208`.
 - Internal partial lab: `python -m pytest -q tests/support/real_route_http_probe.py tests/test_real_route_http_isolation.py` => **35 passed in 3.65s** (34 HTTP + wrapper). The local wrapper Git blob SHA **dd425de9a2e53599c6205dfa41dc6b056586aa78** matches the committed wrapper; the local probe SHA `c7c8cedf908df8e508cae2f7f0ba5373fdf2d57c` does **not** match committed `61f266f848aba3cc53454b2ca500546a4a49b9e0`, and local evidence module SHA `a55aced875661fee23f356ad335821e2c48c09c4` does **not** match committed `7e5b24cc300e1d956ae87494cd1c8df6129f6b2f`. Local evidence module is still reconstructed. No exact-source qualification claim for these two.
 - Remaining gates: independent actor→tenant→resource authorization, actual upstream ACL, real IdP/gateway, PostgreSQL 16 HTTP isolation, approved contracts, functioning CI. No GitHub Actions, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Conflicting evidence versions fail conservatively in HTTP preview
+
+- Added an isolated real-route HTTP regression submitting two same-tenant evidence records with identical source/external identity but conflicting payloads. The response must be 200 advisory-only with `duplicates=1`, one representative, `state=UNKNOWN`, `integrity=UNVERIFIED`, `persisted=False`, `live_remediation_authorized=False`, and `Cache-Control: no-store`. Commit `f442af6dc22d56bde60afedbe9f857b26a18e2aa`.
+- Updated subprocess wrapper expectation to **35 passed**, commit `d29dd7a24addaa53e4710b7afac5dd7880f8d9fd`.
+- Internal partial lab `python -m pytest -q tests/support/real_route_http_probe.py tests/test_real_route_http_isolation.py`: **36 passed in 3.73s** (35 HTTP cases + one launcher). **Provenance:** the local probe and evidence normalizer remain manually adapted and have not been byte-for-byte verified against the new GitHub versions; do not present this as a full exact-source integration test.
+- No real IdP, independent actor→tenant→resource ACL, upstream source authorization, PostgreSQL, GitHub Actions, merge, deploy or LIVE. **HOLD / NO_GO**.
