@@ -54,6 +54,8 @@ def test_every_tenant_route_has_gateway_principal_dependency():
     routes = list(_routes())
     expected = {
         ("GET", "/api/v1/health/live"),
+        ("GET", "/api/v1/demo/correlation"),
+        ("GET", "/api/v1/demo/investigation"),
         ("POST", "/api/v1/observability/logs/search"),
         ("POST", "/api/v1/observability/metrics/query"),
         ("POST", "/api/v1/integrations/opensearch/alerts"),
@@ -74,7 +76,11 @@ def test_every_tenant_route_has_gateway_principal_dependency():
         ("POST", "/api/v1/incidents/correlation-evidence/preview"),
     }
     assert {(method, path) for method, path, _ in routes} == expected, "Route inventory changed: review the security guard"
-    public = {("GET", "/api/v1/health/live")}
+    public = {
+        ("GET", "/api/v1/health/live"),
+        ("GET", "/api/v1/demo/correlation"),
+        ("GET", "/api/v1/demo/investigation"),
+    }
     assert {(method, path) for method, path, _ in routes if (method, path) in public} == public
     for method, path, node in routes:
         if (method, path) in public:
