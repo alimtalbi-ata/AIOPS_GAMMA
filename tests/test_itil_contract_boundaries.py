@@ -187,3 +187,15 @@ def test_preview_does_not_trust_unvalidated_whitespace_cmdb_binding():
     assert result["execution"]["live_remediation_authorized"] is False
     with pytest.raises(ValueError, match="verified CMDB"):
         preview_itil_workflow(incident, change=_change(tenant, ci_id="   "))
+
+
+@pytest.mark.parametrize("incident_id", [" ", "\t", "\n", "INC\nforged", "INC\rforged", "INC\x7f"])
+def test_itil_preview_rejects_blank_or_control_character_incident_ids(incident_id):
+    with pytest.raises(ValueError, match="Invalid incident identifier"):
+        preview_itil_workflow(_incident(uuid4(), incident_id=incident_id))
+
+
+def test_itil_preview_accepts_normal_incident_identifier():
+    result = preview_itil_workflow(_incident(uuid4(), incident_id="INC-123"))
+    assert result["incident"]["reference"] == "INC-123"
+    assert result["execution"]["live_remediation_authorized"] is False
