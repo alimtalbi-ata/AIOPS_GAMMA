@@ -4,6 +4,8 @@ These run without a database and prevent Python -O from silently disabling
 the fixture's database identity checks.
 """
 import ast
+import io
+import tokenize
 from pathlib import Path
 
 import pytest
@@ -45,6 +47,12 @@ def test_replay_db_preflight_checks_actual_server_before_yield():
     before_yield = source.splitlines()[:yield_nodes[0].lineno - 1]
     fixture_source = "\n".join(
         before_yield[fixture.lineno - 1:]
+    )
+    # Comments cannot establish a safety precondition.
+    fixture_source = tokenize.untokenize(
+        token for token in tokenize.generate_tokens(
+            io.StringIO(fixture_source).readline
+        ) if token.type != tokenize.COMMENT
     )
     for required in (
         "GAMMA_REPLAY_TEST_ALLOW_WRITE",
