@@ -289,3 +289,27 @@ def test_evidence_preview_rejects_naive_timestamp():
         }, json={"items": [item]})
     assert response.status_code == 422, response.text
     assert response.headers["cache-control"] == "no-store"
+
+def test_conflicting_evidence_versions_never_become_verified():
+    from app.security import verify_gateway_assertion
+
+    path = "/api/v1/incidents/evidence/preview"
+    token = signed("POST", path)
+    tenant = str(verify_gateway_assertion(token, method="POST", path=path).tenant_id)
+    first = evidence_item(tenant)
+    second = evidence_item(tenant)
+    second["payload"] = {"synthetic": False, "conflicting": True}
+    with TestClient(app) as client:
+        response = client.post(path, headers={
+            "X-Internal-API-Key": "service-secret",
+            "X-Gateway-Principal": token,
+        }, json={"items": [first, second]})
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["duplicates"] == 1
+    assert len(result["items"]) == 1
+    assert result["items"][0]["state"] == "UNKNOWN"
+    assert result["items"][0]["integrity"] == "UNVERIFIED"
+    assert result["persisted"] is False
+    assert result["live_remediation_authorized"] is False
+    assert response.headers["cache-control"] == "no-store"
