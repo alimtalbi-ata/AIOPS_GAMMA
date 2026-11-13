@@ -75,7 +75,9 @@ def plan_incident_sync(req: IncidentSyncPreview, tenant_id: UUID) -> dict:
         raise ValueError("Invalid priority matrix rule")
     if incident.tenant_id != tenant_id:
         raise ValueError("Tenant mismatch")
-    if not incident.incident_id.strip() or any(ord(char) < 32 or ord(char) == 127 for char in incident.incident_id):
+    if (not isinstance(incident.incident_id, str) or not incident.incident_id.strip()
+            or len(incident.incident_id) > 128
+            or any(ord(char) < 32 or ord(char) == 127 for char in incident.incident_id)):
         raise ValueError("Invalid incident identifier")
     # References are mutable, so validate their authority and identifier again.
     for reference in (incident.itsm_ref, req.expected_itsm_ref):
