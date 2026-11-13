@@ -83,6 +83,8 @@ def preview_itil_workflow(
 ) -> dict:
     """Create a non-authorizing workflow projection with explicit ownership."""
     tenant = incident.tenant_id
+    if not incident.incident_id.strip() or any(ord(char) < 32 or ord(char) == 127 for char in incident.incident_id):
+        raise ValueError("Invalid incident identifier")
     if problem is not None and (problem.tenant_id != tenant or incident.incident_id not in problem.related_incident_ids):
         raise ValueError("Problem tenant or incident reference mismatch")
     if change is not None and (change.tenant_id != tenant or change.source_incident_id != incident.incident_id):
