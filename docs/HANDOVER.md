@@ -1039,3 +1039,9 @@
 - Added three regression tests: conflicting duplicate output must be independent of input arrival order; freshness is inclusive at `now` and exactly `max_age_seconds` but rejects future and one-second-stale evidence; differing payloads for the same claim across distinct event IDs must leave both states `UNKNOWN`. Commit `6ea48eb47d3690eaca7fbe594610d61c49834e10`.
 - Ran four focused tests in the internal Python lab against a local isolated copy of the evidence-normalizer implementation: **4 passed in 0.05s** (conflict arrival-order determinism, same-claim conflict, freshness boundaries, non-authoritative invariants). The lab's focused file is not the exact committed test file; **the full committed `tests/test_evidence_normalization.py` has not been executed in this cycle**.
 - No GitHub Actions, PostgreSQL, real IdP, independent actor→tenant→resource ACL, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Evidence normalization suite executed locally; exactness caveat corrected
+
+- Materialized the current GitHub `app/reused/evidence.py` source into `/mnt/data/gamma_evidence_unit/app/reused/evidence.py`; Git blob hash matches exactly: **7e5b24cc300e1d956ae87494cd1c8df6129f6b2f**.
+- Reconstructed the current 18-test `tests/test_evidence_normalization.py` locally from fetched GitHub content and ran `python -m pytest -q`: **18 passed in 0.07s**. However local Git blob SHA **3b6c1c9a9876646efd154f75475ccbd5d007bc4b** does not match the current GitHub test blob SHA **a6628bc859c8aaf2997a37407767554453b48cff** (local file is 5 bytes longer). Therefore this is a semantically equivalent local test copy, **not an exact-byte execution of the committed test file**. Prior handover reference to 17 tests is corrected: current file contains 18 tests.
+- No GitHub Actions, PostgreSQL, independent actor→tenant→resource ACL, merge, deploy or LIVE. **HOLD / NO_GO**.
