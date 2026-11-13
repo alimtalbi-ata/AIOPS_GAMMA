@@ -845,3 +845,10 @@
 - Added a fail-closed subject validation check rejecting Unicode surrogate code points U+D800–U+DFFF, commit `3e40a6e51be2e568f8c8391439f27039f1fb4fbb`. Added two signed regression cases (U+D800 and U+DFFF) to `tests/test_gateway_auth_extra.py`, commit `2b011cacbc7783e82861f7d42ab3012c4f354e2b`.
 - Local lab executed the corresponding updated authentic security module and regression tests: `python -m pytest -q tests/test_gateway_auth_extra.py tests/test_http_gateway_probe.py` => **20 passed in 0.32s**. The probe file is local and is not a complete GAMMA route integration suite.
 - This prevents a malformed signed subject from entering downstream code; it does **not** establish actor→tenant membership, upstream resource ACL, PostgreSQL isolation, replay qualification or a real IdP/gateway. No GitHub Actions, DB, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Full isolated gateway suite with Unicode regression at HTTP boundary
+
+- Ran actual copied `app/security.py` and `app/settings.py` with `tests/test_gateway_auth_extra.py`, complete `tests/test_gateway_dependency_http_isolated.py` and local `tests/test_http_gateway_probe.py`: **41 passed in 0.36s** before new tests.
+- Added two FastAPI TestClient HTTP dependency regressions for HMAC-signed subjects containing U+D800/U+DFFF, requiring HTTP 401. Ran the combined local suite: **43 passed in 0.40s**.
+- Promoted these two HTTP regression cases to the authentic `tests/test_gateway_dependency_http_isolated.py`, commit `533e9fa574fffaea1bd0aeddabc0de1884d8121a`.
+- Scope: isolated FastAPI probe with genuine security dependency and local test files, **not** real GAMMA business routes, real gateway/IdP, upstream actor→tenant→resource ACL, PostgreSQL or replay. No GitHub Actions, database connection, merge, deploy or LIVE. **HOLD / NO_GO**.
