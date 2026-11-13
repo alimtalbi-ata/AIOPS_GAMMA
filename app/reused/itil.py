@@ -85,6 +85,9 @@ def preview_itil_workflow(
         raise ValueError("Problem tenant or incident reference mismatch")
     if change is not None and (change.tenant_id != tenant or change.source_incident_id != incident.incident_id):
         raise ValueError("Change tenant or incident reference mismatch")
+    verified_observations = sum(
+        bool(ci.verified_against_cmdb and ci.cmdb_ci_id) for ci in incident.affected_cis
+    )
     verified_ci_ids = {ci.cmdb_ci_id for ci in incident.affected_cis if ci.verified_against_cmdb and ci.cmdb_ci_id}
     if change is not None and change.target_ci_id not in verified_ci_ids:
         raise ValueError("Change target CI must have a verified CMDB binding")
@@ -111,12 +114,8 @@ def preview_itil_workflow(
         },
         "service_configuration_management": {
             "observed_cis": len(incident.affected_cis),
-            "verified_cis": sum(
-                bool(ci.verified_against_cmdb and ci.cmdb_ci_id) for ci in incident.affected_cis
-            ),
-            "unverified_cis": len(incident.affected_cis) - sum(
-                bool(ci.verified_against_cmdb and ci.cmdb_ci_id) for ci in incident.affected_cis
-            ),
+            "verified_cis": verified_observations,
+            "unverified_cis": len(incident.affected_cis) - verified_observations,
             "cmdb_is_authoritative": True,
         },
         "problem_management": {
