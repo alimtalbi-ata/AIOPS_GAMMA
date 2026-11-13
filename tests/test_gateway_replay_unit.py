@@ -493,3 +493,24 @@ async def test_result_read_cancellation_rolls_back_without_commit():
         )
     session.commit.assert_not_awaited()
     session.rollback.assert_awaited_once()
+
+@pytest.mark.asyncio
+async def test_issuer_jti_boundary_is_unambiguous():
+    """Different issuer/JTI pairs must not collide under concatenation."""
+    import hashlib
+
+    pairs = [("ab", "cdefghijk"), ("a", "bcdefghijk")]
+    digests = []
+    for issuer, jti in pairs:
+        result = MagicMock()
+        result.scalar_one_or_none.return_value = "reserved"
+        session = SimpleNamespace(execute=AsyncMock(return_value=result))
+        assert await reserve_assertion_once(
+            session, issuer=issuer, assertion_id=jti, expires_at=1_800_000_000,
+        )
+        _, params = session.execute.await_args.args
+        assert params["digest"] == hashlib.sha256(
+            (issuer + "\x00" + jti).encode()
+        ).hexdigest()
+        digests.append(params["digest"])
+    assert digests[0] != digests[1]
