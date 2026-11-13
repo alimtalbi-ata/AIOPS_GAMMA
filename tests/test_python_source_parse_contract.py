@@ -116,3 +116,38 @@ def test_source_parser_rejects_missing_sources(tmp_path, monkeypatch):
     monkeypatch.setattr(sys.modules[__name__], "ROOT", tmp_path)
     with pytest.raises(AssertionError, match="No Python source files discovered"):
         test_all_python_sources_parse_without_imports()
+
+def test_exact_row_guard_rejects_inert_comparison(tmp_path, monkeypatch):
+    """A comparison expression alone cannot prove tenant isolation."""
+    import sys
+    import pytest
+
+    source = tmp_path / "tests" / "test_resource_list_http_postgres.py"
+    source.parent.mkdir()
+    source.write_text(
+        "def test_foreign_rows_and_foreign_incident_are_not_serialized():\n"
+        "    values = []\n"
+        "    expected = ['tenant-a-service']\n"
+        "    values == expected\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(sys.modules[__name__], "ROOT", tmp_path)
+    with pytest.raises(AssertionError, match="must assert exact"):
+        test_postgres_tenant_isolation_assertions_require_positive_exact_rows()
+
+
+def test_exact_row_guard_accepts_real_assertion(tmp_path, monkeypatch):
+    """An executable exact equality assertion satisfies the static contract."""
+    import sys
+
+    source = tmp_path / "tests" / "test_resource_list_http_postgres.py"
+    source.parent.mkdir()
+    source.write_text(
+        "def test_foreign_rows_and_foreign_incident_are_not_serialized():\n"
+        "    values = []\n"
+        "    expected = ['tenant-a-service']\n"
+        "    assert values == expected\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(sys.modules[__name__], "ROOT", tmp_path)
+    test_postgres_tenant_isolation_assertions_require_positive_exact_rows()
