@@ -1096,3 +1096,13 @@
   Commit: `6e098f552c5423b311911d0dec5dd6b2e8d6b1e9`.
 - Internal lab copied to writable `/tmp/gamma_join_lab`, using exact-source-verified `correlation.py`, `correlation_evidence.py`, and `evidence.py`. Added equivalent focused tests and ran `python -m pytest -q`: **33 passed in 0.09s**. This is a focused local suite, not execution of the exact committed `tests/test_correlation_evidence.py` file or the full repo suite.
 - No PostgreSQL, IdP, independent actor→tenant→resource ACL, GitHub Actions, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Multi-incident evidence claims and stale-join semantics
+
+- Added three tests to `tests/test_correlation_evidence.py`:
+  - One exact source-event identity claimed by two distinct incident IDs is **not** collapsed as a duplicate (the evidence normalizer's dedup identity includes `incident_id`); both claims remain visible, group state is `UNKNOWN`, join coverage may be complete but consistency is false, and persistence/LIVE remain disabled.
+  - Reversing those two incident claims leaves the complete preview result unchanged.
+  - Stale evidence can be identity-covered (no missing or unmatched item) while its group remains `UNKNOWN`; join completeness is true but consistency is false.
+  Commit: `9dd36e6a3244e31e67d02dfb20bda90cd24e5506`.
+- **Execution status:** these three committed tests have not been executed in the internal lab in this cycle. No test-pass count is claimed. Previous focused lab result remains 33 passed (from the preceding cycle), not including these additions.
+- No GitHub Actions, PostgreSQL, real IdP, independently enforced actor→tenant→resource ACL, merge, deploy or LIVE. **HOLD / NO_GO**.
