@@ -233,3 +233,42 @@ def test_replay_db_sql_qualification_guards_are_bound_before_yield():
                    and stmt.value.func.attr == "fail"
                    for stmt in guard.body):
             pytest.fail(f"{variable}: rejection must directly call pytest.fail")
+
+
+def test_replay_db_sql_guards_are_direct_connection_statements():
+    """Reject guards hidden in unreachable nested branches."""
+    source = (Path(__file__).parent / "test_gateway_replay_postgres.py").read_text(encoding="utf-8")
+    fixtures = [node for node in ast.parse(source).body
+                if isinstance(node, ast.AsyncFunctionDef) and node.name == "replay_db"]
+    if len(fixtures) != 1:
+        pytest.fail("Expected exactly one replay_db fixture")
+    fixture = fixtures[0]
+    connections = [node for node in ast.walk(fixture)
+                   if isinstance(node, ast.AsyncWith)
+                   and any(isinstance(item.context_expr, ast.Call)
+                           and isinstance(item.context_expr.func, ast.Attribute)
+                           and isinstance(item.context_expr.func.value, ast.Name)
+                           and item.context_expr.func.value.id == "engine"
+                           and item.context_expr.func.attr == "connect"
+                           for item in node.items)]
+    if len(connections) != 1:
+        pytest.fail("Expected exactly one engine connection qualification block")
+    statements = connections[0].body
+    names = ("db_name", "server_version", "is_loopback", "present", "revision")
+    for name in names:
+        assignments = [i for i, stmt in enumerate(statements)
+                       if isinstance(stmt, ast.Assign)
+                       and any(isinstance(target, ast.Name) and target.id == name
+                               for target in stmt.targets)]
+        if len(assignments) != 1:
+            pytest.fail(f"{name}: qualification must be a direct connection statement")
+        index = assignments[0]
+        if index + 1 >= len(statements) or not isinstance(statements[index + 1], ast.If):
+            pytest.fail(f"{name}: rejection must directly follow its SQL assignment")
+        guard = statements[index + 1]
+        if not any(isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call)
+                   and isinstance(stmt.value.func, ast.Attribute)
+                   and isinstance(stmt.value.func.value, ast.Name)
+                   and stmt.value.func.value.id == "pytest"
+                   and stmt.value.func.attr == "fail" for stmt in guard.body):
+            pytest.fail(f"{name}: rejection must directly call pytest.fail")
