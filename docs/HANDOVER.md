@@ -1142,3 +1142,18 @@
 - Internal lab: `python -m pytest -q tests/test_gateway_auth_extra.py` => **37 passed in 0.35s** (29 existing + 8 new).
 - **Exact-source caveat:** the lab's `app/security.py` Git blob SHA `9272074e061e176e78ea32d42198da3d43f82a05` does not match current GitHub source SHA `06f7bd7bb309133823efefd68dddb8d7784d90ca`; local `tests/test_gateway_auth_extra.py` SHA `e1d2cfcc21d156fcccaf9a4e0580e58d2f19dbae` also does not match committed SHA `deab17e7145566c3432a962e0338e3dc41da55f5`. The 37-pass result is a local adapted-lab check, **not** exact committed-source qualification.
 - These checks prove the service key alone does not select a tenant and that the signed assertion is request-bound. They do not prove the upstream Gateway actually authenticates actor→tenant membership, resource-level entitlements, replay prevention, or network/mTLS bypass resistance. No PostgreSQL, live IdP, GitHub Actions, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Replay and resource-authorization architecture audit (no unsafe wiring)
+
+- Audited the current branch tree and exact committed sources:
+  - `app/gateway_replay.py` implements a shared PostgreSQL digest reservation with atomic `INSERT .. ON CONFLICT DO NOTHING`, explicit commit-before-success and rollback on duplicate/error.
+  - `migrations/versions/0002_gateway_replay.py` creates the unique digest primary key and indexed timezone-aware expiry.
+  - `tests/test_gateway_replay_postgres.py` contains disposable-loopback-only PostgreSQL schema and 12-way concurrency/later-replay tests.
+  - `.github/workflows/ci.yml` defines a dedicated disposable PostgreSQL 16 job that applies migration, downgrades/re-upgrades, verifies DB identity/revision/table, then runs those integration tests.
+- The current safety guard `tests/test_gateway_replay_rollout_hold.py` deliberately asserts that neither `app/security.py` nor `app/main.py` imports/calls replay consumption. This is intentional: replay helper/migration are staged, but runtime authentication must remain unwired until the dedicated PostgreSQL qualification and Gateway owner approval are complete. **No GitHub Actions job was triggered in this cycle**, and no PostgreSQL integration pass is claimed.
+- Resource authorization review:
+  - `tests/test_gateway_resource_acl_contract.py` checks selected route source for tenant context derived from `Principal`, tenant-scoped list predicates, and payload-tenant rejection.
+  - `tests/test_resource_list_http_tenant_isolation.py` exercises the real list routes with signed assertions and an in-memory SQL spy, demonstrating tenant and resource-ID predicates while ignoring forged headers. It is explicitly not PostgreSQL/RLS/IdP proof.
+  - `app/security.py` verifies the signed assertion but does not independently query actor membership, roles/scopes or resource ownership. The trusted Gateway ACL and network/mTLS boundary remain external release dependencies.
+- **No test count added:** this cycle was a source/architecture audit only; no new code or tests were executed. The previous 37-pass adapted-lab result remains non-exact-source and must not be represented as current branch qualification.
+- Next safe actions: run the existing replay suite only against the explicitly disposable PostgreSQL 16 fixture (internal lab preferred); separately obtain Gateway owner approval and a verifiable actor→tenant→resource contract before wiring replay into `internal_principal`. Never use a process-local replay cache. No production/staging DB, no merge, deploy or LIVE. **HOLD / NO_GO**.
