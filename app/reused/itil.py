@@ -31,6 +31,8 @@ class ObservedCI(BaseModel):
     def time_is_aware(self):
         if self.last_observed_at.utcoffset() is None:
             raise ValueError("CI timestamp needs timezone")
+        if self.verified_against_cmdb and not self.cmdb_ci_id:
+            raise ValueError("Verified CI requires CMDB identifier")
         return self
 
 
