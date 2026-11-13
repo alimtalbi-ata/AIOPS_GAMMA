@@ -40,3 +40,16 @@ def test_anomaly_output_is_bounded_and_never_authorizes_remediation():
     assert result["truncated"] is True
     assert result["causal_inference"] is False
     assert result["live_remediation_authorized"] is False
+
+
+def test_tiny_mad_does_not_emit_nonfinite_json_scores():
+    import json
+    from math import isfinite
+
+    values = [0.0, 1e-300, 2e-300] * 4 + [1e15]
+    result = detect_anomalies(MetricSeries(metric_name="cpu", values=values))
+    assert result["state"] == "EVALUATED"
+    assert any(point["index"] == 12 for point in result["anomalies"])
+    assert all(isfinite(point["robust_z"]) for point in result["anomalies"])
+    json.dumps(result, allow_nan=False)
+    assert result["live_remediation_authorized"] is False
