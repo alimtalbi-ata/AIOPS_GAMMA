@@ -82,3 +82,13 @@ Added `docs/ITIL4-GOVERNANCE.md` and a typed, authenticated **preview-only** ITI
 ## Evidence-linked investigation preview (2026-11-09)
 
 Implemented `app/reused/investigation.py` and `POST /api/v1/incidents/investigation/preview` with tenant equality, bounded typed evidence, UTC-aware timestamps, hypothesis citation integrity and non-authoritative output. Tests cover cross-tenant denial, missing references, conflicting citations and unknowns. This is **not** an autonomous investigation agent or a verified RCA; no external evidence is retrieved. See [INVESTIGATION-PREVIEW](INVESTIGATION-PREVIEW.md). New HEAD CI pending.
+
+## Development checkpoint — 2026-11-13
+
+- Current branch HEAD at checkpoint: `b87c4d1ed0e44a87dc60a6591a93eceeed07d306`; PR #1 remains open, Draft, unmerged.
+- ITSM preview hardening: policy identity, mutable priority matrix/rules, incident identifier, nested request structure and authoritative ticket references are revalidated at the planning boundary. Regression tests were added, but **the latest ITSM tests have not been executed on a complete checkout**.
+- Exact-HEAD GitHub Actions lookup returned no PR-triggered workflow runs and no combined commit statuses for this HEAD. This is not a passing CI result. Historical runs with jobs missing steps/logs do not establish the root cause of the runner failure.
+- Issue #2 remains blocked: the canonical `aiops` repository has not supplied a verified gateway→actor→tenant ACL contract. Existing shared service tokens and caller-supplied tenant headers are not tenant authorization; inspected Core/Evidence/Twin routes and GAMMA's provisional adapter paths/schemas are not yet qualified for cross-tenant reads.
+- Safe state: `ENABLE_CANONICAL_READS=false`, `ENABLE_OPENSEARCH=false`; no canonical or shared tenant data access. Do not invent a JWT/HMAC contract, upstream route mapping, or NetworkPolicy gateway selectors.
+- Decision: **HOLD / NO_GO**. No merge, deployment, LIVE activation, ITSM mutation or production qualification.
+- Next gate: obtain the actual gateway/IdP and Core owner contract, then implement server-side actor→tenant membership and resource authorization in the canonical service; independently restore executable CI and run exact-HEAD Python, frontend, PostgreSQL and security gates.
