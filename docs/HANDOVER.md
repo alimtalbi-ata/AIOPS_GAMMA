@@ -830,3 +830,11 @@
 - In the internal ChatGPT lab, executed three AST mutation checks against a representative `prepare()` fixture: benign fixture accepted, an assertion inserted between connection and session blocks rejected, and an assertion inside the session block rejected; **3 passed in 0.03s**. These were representative AST tests, **not** the complete authentic PostgreSQL source or the newly committed regression test.
 - Added a regression mutation test to the actual repository that injects a pre-write assertion into the genuine PostgreSQL source and requires the static guard to reject it, commit `bdd0831e37871fa73f291cbbe770e932414cda13`. This exact committed test has not yet run locally; the complete source is still not materialized in the ChatGPT lab.
 - No GitHub Actions, DB, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Full authentic PostgreSQL test source parsed; both excluded AST checks now pass
+
+- Materialized the complete source of `tests/test_resource_list_http_postgres.py` (12,120 characters fetched from GitHub) under `/mnt/data/gamma_authentic_subset/tests/`. This was a manual transcription of the retrieved full file, **not a byte-for-byte verified Git checkout**.
+- `python -m py_compile tests/test_resource_list_http_postgres.py` succeeded **without importing app code or connecting to PostgreSQL**.
+- Updated the partial local copy of `tests/test_python_source_parse_contract.py` with the committed expanded `prepare()` AST guard and its new pre-write mutation regression. `python -m pytest -q tests/test_python_source_parse_contract.py`: **9 passed in 0.06s**, including both formerly deselected PostgreSQL AST checks and the new mutation test.
+- Full local authentic-module subset: `python -m pytest -q tests/test_python_source_parse_contract.py tests/test_tenant_scope_guard.py tests/test_redaction.py tests/test_upstream.py tests/test_canonical_acl_hard_hold_static.py`: **67 passed in 0.30s**. The PostgreSQL HTTP integration tests themselves were **not run**: no PostgreSQL 16, asyncpg or disposable DB was provisioned.
+- This is AST/syntax/static source evidence, **not** real actor→tenant→resource authorization, database isolation, actual GAMMA route HTTP, IdP or upstream ACL qualification. No GitHub Actions, DB connection, merge, deployment or LIVE. **HOLD / NO_GO**.
