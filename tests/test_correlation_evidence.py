@@ -505,3 +505,53 @@ def test_stale_evidence_is_identity_covered_but_never_consistent():
     assert result["unmatched_evidence"] == 0
     assert result["evidence_join_complete"] is True
     assert result["evidence_join_consistent"] is False
+
+def test_mixed_tenant_evidence_rejected_before_correlation_and_normalization(monkeypatch):
+    import app.reused.correlation_evidence as join_module
+
+    calls = {"correlate": 0, "normalize": 0}
+
+    def forbidden_correlate(*args, **kwargs):
+        calls["correlate"] += 1
+        raise AssertionError("correlation must not run for mixed-tenant evidence")
+
+    def forbidden_normalize(*args, **kwargs):
+        calls["normalize"] += 1
+        raise AssertionError("normalization must not run for mixed-tenant evidence")
+
+    monkeypatch.setattr(join_module, "correlate", forbidden_correlate)
+    monkeypatch.setattr(join_module, "normalize", forbidden_normalize)
+
+    req = request()
+    req.evidence.append(req.evidence[0].model_copy(update={"tenant_id": "tenant-b"}))
+    with pytest.raises(PermissionError, match="Cross-tenant evidence rejected"):
+        preview(req, TENANT, now=NOW)
+    assert calls == {"correlate": 0, "normalize": 0}
+
+
+def test_all_evidence_for_another_tenant_is_rejected_before_processing(monkeypatch):
+    import app.reused.correlation_evidence as join_module
+
+    calls = []
+    monkeypatch.setattr(join_module, "correlate", lambda *a, **k: calls.append("correlate"))
+    monkeypatch.setattr(join_module, "normalize", lambda *a, **k: calls.append("normalize"))
+
+    req = request(tenant="tenant-b")
+    with pytest.raises(PermissionError):
+        preview(req, TENANT, now=NOW)
+    assert calls == []
+
+
+def test_same_event_claimed_by_two_incidents_is_complete_but_not_consistent():
+    req = request()
+    req.evidence.append(req.evidence[0].model_copy(update={"incident_id": "inc-2"}))
+    result = preview(req, TENANT, now=NOW)
+    assert result["evidence_duplicates"] == 0
+    assert result["unmatched_evidence"] == 0
+    assert result["groups"][0]["evidence_covered_events"] == 1
+    assert result["groups"][0]["evidence_missing_events"] == 0
+    assert result["groups"][0]["evidence_state"] == "UNKNOWN"
+    assert result["evidence_join_complete"] is True
+    assert result["evidence_join_consistent"] is False
+    assert result["persisted"] is False
+    assert result["live_remediation_authorized"] is False
