@@ -822,3 +822,11 @@
 - Promoted two authentic mutation tests: a no-op comparison must be rejected, an executable assertion accepted, commit `6e996499f7bfcdc9fad357c55b36fb03eced191f`.
 - Applied the same source and tests in the partial ChatGPT lab: `python -m pytest -q tests/test_python_source_parse_contract.py -k 'source_parser or all_python_sources_parse or exact_row_guard'` => **6 passed, 2 deselected in 0.05s**. The deselected AST tests still require the actual PostgreSQL test source to be materialized. This is static/test integrity evidence, not a real PostgreSQL tenant isolation run.
 - No GitHub Actions, DB, merge, deployment or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — PostgreSQL pre-write guard strengthened against Python -O bypass
+
+- Inspected the exact `tests/test_resource_list_http_postgres.py` on the Draft branch (12,120 characters): `tenant_postgres.prepare()` performs disposable DB identity, loopback TCP, non-superuser, PostgreSQL 16, Alembic head, table presence and emptiness checks before inserts. No PostgreSQL connection was made.
+- Discovered a blind spot in `tests/test_python_source_parse_contract.py`: the `ast.Assert` ban covered only the first `async with engine.connect()` block, allowing optimizable assertions elsewhere in `prepare()` before writes. Strengthened the ban to all AST nodes in `prepare()`, commit `4b6cb977aa4dbb92c2d3fbaf91f3896519d9ec3b`.
+- In the internal ChatGPT lab, executed three AST mutation checks against a representative `prepare()` fixture: benign fixture accepted, an assertion inserted between connection and session blocks rejected, and an assertion inside the session block rejected; **3 passed in 0.03s**. These were representative AST tests, **not** the complete authentic PostgreSQL source or the newly committed regression test.
+- Added a regression mutation test to the actual repository that injects a pre-write assertion into the genuine PostgreSQL source and requires the static guard to reject it, commit `bdd0831e37871fa73f291cbbe770e932414cda13`. This exact committed test has not yet run locally; the complete source is still not materialized in the ChatGPT lab.
+- No GitHub Actions, DB, merge, deploy or LIVE. **HOLD / NO_GO**.
