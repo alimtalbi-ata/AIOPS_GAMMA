@@ -272,3 +272,37 @@ def test_replay_db_sql_guards_are_direct_connection_statements():
                    and stmt.value.func.value.id == "pytest"
                    and stmt.value.func.attr == "fail" for stmt in guard.body):
             pytest.fail(f"{name}: rejection must directly call pytest.fail")
+
+
+def test_replay_db_connection_qualification_is_reachable_before_session_yield():
+    """Reject an unreachable connection block or a session yielded before qualification."""
+    source = (Path(__file__).parent / "test_gateway_replay_postgres.py").read_text(encoding="utf-8")
+    fixtures = [node for node in ast.parse(source).body
+                if isinstance(node, ast.AsyncFunctionDef) and node.name == "replay_db"]
+    if len(fixtures) != 1:
+        pytest.fail("Expected exactly one replay_db fixture")
+    fixture = fixtures[0]
+    tries = [node for node in fixture.body if isinstance(node, ast.Try)]
+    if len(tries) != 1:
+        pytest.fail("Expected one direct connection lifecycle try block")
+    statements = tries[0].body
+    if len(statements) != 2:
+        pytest.fail("Connection qualification and session yield must be consecutive")
+    connection, session_yield = statements
+    if not (isinstance(connection, ast.AsyncWith)
+            and len(connection.items) == 1
+            and isinstance(connection.items[0].context_expr, ast.Call)
+            and isinstance(connection.items[0].context_expr.func, ast.Attribute)
+            and isinstance(connection.items[0].context_expr.func.value, ast.Name)
+            and connection.items[0].context_expr.func.value.id == "engine"
+            and connection.items[0].context_expr.func.attr == "connect"):
+        pytest.fail("Connection qualification must be a direct, reachable try statement")
+    if not (isinstance(session_yield, ast.Expr)
+            and isinstance(session_yield.value, ast.Yield)
+            and isinstance(session_yield.value.value, ast.Call)
+            and isinstance(session_yield.value.value.func, ast.Name)
+            and session_yield.value.value.func.id == "async_sessionmaker"):
+        pytest.fail("Session must be yielded directly after the connection qualification")
+    if sum(isinstance(node, (ast.Yield, ast.YieldFrom))
+           for node in ast.walk(fixture)) != 1:
+        pytest.fail("Expected exactly one session yield")
