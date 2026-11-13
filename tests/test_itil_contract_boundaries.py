@@ -150,3 +150,13 @@ def test_ci_timestamp_with_nonfunctional_tzinfo_is_rejected():
             service_name="checkout", discovery_source="otel",
             last_observed_at=datetime(2026, 11, 13, tzinfo=NoOffset()),
         )
+
+
+@pytest.mark.parametrize("cmdb_ci_id", [None, ""])
+def test_verified_ci_requires_nonempty_cmdb_identifier(cmdb_ci_id):
+    with pytest.raises(ValidationError, match="CMDB identifier"):
+        ObservedCI(
+            service_name="checkout", cmdb_ci_id=cmdb_ci_id,
+            discovery_source="otel", last_observed_at=datetime.now(timezone.utc),
+            verified_against_cmdb=True,
+        )
