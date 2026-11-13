@@ -1218,3 +1218,9 @@
 - Re-ran the opt-in PostgreSQL integration contract previously: **5 passed, 3 skipped**. The three DB-dependent tests skipped because this environment has no PostgreSQL server/client, Docker/Podman, or `asyncpg` driver. Verified again: no `postgres`, `initdb`, `pg_ctl`, `psql`, Docker or Podman executable is available. Do not claim real PostgreSQL qualification or concurrency coverage.
 - The current CI workflow already contains a disposable PostgreSQL 16 service job and explicit DB-name/write-acknowledgement guards, but its prior GitHub Actions attempt failed before runner steps; no successful CI PostgreSQL job has been observed. Do not retry Actions automatically in this cycle.
 - The replay helper remains deliberately unwired from `app/security.py` and `app/main.py`. No code-path activation, merge, deploy, staging/production DB write, or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Replay transaction ordering and JTI boundary tests
+
+- Added seven regression cases to `tests/test_gateway_replay_unit.py`: ordered insert-before-commit, conflict rollback-without-commit, distinct JTI digest separation under one issuer, and four noncanonical JTI rejection cases (129 characters, NUL, DEL, non-ASCII). Commit `e35cf925801c6851fba65036fc57414c8037e688`.
+- Internal lab `/mnt/data/gamma_replay_current`: verified the new test file Git blob SHA `a9f6035f44faeed9723a473b6c5797772a2f7c57` matches GitHub, and ran `python -m pytest -q tests/test_gateway_replay_unit.py tests/test_gateway_replay_migration_contract.py`: **22 passed in 0.31s** (18 replay unit + 4 migration contract). Prior lab verified the replay helper and migration source blobs against GitHub.
+- This does not establish actual PostgreSQL concurrency or migration upgrade/downgrade. Internal runtime lacks PostgreSQL binaries, Docker/Podman, and asyncpg; no external or production DB was accessed. No GitHub Actions rerun. Replay remains unwired; no merge, deploy or LIVE. **HOLD / NO_GO**.
