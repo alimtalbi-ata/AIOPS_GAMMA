@@ -800,3 +800,11 @@
 - Executed `cd /mnt/data/gamma_security_lab && python -m pytest -q tests/test_gateway_dependency_http_isolated.py tests/test_gateway_auth_extra.py`: **37 passed in 0.49s**. This includes the complete authentic isolated HTTP suite, not merely a reconstructed probe.
 - Verifies real `internal_principal` dependency with FastAPI TestClient: rejects service-key-only and untrusted identity headers, wrong keys, invalid/expired/method/path-mismatched assertions, duplicate JSON claims, noncanonical base64url and tampered signatures; signed tenant remains authoritative over forged `X-Tenant-ID`.
 - Scope: isolated synthetic `/api/v1/probe` endpoint with real security dependency, **not** all GAMMA business routes or real IdP/gateway/actor→tenant→resource ACL. No PostgreSQL or upstream HTTP qualification. No GitHub Actions, DB, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Authentic canonical HOLD static guard and mutation probes
+
+- Retrieved and materialized the exact `tests/test_canonical_acl_hard_hold_static.py` in `/mnt/data/gamma_authentic_subset/` alongside authentic upstream, tenant-scope and redaction sources and tests.
+- Executed `python -m pytest -q tests/test_canonical_acl_hard_hold_static.py tests/test_upstream.py tests/test_tenant_scope_guard.py tests/test_redaction.py`: **56 passed in 0.34s**.
+- Exercised the actual static HOLD guard against two local mutated copies of `app/reused/upstream.py`: (1) replacing unconditional 503 with a positive return, and (2) inserting network I/O before the 503. Both were rejected; targeted run **3 passed in 0.03s** (the original guard and two local mutation tests).
+- Promoted both mutation checks to authentic `tests/test_canonical_acl_hard_hold_static.py`, commit `854ed77d41112e6c9679cab327acf0424d04491d`. Local mutation checks used a separate helper file with equivalent logic; newly committed exact test file has not been rerun after promotion.
+- Static source and local subset only: not real business-route HTTP, upstream source ACL, PostgreSQL, IdP or replay. No GitHub Actions, DB, merge, deploy or LIVE. **HOLD / NO_GO**.
