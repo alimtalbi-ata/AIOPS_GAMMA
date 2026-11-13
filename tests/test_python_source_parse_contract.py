@@ -104,3 +104,12 @@ def test_source_parser_accepts_valid_python_in_disposable_tree(tmp_path, monkeyp
     (directory / "valid.py").write_text("x = 1\n", encoding="utf-8")
     monkeypatch.setattr(module, "ROOT", tmp_path)
     test_all_python_sources_parse_without_imports()
+
+def test_source_parser_rejects_missing_sources(tmp_path, monkeypatch):
+    """A missing checkout must not be reported as a clean syntax scan."""
+    import sys
+    import pytest
+
+    monkeypatch.setattr(sys.modules[__name__], "ROOT", tmp_path)
+    with pytest.raises(AssertionError, match="No Python source files discovered"):
+        test_all_python_sources_parse_without_imports()
