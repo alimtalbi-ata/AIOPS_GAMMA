@@ -61,3 +61,14 @@ def test_finite_but_extreme_z_score_is_capped():
     score = next(point["robust_z"] for point in result["anomalies"] if point["index"] == 12)
     assert score == 1e12
     assert result["live_remediation_authorized"] is False
+
+
+def test_negative_extreme_z_score_is_finite_and_signed():
+    import json
+
+    values = [-1e10] + [0.0, 1e-10, 2e-10] * 4
+    result = detect_anomalies(MetricSeries(metric_name="cpu", values=values))
+    score = next(point["robust_z"] for point in result["anomalies"] if point["index"] == 0)
+    assert score == -1e12
+    json.dumps(result, allow_nan=False)
+    assert result["live_remediation_authorized"] is False
