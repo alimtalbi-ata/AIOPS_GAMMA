@@ -229,3 +229,52 @@ async def test_noncanonical_replay_jti_fails_before_sql(jti):
     session.execute.assert_not_awaited()
     session.commit.assert_not_awaited()
     session.rollback.assert_awaited_once()
+
+@pytest.mark.asyncio
+async def test_replay_key_does_not_change_when_expiry_changes():
+    """A re-signed expiry must not create a second reservation for the same JTI."""
+    digests = []
+    for expiry in (1_800_000_000, 1_800_000_030):
+        result = MagicMock()
+        result.scalar_one_or_none.return_value = "reserved"
+        session = SimpleNamespace(execute=AsyncMock(return_value=result))
+        assert await reserve_assertion_once(
+            session, issuer="trusted-gateway", assertion_id="assertion-123456",
+            expires_at=expiry,
+        )
+        digests.append(session.execute.await_args.args[1]["digest"])
+    assert digests[0] == digests[1]
+
+
+@pytest.mark.asyncio
+async def test_replay_insert_never_sends_raw_issuer_or_jti_to_database():
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = "reserved"
+    session = SimpleNamespace(execute=AsyncMock(return_value=result))
+    assert await reserve_assertion_once(
+        session, issuer="sensitive-issuer", assertion_id="assertion-123456",
+        expires_at=1_800_000_000,
+    )
+    statement, params = session.execute.await_args.args
+    assert set(params) == {"digest", "expires_at"}
+    assert "sensitive-issuer" not in str(statement)
+    assert "assertion-123456" not in str(statement)
+    assert "sensitive-issuer" not in str(params)
+    assert "assertion-123456" not in str(params)
+
+
+@pytest.mark.asyncio
+async def test_rollback_failure_does_not_return_success_on_duplicate():
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = None
+    session = SimpleNamespace(
+        execute=AsyncMock(return_value=result),
+        commit=AsyncMock(),
+        rollback=AsyncMock(side_effect=RuntimeError("rollback unavailable")),
+    )
+    with pytest.raises(RuntimeError, match="rollback unavailable"):
+        await consume_assertion_before_access(
+            session, issuer="gateway", assertion_id="assertion-123456",
+            expires_at=1_800_000_000,
+        )
+    session.commit.assert_not_awaited()
