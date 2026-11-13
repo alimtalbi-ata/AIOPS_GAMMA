@@ -50,3 +50,15 @@ def test_repeated_redaction_does_not_reveal_secrets():
     twice = redact_text(once)
     assert "secret123456" not in twice
     assert "ghu_ABCDEF123456789" not in twice
+
+
+def test_json_and_single_quoted_secret_fields_are_redacted():
+    examples = [
+        ('{"password": "secret123456"}', "secret123456"),
+        ("{'api_key': 'abcdefghi123'}", "abcdefghi123"),
+        ('password="secret123456"', "secret123456"),
+    ]
+    for diagnostic, secret in examples:
+        result = redact_text(diagnostic)
+        assert secret not in result
+        assert "[REDACTED]" in result
