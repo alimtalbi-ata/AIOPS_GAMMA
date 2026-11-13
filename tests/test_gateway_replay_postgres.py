@@ -55,6 +55,13 @@ async def replay_db():
             assert server_version is not None and int(server_version) // 10000 == 16, (
                 "Replay integration qualification requires PostgreSQL 16"
             )
+            # Check the actual connected server endpoint, not only the DSN
+            # hostname (which could resolve unexpectedly).
+            is_loopback = await connection.scalar(text(
+                "SELECT inet_server_addr() << inet '127.0.0.0/8' "
+                "OR inet_server_addr() = inet '::1'"
+            ))
+            assert is_loopback is True, "Replay DB connection must terminate on loopback"
             # Fail rather than creating schema in an unqualified database.
             present = await connection.scalar(
                 text("SELECT to_regclass('gateway_assertion_replay')")
