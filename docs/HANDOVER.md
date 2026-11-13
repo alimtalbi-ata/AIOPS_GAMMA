@@ -696,3 +696,10 @@
 - In the disposable ChatGPT Python lab, ran `python -m pytest -q test_pg_server_identity.py test_pg_url_query_guard.py test_principal_contract.py` => **27 passed in 0.18s**. The 10 new cases cover allowed IPv4/IPv6 loopback, remote/socket rejection, superuser/unverified role rejection and unsupported PostgreSQL version rejection.
 - **Evidence boundary:** these tests exercise isolated reconstructed predicates, not an authentic repository checkout, actual FastAPI route, real PostgreSQL connection, Alembic migration or end-to-end actor→tenant authorization. The repository PostgreSQL HTTP tests remain **NOT EXECUTED**. The local lab did not contact a database or GitHub Actions.
 - No runtime application, migration, gateway, canonical adapter, production resource or LIVE state changed. PR #1 remains Draft, canonical reads hard 503, **HOLD / NO_GO**.
+
+### 2026-11-13 — Local lab-first syntax repair on committed PostgreSQL test
+
+- Inspected the exact repository file `tests/test_resource_list_http_postgres.py` through the connected source interface and found a **real syntax defect**: the earlier URL-query guard had been committed with literal `\\n` sequences inside Python source. This made the repository test module invalid, despite isolated reconstructed helper tests passing. Corrected it on the Draft PR branch, commit `1f41686d7c96de0b1efb6f94c40e065e63edc97e`.
+- Re-fetched the exact updated file and verified that the malformed literal sequence is absent and that the proper multi-line `if parsed.query:` fail-closed guard and connected-server checks are present.
+- Re-ran the existing local reconstructed ChatGPT harness in `/mnt/data/gamma_lab`: `python -m pytest -q` => **27 passed in 0.19s**. **Important:** this harness is not the actual repository pytest module; it would not have detected the malformed source. The syntax repair was confirmed by source inspection, not a complete checkout compilation.
+- No GitHub Actions reruns, external PostgreSQL connection, runtime changes, upstream access, merge or LIVE actions. PR #1 remains Draft; **HOLD / NO_GO**.
