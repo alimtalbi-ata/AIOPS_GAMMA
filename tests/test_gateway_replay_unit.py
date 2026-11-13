@@ -473,3 +473,23 @@ async def test_execute_and_rollback_both_fail_never_authorize(failure):
         )
     session.commit.assert_not_awaited()
     session.rollback.assert_awaited_once()
+
+@pytest.mark.asyncio
+async def test_result_read_cancellation_rolls_back_without_commit():
+    """Cancellation while inspecting INSERT RETURNING must never authorize."""
+    import asyncio
+
+    result = MagicMock()
+    result.scalar_one_or_none.side_effect = asyncio.CancelledError()
+    session = SimpleNamespace(
+        execute=AsyncMock(return_value=result),
+        commit=AsyncMock(),
+        rollback=AsyncMock(),
+    )
+    with pytest.raises(asyncio.CancelledError):
+        await consume_assertion_before_access(
+            session, issuer="gateway", assertion_id="assertion-123456",
+            expires_at=1_800_000_000,
+        )
+    session.commit.assert_not_awaited()
+    session.rollback.assert_awaited_once()
