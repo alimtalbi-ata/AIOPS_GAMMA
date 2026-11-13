@@ -211,3 +211,51 @@ def test_conflicting_duplicate_representative_is_stable_across_input_order():
     assert first["groups"][0]["itsm_ticket_state"] == "NOT_CREATED"
     assert first["persisted"] is False
     assert first["live_remediation_authorized"] is False
+
+def test_ci_identity_groups_services_only_when_same_ci_is_explicit():
+    events = [
+        signal("a", service="checkout", ci="CI-42"),
+        signal("b", service="payments", ci="CI-42"),
+        signal("c", service="checkout", ci="CI-43"),
+    ]
+    result = correlate(events, "tenant-1")
+    assert len(result["groups"]) == 2
+    by_ci = {group["ci_id"]: group["event_count"] for group in result["groups"]}
+    assert by_ci == {"CI-42": 2, "CI-43": 1}
+
+
+def test_environment_and_symptom_are_hard_group_boundaries():
+    events = [
+        signal("a", service="checkout", symptom="timeout", at=NOW),
+        signal("b", service="checkout", symptom="latency", at=NOW + timedelta(seconds=1)),
+        signal("c", service="checkout", symptom="timeout", at=NOW + timedelta(seconds=2)).model_copy(update={"environment": "staging"}),
+    ]
+    result = correlate(events, "tenant-1")
+    assert len(result["groups"]) == 3
+    assert {group["environment"] for group in result["groups"]} == {"prod", "staging"}
+    assert {group["symptom_key"] for group in result["groups"]} == {"timeout", "latency"}
+
+
+def test_ci_and_service_identity_namespaces_do_not_collide():
+    events = [
+        signal("a", service="CI-42", ci=None),
+        signal("b", service="different-service", ci="CI-42"),
+    ]
+    result = correlate(events, "tenant-1")
+    assert len(result["groups"]) == 2
+    assert {group["ci_id"] for group in result["groups"]} == {None, "CI-42"}
+
+
+def test_duplicate_conflict_is_scoped_to_exact_source_identity():
+    events = [
+        signal("shared", source="otel", severity="major"),
+        signal("shared", source="otel", severity="critical"),
+        signal("shared", source="prometheus", severity="info"),
+    ]
+    result = correlate(events, "tenant-1")
+    assert result["deduplicated_events"] == 1
+    assert result["conflicting_source_events"] == 1
+    assert sum(group["event_count"] for group in result["groups"]) == 2
+    assert sum(group["conflicting_source_events"] for group in result["groups"]) == 1
+    assert result["persisted"] is False
+    assert result["live_remediation_authorized"] is False
