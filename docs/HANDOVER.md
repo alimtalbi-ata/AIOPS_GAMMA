@@ -1128,3 +1128,17 @@
 - Internal lab `/mnt/data/gamma_security_lab`: added equivalent tests and ran `python -m pytest -q tests/test_gateway_auth_extra.py`: **29 passed in 0.26s** (18 existing + 11 new cases).
 - **Exact-source caveat:** local `app/security.py` blob `4f5852e02c443ee02d41273ff81ed96f42363ae4` does not match current GitHub source blob `06f7bd7bb309133823efefd68dddb8d7784d90ca`; local `app/settings.py` blob `0572953d116fa1b525cbaa693d2941384b839767` is also not newly verified against GitHub in this cycle. Thus the 29-pass result is a local compatibility check against the existing lab source, **not** a qualification run against the exact current committed verifier/test files.
 - Authorization boundary remains explicit: the signed `tenant_access=true` assertion is trusted as a Gateway attestation. This verifier does not independently query IdP membership, role/scope entitlements, resource ownership, or tenant membership; those must be enforced by the trusted Gateway and/or a separately qualified authorization layer. No PostgreSQL, real IdP, GitHub Actions, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Internal principal service-key and tenant-header spoof regressions
+
+- Added eight cases to `tests/test_gateway_auth_extra.py`:
+  - Missing, empty and incorrect internal service keys return 401.
+  - An unconfigured internal service key fails closed with 503.
+  - A valid service key without a signed Gateway assertion returns 401.
+  - A caller-supplied `X-Tenant-ID` cannot override the tenant in the verified signed assertion.
+  - Assertions bound to a different HTTP method or path return 401.
+  Commit: `645e0b68307d94aaaf95c66c817e5975b07d7974`.
+- The tenant-header test initially failed because its helper generated a fixed historical assertion timestamp while `internal_principal` correctly uses the live clock. Fixed the test by freezing `app.security.time.time` at the helper's test timestamp. Commit: `a59ce3538d3836f38061f0c0c12516235ba93480`.
+- Internal lab: `python -m pytest -q tests/test_gateway_auth_extra.py` => **37 passed in 0.35s** (29 existing + 8 new).
+- **Exact-source caveat:** the lab's `app/security.py` Git blob SHA `9272074e061e176e78ea32d42198da3d43f82a05` does not match current GitHub source SHA `06f7bd7bb309133823efefd68dddb8d7784d90ca`; local `tests/test_gateway_auth_extra.py` SHA `e1d2cfcc21d156fcccaf9a4e0580e58d2f19dbae` also does not match committed SHA `deab17e7145566c3432a962e0338e3dc41da55f5`. The 37-pass result is a local adapted-lab check, **not** exact committed-source qualification.
+- These checks prove the service key alone does not select a tenant and that the signed assertion is request-bound. They do not prove the upstream Gateway actually authenticates actor→tenant membership, resource-level entitlements, replay prevention, or network/mTLS bypass resistance. No PostgreSQL, live IdP, GitHub Actions, merge, deploy or LIVE. **HOLD / NO_GO**.
