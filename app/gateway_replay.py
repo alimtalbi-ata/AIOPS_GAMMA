@@ -53,11 +53,13 @@ async def consume_assertion_before_access(
         reserved = await reserve_assertion_once(
             session, issuer=issuer, assertion_id=assertion_id, expires_at=expires_at
         )
-        if not reserved:
-            await session.rollback()
-            return False
-        await session.commit()
-        return True
+        if reserved:
+            await session.commit()
+            return True
     except Exception:
         await session.rollback()
         raise
+    # A duplicate must roll back exactly once. Keep this outside the
+    # exception handler so a rollback failure is never retried or masked.
+    await session.rollback()
+    return False
