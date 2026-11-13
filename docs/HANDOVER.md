@@ -710,3 +710,10 @@
 - Replaced the negative-only check with `assert values == expected`, where the expected positive row is tenant A's service binding or evidence for the requested incident; retained explicit forbidden foreign/other-incident checks. Commit `c447773d828fa0787f66775cd7b7216b815e4b29`.
 - Ran the disposable ChatGPT local harness `python -m pytest -q` in `/mnt/data/gamma_lab`: **34 passed in 0.20s**, including 7 isolated positive/negative assertion scenarios. These are **reconstructed local unit checks**, not a checkout or execution of repository HTTP/PostgreSQL tests. PostgreSQL-backed tests remain **NOT EXECUTED**.
 - No GitHub Actions invocation, database connection, runtime changes, upstream read, merge or LIVE action. PR #1 stays Draft. **HOLD / NO_GO**.
+
+### 2026-11-13 — Source parsing guard added, lab-first
+
+- Added `tests/test_python_source_parse_contract.py` on Draft branch (commit `b8961c7083401f021cdd4dfd83539fb2516f88d8`). It parses all Python sources under `app/`, `tests/`, `migrations/`, and `scripts/` with `ast.parse` without imports, DB access or network, and statically requires a positive exact-row assertion in the PostgreSQL tenant isolation test. This is a regression guard against the literal-`\\n` syntax defect previously discovered.
+- Re-ran the **existing local reconstructed harness** `python -m pytest -q /mnt/data/gamma_lab`: **34 passed in 0.29s**. Independently parsed the four Python files in that local harness successfully.
+- **Do not conflate evidence:** the newly committed source parsing test has not run against a full authenticated repository checkout. Local container cannot resolve github.com, and the GitHub connector does not mount a checkout into the container. Full repository syntax/pytest/HTTP/PostgreSQL qualification remains outstanding.
+- No GitHub Actions reruns, production or disposable DB access, merge, deployment, upstream read, canonical enablement or LIVE action. **HOLD / NO_GO**.
