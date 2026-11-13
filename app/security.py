@@ -91,7 +91,7 @@ def verify_gateway_assertion(token: str, *, method: str, path: str, now: int | N
         actor_type = claims.get("actor_type")
         assertion_id = claims.get("jti")
         if (not isinstance(subject, str) or not subject.strip() or len(subject) > 256
-                or any(ord(ch) < 32 or ord(ch) == 127 for ch in subject)):
+                or any(ord(ch) < 32 or ord(ch) == 127 or 0xD800 <= ord(ch) <= 0xDFFF for ch in subject)):
             raise ValueError("invalid subject")
         if actor_type not in ("user", "service"):
             raise ValueError("invalid actor type")
