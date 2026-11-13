@@ -153,3 +153,25 @@ def test_exact_row_guard_accepts_real_assertion(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(sys.modules[__name__], "ROOT", tmp_path)
     test_postgres_tenant_isolation_assertions_require_positive_exact_rows()
+
+def test_postgres_preflight_guard_rejects_assert_after_connection_block(tmp_path, monkeypatch):
+    """An assertion between the connection preflight and inserts is unsafe under -O."""
+    import sys
+    import pytest
+
+    source = (ROOT / "tests" / "test_resource_list_http_postgres.py").read_text(
+        encoding="utf-8"
+    )
+    needle = "        async with factory() as session:"
+    assert source.count(needle) >= 1
+    changed = source.replace(
+        needle,
+        '        assert True, "unsafe pre-write check"\n' + needle,
+        1,
+    )
+    candidate = tmp_path / "tests" / "test_resource_list_http_postgres.py"
+    candidate.parent.mkdir()
+    candidate.write_text(changed, encoding="utf-8")
+    monkeypatch.setattr(sys.modules[__name__], "ROOT", tmp_path)
+    with pytest.raises(AssertionError, match="optimizable assert"):
+        test_disposable_postgres_preflight_never_uses_optimizable_assertions()
