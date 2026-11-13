@@ -36,16 +36,19 @@ def test_postgres_tenant_isolation_assertions_require_positive_exact_rows():
         if isinstance(node, ast.FunctionDef)
         and node.name == "test_foreign_rows_and_foreign_incident_are_not_serialized"
     )
-    comparisons = [
+    exact_assertions = [
         node for node in ast.walk(test)
-        if isinstance(node, ast.Compare)
-        and isinstance(node.left, ast.Name)
-        and node.left.id == "values"
-        and any(isinstance(op, ast.Eq) for op in node.ops)
-        and any(isinstance(item, ast.Name) and item.id == "expected"
-                for item in node.comparators)
+        if isinstance(node, ast.Assert)
+        and isinstance(node.test, ast.Compare)
+        and isinstance(node.test.left, ast.Name)
+        and node.test.left.id == "values"
+        and len(node.test.ops) == 1
+        and isinstance(node.test.ops[0], ast.Eq)
+        and len(node.test.comparators) == 1
+        and isinstance(node.test.comparators[0], ast.Name)
+        and node.test.comparators[0].id == "expected"
     ]
-    assert comparisons, "Isolation test must require exact positive tenant-owned rows"
+    assert exact_assertions, "Isolation test must assert exact positive tenant-owned rows"
 
 def test_disposable_postgres_preflight_never_uses_optimizable_assertions():
     """A Python -O invocation must not remove pre-write safety checks."""
@@ -86,7 +89,7 @@ def test_source_parser_detects_invalid_python_in_disposable_tree(tmp_path, monke
     module = sys.modules[__name__]
     directory = tmp_path / "app"
     directory.mkdir()
-    (directory / "broken.py").write_text("x = 1\\n    if True:\\n", encoding="utf-8")
+    (directory / "broken.py").write_text("x = 1\n    if True:\n", encoding="utf-8")
     monkeypatch.setattr(module, "ROOT", tmp_path)
     import pytest
 
