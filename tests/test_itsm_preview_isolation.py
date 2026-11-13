@@ -43,3 +43,20 @@ def test_itsm_preview_rejects_control_characters_in_evidence(bad_ref):
     )
     with pytest.raises(ValueError, match="Invalid evidence"):
         plan_incident_sync(IncidentSyncPreview(incident=incident, matrix=matrix), tenant)
+
+
+@pytest.mark.parametrize("incident_id", [" ", "INC\\n2", "INC\\r2", "INC\\t2", "INC\\x00", "INC\\x7f"])
+def test_incident_identifier_must_be_safe_for_sync_key(incident_id):
+    tenant = uuid4()
+    incident = IncidentAssessment(
+        tenant_id=tenant, incident_id=incident_id, urgency="high", impact="high",
+        evidence_refs=["trace-1"],
+    )
+    levels = ("high", "medium", "low")
+    matrix = PriorityMatrix(
+        policy_id="policy", version="v1",
+        rules=[PriorityRule(impact=i, urgency=u, priority="P1")
+               for i in levels for u in levels],
+    )
+    with pytest.raises(ValueError, match="Invalid incident identifier"):
+        plan_incident_sync(IncidentSyncPreview(incident=incident, matrix=matrix), tenant)
