@@ -101,3 +101,27 @@ def test_tenant_api_cache_middleware_is_present():
     assert '"/api/v1/"' in source
     assert '"Cache-Control"' in source
     assert '"no-store"' in source
+
+def test_public_demo_routes_only_call_reviewed_synthetic_helpers():
+    """Public demos must not gain database, network or tenant-data access."""
+    expected_helpers = {
+        "/api/v1/demo/correlation": "synthetic_correlation_demo",
+        "/api/v1/demo/investigation": "synthetic_investigation_demo",
+    }
+    for method, path, node in _routes():
+        if path not in expected_helpers:
+            continue
+        assert method == "GET"
+        helper = expected_helpers[path]
+        assert len(node.body) == 3, f"Public demo body changed: {path}"
+        assert isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Constant)
+        imported = node.body[1]
+        assert isinstance(imported, ast.ImportFrom) and imported.module == "app.demo"
+        assert len(imported.names) == 1 and imported.names[0].name == helper
+        result = node.body[2]
+        assert isinstance(result, ast.Return)
+        assert isinstance(result.value, ast.Call)
+        assert isinstance(result.value.func, ast.Name)
+        assert result.value.func.id == helper
+        assert not result.value.args and not result.value.keywords
+        assert not any(isinstance(child, ast.Await) for child in ast.walk(node))
