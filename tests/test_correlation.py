@@ -160,3 +160,54 @@ def test_distinct_sources_with_same_external_id_are_not_deduplicated():
     assert result["deduplicated_events"] == 0
     assert result["groups"][0]["event_count"] == 2
     assert result["conflicting_source_events"] == 0
+
+def test_window_uses_rolling_adjacent_event_gap_not_total_group_span():
+    events = [
+        signal("a", at=NOW),
+        signal("b", at=NOW + timedelta(seconds=250)),
+        signal("c", at=NOW + timedelta(seconds=500)),
+    ]
+    result = correlate(events, "tenant-1", window_seconds=300)
+    assert len(result["groups"]) == 1
+    assert result["groups"][0]["event_count"] == 3
+    assert result["groups"][0]["first_observed_at"] == NOW.isoformat()
+    assert result["groups"][0]["last_observed_at"] == (NOW + timedelta(seconds=500)).isoformat()
+
+
+def test_gap_beyond_window_starts_new_group_even_after_valid_chain():
+    events = [
+        signal("a", at=NOW),
+        signal("b", at=NOW + timedelta(seconds=250)),
+        signal("c", at=NOW + timedelta(seconds=551)),
+    ]
+    result = correlate(events, "tenant-1", window_seconds=300)
+    assert len(result["groups"]) == 2
+    assert [group["event_count"] for group in result["groups"]] == [2, 1]
+
+
+def test_same_event_identity_is_deduplicated_only_once_per_source():
+    events = [
+        signal("same", source="otel"),
+        signal("same", source="otel"),
+        signal("same", source="prometheus"),
+        signal("same", source="prometheus"),
+    ]
+    result = correlate(events, "tenant-1")
+    assert result["source_events"] == 4
+    assert result["deduplicated_events"] == 2
+    assert result["groups"][0]["event_count"] == 2
+
+
+def test_conflicting_duplicate_representative_is_stable_across_input_order():
+    original = signal("same", severity="major", status="firing")
+    changed = signal("same", severity="critical", status="resolved")
+    first = correlate([original, changed], "tenant-1")
+    second = correlate([changed, original], "tenant-1")
+    assert first == second
+    assert first["deduplicated_events"] == 1
+    assert first["conflicting_source_events"] == 1
+    assert first["groups"][0]["conflicting_source_events"] == 1
+    assert first["groups"][0]["root_cause_state"] == "UNKNOWN"
+    assert first["groups"][0]["itsm_ticket_state"] == "NOT_CREATED"
+    assert first["persisted"] is False
+    assert first["live_remediation_authorized"] is False
