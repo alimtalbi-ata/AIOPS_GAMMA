@@ -165,6 +165,7 @@ def test_internal_principal_requires_gateway_assertion_after_service_auth(monkey
 
 def test_internal_principal_ignores_caller_selected_tenant_header(monkeypatch):
     monkeypatch.setattr(settings, "internal_api_key", "service-secret")
+    monkeypatch.setattr("app.security.time.time", lambda: 1030)
     token = signed(monkeypatch)
     request = request_with_headers(headers={"X-Tenant-ID": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"})
     principal = internal_principal(
