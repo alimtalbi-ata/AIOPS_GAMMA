@@ -1206,3 +1206,15 @@
 - Ran the exact committed unit test file against the exact committed helper: **11 passed in 0.22s**. This is the first exact-source unit qualification for this helper in this cycle.
 - Reconstructed the PostgreSQL integration test file in the lab from the fetched source, but its local blob SHA **350045d70fb41ec20d00bf80f3eadaca5ba51d04** does not match GitHub blob **25b508661c7e2eeaa544c10edaa7ada4cc646066**. That local adapted test run returned **5 passed, 3 skipped in 0.26s**: the five safety/URL contract cases ran; the three database-backed fixture cases were skipped because no disposable PostgreSQL URL was configured. **No live PostgreSQL schema, 12-way concurrency, cross-session replay, or migration round-trip was exercised.**
 - Replay remains deliberately unwired from authentication. No GitHub Actions rerun, no staging/production DB, no merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Exact-source replay unit + migration contract re-run
+
+- Re-fetched current branch sources and reconstructed exact Git blobs in the internal lab:
+  - `app/gateway_replay.py`: **6f3407a9ff66d4c29d7ecf3b78af75df40670473**
+  - `tests/test_gateway_replay_unit.py`: **02166f7350636798d54d949f870f9d03b22dd1ae**
+  - `migrations/versions/0002_gateway_replay.py`: **4bf3158e8ed1e45844774b80295ee79ffe49b02b**
+  - `tests/test_gateway_replay_migration_contract.py`: **71e6837a3926362aae841247ed4ea2953562c120**
+- Executed the exact unit + migration source-contract files together: **15 passed in 0.34s**. These are DB-free unit/static checks only; migration upgrade/downgrade has not been applied to PostgreSQL.
+- Re-ran the opt-in PostgreSQL integration contract previously: **5 passed, 3 skipped**. The three DB-dependent tests skipped because this environment has no PostgreSQL server/client, Docker/Podman, or `asyncpg` driver. Verified again: no `postgres`, `initdb`, `pg_ctl`, `psql`, Docker or Podman executable is available. Do not claim real PostgreSQL qualification or concurrency coverage.
+- The current CI workflow already contains a disposable PostgreSQL 16 service job and explicit DB-name/write-acknowledgement guards, but its prior GitHub Actions attempt failed before runner steps; no successful CI PostgreSQL job has been observed. Do not retry Actions automatically in this cycle.
+- The replay helper remains deliberately unwired from `app/security.py` and `app/main.py`. No code-path activation, merge, deploy, staging/production DB write, or LIVE. **HOLD / NO_GO**.
