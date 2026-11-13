@@ -26,6 +26,12 @@ async def reserve_assertion_once(
             or any(not 33 <= ord(ch) <= 126 for ch in assertion_id)
             or type(expires_at) is not int or expires_at <= 0):
         raise ValueError("invalid replay reservation")
+    # Validate timestamp conversion before any database interaction. Extremely
+    # large integers can otherwise raise platform-dependent OverflowError.
+    try:
+        expiry_utc = datetime.fromtimestamp(expires_at, tz=timezone.utc)
+    except (OverflowError, OSError, ValueError) as exc:
+        raise ValueError("invalid replay reservation") from exc
     digest = hashlib.sha256((issuer + "\x00" + assertion_id).encode()).hexdigest()
     result = await session.execute(
         text("""
@@ -36,7 +42,7 @@ async def reserve_assertion_once(
         """),
         {
             "digest": digest,
-            "expires_at": datetime.fromtimestamp(expires_at, tz=timezone.utc),
+            "expires_at": expiry_utc,
         },
     )
     return result.scalar_one_or_none() is not None
