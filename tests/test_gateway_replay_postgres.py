@@ -163,6 +163,9 @@ async def test_committed_postgres_reservation_blocks_later_replay(replay_db):
     "postgresql+asyncpg://user:pass@localhost/staging",
     "sqlite+aiosqlite:///tmp/replay_test",
     "postgresql+asyncpg://user:pass@production.internal/gamma_replay_test",
+    "postgresql+asyncpg://user:pass@localhost/gamma_replay_test?host=production.internal",
+    "postgresql+asyncpg://user:pass@localhost/gamma_replay_test?host=/var/run/postgresql",
+    "postgresql+asyncpg://user:pass@localhost/gamma_replay_test?port=5433",
 ])
 def test_refuses_unsafe_test_database_urls(url):
     with pytest.raises(pytest.fail.Exception):
