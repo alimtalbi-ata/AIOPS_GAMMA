@@ -53,3 +53,11 @@ def test_tiny_mad_does_not_emit_nonfinite_json_scores():
     assert all(isfinite(point["robust_z"]) for point in result["anomalies"])
     json.dumps(result, allow_nan=False)
     assert result["live_remediation_authorized"] is False
+
+
+def test_finite_but_extreme_z_score_is_capped():
+    values = [0.0, 1e-10, 2e-10] * 4 + [1e10]
+    result = detect_anomalies(MetricSeries(metric_name="cpu", values=values))
+    score = next(point["robust_z"] for point in result["anomalies"] if point["index"] == 12)
+    assert score == 1e12
+    assert result["live_remediation_authorized"] is False
