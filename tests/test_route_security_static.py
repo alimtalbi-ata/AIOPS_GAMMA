@@ -159,8 +159,8 @@ def test_alternate_route_registration_mutations_are_rejected():
         'app.add_api_route("/api/v1/unsafe", handler)',
         'app.router.add_api_route("/api/v1/unsafe", handler)',
         'app.mount("/unsafe", subapp)',
-        '@app.api_route("/api/v1/unsafe")\\ndef handler():\\n    return {}',
-        '@app.websocket("/ws")\\ndef handler():\\n    return {}',
+        '@app.api_route("/api/v1/unsafe")\ndef handler():\n    return {}',
+        '@app.websocket("/ws")\ndef handler():\n    return {}',
         'router = APIRouter()',
         '@router.get("/api/v1/unsafe")\ndef handler():\n    return {}',
     )
