@@ -135,7 +135,7 @@ async def test_same_jti_from_different_issuers_uses_distinct_replay_keys():
         _, params = session.execute.await_args.args
         digests.append(params["digest"])
         assert params["digest"] == hashlib.sha256(
-            (issuer + "\\x00" + "assertion-123456").encode()
+            (issuer + "\x00" + "assertion-123456").encode()
         ).hexdigest()
 
     assert digests[0] != digests[1]
