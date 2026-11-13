@@ -82,3 +82,17 @@ def test_ambiguous_empty_credential_fails_closed():
     result = redact_text("password= status=ok")
     assert "status=ok" not in result
     assert "[REDACTED]" in result
+
+
+def test_common_prefixed_credentials_are_redacted():
+    examples = [
+        ("client_secret=clientSecret123", "clientSecret123"),
+        ('{"refresh_token":"refreshToken123"}', "refreshToken123"),
+        ("db_password=dbPassword123", "dbPassword123"),
+        ("client-secret=hyphenSecret123", "hyphenSecret123"),
+        ("refresh-token=hyphenToken123", "hyphenToken123"),
+    ]
+    for diagnostic, secret in examples:
+        result = redact_text(diagnostic)
+        assert secret not in result, diagnostic
+        assert "[REDACTED]" in result, diagnostic
