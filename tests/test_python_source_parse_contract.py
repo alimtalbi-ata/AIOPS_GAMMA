@@ -70,9 +70,11 @@ def test_disposable_postgres_preflight_never_uses_optimizable_assertions():
             preflight = statement.body
             break
     assert preflight, "Missing connected-server pre-write checks"
+    # Every check in prepare() preceding the first session.add_all() is a
+    # safety gate. A nested assert anywhere in that region is stripped by -O.
     assert not any(isinstance(node, ast.Assert)
-                   for statement in preflight for node in ast.walk(statement)), (
-        "Pre-write PostgreSQL checks must use pytest.fail, not optimizable assert"
+                   for node in ast.walk(prepare)), (
+        "PostgreSQL prepare must use pytest.fail, not optimizable assert"
     )
     preflight_source = "\n".join(ast.unparse(node) for node in preflight)
     for required in (
