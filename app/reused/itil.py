@@ -29,7 +29,7 @@ class ObservedCI(BaseModel):
 
     @model_validator(mode="after")
     def time_is_aware(self):
-        if self.last_observed_at.tzinfo is None:
+        if self.last_observed_at.utcoffset() is None:
             raise ValueError("CI timestamp needs timezone")
         return self
 
