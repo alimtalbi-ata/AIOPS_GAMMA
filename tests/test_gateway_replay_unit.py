@@ -411,3 +411,27 @@ async def test_failed_commit_and_failed_rollback_cannot_return_authorized():
         )
     session.commit.assert_awaited_once()
     session.rollback.assert_awaited_once()
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("issuer,jti,expiry", [
+    (None, "assertion-123456", 1_800_000_000),
+    (123, "assertion-123456", 1_800_000_000),
+    ("gateway", None, 1_800_000_000),
+    ("gateway", b"assertion-123456", 1_800_000_000),
+    ("gateway", "assertion-123456", 1_800_000_000.0),
+    ("gateway", "assertion-123456", "1800000000"),
+    ("gateway", "assertion-123456", -1),
+])
+async def test_replay_rejects_wrong_types_and_negative_expiry_before_sql(
+    issuer, jti, expiry,
+):
+    session = SimpleNamespace(
+        execute=AsyncMock(), commit=AsyncMock(), rollback=AsyncMock()
+    )
+    with pytest.raises(ValueError, match="invalid replay reservation"):
+        await consume_assertion_before_access(
+            session, issuer=issuer, assertion_id=jti, expires_at=expiry,
+        )
+    session.execute.assert_not_awaited()
+    session.commit.assert_not_awaited()
+    session.rollback.assert_awaited_once()
