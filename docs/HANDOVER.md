@@ -940,3 +940,10 @@
 - Placed that previously verified local probe under `tests/support/real_route_http_probe.py` in the local lab and created a local wrapper matching the committed subprocess launcher's implementation. Ran `python -m pytest -q tests/test_real_route_http_isolation.py`: **1 passed in 4.26s**; subprocess itself verified `25 passed`.
 - **Important provenance limit:** the subprocess used the original local 25-test source copied to the support path, not a byte-for-byte materialization of the newly committed `tests/support/real_route_http_probe.py`. Therefore the exact committed support probe is **not yet qualified**, despite the successful launcher smoke test. Avoid reporting the GitHub-committed 25-case probe as executed.
 - No GitHub Actions, PostgreSQL, external services, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Signed Gateway HMAC tampering regression on actual metrics HTTP route
+
+- Added one real-route TestClient regression for a tampered HMAC signature: correctly signed `POST /api/v1/observability/metrics/query` assertion has its signature altered and must return HTTP **401** with `Cache-Control: no-store`. Versioned probe commit `c91db6b3eb47936f656c5cd0e2ec58a735817978`; subprocess launcher expects **26 passed**, commit `34a6088f1fc9118fb75b66f2cd9e953801c8b6bb`.
+- Internal lab: appended equivalent test to original local source and ran `python -m pytest -q test_real_main_http.py`: **26 passed in 0.61s**. Copied local 26-case source to local subprocess support path and ran `python -m pytest -q tests/test_real_route_http_isolation.py`: **1 passed in 3.52s**, checking subprocess `26 passed`.
+- **Provenance limit remains:** the local 26-case source is equivalent in intent but is **not** a byte-for-byte verified copy of the GitHub-committed support probe. Exact committed support probe still awaits isolated execution and may need fixes.
+- No GitHub Actions, PostgreSQL, external services, merge, deploy or LIVE. **HOLD / NO_GO**.
