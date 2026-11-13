@@ -12,13 +12,17 @@ scoped to the requested incident.
 
 ## Safety gates
 
-The test refuses to run unless all conditions hold:
+The test refuses to insert any rows unless all conditions hold:
 
 - Explicit `GAMMA_TENANT_TEST_DATABASE_URL` using `postgresql+asyncpg`.
 - Database name ends in `_tenant_test`.
 - Host is loopback only: localhost, 127.0.0.1 or ::1.\n- **No URL query parameters** (e.g. `?host=db.internal` or Unix socket\n  `?host=/var/run/postgresql`); such parameters can override the host that\n  appears in the URL authority.
 - `GAMMA_TENANT_TEST_ALLOW_WRITE=I_UNDERSTAND_DISPOSABLE_DB`.
 - Connected database name independently matches the suffix.
+- The **actual PostgreSQL TCP server address** reported by `inet_server_addr()`
+  must be IPv4/IPv6 loopback (Unix sockets are refused).
+- The connected PostgreSQL role must **not** be a superuser.
+- The connected server must be **PostgreSQL 16**.
 - Alembic revision is exactly `0002_gateway_replay`.
 - Required tables exist and are empty before test data is inserted.
 - SQLAlchemy uses `NullPool`; cleanup deletes only the exact generated row IDs.
