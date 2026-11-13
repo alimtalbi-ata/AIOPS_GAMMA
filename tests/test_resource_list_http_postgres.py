@@ -126,7 +126,7 @@ def tenant_postgres():
 def _signed_headers(path: str, tenant: UUID, *, forged_tenant: UUID) -> dict[str, str]:
     now = int(time.time())
     claims = {
-        "iss": "trusted-gateway", "aud": "gamma-api", "sub": "user:tenant-isolation-test",
+        "iss": "trusted-gateway", "aud": "gamma-api", "sub": f"user:tenant-isolation-test:{tenant}",
         "actor_type": "user", "tenant_id": str(tenant), "tenant_access": True,
         "iat": now, "exp": now + 30, "jti": "pg-isolation-" + uuid4().hex,
         "method": "GET", "path": path,
@@ -226,6 +226,21 @@ def test_foreign_rows_and_foreign_incident_are_not_serialized(resource, tenant_p
 def test_tenant_integration_refuses_unsafe_database_urls(url):
     with pytest.raises(pytest.fail.Exception):
         _require_disposable_url(url)
+
+
+def test_signed_gateway_assertions_use_distinct_actors_and_tenants():
+    path = "/api/v1/topology/bindings"
+    a = _signed_headers(path, TENANT_A, forged_tenant=TENANT_B)
+    b = _signed_headers(path, TENANT_B, forged_tenant=TENANT_A)
+    def claims(headers):
+        encoded = headers["X-Gateway-Principal"].split(".", 1)[0]
+        return json.loads(base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)))
+    ca, cb = claims(a), claims(b)
+    assert ca["sub"] != cb["sub"]
+    assert ca["tenant_id"] != cb["tenant_id"]
+    assert ca["jti"] != cb["jti"]
+    assert ca["method"] == cb["method"] == "GET"
+    assert ca["path"] == cb["path"] == path
 
 
 def test_tenant_integration_accepts_only_explicit_loopback_test_database():
