@@ -852,3 +852,10 @@
 - Added two FastAPI TestClient HTTP dependency regressions for HMAC-signed subjects containing U+D800/U+DFFF, requiring HTTP 401. Ran the combined local suite: **43 passed in 0.40s**.
 - Promoted these two HTTP regression cases to the authentic `tests/test_gateway_dependency_http_isolated.py`, commit `533e9fa574fffaea1bd0aeddabc0de1884d8121a`.
 - Scope: isolated FastAPI probe with genuine security dependency and local test files, **not** real GAMMA business routes, real gateway/IdP, upstream actor→tenant→resource ACL, PostgreSQL or replay. No GitHub Actions, database connection, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Actual route inventory drift found; public demos explicitly guarded
+
+- Inspected the complete actual `app/main.py` (346 lines) against `tests/test_route_security_static.py`. The static test's exact expected route inventory omitted two existing public, synthetic-only GET routes: `/api/v1/demo/correlation` and `/api/v1/demo/investigation`. Therefore the old inventory check would fail on the actual app source.
+- Updated the inventory and explicit public allowlist to include only those two demos and `/api/v1/health/live`, commit `b412922eaebcfba9837c7658b6129e53f42fe28f`. All other routes must continue to declare `Depends(internal_principal)`.
+- Added an AST guard requiring each public demo route to consist only of a docstring, import of its exact reviewed `app.demo` synthetic helper, and a direct zero-argument return call, with no `await`, commit `961a99bac31912ddcfd72d473020edaa75c217a6`. This checks route wrapper structure, **not** the internals of `app.demo`.
+- **Not yet executed** against an authentic materialized `app/main.py` checkout in the ChatGPT lab; no claim of green route suite. No real business-route HTTP, IdP, actor→tenant→resource ACL, PostgreSQL or upstream qualification. No GitHub Actions, DB, merge, deploy or LIVE. **HOLD / NO_GO**.
