@@ -895,3 +895,10 @@
 - Added an exact AST-shape guard for the reviewed `prevent_tenant_api_caching` middleware, including its FastAPI decorator, awaited `call_next`, tenant API path condition, live health exclusion, actual response header assignment, and response return. Added mutation tests for four bypasses, commit `cb4d92902f09d5b2fed218f8da754c13f723cba7`.
 - Ran equivalent isolated Python AST checks in the ChatGPT internal lab: **5 scenarios passed** (one valid, four mutations rejected). **The complete committed test file has not yet been run against a materialized authentic `app/main.py`**; no claim of full suite success.
 - This is a source-change tripwire, not runtime HTTP cache verification. No real business-route HTTP, actor→tenant→resource ACL, PostgreSQL or upstream qualification. No GitHub Actions, DB, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Consolidated partial authentic-source lab regression
+
+- Ran `python -m pytest -q tests/test_demo_source_guard.py tests/test_python_source_parse_contract.py tests/test_canonical_acl_hard_hold_static.py tests/test_upstream.py tests/test_tenant_scope_guard.py tests/test_redaction.py` in `/mnt/data/gamma_authentic_subset`: **70 passed in 0.44s**.
+- This partial lab contains selected source/test files manually copied from the GAMMA branch, not an authenticated complete checkout. The 70 passing tests cover demo source guard, source parser, canonical HOLD, upstream, tenant scope and redaction only.
+- The full `tests/test_route_security_static.py` against authentic `app/main.py` and real business-route HTTP tests remain **unexecuted**. Prior focused AST mutation results must not be represented as full route-suite success.
+- No GitHub Actions, real IdP, actor→tenant→resource ACL, PostgreSQL, upstream LIVE, merge or deploy. **HOLD / NO_GO**.
