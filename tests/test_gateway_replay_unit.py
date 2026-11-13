@@ -369,3 +369,45 @@ async def test_maximum_length_issuer_remains_supported():
         expires_at=1_800_000_000,
     ) is True
     session.execute.assert_awaited_once()
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("jti", ["a" * 8, "z" * 128])
+async def test_replay_jti_inclusive_length_boundaries_are_accepted(jti):
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = "reserved"
+    session = SimpleNamespace(execute=AsyncMock(return_value=result))
+    assert await reserve_assertion_once(
+        session, issuer="gateway", assertion_id=jti, expires_at=1_800_000_000,
+    ) is True
+    session.execute.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_minimum_positive_expiry_is_accepted_as_utc():
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = "reserved"
+    session = SimpleNamespace(execute=AsyncMock(return_value=result))
+    assert await reserve_assertion_once(
+        session, issuer="gateway", assertion_id="assertion-123456",
+        expires_at=1,
+    ) is True
+    _, params = session.execute.await_args.args
+    assert params["expires_at"] == datetime(1970, 1, 1, 0, 0, 1, tzinfo=timezone.utc)
+
+
+@pytest.mark.asyncio
+async def test_failed_commit_and_failed_rollback_cannot_return_authorized():
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = "reserved"
+    session = SimpleNamespace(
+        execute=AsyncMock(return_value=result),
+        commit=AsyncMock(side_effect=RuntimeError("commit unavailable")),
+        rollback=AsyncMock(side_effect=RuntimeError("rollback unavailable")),
+    )
+    with pytest.raises(RuntimeError, match="rollback unavailable"):
+        await consume_assertion_before_access(
+            session, issuer="gateway", assertion_id="assertion-123456",
+            expires_at=1_800_000_000,
+        )
+    session.commit.assert_awaited_once()
+    session.rollback.assert_awaited_once()
