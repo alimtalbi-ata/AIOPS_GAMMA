@@ -31,6 +31,10 @@ def _require_disposable_database_url(raw_url: str) -> str:
         pytest.fail("Replay tests require a database named *_replay_test")
     if parsed.host not in ("localhost", "127.0.0.1", "::1"):
         pytest.fail("Replay tests require loopback PostgreSQL; use a local disposable instance")
+    # asyncpg/SQLAlchemy URL query options can override connection routing
+    # (e.g. ?host=remote.example or Unix socket paths). Reject them entirely.
+    if parsed.query:
+        pytest.fail("Replay tests reject URL query options that may override routing")
     return raw_url
 
 
