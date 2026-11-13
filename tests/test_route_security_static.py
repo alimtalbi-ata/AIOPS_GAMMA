@@ -28,25 +28,36 @@ def _routes():
 
 
 def _uses_internal_principal(node):
+    """Require a real FastAPI dependency, not a nested/inert AST occurrence."""
+    def is_dependency(value):
+        return (
+            isinstance(value, ast.Call)
+            and isinstance(value.func, ast.Name)
+            and value.func.id == "Depends"
+            and len(value.args) == 1
+            and not value.keywords
+            and isinstance(value.args[0], ast.Name)
+            and value.args[0].id == "internal_principal"
+        )
+
+    def is_annotated_dependency(annotation):
+        return (
+            isinstance(annotation, ast.Subscript)
+            and isinstance(annotation.value, ast.Name)
+            and annotation.value.id == "Annotated"
+            and isinstance(annotation.slice, ast.Tuple)
+            and any(is_dependency(item) for item in annotation.slice.elts[1:])
+        )
+
+    args = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
+    defaults = (
+        [None] * (len(node.args.posonlyargs) + len(node.args.args) - len(node.args.defaults))
+        + list(node.args.defaults)
+        + list(node.args.kw_defaults)
+    )
     return any(
-        isinstance(child, ast.Call)
-        and isinstance(child.func, ast.Name)
-        and child.func.id == "Depends"
-        and len(child.args) == 1
-        and isinstance(child.args[0], ast.Name)
-        and child.args[0].id == "internal_principal"
-        for arg in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs)
-        for child in ast.walk(arg.annotation) if arg.annotation is not None
-    ) or any(
-        isinstance(child, ast.Call)
-        and isinstance(child.func, ast.Name)
-        and child.func.id == "Depends"
-        and len(child.args) == 1
-        and isinstance(child.args[0], ast.Name)
-        and child.args[0].id == "internal_principal"
-        for default in (*node.args.defaults, *node.args.kw_defaults)
-        if default is not None
-        for child in ast.walk(default)
+        is_dependency(default) or is_annotated_dependency(arg.annotation)
+        for arg, default in zip(args, defaults)
     )
 
 
@@ -185,3 +196,18 @@ def test_alternate_route_registration_mutations_are_rejected():
     for mutation in mutations:
         with pytest.raises(AssertionError):
             _assert_no_unreviewed_route_registration(mutation)
+
+def test_gateway_dependency_shape_mutations():
+    import pytest
+
+    cases = (
+        ("async def route(p=Depends(internal_principal)): pass", True),
+        ("async def route(p: Annotated[Principal, Depends(internal_principal)]): pass", True),
+        ("async def route(p=(Depends(internal_principal), None)[1]): pass", False),
+        ("async def route(p: tuple[Depends(internal_principal), str]): pass", False),
+        ("async def route(p=Depends(internal_principal, use_cache=False)): pass", False),
+        ("async def route(p=None): pass", False),
+    )
+    for source, expected in cases:
+        node = ast.parse(source).body[0]
+        assert _uses_internal_principal(node) is expected, source
