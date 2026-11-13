@@ -35,6 +35,10 @@ def _require_disposable_database_url(raw_url: str) -> str:
     # (e.g. ?host=remote.example or Unix socket paths). Reject them entirely.
     if parsed.query:
         pytest.fail("Replay tests reject URL query options that may override routing")
+    # A URL may contain a fragment-like database name or ambiguous host
+    # syntax; require an explicit port only when it is the default PG port.
+    if parsed.port is not None and parsed.port != 5432:
+        pytest.fail("Replay tests require the standard local PostgreSQL port 5432")
     return raw_url
 
 
