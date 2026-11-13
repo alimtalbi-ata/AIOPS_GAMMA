@@ -170,3 +170,20 @@ def test_verified_ci_with_real_cmdb_identifier_is_accepted():
     )
     assert ci.verified_against_cmdb is True
     assert ci.cmdb_ci_id == "CMDB-CI-123"
+
+
+def test_preview_does_not_trust_unvalidated_whitespace_cmdb_binding():
+    tenant = uuid4()
+    incident = _incident(tenant)
+    # Pydantic model_copy(update=...) intentionally bypasses field validation.
+    incident.affected_cis[0] = incident.affected_cis[0].model_copy(
+        update={"cmdb_ci_id": "   "},
+    )
+    result = preview_itil_workflow(incident)
+    counts = result["service_configuration_management"]
+    assert counts["observed_cis"] == 1
+    assert counts["verified_cis"] == 0
+    assert counts["unverified_cis"] == 1
+    assert result["execution"]["live_remediation_authorized"] is False
+    with pytest.raises(ValueError, match="verified CMDB"):
+        preview_itil_workflow(incident, change=_change(tenant, ci_id="   "))
