@@ -342,3 +342,30 @@ async def test_out_of_range_expiry_rejected_before_sql(expiry):
     session.execute.assert_not_awaited()
     session.commit.assert_not_awaited()
     session.rollback.assert_awaited_once()
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("issuer", ["g" * 1025, "gateway" + chr(0)])
+async def test_unbounded_or_nul_issuer_rejected_before_sql(issuer):
+    session = SimpleNamespace(
+        execute=AsyncMock(), commit=AsyncMock(), rollback=AsyncMock()
+    )
+    with pytest.raises(ValueError, match="invalid replay reservation"):
+        await consume_assertion_before_access(
+            session, issuer=issuer, assertion_id="assertion-123456",
+            expires_at=1_800_000_000,
+        )
+    session.execute.assert_not_awaited()
+    session.commit.assert_not_awaited()
+    session.rollback.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_maximum_length_issuer_remains_supported():
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = "reserved"
+    session = SimpleNamespace(execute=AsyncMock(return_value=result))
+    assert await reserve_assertion_once(
+        session, issuer="g" * 1024, assertion_id="assertion-123456",
+        expires_at=1_800_000_000,
+    ) is True
+    session.execute.assert_awaited_once()
