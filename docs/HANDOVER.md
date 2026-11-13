@@ -874,3 +874,10 @@
 - Ran representative AST guard logic in the ChatGPT internal lab against one allowed and six forbidden source snippets: **7 passed in 0.03s**. These were local targeted snippets, not the committed test file against authentic `app/main.py`.
 - Extended guard to `api_route`, websocket and route variants, commit `2abd1ff5b8442925f8a80d4eea54d241468bcec6`; corrected escaping in the new mutation fixtures so the snippets are valid Python, commit `d18b671f5a9be96bcbc95b6ae0b97e846e646a2a`. The extended committed suite is **not yet executed** in the lab.
 - This is inventory integrity only; it does not qualify the actual business-route HTTP behavior, actor→tenant→resource ACL, PostgreSQL, upstream or real IdP. No GitHub Actions, DB, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Duplicate and keyword-path route inventory bypass guards
+
+- Reviewed the authentic `tests/test_route_security_static.py` after prior changes. Found that comparing a `set` of method/path tuples would miss duplicate declarations, and `_routes()` ignores decorators using keyword `path=` rather than positional path.
+- Updated the inventory check to reject duplicate method/path registrations and tightened the alternate-registration AST guard to reject `@app.get/post/put/patch/delete` declarations without exactly one positional string path or with keyword `path`, commit `e38b11f6aa57155e1160aafa13782f64b0660c54`. Repaired newline escaping in new mutation snippets, commit `45c035c34793787c5dd087a59c163512f6cd799b`.
+- Executed a **representative local AST guard implementation** against one accepted route and ten rejected route declarations (including keyword path, duplicate path keyword, api_route, websocket and alternate router registration): **11 passed in 0.05s**. This was not the exact committed route test file, nor a complete `app/main.py` test run.
+- No actual business-route HTTP, real IdP, actor→tenant→resource ACL, PostgreSQL or upstream qualification. No GitHub Actions, DB, merge, deploy or LIVE. **HOLD / NO_GO**.
