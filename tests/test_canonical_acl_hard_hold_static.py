@@ -27,3 +27,39 @@ def test_canonical_read_function_has_only_allowlist_and_unconditional_denial():
     assert "Canonical actor/tenant/resource ACL not qualified" in ast.unparse(fn.body[2])
     assert not any(isinstance(node, (ast.Await, ast.Return, ast.Yield, ast.YieldFrom))
                    for node in ast.walk(fn))
+
+def test_canonical_hold_guard_rejects_positive_return(tmp_path, monkeypatch):
+    """The static HOLD test must detect accidental fail-open edits."""
+    import sys
+    import pytest
+
+    original = SOURCE.read_text(encoding="utf-8")
+    changed = original.replace(
+        '    raise HTTPException(503, "Canonical actor/tenant/resource ACL not qualified")',
+        '    return {"tenant": str(tenant_id)}',
+    )
+    assert changed != original
+    candidate = tmp_path / "upstream.py"
+    candidate.write_text(changed, encoding="utf-8")
+    monkeypatch.setattr(sys.modules[__name__], "SOURCE", candidate)
+    with pytest.raises(AssertionError):
+        test_canonical_read_function_has_only_allowlist_and_unconditional_denial()
+
+
+def test_canonical_hold_guard_rejects_network_before_denial(tmp_path, monkeypatch):
+    """A request issued before a 503 is not a safe HOLD."""
+    import sys
+    import pytest
+
+    original = SOURCE.read_text(encoding="utf-8")
+    changed = original.replace(
+        '    raise HTTPException(503, "Canonical actor/tenant/resource ACL not qualified")',
+        '    await httpx.AsyncClient().get("https://example.invalid")\\n'
+        '    raise HTTPException(503, "Canonical actor/tenant/resource ACL not qualified")',
+    )
+    assert changed != original
+    candidate = tmp_path / "upstream.py"
+    candidate.write_text(changed, encoding="utf-8")
+    monkeypatch.setattr(sys.modules[__name__], "SOURCE", candidate)
+    with pytest.raises(AssertionError):
+        test_canonical_read_function_has_only_allowlist_and_unconditional_denial()
