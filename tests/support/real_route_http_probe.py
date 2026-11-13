@@ -24,10 +24,6 @@ class Empty(BaseModel):
     pass
 
 
-class EvidenceInput(BaseModel):
-    tenant_id: str
-
-
 class DBModel:
     pass
 
