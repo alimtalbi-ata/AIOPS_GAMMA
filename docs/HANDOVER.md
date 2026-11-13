@@ -575,3 +575,14 @@
 - Scope/security: this hardens the preview contract only; no ITSM write, persistence, LIVE action or authorization capability is added. Issue #2 remains blocked on a real trusted actor→tenant ACL contract and upstream enforcement.
 - Decision: HOLD / NO_GO; PR #1 remains draft. No merge, deployment or LIVE activation.
 - Next: restore an executable CI runner and run the focused ITSM tests plus the full Python/frontend/PostgreSQL gates on the exact new HEAD; continue issue #2 only after the canonical services expose a verifiable tenant ACL contract.
+
+### 2026-11-13 — ITSM mutable request structure hardening
+
+- Branch: `feat/observability-foundation`; draft PR #1.
+- Commits: `5562286d4998de2b48e6fdc01c01118eb907a605` and `0cab19e7dd7dcc63952faf1c55aa3adf3a0b1278` (request/matrix guards); `9690d36a783e93161eac3a67bc01f4a345a1f9d0` (regression tests).
+- Delivered: the ITSM preview boundary now checks the request, incident and matrix model types before dereferencing; checks the matrix rule collection is a nine-item list of PriorityRule instances; and rejects invalid or non-string impact/urgency values before set operations. This prevents malformed post-validation mutations from surfacing as incidental Python attribute/type errors.
+- Tests added for replaced nested models, malformed rule collections and invalid mutable priority levels. **Not executed**; source-level change only.
+- CI: no exact-HEAD run has yet been evidenced. Previous failed jobs had no step records; downloadable job logs were unavailable (BlobNotFound). This does not establish the root cause.
+- Security: preview-only; no ITSM writes, persistence, LIVE authorization or tenant ACL capability. Issue #2 remains blocked by the absent upstream actor→tenant authorization contract and unqualified Core/Evidence/Twin handlers.
+- Decision: HOLD / NO_GO; PR #1 stays draft; no merge, deployment or LIVE activation.
+- Next: diagnose GitHub Actions runner provisioning and run focused ITSM tests plus full Python/frontend/PostgreSQL gates on exact HEAD.
