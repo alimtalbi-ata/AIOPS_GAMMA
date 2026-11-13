@@ -74,7 +74,8 @@ def plan_incident_sync(req: IncidentSyncPreview, tenant_id: UUID) -> dict:
             or any(not isinstance(rule, PriorityRule) for rule in req.matrix.rules)):
         raise ValueError("Invalid priority matrix mapping")
     allowed_levels = {"high", "medium", "low"}
-    if any(rule.impact not in allowed_levels or rule.urgency not in allowed_levels
+    if any(not isinstance(rule.impact, str) or rule.impact not in allowed_levels
+           or not isinstance(rule.urgency, str) or rule.urgency not in allowed_levels
            for rule in req.matrix.rules):
         raise ValueError("Invalid priority matrix mapping")
     pairs = [(rule.impact, rule.urgency) for rule in req.matrix.rules]
