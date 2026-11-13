@@ -888,3 +888,10 @@
 - Replaced the broad AST walk with a direct default `Depends(internal_principal)` check or `Annotated[..., Depends(internal_principal)]` metadata check, requiring exactly one dependency positional argument and no extra keywords; added six positive/negative source mutation cases. Commit `26fbf4000e68f62bccca69d30ef34734fc130596`.
 - Ran a standalone local Python AST implementation of the same predicate with six scenarios in the ChatGPT internal lab: `python -m pytest -q` => **1 test passed in 0.03s** (the test exercises six cases). **Not** the exact committed test file against full authentic `app/main.py`; no full route-suite claim.
 - No real business-route HTTP, actor→tenant→resource ACL, PostgreSQL, upstream or real IdP qualification. No GitHub Actions, DB, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Fail-closed tenant API cache middleware AST guard
+
+- Inspected authentic `app/main.py` and `tests/test_route_security_static.py`. The old cache middleware static check only searched source for the strings `"/api/v1/"`, `"Cache-Control"` and `"no-store"`; it could pass if the strings were inert and the response header assignment removed.
+- Added an exact AST-shape guard for the reviewed `prevent_tenant_api_caching` middleware, including its FastAPI decorator, awaited `call_next`, tenant API path condition, live health exclusion, actual response header assignment, and response return. Added mutation tests for four bypasses, commit `cb4d92902f09d5b2fed218f8da754c13f723cba7`.
+- Ran equivalent isolated Python AST checks in the ChatGPT internal lab: **5 scenarios passed** (one valid, four mutations rejected). **The complete committed test file has not yet been run against a materialized authentic `app/main.py`**; no claim of full suite success.
+- This is a source-change tripwire, not runtime HTTP cache verification. No real business-route HTTP, actor→tenant→resource ACL, PostgreSQL or upstream qualification. No GitHub Actions, DB, merge, deploy or LIVE. **HOLD / NO_GO**.
