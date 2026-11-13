@@ -6,6 +6,8 @@ the fixture's database identity checks.
 import ast
 from pathlib import Path
 
+import pytest
+
 
 def test_replay_db_preflight_never_uses_python_assert():
     source = (Path(__file__).parent / "test_gateway_replay_postgres.py").read_text(
@@ -16,11 +18,11 @@ def test_replay_db_preflight_never_uses_python_assert():
         node for node in tree.body
         if isinstance(node, ast.AsyncFunctionDef) and node.name == "replay_db"
     ]
-    assert len(fixtures) == 1
+    if len(fixtures) != 1:
+        pytest.fail("Expected exactly one replay_db fixture")
     fixture = fixtures[0]
-    assert not [
-        node for node in ast.walk(fixture) if isinstance(node, ast.Assert)
-    ], "Database write preconditions must not rely on assertions disabled by -O"
+    if any(isinstance(node, ast.Assert) for node in ast.walk(fixture)):
+        pytest.fail("Database write preconditions must not rely on assertions disabled by -O")
 
 
 def test_replay_db_preflight_checks_actual_server_before_yield():
@@ -28,14 +30,18 @@ def test_replay_db_preflight_checks_actual_server_before_yield():
         encoding="utf-8"
     )
     tree = ast.parse(source)
-    fixture = next(
+    fixtures = [
         node for node in tree.body
         if isinstance(node, ast.AsyncFunctionDef) and node.name == "replay_db"
-    )
+    ]
+    if len(fixtures) != 1:
+        pytest.fail("Expected exactly one replay_db fixture")
+    fixture = fixtures[0]
     yield_nodes = [
         node for node in ast.walk(fixture) if isinstance(node, ast.Yield)
     ]
-    assert len(yield_nodes) == 1
+    if len(yield_nodes) != 1:
+        pytest.fail("Replay DB fixture must yield exactly once")
     before_yield = source.splitlines()[:yield_nodes[0].lineno - 1]
     fixture_source = "\n".join(
         before_yield[fixture.lineno - 1:]
@@ -49,4 +55,5 @@ def test_replay_db_preflight_checks_actual_server_before_yield():
         "alembic_version",
         "0002_gateway_replay",
     ):
-        assert required in fixture_source, required
+        if required not in fixture_source:
+            pytest.fail(f"Replay DB preflight missing before yield: {required}")
