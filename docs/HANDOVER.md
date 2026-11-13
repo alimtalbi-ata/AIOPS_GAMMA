@@ -778,3 +778,11 @@
 - Updated the named-secret regex to recognize escaped characters in closed quoted values and conservatively redact the remaining text for unclosed quoted values. Code commit `7073fc75c2e39ae625a814bb18e52c7ad14431e9`; regression tests commit `0ea3f57931ba5cf0ebd9e4274af11eda7650f9ea`.
 - Applied matching code and tests to the local authentic partial checkout. `python -m pytest -q tests/test_redaction.py` => **16 passed in 0.06s**. Three additional adversarial examples were separately checked. This is module-level evidence only, not end-to-end logging, HTTP, PostgreSQL, IdP or resource ACL qualification.
 - No GitHub Actions, DB, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Authentic canonical upstream HOLD tests in ChatGPT lab
+
+- Retrieved the actual GitHub source of `app/settings.py`, `app/reused/upstream.py` and `tests/test_upstream.py` from Draft branch and materialized them in `/mnt/data/gamma_authentic_subset/` alongside previously materialized authentic tenant-scope, redaction and source-guard modules.
+- Executed `cd /mnt/data/gamma_authentic_subset && python -m pytest -q tests/test_upstream.py tests/test_tenant_scope_guard.py tests/test_redaction.py`: **55 passed in 0.37s**.
+- Executed the expanded local authentic subset `python -m pytest -q tests/test_upstream.py tests/test_tenant_scope_guard.py tests/test_redaction.py tests/test_python_source_parse_contract.py -k 'not postgres'`: **59 passed, 2 deselected in 0.35s**.
+- Canonical tests verify 503 for core/evidence/twin even when legacy enable flag and token are set, 404 for unknown resources, and no `httpx.AsyncClient` invocation; origin validator tests reject unsafe URLs. No actual upstream network requests made.
+- Evidence applies to this **partial** locally materialized authentic source subset, not a full repository checkout or real HTTP/PostgreSQL/IdP/source-side ACL qualification. No GitHub Actions, DB connection, merge, deploy or LIVE. **HOLD / NO_GO**.
