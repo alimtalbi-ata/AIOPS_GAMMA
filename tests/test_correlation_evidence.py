@@ -414,3 +414,52 @@ def test_consistent_join_never_promotes_evidence_authenticity():
     assert group["evidence"][0]["integrity"] == "UNVERIFIED"
     assert result["persisted"] is False
     assert result["live_remediation_authorized"] is False
+
+def test_multi_group_join_matches_exact_source_event_only():
+    req = request()
+    first = req.correlation.signals[0]
+    second = first.model_copy(update={
+        "external_event_id": "evt-2",
+        "symptom_key": "database-errors",
+    })
+    req.correlation.signals = [first, second]
+    req.evidence.append(req.evidence[0].model_copy(update={
+        "external_id": "evt-2",
+        "claim": "database errors",
+        "payload": {"error_rate": 0.2},
+    }))
+    result = preview(req, TENANT, now=NOW)
+    assert len(result["groups"]) == 2
+    by_symptom = {group["symptom_key"]: group for group in result["groups"]}
+    assert [item["external_id"] for item in by_symptom["latency"]["evidence"]] == ["evt-1"]
+    assert [item["external_id"] for item in by_symptom["database-errors"]["evidence"]] == ["evt-2"]
+    assert all(group["evidence_state"] == "UNVERIFIED" for group in result["groups"])
+    assert result["evidence_join_complete"] is True
+    assert result["evidence_join_consistent"] is True
+    assert result["persisted"] is False
+    assert result["live_remediation_authorized"] is False
+
+
+def test_same_external_id_from_wrong_source_never_cross_links_groups():
+    req = request()
+    req.evidence[0].source = "prometheus"
+    result = preview(req, TENANT, now=NOW)
+    assert result["groups"][0]["evidence"] == []
+    assert result["groups"][0]["evidence_missing_events"] == 1
+    assert result["unmatched_evidence"] == 1
+    assert result["evidence_join_complete"] is False
+    assert result["evidence_join_consistent"] is False
+
+
+def test_future_evidence_is_covered_but_not_consistent():
+    from datetime import timedelta
+
+    req = request()
+    req.evidence[0].observed_at = NOW + timedelta(seconds=1)
+    result = preview(req, TENANT, now=NOW)
+    assert result["groups"][0]["evidence_covered_events"] == 1
+    assert result["groups"][0]["evidence_state"] == "UNKNOWN"
+    assert result["evidence_join_complete"] is True
+    assert result["evidence_join_consistent"] is False
+    assert result["persisted"] is False
+    assert result["live_remediation_authorized"] is False
