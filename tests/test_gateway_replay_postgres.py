@@ -51,6 +51,10 @@ async def replay_db():
             # Verify the connected DB identity as well as the URL before writes.
             db_name = await connection.scalar(text("SELECT current_database()"))
             assert db_name and db_name.endswith("_replay_test"), "Unsafe database identity"
+            server_version = await connection.scalar(text("SHOW server_version_num"))
+            assert server_version is not None and int(server_version) // 10000 == 16, (
+                "Replay integration qualification requires PostgreSQL 16"
+            )
             # Fail rather than creating schema in an unqualified database.
             present = await connection.scalar(
                 text("SELECT to_regclass('gateway_assertion_replay')")
