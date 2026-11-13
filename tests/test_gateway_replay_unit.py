@@ -88,7 +88,7 @@ async def test_commit_failure_rolls_back_and_never_grants_access():
 @pytest.mark.parametrize("issuer,jti,expiry", [
     ("", "assertion-123456", 1_800_000_000),
     ("issuer", "short", 1_800_000_000),
-    ("issuer", "bad\nassertion", 1_800_000_000),
+    ("issuer", "bad" + chr(10) + "assertion", 1_800_000_000),
     ("issuer", "assertion-123456", True),
     ("issuer", "assertion-123456", 0),
 ])
