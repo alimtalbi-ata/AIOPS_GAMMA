@@ -1175,3 +1175,16 @@
   - empty issuer, malformed/short JTI, boolean expiry and non-positive expiry fail before database I/O.
 - Internal Python lab: **9 passed in 0.24s**, using async mocks and a local transcription of the current `app/gateway_replay.py` implementation. Local helper blob SHA **fddd6371b7be1b18e81a60db572e94151a8e60ef** does **not** equal GitHub blob SHA **6f3407a9ff66d4c29d7ecf3b78af75df40670473**; therefore this is a focused contract check, not exact-source execution.
 - No PostgreSQL server or real DB concurrency was exercised. The 12-way PostgreSQL test remains unrun; replay remains deliberately unwired in `app/security.py` and `app/main.py`. No GitHub Actions rerun, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Replay helper exact-source unit qualification and test defect corrected
+
+- Reconstructed the committed replay helper and committed unit test file byte-for-byte in `/mnt/data/gamma_replay_exact`; Git blob hashes match the branch:
+  - `app/gateway_replay.py`: **6f3407a9ff66d4c29d7ecf3b78af75df40670473**
+  - `tests/test_gateway_replay_unit.py`: **02166f7350636798d54d949f870f9d03b22dd1ae**
+- Exact-source run: `python -m pytest -q tests/test_gateway_replay_unit.py` => **11 passed in 0.28s**.
+- Added two regression tests:
+  - Database `execute` failure rolls back and propagates without commit.
+  - Same JTI under different issuers yields different SHA-256 replay keys and verifies the exact issuer-NUL-JTI digest.
+  Commits: `73aee1a6bce49377fff7446439be875608e3f5aa`, then digest-test correction `e8990b7ebd1e6a167c822bda6d562b18cccc3ca7`.
+- Corrected an actual defect in the earlier invalid-JTI test: it had used the two literal characters backslash+n, not a newline/control character, so it did not exercise the rejection path. The test now constructs a real LF using `chr(10)`. Commit: `677413c0e4d469f075bd98f44a5aad9a1ace6a08`. Exact-source suite now passes all 11 cases.
+- This qualifies helper unit behavior only. It does **not** qualify PostgreSQL locking/concurrency, migration round-trip, expiry cleanup, multi-process behavior, or runtime wiring. No PostgreSQL server/asyncpg/Docker in this lab. Replay remains deliberately unwired; no Actions rerun, merge, deploy or LIVE. **HOLD / NO_GO**.
