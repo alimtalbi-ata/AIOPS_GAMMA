@@ -157,3 +157,20 @@ def test_sync_keeps_valid_mutated_priority_label():
     result = plan_incident_sync(req, TENANT)
     assert result["priority"] == "P2-REVIEW"
     assert result["itsm_mutations_performed"] is False
+
+
+@pytest.mark.parametrize("operation", [
+    "propose_delete", "propose_enrichment\nforged", "", None,
+])
+def test_sync_rejects_unvalidated_operation_mutations(operation):
+    req = IncidentSyncPreview(incident=incident(), matrix=matrix())
+    req.operation = operation
+    with pytest.raises(ValueError, match="Invalid ITSM sync operation"):
+        plan_incident_sync(req, TENANT)
+
+
+def test_sync_accepts_supported_create_operation():
+    req = IncidentSyncPreview(incident=incident(), matrix=matrix())
+    result = plan_incident_sync(req, TENANT)
+    assert result["operation"] == "propose_create"
+    assert result["itsm_mutations_performed"] is False
