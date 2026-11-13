@@ -814,3 +814,11 @@
 - Reproduced the **exact two promoted mutation tests** in the ChatGPT lab with authentic `app/reused/upstream.py` and the actual static guard. Initial run: **1 failed, 2 passed** in the targeted suite: the pre-denial network mutation inserted literal `\\n`, causing `SyntaxError` rather than exercising the intended AST denial assertion.
 - Fixed the test string to inject a real newline, commit `5abc8ffa34b06d43006f9120920042b2b3f75d24`; reran `python -m pytest -q tests/test_canonical_acl_hard_hold_static.py tests/test_upstream.py tests/test_tenant_scope_guard.py tests/test_redaction.py`: **58 passed in 0.36s** in the partial authentic source lab.
 - This repairs test validity; no new runtime authorization was established. The guard still enforces static unconditional denial of canonical reads. No full checkout, business-route HTTP, PostgreSQL, IdP or upstream resource ACL validation. No GitHub Actions, DB, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Exact tenant isolation assertion static contract repaired
+
+- Retrieved genuine `tests/test_python_source_parse_contract.py`. Discovered that its AST guard accepted a bare `values == expected` expression, without requiring a runtime `assert`; such a no-op comparison could mask a vacuous/absent positive tenant-row check.
+- Changed the guard to require an actual `ast.Assert` with exactly `values == expected`, and repaired the syntax mutation fixture to use genuine newline characters instead of literal backslash-n, commit `c1e2c0341fd78c4dd654f055e8fa09a7b2d5d27c`.
+- Promoted two authentic mutation tests: a no-op comparison must be rejected, an executable assertion accepted, commit `6e996499f7bfcdc9fad357c55b36fb03eced191f`.
+- Applied the same source and tests in the partial ChatGPT lab: `python -m pytest -q tests/test_python_source_parse_contract.py -k 'source_parser or all_python_sources_parse or exact_row_guard'` => **6 passed, 2 deselected in 0.05s**. The deselected AST tests still require the actual PostgreSQL test source to be materialized. This is static/test integrity evidence, not a real PostgreSQL tenant isolation run.
+- No GitHub Actions, DB, merge, deployment or LIVE. **HOLD / NO_GO**.
