@@ -185,3 +185,31 @@ def test_sync_rejects_nonstring_policy_identity_after_mutation(field, value):
     setattr(req.matrix, field, value)
     with pytest.raises(ValueError, match="Invalid priority policy identity"):
         plan_incident_sync(req, TENANT)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("external_id", " "), ("external_id", "101\nforged"),
+    ("external_id", "101|forged"), ("external_id", 123),
+    ("system", "untrusted"),
+])
+def test_sync_rejects_mutated_authoritative_ticket_reference(field, value):
+    ref = ITSMReference(system="glpi", external_id="101")
+    req = IncidentSyncPreview(
+        incident=incident(ref=ref), matrix=matrix(),
+        operation="propose_enrichment", expected_itsm_ref=ref,
+    )
+    setattr(ref, field, value)
+    with pytest.raises(ValueError, match="Invalid authoritative ITSM reference"):
+        plan_incident_sync(req, TENANT)
+
+
+def test_sync_rejects_mutated_expected_ticket_reference():
+    authoritative = ITSMReference(system="glpi", external_id="101")
+    expected = ITSMReference(system="glpi", external_id="101")
+    req = IncidentSyncPreview(
+        incident=incident(ref=authoritative), matrix=matrix(),
+        operation="propose_enrichment", expected_itsm_ref=expected,
+    )
+    expected.external_id = "101\rforged"
+    with pytest.raises(ValueError, match="Invalid authoritative ITSM reference"):
+        plan_incident_sync(req, TENANT)
