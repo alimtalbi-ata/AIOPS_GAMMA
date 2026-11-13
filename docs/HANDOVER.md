@@ -724,3 +724,10 @@
 - Added static AST regression test `test_disposable_postgres_preflight_never_uses_optimizable_assertions` in `tests/test_python_source_parse_contract.py`; requires fail-closed checks and prohibits bare `assert` in the connected-server preflight. Commit `cb1d92449d8fb2eee56d4624c8298e67284081a6`.
 - Executed `python -m pytest -q /mnt/data/gamma_lab/test_preflight_optimization_contract.py` in ChatGPT lab: **2 passed in 0.04s**, covering six denied preflight conditions under both Python optimize levels 0 and 2. This local test is a **reconstructed preflight pattern**, not the authentic repository module or a real PostgreSQL session.
 - No GitHub Actions rerun, DB connection, migration, production write, runtime change, merge or LIVE access. PR Draft, canonical reads hard disabled, **HOLD / NO_GO**.
+
+### 2026-11-13 — Second real-source syntax repair (URL cases)
+
+- Re-inspected the **full authentic GitHub source text** of `tests/test_resource_list_http_postgres.py` and discovered **three additional literal `\\n` sequences** in the `@pytest.mark.parametrize("url", ...)` cases. The earlier repair had fixed only the guard block; the module still could not parse. Removed all three remaining sequences in commit `52c46f0471dd824aad28bee7fed1f9cdb8cde3fc`.
+- Re-fetched the updated source and verified those literal escaped-newline sequences are absent and the three added unsafe URL cases remain present.
+- **Evidence boundary:** this was an authentic repository source inspection and committed repair, not a successful full checkout `ast.parse` or execution of the repository test module. The newly committed `test_python_source_parse_contract.py` is designed to catch exactly this class of defect once executable against a complete checkout.
+- No GitHub Actions invocation, DB connection, migrations, upstream calls, merge, deployment or LIVE changes. PR #1 remains Draft; **HOLD / NO_GO**.
