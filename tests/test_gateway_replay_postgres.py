@@ -299,3 +299,53 @@ async def test_postgres_competing_insert_waits_for_rollback_then_succeeds(replay
                 {"digest": digest},
             )
             await cleanup.commit()
+
+@pytest.mark.asyncio
+async def test_postgres_competing_insert_after_commit_is_rejected(replay_db):
+    """A waiting contender must lose once the first transaction commits."""
+    from app.gateway_replay import reserve_assertion_once
+
+    issuer = "gamma-replay-integration"
+    jti = "test-" + uuid4().hex
+    expires_at = int(time.time()) + 300
+    digest = hashlib.sha256((issuer + "\x00" + jti).encode()).hexdigest()
+    started = asyncio.Event()
+
+    async def competing_attempt():
+        started.set()
+        async with replay_db() as second:
+            return await consume_assertion_before_access(
+                second, issuer=issuer, assertion_id=jti,
+                expires_at=expires_at,
+            )
+
+    task = None
+    try:
+        async with replay_db() as first:
+            assert await reserve_assertion_once(
+                first, issuer=issuer, assertion_id=jti,
+                expires_at=expires_at,
+            )
+            task = asyncio.create_task(competing_attempt())
+            await asyncio.wait_for(started.wait(), timeout=5)
+            await asyncio.sleep(0.1)
+            assert not task.done()
+            await first.commit()
+        assert await asyncio.wait_for(task, timeout=15) is False
+        async with replay_db() as verifier:
+            assert await verifier.scalar(
+                text("SELECT count(*) FROM gateway_assertion_replay "
+                     "WHERE assertion_digest = :digest"),
+                {"digest": digest},
+            ) == 1
+    finally:
+        if task is not None and not task.done():
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+        async with replay_db() as cleanup:
+            await cleanup.execute(
+                text("DELETE FROM gateway_assertion_replay "
+                     "WHERE assertion_digest = :digest"),
+                {"digest": digest},
+            )
+            await cleanup.commit()
