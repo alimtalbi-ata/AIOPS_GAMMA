@@ -703,3 +703,10 @@
 - Re-fetched the exact updated file and verified that the malformed literal sequence is absent and that the proper multi-line `if parsed.query:` fail-closed guard and connected-server checks are present.
 - Re-ran the existing local reconstructed ChatGPT harness in `/mnt/data/gamma_lab`: `python -m pytest -q` => **27 passed in 0.19s**. **Important:** this harness is not the actual repository pytest module; it would not have detected the malformed source. The syntax repair was confirmed by source inspection, not a complete checkout compilation.
 - No GitHub Actions reruns, external PostgreSQL connection, runtime changes, upstream access, merge or LIVE actions. PR #1 remains Draft; **HOLD / NO_GO**.
+
+### 2026-11-13 — ChatGPT lab: prevent vacuous multi-tenant test passes
+
+- Reviewed actual committed `tests/test_resource_list_http_postgres.py` via the GitHub connector. The `test_foreign_rows_and_foreign_incident_are_not_serialized` case used `all(... for ... in values)` and negative-only assertions: **an empty HTTP 200 list would pass**, without demonstrating a legitimate tenant-owned row was returned.
+- Replaced the negative-only check with `assert values == expected`, where the expected positive row is tenant A's service binding or evidence for the requested incident; retained explicit forbidden foreign/other-incident checks. Commit `c447773d828fa0787f66775cd7b7216b815e4b29`.
+- Ran the disposable ChatGPT local harness `python -m pytest -q` in `/mnt/data/gamma_lab`: **34 passed in 0.20s**, including 7 isolated positive/negative assertion scenarios. These are **reconstructed local unit checks**, not a checkout or execution of repository HTTP/PostgreSQL tests. PostgreSQL-backed tests remain **NOT EXECUTED**.
+- No GitHub Actions invocation, database connection, runtime changes, upstream read, merge or LIVE action. PR #1 stays Draft. **HOLD / NO_GO**.
