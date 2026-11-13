@@ -39,7 +39,6 @@ stub("app.schemas", **{name: Empty for name in ("AlertPayload", "BindingIn", "Ev
 stub("app.reused.impact", estimate_impact=MagicMock())
 stub("app.reused.policy", RemediationProposal=Empty, evaluate=MagicMock())
 stub("app.reused.correlation", CorrelationPreview=Empty, correlate=MagicMock())
-stub("app.reused.upstream", ALLOWED_RESOURCES={"incidents"}, fetch_canonical=MagicMock())
 stub("app.reused.itil", ITILPreviewRequest=Empty, preview_itil_workflow=MagicMock())
 stub("app.reused.itsm_contract", IncidentSyncPreview=Empty, plan_incident_sync=MagicMock())
 stub("app.reused.glpi_read", read_glpi_incident=MagicMock())
@@ -336,4 +335,22 @@ def test_cross_tenant_batch_does_not_invoke_normalizer(monkeypatch):
         }, json={"items": [evidence_item(tenant), evidence_item(str(uuid4()))]})
     assert response.status_code == 403, response.text
     assert calls == []
+    assert response.headers["cache-control"] == "no-store"
+
+
+@pytest.mark.parametrize("resource,expected", [("core", 503), ("evidence", 503), ("twin", 503), ("unlisted", 404)])
+def test_canonical_http_hold_without_network(resource, expected, monkeypatch):
+    import httpx
+
+    def forbidden_client(*args, **kwargs):
+        raise AssertionError("Canonical HOLD must not instantiate an HTTP client")
+
+    monkeypatch.setattr(httpx, "AsyncClient", forbidden_client)
+    path = f"/api/v1/canonical/{resource}/snapshot"
+    with TestClient(app) as client:
+        response = client.get(path, headers={
+            "X-Internal-API-Key": "service-secret",
+            "X-Gateway-Principal": signed("GET", path),
+        })
+    assert response.status_code == expected, response.text
     assert response.headers["cache-control"] == "no-store"
