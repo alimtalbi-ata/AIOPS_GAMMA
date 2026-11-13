@@ -5,7 +5,7 @@ Test module: `tests/test_resource_list_http_postgres.py`
 This suite drives the **real FastAPI application routes** for tenant-owned
 ServiceBinding and Evidence list operations, backed by actual PostgreSQL
 sessions. It seeds tenant A and tenant B rows, sends independently signed
-request-bound gateway assertions, deliberately supplies contradictory
+request-bound gateway assertions for two **distinct actor subjects**, deliberately supplies contradictory
 browser-controlled tenant/actor/role headers, and asserts each response
 contains only the authenticated tenant's rows. Evidence is additionally
 scoped to the requested incident.
@@ -36,7 +36,8 @@ GAMMA_TENANT_TEST_DATABASE_URL='postgresql+asyncpg://test_user:...@localhost/gam
   python -m pytest -q tests/test_resource_list_http_postgres.py
 ```
 
-Expected parameterized cases: 9. The test intentionally skips when the
+Expected test cases: 10 (four PostgreSQL HTTP cases, four unsafe-URL
+cases, one safe-URL case and one distinct-actor signing case). The test intentionally skips when the
 dedicated URL is absent; unsafe configured URLs fail. A skipped test is not a
 pass.
 
