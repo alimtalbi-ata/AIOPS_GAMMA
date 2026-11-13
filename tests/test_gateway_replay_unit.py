@@ -514,3 +514,23 @@ async def test_issuer_jti_boundary_is_unambiguous():
         ).hexdigest()
         digests.append(params["digest"])
     assert digests[0] != digests[1]
+
+@pytest.mark.asyncio
+async def test_duplicate_rollback_cancellation_never_authorizes():
+    """Cancellation while rolling back a duplicate must propagate, not grant access."""
+    import asyncio
+
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = None
+    session = SimpleNamespace(
+        execute=AsyncMock(return_value=result),
+        commit=AsyncMock(),
+        rollback=AsyncMock(side_effect=asyncio.CancelledError()),
+    )
+    with pytest.raises(asyncio.CancelledError):
+        await consume_assertion_before_access(
+            session, issuer="gateway", assertion_id="assertion-123456",
+            expires_at=1_800_000_000,
+        )
+    session.commit.assert_not_awaited()
+    session.rollback.assert_awaited_once()
