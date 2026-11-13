@@ -183,8 +183,12 @@ def test_refuses_unsafe_test_database_urls(url):
         _require_disposable_database_url(url)
 
 
-def test_accepts_explicit_disposable_test_database_url():
-    url = "postgresql+asyncpg://user:pass@localhost/gamma_replay_test"
+@pytest.mark.parametrize("url", [
+    "postgresql+asyncpg://user:pass@localhost/gamma_replay_test",
+    "postgresql+asyncpg://user:pass@127.0.0.1:5433/gamma_replay_test",
+    "postgresql+asyncpg://user:pass@[::1]:55432/gamma_replay_test",
+])
+def test_accepts_explicit_disposable_test_database_url(url):
     assert _require_disposable_database_url(url) == url
 
 @pytest.mark.asyncio
