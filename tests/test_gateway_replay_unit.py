@@ -279,3 +279,33 @@ async def test_rollback_failure_does_not_return_success_on_duplicate():
         )
     session.commit.assert_not_awaited()
     session.rollback.assert_awaited_once()
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cancel_at", ["execute", "commit"])
+async def test_task_cancellation_rolls_back_and_never_returns_authorized(cancel_at):
+    import asyncio
+
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = "reserved"
+    session = SimpleNamespace(
+        execute=AsyncMock(
+            side_effect=asyncio.CancelledError()
+            if cancel_at == "execute" else None,
+            return_value=result,
+        ),
+        commit=AsyncMock(
+            side_effect=asyncio.CancelledError()
+            if cancel_at == "commit" else None,
+        ),
+        rollback=AsyncMock(),
+    )
+    with pytest.raises(asyncio.CancelledError):
+        await consume_assertion_before_access(
+            session, issuer="gateway", assertion_id="assertion-123456",
+            expires_at=1_800_000_000,
+        )
+    session.rollback.assert_awaited_once()
+    if cancel_at == "execute":
+        session.commit.assert_not_awaited()
+    else:
+        session.commit.assert_awaited_once()
