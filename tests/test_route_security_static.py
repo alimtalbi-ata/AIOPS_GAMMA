@@ -129,7 +129,7 @@ def test_public_demo_routes_only_call_reviewed_synthetic_helpers():
 def _assert_no_unreviewed_route_registration(source):
     """Prevent bypassing the explicit @app route inventory."""
     tree = ast.parse(source)
-    forbidden_calls = {"include_router", "add_api_route", "add_route", "mount"}
+    forbidden_calls = {"include_router", "add_api_route", "add_route", "mount", "api_route", "websocket", "websocket_route", "route"}
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
             func = node.func
@@ -159,6 +159,8 @@ def test_alternate_route_registration_mutations_are_rejected():
         'app.add_api_route("/api/v1/unsafe", handler)',
         'app.router.add_api_route("/api/v1/unsafe", handler)',
         'app.mount("/unsafe", subapp)',
+        '@app.api_route("/api/v1/unsafe")\\ndef handler():\\n    return {}',
+        '@app.websocket("/ws")\\ndef handler():\\n    return {}',
         'router = APIRouter()',
         '@router.get("/api/v1/unsafe")\ndef handler():\n    return {}',
     )
