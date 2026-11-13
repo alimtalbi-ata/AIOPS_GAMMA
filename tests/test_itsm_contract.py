@@ -119,3 +119,23 @@ def test_sync_rechecks_policy_identity_after_mutation():
     req.matrix.version = "v1\x7f"
     with pytest.raises(ValueError, match="Invalid priority policy identity"):
         plan_incident_sync(req, TENANT)
+
+
+@pytest.mark.parametrize("mutation", ["duplicate", "missing", "extra"])
+def test_sync_rejects_mutated_priority_matrix_mapping(mutation):
+    req = IncidentSyncPreview(incident=incident(), matrix=matrix())
+    if mutation == "duplicate":
+        req.matrix.rules[-1] = req.matrix.rules[0].model_copy()
+    elif mutation == "missing":
+        req.matrix.rules.pop()
+    else:
+        req.matrix.rules.append(req.matrix.rules[0].model_copy())
+    with pytest.raises(ValueError, match="Invalid priority matrix mapping"):
+        plan_incident_sync(req, TENANT)
+
+
+def test_sync_accepts_complete_priority_matrix_after_revalidation():
+    req = IncidentSyncPreview(incident=incident(), matrix=matrix())
+    result = plan_incident_sync(req, TENANT)
+    assert result["priority"] == "P2"
+    assert result["live_remediation_authorized"] is False
