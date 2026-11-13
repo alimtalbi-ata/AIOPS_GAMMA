@@ -120,3 +120,69 @@ def test_weak_gateway_secret_fails_closed(monkeypatch):
             now=1030,
         )
     assert exc.value.status_code == 503
+
+from starlette.requests import Request
+from app.security import internal_principal
+
+
+def request_with_headers(path="/api/v1/observability/metrics/query", headers=None, method="POST"):
+    raw_headers = [(key.lower().encode("latin-1"), value.encode("latin-1"))
+                   for key, value in (headers or {}).items()]
+    return Request({
+        "type": "http", "asgi": {"version": "3.0"},
+        "http_version": "1.1", "method": method, "scheme": "http",
+        "path": path, "raw_path": path.encode(), "query_string": b"",
+        "headers": raw_headers, "server": ("testserver", 80),
+        "client": ("testclient", 12345),
+    })
+
+
+@pytest.mark.parametrize("supplied_key", [None, "", "wrong-service-key"])
+def test_internal_principal_rejects_missing_or_wrong_service_key(monkeypatch, supplied_key):
+    monkeypatch.setattr(settings, "internal_api_key", "service-secret")
+    request = request_with_headers()
+    with pytest.raises(HTTPException) as exc:
+        internal_principal(request, x_internal_api_key=supplied_key,
+                           x_gateway_principal=signed(monkeypatch))
+    assert exc.value.status_code == 401
+
+
+def test_internal_principal_fails_closed_when_service_key_unconfigured(monkeypatch):
+    monkeypatch.setattr(settings, "internal_api_key", "")
+    with pytest.raises(HTTPException) as exc:
+        internal_principal(request_with_headers(), x_internal_api_key="anything",
+                           x_gateway_principal=None)
+    assert exc.value.status_code == 503
+
+
+def test_internal_principal_requires_gateway_assertion_after_service_auth(monkeypatch):
+    monkeypatch.setattr(settings, "internal_api_key", "service-secret")
+    with pytest.raises(HTTPException) as exc:
+        internal_principal(request_with_headers(), x_internal_api_key="service-secret",
+                           x_gateway_principal=None)
+    assert exc.value.status_code == 401
+
+
+def test_internal_principal_ignores_caller_selected_tenant_header(monkeypatch):
+    monkeypatch.setattr(settings, "internal_api_key", "service-secret")
+    token = signed(monkeypatch)
+    request = request_with_headers(headers={"X-Tenant-ID": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"})
+    principal = internal_principal(
+        request, x_internal_api_key="service-secret", x_gateway_principal=token
+    )
+    assert str(principal.tenant_id) == "12345678-1234-4234-8234-123456789abc"
+
+
+@pytest.mark.parametrize("method,path", [
+    ("GET", "/api/v1/observability/metrics/query"),
+    ("POST", "/api/v1/observability/logs/search"),
+])
+def test_internal_principal_rejects_assertion_bound_to_other_request(monkeypatch, method, path):
+    monkeypatch.setattr(settings, "internal_api_key", "service-secret")
+    token = signed(monkeypatch)
+    with pytest.raises(HTTPException) as exc:
+        internal_principal(
+            request_with_headers(path=path, method=method),
+            x_internal_api_key="service-secret", x_gateway_principal=token,
+        )
+    assert exc.value.status_code == 401
