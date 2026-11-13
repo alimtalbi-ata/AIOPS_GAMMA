@@ -111,7 +111,9 @@ def preview_itil_workflow(
         },
         "service_configuration_management": {
             "observed_cis": len(incident.affected_cis),
-            "verified_cis": len(verified_ci_ids),
+            "verified_cis": sum(
+                bool(ci.verified_against_cmdb and ci.cmdb_ci_id) for ci in incident.affected_cis
+            ),
             "unverified_cis": len(incident.affected_cis) - sum(
                 bool(ci.verified_against_cmdb and ci.cmdb_ci_id) for ci in incident.affected_cis
             ),
