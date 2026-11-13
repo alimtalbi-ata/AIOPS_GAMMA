@@ -3,6 +3,7 @@
 Not wired to authentication until reviewed migration and gateway integration.
 Never replace this with a process-local set: replicas must share replay state.
 """
+import asyncio
 import hashlib
 from datetime import datetime, timezone
 
@@ -56,7 +57,8 @@ async def consume_assertion_before_access(
         if reserved:
             await session.commit()
             return True
-    except Exception:
+    except (Exception, asyncio.CancelledError):
+        # Task cancellation must not silently leave an uncommitted reservation.
         await session.rollback()
         raise
     # A duplicate must roll back exactly once. Keep this outside the
