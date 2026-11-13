@@ -681,3 +681,11 @@
 - Updated the PostgreSQL HTTP test documentation to reflect the prior code correction: two **distinct** actor subjects and **10** declared test cases (4 HTTP cases requiring PostgreSQL, 4 unsafe-URL cases, 1 safe-URL case, 1 actor-distinctness case). The HTTP/PostgreSQL tests are still **NOT EXECUTED**.
 - The environment has pytest, FastAPI, SQLAlchemy and Alembic, but no asyncpg or PostgreSQL server executable; network access to github.com is unavailable from the container. Do not treat this as full source qualification.
 - No database, network, production resource, gateway, GLPI, feature flag, upstream route or LIVE access changed. PR #1 remains Draft, canonical reads hard-disabled. **HOLD / NO_GO**.
+
+### 2026-11-13 — ChatGPT lab: PostgreSQL query-host override guard
+
+- Identified a safety gap in `tests/test_resource_list_http_postgres.py`: `sqlalchemy.engine.make_url(...).host` can report `localhost` while `parsed.query` contains `host=db.internal` or `host=/var/run/postgresql`. Such query parameters may alter the actual asyncpg connection target despite a loopback-looking authority.
+- Added a fail-closed `if parsed.query: pytest.fail(...)` guard before accepting the URL; added three regression cases for remote host override, Unix-socket override, and unexpected SSL query configuration. Commit `67d202153cb97f9c5ff66e99a86799514875def2`.
+- Reproduced the guard in a standalone local ChatGPT lab test file `/mnt/data/gamma_lab/test_pg_url_query_guard.py` using the actual installed SQLAlchemy URL parser: **10 passed in 0.16s** (7 denied URLs + 3 allowed loopback variants). This is a faithful isolated reproduction of the helper, **not** a run of the repository module or a PostgreSQL connection.
+- Updated test documentation: total declared repository test cases now **13** (4 HTTP requiring PostgreSQL + 7 unsafe URL + 1 safe URL + 1 distinct-actor).
+- No GitHub Actions invocation, external database, network, migration, runtime application, gateway or LIVE change. PostgreSQL-backed HTTP tenant isolation remains **NOT EXECUTED**. PR Draft; canonical reads hard-disabled; **HOLD / NO_GO**.
