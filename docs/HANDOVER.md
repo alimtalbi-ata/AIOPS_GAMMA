@@ -1045,3 +1045,13 @@
 - Materialized the current GitHub `app/reused/evidence.py` source into `/mnt/data/gamma_evidence_unit/app/reused/evidence.py`; Git blob hash matches exactly: **7e5b24cc300e1d956ae87494cd1c8df6129f6b2f**.
 - Reconstructed the current 18-test `tests/test_evidence_normalization.py` locally from fetched GitHub content and ran `python -m pytest -q`: **18 passed in 0.07s**. However local Git blob SHA **3b6c1c9a9876646efd154f75475ccbd5d007bc4b** does not match the current GitHub test blob SHA **a6628bc859c8aaf2997a37407767554453b48cff** (local file is 5 bytes longer). Therefore this is a semantically equivalent local test copy, **not an exact-byte execution of the committed test file**. Prior handover reference to 17 tests is corrected: current file contains 18 tests.
 - No GitHub Actions, PostgreSQL, independent actor→tenant→resource ACL, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Correlation/evidence join qualification extended
+
+- Materialized exact GitHub sources into `/mnt/data/gamma_evidence_unit`; local Git blob hashes match:
+  - `app/reused/correlation.py`: **53c1fdf1b16485d6f26d8f3b7337abc46fe5beb8**
+  - `app/reused/correlation_evidence.py`: **083f56d1e91487f95dc7b431a971497722e78c85**
+  - `app/reused/evidence.py`: **7e5b24cc300e1d956ae87494cd1c8df6129f6b2f**
+- Added two versioned correlation/evidence regressions: cross-tenant evidence must be rejected **before** the correlation function is called; a fully covered and internally consistent join must still retain `evidence_state=UNVERIFIED`, per-item `integrity=UNVERIFIED`, `persisted=False`, and `live_remediation_authorized=False`. Commit `ded9a4f01d3efc7a819dabd193ec7638021beaa8`.
+- Internal lab `python -m pytest -q`: **26 passed in 0.07s** — 18 normalization cases plus 8 focused correlation/evidence join cases (exact application modules copied from GitHub). The 18-case local normalization test file still has a 5-byte content difference from the committed test file's Git blob; its SHA does not match, so no exact test-file execution claim. The 8 correlation tests are focused local equivalents, not the full committed `tests/test_correlation_evidence.py`.
+- No GitHub Actions, PostgreSQL, real IdP, independent actor→tenant→resource ACL, merge, deploy or LIVE. **HOLD / NO_GO**.
