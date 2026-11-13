@@ -565,3 +565,13 @@
 - GitHub Actions workflows on recent commits fail within seconds with no assigned runner (`runner_id: 0`, `steps: []` for `test`, `frontend` and `gateway-replay-postgres`). Root cause **not established**; retrieve the GitHub job UI error annotation and check Actions permissions / billing only if indicated.
 - Resume in order: (1) diagnose runner provisioning, (2) obtain successful `compileall`, full `pytest`, TypeScript/Vite build and disposable PostgreSQL migration/replay on **current HEAD**, (3) review tenant/auth and integration gates. No VM is available; no production qualification can be inferred.
 - PR #1 stays draft, **HOLD / NO_GO**; no merge, deploy, or LIVE actions.
+
+### 2026-11-13 — ITSM incident identifier revalidation
+
+- Branch: `feat/observability-foundation`; draft PR #1.
+- Commits: `18b9eb972978ca15532ee9fdb17f756ff4c6a87e` (runtime guard), `9950264d56e3cf908ca3695a2276a71fb676b7bd` (regression tests).
+- Delivered: `plan_incident_sync()` now revalidates the mutable `incident_id` at the planning boundary, rejecting non-string values, blank/control-character values and identifiers longer than the schema's 128-character limit with a controlled `ValueError`. Added mutation regression cases plus a valid mutated identifier case.
+- Validation: source and test changes are committed. **The tests have not been executed.** No workflow run was returned for the new HEAD; previous Actions failures had jobs with `steps: null` and no assigned runner. Do not claim pytest or CI passed.
+- Scope/security: this hardens the preview contract only; no ITSM write, persistence, LIVE action or authorization capability is added. Issue #2 remains blocked on a real trusted actor→tenant ACL contract and upstream enforcement.
+- Decision: HOLD / NO_GO; PR #1 remains draft. No merge, deployment or LIVE activation.
+- Next: restore an executable CI runner and run the focused ITSM tests plus the full Python/frontend/PostgreSQL gates on the exact new HEAD; continue issue #2 only after the canonical services expose a verifiable tenant ACL contract.
