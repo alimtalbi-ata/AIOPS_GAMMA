@@ -631,3 +631,12 @@
 - This cycle was repository-source review only. No AIOPS/GAMMA application code, database, workflow, runtime, Debian, GLPI or LIVE state was changed.
 - Next concrete dependency: AIOPS Core owner selects the IdP/gateway and approves a versioned principal + resource ACL contract; then implement authorization in canonical Core/Evidence/Twin, prove A→A and B→B positive plus A→B denial (including count/graph/evidence/error paths), and publish actual read-only route/schema contracts for GAMMA.
 - GAMMA stays consumer-only, canonical reads disabled, OpenSearch disabled, PR #1 Draft, **HOLD / NO_GO**.
+
+### 2026-11-13 — ChatGPT internal lab: Core read contract v1 proposal
+
+- Added `docs/contracts/GAMMA-CORE-READ-CONTRACT-v1-PROPOSAL.md` on this draft branch. It defines the consumer contract only: logical families Incidents/Runs/Evidence/Twin; common `aiops2.read.v1` envelope; READY vs UNKNOWN/ERROR/BLOCKED semantics; bounded opaque cursor rules; source-side authorization-before-read; tenant-safe cache and cross-tenant test matrix.
+- The proposal explicitly does **not** invent AIOPS route paths or claim AIOPS owner approval. Core/Gateway owners must publish exact routes, OpenAPI schemas, IdP contract, per-resource ACL, replay/key lifecycle and freshness policy before GAMMA implementation. GLPI remains separate.
+- Preserved the current hard hold: `fetch_canonical()` must return 503 for every allowlisted canonical family; canonical/OpenSearch/GLPI flags remain disabled. No runtime code, upstream mapping, credentials or feature flags changed.
+- Used the internal disposable ChatGPT Python lab for a narrowly reconstructed, no-network static check. Exact observed result: **3 passed in 0.07s** — existing canonical fail-closed AST shape, no-network/503 guard, and proposal required-token guard.
+- **Limit:** this was a temporary reconstructed subset, not a full authenticated Git checkout. It is not execution of `scripts/run_bounded_lab.py`, not the repository's 12-file allowlist, not real FastAPI/PostgreSQL/IdP/HTTP integration, and not exact-HEAD GitHub CI. Do not promote this result as full application qualification.
+- No PostgreSQL, network, Docker, Debian, GLPI, upstream API or LIVE resources accessed. PR #1 remains Draft and **HOLD / NO_GO**.
