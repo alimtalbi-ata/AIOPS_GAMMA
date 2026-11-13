@@ -67,3 +67,56 @@ def test_signed_unpaired_surrogate_subject_rejected(monkeypatch, bad_subject):
         verify_gateway_assertion(token, method='POST',
                                  path='/api/v1/observability/metrics/query', now=1030)
     assert exc.value.status_code == 401
+
+@pytest.mark.parametrize("ttl", [1, 30, 60])
+def test_assertion_ttl_within_configured_security_ceiling_is_accepted(monkeypatch, ttl):
+    token = signed(monkeypatch, iat=1000, exp=1000 + ttl)
+    principal = verify_gateway_assertion(
+        token, method="POST",
+        path="/api/v1/observability/metrics/query",
+        now=1000,
+    )
+    assert principal.expires_at == 1000 + ttl
+
+
+@pytest.mark.parametrize("invalid_ttl", [0, -1, 61, True, 1.5])
+def test_invalid_configured_assertion_ttl_fails_closed(monkeypatch, invalid_ttl):
+    token = signed(monkeypatch, iat=1000, exp=1030)
+    monkeypatch.setattr(settings, "gateway_assertion_max_ttl_seconds", invalid_ttl)
+    with pytest.raises(HTTPException) as exc:
+        verify_gateway_assertion(
+            token, method="POST",
+            path="/api/v1/observability/metrics/query",
+            now=1010,
+        )
+    assert exc.value.status_code == 503
+
+
+@pytest.mark.parametrize("missing_policy", ["issuer", "audience"])
+def test_missing_gateway_policy_fails_closed(monkeypatch, missing_policy):
+    token = signed(monkeypatch)
+    attribute = (
+        "gateway_assertion_issuer"
+        if missing_policy == "issuer"
+        else "gateway_assertion_audience"
+    )
+    monkeypatch.setattr(settings, attribute, "")
+    with pytest.raises(HTTPException) as exc:
+        verify_gateway_assertion(
+            token, method="POST",
+            path="/api/v1/observability/metrics/query",
+            now=1030,
+        )
+    assert exc.value.status_code == 503
+
+
+def test_weak_gateway_secret_fails_closed(monkeypatch):
+    token = signed(monkeypatch)
+    monkeypatch.setattr(settings, "gateway_assertion_secret", "x" * 31)
+    with pytest.raises(HTTPException) as exc:
+        verify_gateway_assertion(
+            token, method="POST",
+            path="/api/v1/observability/metrics/query",
+            now=1030,
+        )
+    assert exc.value.status_code == 503
