@@ -148,3 +148,26 @@ def test_tampered_assertion_signature_is_rejected():
             'X-Gateway-Principal': encoded + '.' + replacement,
         })
     assert response.status_code == 401
+
+def test_signed_tenant_wins_over_untrusted_tenant_header():
+    signed_tenant = uuid4()
+    forged_tenant = uuid4()
+    token = signed(overrides={'tenant_id': str(signed_tenant)})
+    with TestClient(app) as client:
+        response = client.post('/api/v1/probe', headers={
+            'X-Internal-API-Key': 'service-secret',
+            'X-Gateway-Principal': token,
+            'X-Tenant-ID': str(forged_tenant),
+        })
+    assert response.status_code == 200
+    assert response.json()['tenant'] == str(signed_tenant)
+    assert response.json()['tenant'] != str(forged_tenant)
+
+
+def test_unsigned_tenant_header_cannot_authenticate():
+    with TestClient(app) as client:
+        response = client.post('/api/v1/probe', headers={
+            'X-Internal-API-Key': 'service-secret',
+            'X-Tenant-ID': str(uuid4()),
+        })
+    assert response.status_code == 401
