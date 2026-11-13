@@ -213,3 +213,19 @@ def test_sync_rejects_mutated_expected_ticket_reference():
     expected.external_id = "101\rforged"
     with pytest.raises(ValueError, match="Invalid authoritative ITSM reference"):
         plan_incident_sync(req, TENANT)
+
+
+@pytest.mark.parametrize("bad_evidence", [None, 123, ["trace-1", 123], ["trace-1", None]])
+def test_sync_rejects_mutated_nonstring_evidence_references(bad_evidence):
+    req = IncidentSyncPreview(incident=incident(), matrix=matrix())
+    req.incident.evidence_refs = bad_evidence
+    with pytest.raises(ValueError, match="Incident requires evidence|Invalid evidence reference"):
+        plan_incident_sync(req, TENANT)
+
+
+def test_sync_accepts_mutated_valid_evidence_list_without_side_effects():
+    req = IncidentSyncPreview(incident=incident(), matrix=matrix())
+    req.incident.evidence_refs = ["trace-2", "log-4"]
+    result = plan_incident_sync(req, TENANT)
+    assert result["evidence_refs"] == ["trace-2", "log-4"]
+    assert result["itsm_mutations_performed"] is False
