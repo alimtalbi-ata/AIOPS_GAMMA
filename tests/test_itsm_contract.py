@@ -139,3 +139,21 @@ def test_sync_accepts_complete_priority_matrix_after_revalidation():
     result = plan_incident_sync(req, TENANT)
     assert result["priority"] == "P2"
     assert result["live_remediation_authorized"] is False
+
+
+@pytest.mark.parametrize("invalid_priority", [
+    "", " ", "P1\nforged", "P1\tforged", "P1/unsafe", "P" * 33, None,
+])
+def test_sync_rejects_mutated_priority_labels(invalid_priority):
+    req = IncidentSyncPreview(incident=incident(), matrix=matrix())
+    req.matrix.rules[1].priority = invalid_priority
+    with pytest.raises(ValueError, match="Invalid priority matrix rule"):
+        plan_incident_sync(req, TENANT)
+
+
+def test_sync_keeps_valid_mutated_priority_label():
+    req = IncidentSyncPreview(incident=incident(), matrix=matrix())
+    req.matrix.rules[1].priority = "P2-REVIEW"
+    result = plan_incident_sync(req, TENANT)
+    assert result["priority"] == "P2-REVIEW"
+    assert result["itsm_mutations_performed"] is False
