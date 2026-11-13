@@ -463,3 +463,45 @@ def test_future_evidence_is_covered_but_not_consistent():
     assert result["evidence_join_consistent"] is False
     assert result["persisted"] is False
     assert result["live_remediation_authorized"] is False
+
+def test_same_source_event_claimed_by_two_incidents_is_not_deduplicated():
+    req = request()
+    first = req.evidence[0]
+    second = first.model_copy(update={"incident_id": "inc-2"})
+    req.evidence = [first, second]
+    result = preview(req, TENANT, now=NOW)
+    assert result["evidence_duplicates"] == 0
+    assert len(result["groups"][0]["evidence"]) == 2
+    assert {item["incident_id"] for item in result["groups"][0]["evidence"]} == {"inc-1", "inc-2"}
+    assert result["groups"][0]["evidence_state"] == "UNKNOWN"
+    assert result["evidence_join_complete"] is True
+    assert result["evidence_join_consistent"] is False
+    assert result["persisted"] is False
+    assert result["live_remediation_authorized"] is False
+
+
+def test_multi_incident_claim_order_does_not_change_join_result():
+    req = request()
+    first = req.evidence[0]
+    second = first.model_copy(update={"incident_id": "inc-2"})
+    forward = request()
+    forward.evidence = [first, second]
+    reverse = request()
+    reverse.evidence = [second, first]
+    result_forward = preview(forward, TENANT, now=NOW)
+    result_reverse = preview(reverse, TENANT, now=NOW)
+    assert result_forward == result_reverse
+    assert result_forward["groups"][0]["evidence_state"] == "UNKNOWN"
+
+
+def test_stale_evidence_is_identity_covered_but_never_consistent():
+    from datetime import timedelta
+
+    result = preview(request(), TENANT, now=NOW + timedelta(hours=2))
+    group = result["groups"][0]
+    assert group["evidence_covered_events"] == 1
+    assert group["evidence_missing_events"] == 0
+    assert group["evidence_state"] == "UNKNOWN"
+    assert result["unmatched_evidence"] == 0
+    assert result["evidence_join_complete"] is True
+    assert result["evidence_join_consistent"] is False
