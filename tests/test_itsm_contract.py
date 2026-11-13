@@ -229,3 +229,20 @@ def test_sync_accepts_mutated_valid_evidence_list_without_side_effects():
     result = plan_incident_sync(req, TENANT)
     assert result["evidence_refs"] == ["trace-2", "log-4"]
     assert result["itsm_mutations_performed"] is False
+
+@pytest.mark.parametrize("bad_incident_id", [
+    None, 123, ["INC-123"], "", " ", "INC-123\\nforged", "I" * 129,
+])
+def test_sync_rejects_mutated_invalid_incident_identifiers(bad_incident_id):
+    req = IncidentSyncPreview(incident=incident(), matrix=matrix())
+    req.incident.incident_id = bad_incident_id
+    with pytest.raises(ValueError, match="Invalid incident identifier"):
+        plan_incident_sync(req, TENANT)
+
+
+def test_sync_accepts_valid_mutated_incident_identifier():
+    req = IncidentSyncPreview(incident=incident(), matrix=matrix())
+    req.incident.incident_id = "INC-456"
+    result = plan_incident_sync(req, TENANT)
+    assert result["incident_id"] == "INC-456"
+    assert result["itsm_mutations_performed"] is False
