@@ -88,9 +88,9 @@ def preview_itil_workflow(
     if change is not None and (change.tenant_id != tenant or change.source_incident_id != incident.incident_id):
         raise ValueError("Change tenant or incident reference mismatch")
     verified_observations = sum(
-        bool(ci.verified_against_cmdb and ci.cmdb_ci_id) for ci in incident.affected_cis
+        bool(ci.verified_against_cmdb and ci.cmdb_ci_id and ci.cmdb_ci_id.strip()) for ci in incident.affected_cis
     )
-    verified_ci_ids = {ci.cmdb_ci_id for ci in incident.affected_cis if ci.verified_against_cmdb and ci.cmdb_ci_id}
+    verified_ci_ids = {ci.cmdb_ci_id for ci in incident.affected_cis if ci.verified_against_cmdb and ci.cmdb_ci_id and ci.cmdb_ci_id.strip()}
     if change is not None and change.target_ci_id not in verified_ci_ids:
         raise ValueError("Change target CI must have a verified CMDB binding")
     investigation_status = (
