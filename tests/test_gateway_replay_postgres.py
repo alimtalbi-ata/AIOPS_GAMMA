@@ -253,3 +253,49 @@ async def test_postgres_same_jti_is_independent_across_issuers(replay_db):
                 {"first": digests[0], "second": digests[1]},
             )
             await cleanup.commit()
+
+@pytest.mark.asyncio
+async def test_postgres_competing_insert_waits_for_rollback_then_succeeds(replay_db):
+    """Exercise real unique-index contention, not only sequential rollback."""
+    from app.gateway_replay import reserve_assertion_once
+
+    issuer = "gamma-replay-integration"
+    jti = "test-" + uuid4().hex
+    expires_at = int(time.time()) + 300
+    digest = hashlib.sha256((issuer + "\x00" + jti).encode()).hexdigest()
+    started = asyncio.Event()
+
+    async def competing_attempt():
+        started.set()
+        async with replay_db() as second:
+            return await consume_assertion_before_access(
+                second, issuer=issuer, assertion_id=jti,
+                expires_at=expires_at,
+            )
+
+    task = None
+    try:
+        async with replay_db() as first:
+            assert await reserve_assertion_once(
+                first, issuer=issuer, assertion_id=jti,
+                expires_at=expires_at,
+            )
+            task = asyncio.create_task(competing_attempt())
+            await asyncio.wait_for(started.wait(), timeout=5)
+            # The competing INSERT cannot commit the same unique key while
+            # the first reservation is still uncommitted.
+            await asyncio.sleep(0.1)
+            assert not task.done()
+            await first.rollback()
+        assert await asyncio.wait_for(task, timeout=15) is True
+    finally:
+        if task is not None and not task.done():
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+        async with replay_db() as cleanup:
+            await cleanup.execute(
+                text("DELETE FROM gateway_assertion_replay "
+                     "WHERE assertion_digest = :digest"),
+                {"digest": digest},
+            )
+            await cleanup.commit()
