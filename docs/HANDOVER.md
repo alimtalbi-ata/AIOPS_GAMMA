@@ -859,3 +859,10 @@
 - Updated the inventory and explicit public allowlist to include only those two demos and `/api/v1/health/live`, commit `b412922eaebcfba9837c7658b6129e53f42fe28f`. All other routes must continue to declare `Depends(internal_principal)`.
 - Added an AST guard requiring each public demo route to consist only of a docstring, import of its exact reviewed `app.demo` synthetic helper, and a direct zero-argument return call, with no `await`, commit `961a99bac31912ddcfd72d473020edaa75c217a6`. This checks route wrapper structure, **not** the internals of `app.demo`.
 - **Not yet executed** against an authentic materialized `app/main.py` checkout in the ChatGPT lab; no claim of green route suite. No real business-route HTTP, IdP, actor→tenant→resource ACL, PostgreSQL or upstream qualification. No GitHub Actions, DB, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Public synthetic demo helper static review
+
+- Fetched actual `app/demo.py` from Draft branch and materialized the complete source in the ChatGPT internal partial lab. Both public helpers construct fixed synthetic inputs, call reused pure correlation/evidence preview helpers and label results non-authoritative.
+- Created `tests/test_demo_source_guard.py` to AST-check the public demo helper module's permitted imports and call forms, and to mutation-test introduction of a network import/call or changing `authoritative=False` to `True`. Executed `python -m pytest -q tests/test_demo_source_guard.py`: **3 passed in 0.04s**.
+- Promoted the new static test to GAMMA branch, commit `3d2c11b0898a81cae649a5d76ab125cca191bb02`.
+- Static review of demo source only. The reused helper implementations and real business-route HTTP are **not** qualified by this test; `tests/test_route_security_static.py` still needs execution against full `app/main.py`. No GitHub Actions, DB, merge, deploy or LIVE. **HOLD / NO_GO**.
