@@ -108,3 +108,14 @@ def test_basic_authorization_and_short_bearer_tokens_redacted():
         result = redact_text(diagnostic)
         assert credential not in result, diagnostic
         assert "[REDACTED]" in result, diagnostic
+
+def test_quoted_credentials_with_spaces_do_not_leak_suffix():
+    examples = (
+        ('password="alpha beta gamma"', ('alpha', 'beta', 'gamma')),
+        ('{"api_key": "secret with spaces"}', ('secret', 'with', 'spaces')),
+        ("client_secret='first second third'", ('first', 'second', 'third')),
+    )
+    for diagnostic, fragments in examples:
+        result = redact_text(diagnostic)
+        assert all(fragment not in result for fragment in fragments), result
+        assert "[REDACTED]" in result
