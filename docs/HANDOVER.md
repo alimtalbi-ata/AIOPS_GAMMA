@@ -933,3 +933,10 @@
 - Added `tests/test_real_route_http_isolation.py` which runs the probe as a pytest subprocess to prevent the probe's in-memory stubs of unavailable business adapters from leaking into normal suite imports. Commit `a83b15921614383ef5e6778bfd9e9340ea8a2c04`.
 - The original 25-case local lab passed, but **the newly committed probe and subprocess wrapper have not yet been executed as exact repository files**. No claim of committed test pass. Run `python -m pytest -q tests/test_real_route_http_isolation.py` in a complete source environment as next verification.
 - Source-boundary and simulated-adapter limits remain: no real IdP, actor→tenant→resource ACL, PostgreSQL or upstream. No GitHub Actions, DB, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Isolated HTTP subprocess launcher smoke test
+
+- Re-ran original local `/mnt/data/gamma_business_http_lab/test_real_main_http.py`: **25 passed in 0.66s**.
+- Placed that previously verified local probe under `tests/support/real_route_http_probe.py` in the local lab and created a local wrapper matching the committed subprocess launcher's implementation. Ran `python -m pytest -q tests/test_real_route_http_isolation.py`: **1 passed in 4.26s**; subprocess itself verified `25 passed`.
+- **Important provenance limit:** the subprocess used the original local 25-test source copied to the support path, not a byte-for-byte materialization of the newly committed `tests/support/real_route_http_probe.py`. Therefore the exact committed support probe is **not yet qualified**, despite the successful launcher smoke test. Avoid reporting the GitHub-committed 25-case probe as executed.
+- No GitHub Actions, PostgreSQL, external services, merge, deploy or LIVE. **HOLD / NO_GO**.
