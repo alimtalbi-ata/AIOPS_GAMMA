@@ -763,3 +763,11 @@
 - Updated the scanner to recurse into both lists and tuples (commit `eb0f38d759e5b8b04653bb15e9c449ee1fd83d55`). Added three malicious tuple nesting cases and one benign tuple case to the actual `tests/test_tenant_scope_guard.py` (commit `f543cec0a95904d754b95fb6c61c2c7fae7f80df`).
 - Applied the exact minimal source change and test additions to the existing partial ChatGPT lab copy and executed `python -m pytest -q tests/test_tenant_scope_guard.py tests/test_python_source_parse_contract.py -k 'not postgres'`: **27 passed, 2 deselected in 0.06s**.
 - This is a diagnostic metadata guard, **not** actor→tenant or source-side resource authorization. Full checkout/HTTP/PostgreSQL/IdP/ACL/replay qualifications outstanding. No GitHub Actions, DB, merge, deployment or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Genuine redaction suffix leak found and fixed
+
+- Materialized actual `app/reused/redaction.py` and `tests/test_redaction.py` from the GitHub branch into the partial ChatGPT lab checkout. The **13 original tests passed**.
+- Discovered an actual leak for quoted credential values containing spaces: `password="alpha beta gamma"` returned `password="[REDACTED] beta gamma"`, exposing the suffix. JSON quoted `api_key` exhibited the same issue.
+- Updated the named-credential regex to consume an entire quoted value (single or double quotes) rather than only the first whitespace-delimited token; commit `3f12c33bcc1a6d7aefeb5b2f3d9cd6c81268977f`. Added a regression covering password, JSON api_key and client_secret with spaces; commit `93eccbd5623559220269ff96f11bc921a1f41330`.
+- Applied the exact code and test edits in ChatGPT lab: `python -m pytest -q tests/test_redaction.py` => **14 passed in 0.05s**. This validates the real module and test file in a partial checkout, **not** complete repository/HTTP/PostgreSQL/IdP/ACL qualifications.
+- No GitHub Actions, DB, merge, deployment or LIVE. **HOLD / NO_GO**.
