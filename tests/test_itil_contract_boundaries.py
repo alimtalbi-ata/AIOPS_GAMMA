@@ -133,3 +133,20 @@ def test_preview_evidence_lists_do_not_mutate_source_assessments():
     assert problem.supporting_evidence_refs == ["support"]
     assert problem.contradictory_evidence_refs == ["counterexample"]
     assert preview["execution"]["live_remediation_authorized"] is False
+
+
+def test_ci_timestamp_with_nonfunctional_tzinfo_is_rejected():
+    from datetime import tzinfo
+
+    class NoOffset(tzinfo):
+        def utcoffset(self, dt):
+            return None
+
+        def dst(self, dt):
+            return None
+
+    with pytest.raises(ValidationError, match="timezone"):
+        ObservedCI(
+            service_name="checkout", discovery_source="otel",
+            last_observed_at=datetime(2026, 11, 13, tzinfo=NoOffset()),
+        )
