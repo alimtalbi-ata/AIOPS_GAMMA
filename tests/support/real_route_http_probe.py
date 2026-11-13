@@ -258,3 +258,34 @@ def test_same_tenant_evidence_preview_remains_unverified_with_duplicate():
     assert result["persisted"] is False
     assert result["live_remediation_authorized"] is False
     assert response.headers["cache-control"] == "no-store"
+
+def test_mixed_tenant_evidence_batch_rejected_atomically():
+    from app.security import verify_gateway_assertion
+
+    path = "/api/v1/incidents/evidence/preview"
+    token = signed("POST", path)
+    tenant = str(verify_gateway_assertion(token, method="POST", path=path).tenant_id)
+    with TestClient(app) as client:
+        response = client.post(path, headers={
+            "X-Internal-API-Key": "service-secret",
+            "X-Gateway-Principal": token,
+        }, json={"items": [evidence_item(tenant), evidence_item(str(uuid4()))]})
+    assert response.status_code == 403, response.text
+    assert response.headers["cache-control"] == "no-store"
+
+
+def test_evidence_preview_rejects_naive_timestamp():
+    from app.security import verify_gateway_assertion
+
+    path = "/api/v1/incidents/evidence/preview"
+    token = signed("POST", path)
+    tenant = str(verify_gateway_assertion(token, method="POST", path=path).tenant_id)
+    item = evidence_item(tenant)
+    item["observed_at"] = "2026-11-13T12:00:00"
+    with TestClient(app) as client:
+        response = client.post(path, headers={
+            "X-Internal-API-Key": "service-secret",
+            "X-Gateway-Principal": token,
+        }, json={"items": [item]})
+    assert response.status_code == 422, response.text
+    assert response.headers["cache-control"] == "no-store"
