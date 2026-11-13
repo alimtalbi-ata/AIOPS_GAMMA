@@ -41,7 +41,7 @@ def detect_anomalies(series: MetricSeries) -> dict:
         if abs(z) >= series.threshold:
             # Extremely small MAD can overflow a finite measurement's z-score.
             # Keep the preview JSON-serializable without implying calibrated certainty.
-            bounded_z = copysign(1e12, z) if not isfinite(z) else z
+            bounded_z = copysign(1e12, z) if not isfinite(z) or abs(z) > 1e12 else z
             points.append({"index": i, "value": v, "robust_z": round(bounded_z, 4)})
     return {
         "metric_name": series.metric_name, "state": "EVALUATED",
