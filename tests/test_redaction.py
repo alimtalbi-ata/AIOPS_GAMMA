@@ -21,3 +21,32 @@ def test_oversize_redaction_fail_closed():
 def test_idempotent_and_none():
     assert redact_text(redact_text("password=verySecret123")) == "password=[REDACTED]"
     assert redact_text(None) is None
+
+
+def test_exact_size_limit_preserves_benign_text():
+    from app.reused.redaction import MAX_TEXT
+    text = "x" * MAX_TEXT
+    assert redact_text(text) == text
+
+
+def test_multiple_secrets_in_same_diagnostic_are_all_redacted():
+    text = "api_key=abcdefgh1234 secret:topsecret999 password=hunter123456"
+    result = redact_text(text)
+    assert "abcdefgh1234" not in result
+    assert "topsecret999" not in result
+    assert "hunter123456" not in result
+    assert result.count("[REDACTED]") == 3
+
+
+def test_case_insensitive_bearer_and_access_token_redaction():
+    result = redact_text("bEaReR abcdefghijklmnop ACCESS_TOKEN=abcdefgh123456")
+    assert "abcdefghijklmnop" not in result
+    assert "abcdefgh123456" not in result
+
+
+def test_repeated_redaction_does_not_reveal_secrets():
+    original = "password=secret123456 and ghu_ABCDEF123456789"
+    once = redact_text(original)
+    twice = redact_text(once)
+    assert "secret123456" not in twice
+    assert "ghu_ABCDEF123456789" not in twice
