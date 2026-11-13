@@ -98,3 +98,18 @@ def test_duplicate_verified_cmdb_ids_have_consistent_observation_counts():
     assert counts["verified_cis"] == 2
     assert counts["unverified_cis"] == 0
     assert counts["observed_cis"] == counts["verified_cis"] + counts["unverified_cis"]
+
+
+def test_mixed_verified_unverified_and_duplicate_observations():
+    tenant = uuid4()
+    inc = _incident(tenant)
+    inc.affected_cis.append(inc.affected_cis[0].model_copy())
+    inc.affected_cis.append(inc.affected_cis[0].model_copy(update={"verified_against_cmdb": False}))
+    inc.affected_cis.append(inc.affected_cis[0].model_copy(update={"cmdb_ci_id": None}))
+    result = preview_itil_workflow(inc, change=_change(tenant))
+    counts = result["service_configuration_management"]
+    assert counts["observed_cis"] == 4
+    assert counts["verified_cis"] == 2
+    assert counts["unverified_cis"] == 2
+    assert counts["observed_cis"] == counts["verified_cis"] + counts["unverified_cis"]
+    assert result["execution"]["live_remediation_authorized"] is False
