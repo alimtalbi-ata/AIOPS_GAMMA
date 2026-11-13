@@ -596,3 +596,13 @@
 - Refreshed `docs/PROJECT-STATUS.md` with the current security/CI decision. This handover entry records the cross-repository dependency.
 - Decision remains **HOLD / NO_GO**: no merge, deployment, LIVE activation, tenant reads or ITSM writes.
 - Next actionable dependency: the gateway/IdP and Core owners must provide a versioned, cryptographically verifiable caller identity and server-side actor→tenant/resource ACL contract, including issuer, audience, subject, membership/revocation semantics, key/JWKS or introspection lifecycle, and the actual read-only API routes/schemas. After that, implement and test authorization before data access, then run exact-HEAD CI and staging two-principal tests.
+
+### 2026-11-13 — exact-HEAD CI runner failure confirmed through GitHub REST
+
+- Current PR #1 HEAD: `594bd1caca76644ff6898bced9de2734612dce57`; latest Python checks run: [43415430933](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43415430933), event `pull_request`, conclusion `failure`, created 2026-11-13T11:14:12Z.
+- Independently queried the run's jobs endpoint: `test` job `131851993708`, `frontend` job `131851994107`, and `gateway-replay-postgres` job `131851994327` all completed in 1–2 seconds, each with `runner_id: 0`, empty `runner_name`, and `steps: []`. No job acquired a runner or began a workflow step.
+- Job-log endpoint previously returned `404 BlobNotFound`; no check-run annotation/root-cause detail was exposed by the available read interface. Therefore the evidence establishes **pre-runner failure**, not its cause. Do not guess billing, permissions, quota or GitHub incident.
+- The workflow YAML itself declares ordinary `ubuntu-latest` hosted runners for Python, frontend, PostgreSQL replay and deployment contract. No speculative YAML change or retry can provision a missing hosted runner.
+- The commit combined-status endpoint reports `pending` with zero status contexts; it does not override the failed Actions run.
+- Actionable operator-side diagnostic remains in GitHub UI: inspect the run/job error annotation and repository/org Actions policy/hosted-runner availability; contact GitHub support if the annotation points to service-side provisioning. No repository-side configuration change is justified without that evidence.
+- No application tests, frontend build, Compose/Docker smoke or PostgreSQL replay test executed. Keep **HOLD / NO_GO**, PR #1 Draft, no merge/deployment/LIVE.
