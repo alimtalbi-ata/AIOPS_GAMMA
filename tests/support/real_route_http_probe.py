@@ -378,3 +378,41 @@ def test_canonical_legacy_enable_flag_cannot_bypass_hold(resource, monkeypatch):
         })
     assert response.status_code == 503, response.text
     assert response.headers["cache-control"] == "no-store"
+
+def test_evidence_preview_rejects_501_items_before_normalization(monkeypatch):
+    from app.security import verify_gateway_assertion
+    import app.main as main_module
+
+    path = "/api/v1/incidents/evidence/preview"
+    token = signed("POST", path)
+    tenant = str(verify_gateway_assertion(token, method="POST", path=path).tenant_id)
+    calls = []
+    monkeypatch.setattr(main_module, "normalize_evidence", lambda *a, **kw: calls.append(1))
+    with TestClient(app) as client:
+        response = client.post(path, headers={
+            "X-Internal-API-Key": "service-secret",
+            "X-Gateway-Principal": token,
+        }, json={"items": [evidence_item(tenant)] * 501})
+    assert response.status_code == 422, response.text
+    assert calls == []
+    assert response.headers["cache-control"] == "no-store"
+
+
+@pytest.mark.parametrize("max_age", [0, 86401])
+def test_evidence_preview_rejects_invalid_age_bounds_before_normalization(max_age, monkeypatch):
+    from app.security import verify_gateway_assertion
+    import app.main as main_module
+
+    path = "/api/v1/incidents/evidence/preview"
+    token = signed("POST", path)
+    tenant = str(verify_gateway_assertion(token, method="POST", path=path).tenant_id)
+    calls = []
+    monkeypatch.setattr(main_module, "normalize_evidence", lambda *a, **kw: calls.append(1))
+    with TestClient(app) as client:
+        response = client.post(path, headers={
+            "X-Internal-API-Key": "service-secret",
+            "X-Gateway-Principal": token,
+        }, json={"items": [evidence_item(tenant)], "max_age_seconds": max_age})
+    assert response.status_code == 422, response.text
+    assert calls == []
+    assert response.headers["cache-control"] == "no-store"
