@@ -46,6 +46,11 @@ def _require_disposable_database_url(raw_url: str) -> str:
 
 @pytest_asyncio.fixture
 async def replay_db():
+    # Integration assertions include awaited reservations. Under python -O,
+    # assert statements (and their awaited calls) disappear entirely, giving
+    # misleading green results. Reject optimized mode before any DB access.
+    if not __debug__:
+        pytest.fail("Replay PostgreSQL integration tests require Python without -O")
     url = _require_disposable_database_url(
         os.environ.get("GAMMA_REPLAY_TEST_DATABASE_URL", "")
     )
