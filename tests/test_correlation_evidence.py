@@ -394,3 +394,23 @@ def test_three_evidence_versions_all_permutations_are_identical():
     assert outputs[0]["evidence_duplicates"] == 2
     assert outputs[0]["evidence_join_consistent"] is False
     assert outputs[0]["groups"][0]["evidence_state"] == "UNKNOWN"
+
+def test_tenant_rejection_happens_before_correlation(monkeypatch):
+    import app.reused.correlation_evidence as join_module
+
+    called = []
+    monkeypatch.setattr(join_module, "correlate", lambda *args, **kwargs: called.append(True))
+    with pytest.raises(PermissionError):
+        preview(request(tenant="other"), TENANT, now=NOW)
+    assert called == []
+
+
+def test_consistent_join_never_promotes_evidence_authenticity():
+    result = preview(request(), TENANT, now=NOW)
+    group = result["groups"][0]
+    assert result["evidence_join_complete"] is True
+    assert result["evidence_join_consistent"] is True
+    assert group["evidence_state"] == "UNVERIFIED"
+    assert group["evidence"][0]["integrity"] == "UNVERIFIED"
+    assert result["persisted"] is False
+    assert result["live_remediation_authorized"] is False
