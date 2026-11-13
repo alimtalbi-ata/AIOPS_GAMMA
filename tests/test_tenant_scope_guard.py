@@ -45,3 +45,17 @@ def test_scope_claim_hidden_after_many_benign_entries_rejected():
     metadata.insert(0, {"nested": {"tenant_id": "forged"}})
     with pytest.raises(ValueError, match="unqualified tenant scope"):
         reject_unqualified_tenant_scope(metadata)
+
+@pytest.mark.parametrize("metadata", [
+    ({"tenant_id": "forged"},),
+    {"diagnostics": ({"workspace_id": "forged"},)},
+    [{"nested": ({"organizationRef": "forged"},)}],
+])
+def test_tuple_nested_untrusted_scope_claim_rejected(metadata):
+    """Internal diagnostic tuples must not bypass the recursive scope scan."""
+    with pytest.raises(ValueError, match="unqualified tenant scope"):
+        reject_unqualified_tenant_scope(metadata)
+
+
+def test_benign_tuple_metadata_allowed():
+    reject_unqualified_tenant_scope(({"source": "synthetic"}, {"severity": "P3"}))
