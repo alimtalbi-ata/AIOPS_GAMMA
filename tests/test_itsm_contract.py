@@ -83,3 +83,21 @@ def test_duplicate_matrix_pair_denied():
     rules[-1] = rules[0]
     with pytest.raises(ValidationError, match="exactly once"):
         PriorityMatrix(policy_id="test", version="v1", rules=rules)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("policy_id", " "), ("policy_id", "policy\nforged"),
+    ("policy_id", "policy\tforged"), ("version", " "),
+    ("version", "v1\rforged"), ("version", "v1\x7f"),
+])
+def test_priority_policy_identity_rejects_blank_or_control_characters(field, value):
+    kwargs = {"policy_id": "enterprise", "version": "v1", "rules": matrix().rules}
+    kwargs[field] = value
+    with pytest.raises(ValidationError, match="Invalid priority policy identity"):
+        PriorityMatrix(**kwargs)
+
+
+def test_priority_policy_identity_accepts_normal_values():
+    result = matrix()
+    assert result.policy_id == "enterprise-priority"
+    assert result.version == "v1"
