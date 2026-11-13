@@ -1069,3 +1069,9 @@
   - evidence normalizer `7e5b24cc300e1d956ae87494cd1c8df6129f6b2f`
 - Added equivalent focused cases to the local lab and ran `python -m pytest -q`: **30 passed in 0.06s** (18 normalization tests + 12 correlation/evidence lab tests). The local join test file is a focused lab suite, not byte-identical to committed `tests/test_correlation.py`; do not claim execution of the exact full committed correlation test module. The three new cases are represented equivalently and the production modules are exact-source verified.
 - No GitHub Actions, PostgreSQL, real IdP, independent actor→tenant→resource ACL, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Rolling correlation windows and duplicate identity regressions
+
+- Added four tests to `tests/test_correlation.py`: adjacent rolling gaps (events at 0/250/500 seconds remain one group for a 300-second window), a 301-second adjacent gap starts a new group, duplicate counts are scoped to exact source+event identity, and conflicting duplicate representatives/results are independent of arrival order while remaining non-persistent/non-live. Commit `4edd2d86eeb0476338dbaf8c190690a4c45b1ba1`.
+- Internal lab copied to writable `/tmp/gamma_correlation_lab`, retaining exact-source verified correlation/evidence modules. Added equivalent focused cases and ran `python -m pytest -q`: **34 passed in 0.08s** (prior 30 + four new focused checks). This does not claim byte-identical execution of the complete committed `tests/test_correlation.py`; the local correlation/evidence lab remains a focused subset.
+- No GitHub Actions, PostgreSQL, real IdP, independent actor→tenant→resource ACL, merge, deploy or LIVE. **HOLD / NO_GO**.
