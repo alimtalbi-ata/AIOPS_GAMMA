@@ -59,6 +59,12 @@ def plan_incident_sync(req: IncidentSyncPreview, tenant_id: UUID) -> dict:
     if any(not value.strip() or any(ord(char) < 32 or ord(char) == 127 for char in value)
            for value in (req.matrix.policy_id, req.matrix.version)):
         raise ValueError("Invalid priority policy identity")
+    # The matrix is mutable: recheck its complete mapping at the execution boundary.
+    pairs = [(rule.impact, rule.urgency) for rule in req.matrix.rules]
+    expected = {(impact, urgency) for impact in ("high", "medium", "low")
+                for urgency in ("high", "medium", "low")}
+    if len(pairs) != 9 or set(pairs) != expected:
+        raise ValueError("Invalid priority matrix mapping")
     if incident.tenant_id != tenant_id:
         raise ValueError("Tenant mismatch")
     if not incident.incident_id.strip() or any(ord(char) < 32 or ord(char) == 127 for char in incident.incident_id):
