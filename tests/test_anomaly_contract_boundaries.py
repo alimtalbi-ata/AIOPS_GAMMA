@@ -27,6 +27,7 @@ def test_zero_mad_never_claims_anomaly_or_live_authority():
     result = detect_anomalies(MetricSeries(metric_name="cpu", values=[1.0] * 10 + [999.0]))
     assert result["state"] == "INSUFFICIENT_VARIABILITY"
     assert result["anomalies"] == []
+    assert result["truncated"] is False
     assert result["causal_inference"] is False
     assert result["live_remediation_authorized"] is False
 
