@@ -49,7 +49,6 @@ stub("app.reused.itsm_contract", IncidentSyncPreview=Empty, plan_incident_sync=M
 stub("app.reused.glpi_read", read_glpi_incident=MagicMock())
 stub("app.reused.llm_kpi", LLMKPIRequest=Empty, calculate_llm_kpis=MagicMock())
 stub("app.reused.investigation", InvestigationPreview=Empty, evaluate_investigation=MagicMock())
-stub("app.reused.evidence", EvidenceInput=EvidenceInput, normalize=MagicMock())
 stub("app.reused.correlation_evidence", CorrelationEvidencePreview=Empty, preview=MagicMock())
 stub("app.demo", synthetic_correlation_demo=lambda: {"mode": "synthetic_demo"},
      synthetic_investigation_demo=lambda: {"mode": "synthetic_demo"})
@@ -140,7 +139,7 @@ def test_cross_tenant_evidence_preview_rejected():
     path = "/api/v1/incidents/evidence/preview"
     with TestClient(app) as client:
         response = client.post(path, headers=headers(path),
-                               json={"items": [{"tenant_id": str(uuid4())}]})
+                               json={"items": [evidence_item(str(uuid4()))]})
     assert response.status_code == 403, response.text
     assert response.headers["cache-control"] == "no-store"
 
@@ -199,4 +198,37 @@ def test_signed_actor_without_service_key_rejected():
             "X-Gateway-Principal": signed("POST", path),
         })
     assert response.status_code == 401
+    assert response.headers["cache-control"] == "no-store"
+
+
+def evidence_item(tenant_id):
+    return {
+        "tenant_id": tenant_id,
+        "incident_id": "INC-123",
+        "source": "isolated-probe",
+        "external_id": "event-123",
+        "claim": "synthetic evidence for HTTP contract verification",
+        "observed_at": "2026-11-13T12:00:00+00:00",
+        "payload": {"synthetic": True},
+        "provenance": {"source": "isolated-probe"},
+    }
+
+
+def test_signed_same_tenant_evidence_preview_uses_real_normalizer():
+    from app.security import verify_gateway_assertion
+
+    path = "/api/v1/incidents/evidence/preview"
+    token = signed("POST", path)
+    principal = verify_gateway_assertion(token, method="POST", path=path)
+    with TestClient(app) as client:
+        response = client.post(path, headers={
+            "X-Internal-API-Key": "service-secret",
+            "X-Gateway-Principal": token,
+        }, json={"items": [evidence_item(str(principal.tenant_id))]})
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["persisted"] is False
+    assert result["live_remediation_authorized"] is False
+    assert result["items"][0]["integrity"] == "UNVERIFIED"
+    assert result["items"][0]["tenant_id"] == str(principal.tenant_id)
     assert response.headers["cache-control"] == "no-store"
