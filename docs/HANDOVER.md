@@ -926,3 +926,10 @@
 - Local command `cd /mnt/data/gamma_business_http_lab && python -m pytest -q test_real_main_http.py`: **25 passed in 0.60s** (previously 23).
 - **Scope:** this test harness is still local, not promoted to the GitHub repository. Business schema/model dependencies and external adapters are stubbed; actual route wrappers, middleware and signed gateway dependency are used. This does not prove independent actor→tenant membership, source ACL, real PostgreSQL tenant isolation, IdP or upstream contracts.
 - No GitHub Actions, DB, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Promote isolated real FastAPI route HTTP probe into version control
+
+- Added `tests/support/real_route_http_probe.py` with 25 parametrized real FastAPI route wrapper tests: 18 protected routes reject unsigned service-key-only callers with 401, 3 public routes return 200, signed actor reaches the metrics 501 placeholder, wrong signed path returns 401, cross-tenant evidence preview returns 403, and forged X-Tenant-ID cannot override signed principal. All protected API responses checked for `Cache-Control: no-store`. Commit `ff7828a97cf7bf4e20776a0e79fc1be6aac4ddae`.
+- Added `tests/test_real_route_http_isolation.py` which runs the probe as a pytest subprocess to prevent the probe's in-memory stubs of unavailable business adapters from leaking into normal suite imports. Commit `a83b15921614383ef5e6778bfd9e9340ea8a2c04`.
+- The original 25-case local lab passed, but **the newly committed probe and subprocess wrapper have not yet been executed as exact repository files**. No claim of committed test pass. Run `python -m pytest -q tests/test_real_route_http_isolation.py` in a complete source environment as next verification.
+- Source-boundary and simulated-adapter limits remain: no real IdP, actor→tenant→resource ACL, PostgreSQL or upstream. No GitHub Actions, DB, merge, deploy or LIVE. **HOLD / NO_GO**.
