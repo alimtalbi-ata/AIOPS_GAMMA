@@ -177,3 +177,59 @@ def test_loopback_decision_comes_from_database_query():
         and "inet_server_addr()" in ast.unparse(value.value.args[0].args[0])
     ):
         pytest.fail("Loopback decision must await connection.scalar of server address SQL")
+
+
+def test_replay_db_sql_qualification_guards_are_bound_before_yield():
+    """Ensure five SQL qualifications reject unsafe results before yielding sessions."""
+    source = (Path(__file__).parent / "test_gateway_replay_postgres.py").read_text(encoding="utf-8")
+    fixtures = [n for n in ast.parse(source).body
+                if isinstance(n, ast.AsyncFunctionDef) and n.name == "replay_db"]
+    if len(fixtures) != 1:
+        pytest.fail("Expected exactly one replay_db fixture")
+    fixture = fixtures[0]
+    yields = [n for n in ast.walk(fixture) if isinstance(n, (ast.Yield, ast.YieldFrom))]
+    if len(yields) != 1:
+        pytest.fail("Expected exactly one session yield")
+    cutoff = yields[0].lineno
+    checks = {
+        "db_name": ("current_database()", "not db_name or not db_name.endswith('_replay_test')"),
+        "server_version": ("server_version_num", "server_version is None or int(server_version) // 10000 != 16"),
+        "is_loopback": ("inet_server_addr()", "is_loopback is not True"),
+        "present": ("gateway_assertion_replay", "present is None"),
+        "revision": ("alembic_version", "revision != '0002_gateway_replay'"),
+    }
+    for variable, (sql_fragment, rejection) in checks.items():
+        assignments = [n for n in ast.walk(fixture) if isinstance(n, ast.Assign)
+                       and any(isinstance(t, ast.Name) and t.id == variable for t in n.targets)]
+        if len(assignments) != 1:
+            pytest.fail(f"{variable}: expected one SQL assignment")
+        assignment = assignments[0]
+        value = assignment.value
+        if not (assignment.lineno < cutoff and isinstance(value, ast.Await)
+                and isinstance(value.value, ast.Call)
+                and isinstance(value.value.func, ast.Attribute)
+                and isinstance(value.value.func.value, ast.Name)
+                and value.value.func.value.id == "connection"
+                and value.value.func.attr == "scalar" and len(value.value.args) == 1):
+            pytest.fail(f"{variable}: expected awaited connection.scalar before yield")
+        query = value.value.args[0]
+        if not (isinstance(query, ast.Call) and isinstance(query.func, ast.Name)
+                and query.func.id == "text" and len(query.args) == 1
+                and isinstance(query.args[0], ast.Constant)
+                and isinstance(query.args[0].value, str)
+                and sql_fragment in query.args[0].value):
+            pytest.fail(f"{variable}: expected literal SQL query")
+        expected_condition = ast.dump(ast.parse(rejection, mode="eval").body)
+        guards = [n for n in ast.walk(fixture) if isinstance(n, ast.If)
+                  and assignment.end_lineno < n.lineno < cutoff
+                  and ast.dump(n.test) == expected_condition]
+        if len(guards) != 1:
+            pytest.fail(f"{variable}: missing exact rejection guard after SQL and before yield")
+        guard = guards[0]
+        if not any(isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call)
+                   and isinstance(stmt.value.func, ast.Attribute)
+                   and isinstance(stmt.value.func.value, ast.Name)
+                   and stmt.value.func.value.id == "pytest"
+                   and stmt.value.func.attr == "fail"
+                   for stmt in guard.body):
+            pytest.fail(f"{variable}: rejection must directly call pytest.fail")
