@@ -16,7 +16,7 @@ The test refuses to run unless all conditions hold:
 
 - Explicit `GAMMA_TENANT_TEST_DATABASE_URL` using `postgresql+asyncpg`.
 - Database name ends in `_tenant_test`.
-- Host is loopback only: localhost, 127.0.0.1 or ::1.
+- Host is loopback only: localhost, 127.0.0.1 or ::1.\n- **No URL query parameters** (e.g. `?host=db.internal` or Unix socket\n  `?host=/var/run/postgresql`); such parameters can override the host that\n  appears in the URL authority.
 - `GAMMA_TENANT_TEST_ALLOW_WRITE=I_UNDERSTAND_DISPOSABLE_DB`.
 - Connected database name independently matches the suffix.
 - Alembic revision is exactly `0002_gateway_replay`.
@@ -36,8 +36,7 @@ GAMMA_TENANT_TEST_DATABASE_URL='postgresql+asyncpg://test_user:...@localhost/gam
   python -m pytest -q tests/test_resource_list_http_postgres.py
 ```
 
-Expected test cases: 10 (four PostgreSQL HTTP cases, four unsafe-URL
-cases, one safe-URL case and one distinct-actor signing case). The test intentionally skips when the
+Expected test cases: 13 (four PostgreSQL HTTP cases, seven unsafe-URL\ncases, one safe-URL case and one distinct-actor signing case). The test intentionally skips when the
 dedicated URL is absent; unsafe configured URLs fail. A skipped test is not a
 pass.
 
