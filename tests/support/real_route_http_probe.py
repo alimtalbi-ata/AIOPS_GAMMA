@@ -191,3 +191,12 @@ def test_expired_signed_actor_rejected():
         })
     assert response.status_code == 401
     assert response.headers["cache-control"] == "no-store"
+
+def test_signed_actor_without_service_key_rejected():
+    path = "/api/v1/observability/metrics/query"
+    with TestClient(app) as client:
+        response = client.post(path, headers={
+            "X-Gateway-Principal": signed("POST", path),
+        })
+    assert response.status_code == 401
+    assert response.headers["cache-control"] == "no-store"
