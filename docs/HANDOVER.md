@@ -1025,3 +1025,10 @@
 - Updated subprocess launcher expected count to **46 passed**, commit `31adbfda08ea94fd2cf7eacc4626220578475f8e`.
 - ChatGPT internal partial lab: `python -m pytest -q tests/support/real_route_http_probe.py tests/test_real_route_http_isolation.py` => **47 passed in 4.12s** (46 HTTP cases + launcher). Lab includes real FastAPI route and gateway dependency but stubbed other business/DB integrations; evidence module remains locally reconstructed. The newly committed probe was not independently SHA-materialized in this cycle.
 - No GitHub Actions, PostgreSQL, independently verified actor→tenant→resource ACL, upstream reads, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Exact evidence normalizer provenance and JSON-size HTTP guards
+
+- Replaced the manually reconstructed local `app/reused/evidence.py` with the exact fetched GitHub source. `git hash-object app/reused/evidence.py` equals GitHub blob **7e5b24cc300e1d956ae87494cd1c8df6129f6b2f**. Existing isolated HTTP suite remained green (**47 passed in 3.85s**).
+- Added two signed FastAPI HTTP cases for over-limit JSON `payload` (65,536-byte ceiling) and `provenance` (8,192-byte ceiling). Each must return HTTP **422**, `Cache-Control: no-store`, and zero calls to `app.main.normalize_evidence`. Probe commit `f4d6253ed3549d5916b2b48779f389a7e0d0632a`; subprocess launcher expects **48 passed**, commit `9e94cc4946ac57f73e918ac6c2e9fb57e38c6911`.
+- ChatGPT internal partial lab: `python -m pytest -q tests/support/real_route_http_probe.py tests/test_real_route_http_isolation.py` => **49 passed in 4.21s** (48 HTTP cases + launcher). Evidence and upstream adapter sources now have exact matching Git blob SHA; probe file itself is still a locally adapted copy, not independently byte-verified against the new GitHub blob. Other business/DB integrations are stubbed.
+- No GitHub Actions, PostgreSQL, independently verified actor→tenant→resource ACL, upstream reads, merge, deploy or LIVE. **HOLD / NO_GO**.
