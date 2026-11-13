@@ -46,3 +46,35 @@ def test_postgres_tenant_isolation_assertions_require_positive_exact_rows():
                 for item in node.comparators)
     ]
     assert comparisons, "Isolation test must require exact positive tenant-owned rows"
+
+def test_disposable_postgres_preflight_never_uses_optimizable_assertions():
+    """A Python -O invocation must not remove pre-write safety checks."""
+    source = (ROOT / "tests" / "test_resource_list_http_postgres.py").read_text(
+        encoding="utf-8"
+    )
+    tree = ast.parse(source)
+    fixture = next(
+        node for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "tenant_postgres"
+    )
+    prepare = next(
+        node for node in fixture.body
+        if isinstance(node, ast.AsyncFunctionDef) and node.name == "prepare"
+    )
+    preflight = []
+    for statement in prepare.body:
+        if isinstance(statement, ast.AsyncWith):
+            preflight = statement.body
+            break
+    assert preflight, "Missing connected-server pre-write checks"
+    assert not any(isinstance(node, ast.Assert)
+                   for statement in preflight for node in ast.walk(statement)), (
+        "Pre-write PostgreSQL checks must use pytest.fail, not optimizable assert"
+    )
+    preflight_source = "\n".join(ast.unparse(node) for node in preflight)
+    for required in (
+        "current_database()", "inet_server_addr()", "rolsuper",
+        "server_version_num", "alembic_version", "to_regclass",
+        "SELECT count(*)", "pytest.fail",
+    ):
+        assert required in preflight_source
