@@ -13,7 +13,7 @@ PATTERNS = (
     re.compile(r"gh[sopru]_[A-Za-z0-9_]{8,}"),
     re.compile(r"eyJ[A-Za-z0-9_=-]+(?:\.[A-Za-z0-9_=-]+){1,2}"),
     re.compile(r"(?i)\b((?:Bearer|Basic)\s+)[A-Za-z0-9._~+/=-]+"),
-    re.compile(r"""(?i)(\b(?:api[_-]?key|(?:client[_-]?)?secret|(?:db[_-]?)?password|(?:access|refresh)[_-]?token)\b["']?\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s,;"'}]+)"""),
+    re.compile(r"""(?i)(\b(?:api[_-]?key|(?:client[_-]?)?secret|(?:db[_-]?)?password|(?:access|refresh)[_-]?token)\b["']?\s*[:=]\s*)(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|"[^"\r\n]*(?:\r?\n[^"\r\n]*)*|'[^'\r\n]*(?:\r?\n[^'\r\n]*)*|[^\s,;"'}]+)"""),
 )
 
 
