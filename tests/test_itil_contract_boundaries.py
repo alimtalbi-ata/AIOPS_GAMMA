@@ -113,3 +113,23 @@ def test_mixed_verified_unverified_and_duplicate_observations():
     assert counts["unverified_cis"] == 2
     assert counts["observed_cis"] == counts["verified_cis"] + counts["unverified_cis"]
     assert result["execution"]["live_remediation_authorized"] is False
+
+
+def test_preview_evidence_lists_do_not_mutate_source_assessments():
+    tenant = uuid4()
+    incident = _incident(tenant)
+    incident.evidence_refs = ["incident-evidence"]
+    problem = ProblemAssessment(
+        tenant_id=tenant, related_incident_ids=["INC-1"],
+        suspected_root_cause="hypothesis",
+        supporting_evidence_refs=["support"],
+        contradictory_evidence_refs=["counterexample"],
+    )
+    preview = preview_itil_workflow(incident, problem=problem)
+    preview["incident"]["evidence_refs"].append("injected")
+    preview["problem_management"]["supporting_evidence_refs"].clear()
+    preview["problem_management"]["contradictory_evidence_refs"].append("injected")
+    assert incident.evidence_refs == ["incident-evidence"]
+    assert problem.supporting_evidence_refs == ["support"]
+    assert problem.contradictory_evidence_refs == ["counterexample"]
+    assert preview["execution"]["live_remediation_authorized"] is False
