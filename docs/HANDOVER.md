@@ -947,3 +947,10 @@
 - Internal lab: appended equivalent test to original local source and ran `python -m pytest -q test_real_main_http.py`: **26 passed in 0.61s**. Copied local 26-case source to local subprocess support path and ran `python -m pytest -q tests/test_real_route_http_isolation.py`: **1 passed in 3.52s**, checking subprocess `26 passed`.
 - **Provenance limit remains:** the local 26-case source is equivalent in intent but is **not** a byte-for-byte verified copy of the GitHub-committed support probe. Exact committed support probe still awaits isolated execution and may need fixes.
 - No GitHub Actions, PostgreSQL, external services, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Gateway method and expiry negative HTTP probes
+
+- Added two versioned HTTP scenarios in `tests/support/real_route_http_probe.py`: valid HMAC bound to GET must be rejected for POST metrics, and correctly signed expired HMAC must be rejected. Both require HTTP 401 and `Cache-Control: no-store`. Commit `bce2e5f0363d827b0417de97a4900b19227e539e`.
+- Updated `tests/test_real_route_http_isolation.py` subprocess expected count to **28**, commit `eac5ca7915e664eae1db5c38582046b7bd434437`.
+- Local 28-case equivalent HTTP probe: **28 passed in 0.83s**. Initial local run failed because the original local token helper ignored injected expiry timestamps; corrected the local helper to apply explicit issued/expiry values. Local subprocess wrapper initially retained an old 26-test assertion, then corrected it: **1 passed in 3.78s**, inner probe 28 passed.
+- **Provenance limit:** these executions used local adapted files, not byte-for-byte verified GitHub-committed `tests/support/real_route_http_probe.py`. No exact-committed-file pass claim. No external adapters, PostgreSQL or real IdP/ACL qualification. No GitHub Actions, DB, merge, deploy or LIVE. **HOLD / NO_GO**.
