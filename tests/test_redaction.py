@@ -62,3 +62,20 @@ def test_json_and_single_quoted_secret_fields_are_redacted():
         result = redact_text(diagnostic)
         assert secret not in result
         assert "[REDACTED]" in result
+
+
+def test_short_named_credentials_are_never_exposed():
+    examples = [
+        ("password=abc", "abc"),
+        ('{"api_key":"xyz"}', "xyz"),
+        ("secret:q", "q"),
+        ("access_token=12345", "12345"),
+    ]
+    for diagnostic, secret in examples:
+        result = redact_text(diagnostic)
+        assert secret not in result, diagnostic
+        assert "[REDACTED]" in result, diagnostic
+
+
+def test_empty_named_credential_does_not_swallow_adjacent_text():
+    assert redact_text("password= status=ok") == "password= status=ok"
