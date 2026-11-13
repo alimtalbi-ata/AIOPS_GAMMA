@@ -34,12 +34,12 @@ def _change(tenant, incident_id="INC-1", ci_id="CI-1"):
 @pytest.mark.parametrize("mismatch", ["tenant", "incident", "ci"])
 def test_change_must_match_incident_and_verified_cmdb_binding(mismatch):
     tenant = uuid4()
-    changes = {
-        "tenant": {"tenant": uuid4()},
-        "incident": {"incident_id": "INC-other"},
-        "ci": {"ci_id": "CI-other"},
-    }
-    proposal = _change(tenant, **changes[mismatch])
+    if mismatch == "tenant":
+        proposal = _change(uuid4())
+    elif mismatch == "incident":
+        proposal = _change(tenant, incident_id="INC-other")
+    else:
+        proposal = _change(tenant, ci_id="CI-other")
     with pytest.raises(ValueError):
         preview_itil_workflow(_incident(tenant), change=proposal)
 
