@@ -20,6 +20,7 @@ async def reserve_assertion_once(
     with assertion_digest as unique primary key. DB errors propagate closed.
     """
     if (not isinstance(issuer, str) or not issuer or "\x00" in issuer
+            or any(0xD800 <= ord(ch) <= 0xDFFF for ch in issuer)
             or not isinstance(assertion_id, str) or not 8 <= len(assertion_id) <= 128
             or not assertion_id.isascii()
             or any(not 33 <= ord(ch) <= 126 for ch in assertion_id)
