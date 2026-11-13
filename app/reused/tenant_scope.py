@@ -40,5 +40,5 @@ def reject_unqualified_tenant_scope(value: object) -> None:
                     ))):
                     raise ValueError("unqualified tenant scope claim")
                 pending.append(child)
-        elif isinstance(item, list):
+        elif isinstance(item, (list, tuple)):
             pending.extend(item)
