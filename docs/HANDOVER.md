@@ -902,3 +902,10 @@
 - This partial lab contains selected source/test files manually copied from the GAMMA branch, not an authenticated complete checkout. The 70 passing tests cover demo source guard, source parser, canonical HOLD, upstream, tenant scope and redaction only.
 - The full `tests/test_route_security_static.py` against authentic `app/main.py` and real business-route HTTP tests remain **unexecuted**. Prior focused AST mutation results must not be represented as full route-suite success.
 - No GitHub Actions, real IdP, actor→tenant→resource ACL, PostgreSQL, upstream LIVE, merge or deploy. **HOLD / NO_GO**.
+
+### 2026-11-13 — Full authentic route security static suite finally executed
+
+- Materialized complete `app/main.py` and `tests/test_route_security_static.py` in the ChatGPT internal partial lab, copied from the exact GitHub branch contents. Verified each local file's Git blob SHA-1 against GitHub `fetch_file`: `app/main.py` = `a207277da659ceea4b2706f4e27af1366a6eb1fb` (13,033 bytes), route test = `03b6554ee04b0f3edec406e7d267ef91c159ad78` (12,126 bytes).
+- Ran the **actual complete route test file** against the **exact authentic main.py source**: `python -m pytest -q tests/test_route_security_static.py` => **8 passed in 0.07s**. This supersedes earlier caveats that the full route AST suite was unexecuted.
+- Ran consolidated partial-lab suite including route guard, demo guard, parser, canonical HOLD, upstream, tenant scope and redaction: **78 passed in 0.38s**.
+- Static AST checks only: this is not actual FastAPI business-route HTTP integration, real IdP/gateway, actor→tenant→resource authorization, PostgreSQL tenant isolation or upstream contract qualification. No GitHub Actions, DB, merge, deploy or LIVE. **HOLD / NO_GO**.
