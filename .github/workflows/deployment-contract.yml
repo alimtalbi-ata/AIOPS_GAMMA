@@ -121,8 +121,15 @@ jobs:
               grep -Eqi '^Content-Security-Policy: ' "$private_headers"
               rm -f "$private_headers"
               # Exact /api must never be handled by the SPA fallback.
-              status=$(curl --silent --show-error --max-time 3 -o /dev/null -w '%{http_code}' http://127.0.0.1:18080/api)
+              exact_headers=$(mktemp)
+              status=$(curl --silent --show-error --max-time 3 -o /dev/null -D "$exact_headers" -w '%{http_code}' http://127.0.0.1:18080/api)
               test "$status" = 404
+              grep -Eqi '^Cache-Control: no-store' "$exact_headers"
+              grep -Eqi '^X-Content-Type-Options: nosniff' "$exact_headers"
+              grep -Eqi '^Referrer-Policy: no-referrer' "$exact_headers"
+              grep -Eqi '^X-Frame-Options: DENY' "$exact_headers"
+              grep -Eqi '^Content-Security-Policy: ' "$exact_headers"
+              rm -f "$exact_headers"
               exit 0
             fi
             sleep 1
