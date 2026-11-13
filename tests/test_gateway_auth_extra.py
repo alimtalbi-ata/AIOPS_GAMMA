@@ -59,3 +59,11 @@ def test_nonfinite_nested_signed_claim_rejected(monkeypatch, fragment):
         verify_gateway_assertion(encoded + '.' + signature, method='POST',
                                  path='/api/v1/observability/metrics/query', now=1030)
     assert exc.value.status_code == 401
+
+@pytest.mark.parametrize('bad_subject', ['user:\ud800', 'user:\udfff'])
+def test_signed_unpaired_surrogate_subject_rejected(monkeypatch, bad_subject):
+    token = signed(monkeypatch, sub=bad_subject)
+    with pytest.raises(HTTPException) as exc:
+        verify_gateway_assertion(token, method='POST',
+                                 path='/api/v1/observability/metrics/query', now=1030)
+    assert exc.value.status_code == 401
