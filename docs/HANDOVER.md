@@ -962,3 +962,10 @@
 - Added a 29th versioned HTTP test: a correctly signed Gateway assertion **without the internal workload service key** must return HTTP **401** and `Cache-Control: no-store`. Probe commit `0cd942d1d8c5d47ec95affe768580ba096de1cc5`; wrapper expected count changed to **29**, commit `a028d77733451eda7adac9feb3fec13774ecfb17`.
 - Added equivalent case to the local lab and ran `python -m pytest -q tests/support/real_route_http_probe.py tests/test_real_route_http_isolation.py`: **30 passed in 4.45s** (29 direct HTTP cases + 1 subprocess wrapper which itself runs 29). **Still not an exact committed-file execution**.
 - No GitHub Actions, real actor→tenant→resource ACL, PostgreSQL, upstream, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Exact committed HTTP probe and subprocess launcher SHA-qualified
+
+- Materialized the complete current GitHub `tests/support/real_route_http_probe.py` in `/mnt/data/gamma_business_http_lab`; computed Git blob SHA-1 on the local bytes and verified **exact equality** with GitHub's `fetch_file` SHA: `db8416cad46b2ab3369079ee98cadae351e917e7` (7,668 bytes). The lab's `app/main.py` also matches the previously verified GitHub blob `a207277da659ceea4b2706f4e27af1366a6eb1fb`.
+- Executed the **exact committed probe file**, `python -m pytest -q tests/support/real_route_http_probe.py`: **29 passed in 0.94s**. This closes the previously documented source-provenance gap for the HTTP probe itself.
+- Materialized the exact current committed `tests/test_real_route_http_isolation.py`; local Git blob SHA matches GitHub `2e463f228623e223be8d418d45d58874b49aff29` (616 bytes). Executed `python -m pytest -q tests/test_real_route_http_isolation.py`: **1 passed in 3.31s**; the subprocess executed the same 29 HTTP checks.
+- **Limits:** partial isolated source lab with stubbed unavailable business/DB/upstream/demo modules; the exact probe and wrapper are now source-verified, but this is not full repository integration, independent actor→tenant→resource authorization, real IdP, PostgreSQL tenant isolation, or approved upstream contracts. No GitHub Actions, DB, merge, deploy or LIVE. **HOLD / NO_GO**.
