@@ -239,7 +239,10 @@ def test_foreign_rows_and_foreign_incident_are_not_serialized(resource, tenant_p
     "postgresql+asyncpg://user:pass@localhost/production",
     "postgresql+asyncpg://user:pass@localhost/gamma_staging",
     "sqlite+aiosqlite:///tmp/gamma_tenant_test",
-    "postgresql+asyncpg://user:pass@db.internal/gamma_tenant_test",\n    "postgresql+asyncpg://user:pass@localhost/gamma_tenant_test?host=db.internal",\n    "postgresql+asyncpg://user:pass@localhost/gamma_tenant_test?host=/var/run/postgresql",\n    "postgresql+asyncpg://user:pass@localhost/gamma_tenant_test?sslmode=require",
+    "postgresql+asyncpg://user:pass@db.internal/gamma_tenant_test",
+    "postgresql+asyncpg://user:pass@localhost/gamma_tenant_test?host=db.internal",
+    "postgresql+asyncpg://user:pass@localhost/gamma_tenant_test?host=/var/run/postgresql",
+    "postgresql+asyncpg://user:pass@localhost/gamma_tenant_test?sslmode=require",
 ])
 def test_tenant_integration_refuses_unsafe_database_urls(url):
     with pytest.raises(pytest.fail.Exception):
