@@ -110,7 +110,7 @@ def preview_itil_workflow(
             "priority": "UNASSIGNED_BY_ITSM",
             "itsm_reference": incident.itsm_ref.model_dump() if incident.itsm_ref else None,
             "investigation": investigation_status,
-            "evidence_refs": incident.evidence_refs,
+            "evidence_refs": list(incident.evidence_refs),
         },
         "service_configuration_management": {
             "observed_cis": len(incident.affected_cis),
@@ -121,8 +121,8 @@ def preview_itil_workflow(
         "problem_management": {
             "status": problem_status,
             "known_error_ref": problem.known_error_id if problem else None,
-            "supporting_evidence_refs": problem.supporting_evidence_refs if problem else [],
-            "contradictory_evidence_refs": problem.contradictory_evidence_refs if problem else [],
+            "supporting_evidence_refs": list(problem.supporting_evidence_refs) if problem else [],
+            "contradictory_evidence_refs": list(problem.contradictory_evidence_refs) if problem else [],
         },
         "change_enablement": {
             "status": change_status,
