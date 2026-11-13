@@ -77,6 +77,15 @@ def plan_incident_sync(req: IncidentSyncPreview, tenant_id: UUID) -> dict:
         raise ValueError("Tenant mismatch")
     if not incident.incident_id.strip() or any(ord(char) < 32 or ord(char) == 127 for char in incident.incident_id):
         raise ValueError("Invalid incident identifier")
+    # References are mutable, so validate their authority and identifier again.
+    for reference in (incident.itsm_ref, req.expected_itsm_ref):
+        if reference is None:
+            continue
+        if (not isinstance(reference, ITSMReference) or
+                reference.system not in ("glpi", "servicenow", "jira_service_management", "other") or
+                not isinstance(reference.external_id, str) or
+                fullmatch(r"[a-zA-Z0-9_.:/-]{1,128}", reference.external_id) is None):
+            raise ValueError("Invalid authoritative ITSM reference")
     if req.operation == "propose_create" and (incident.itsm_ref or req.expected_itsm_ref):
         raise ValueError("Existing ITSM reference cannot be used to propose creation")
     if req.operation == "propose_enrichment":
