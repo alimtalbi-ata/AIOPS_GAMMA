@@ -126,3 +126,37 @@ def test_evidence_refs_are_stable_under_signal_and_reference_permutations():
     reordered_first = first.model_copy(update={"evidence_refs": ["z", "z", "a"]})
     reordered_second = second.model_copy(update={"evidence_refs": ["a", "m"]})
     assert correlate([reordered_second, reordered_first], "tenant-1") == expected
+
+@pytest.mark.parametrize("seconds,expected_groups", [(300, 1), (301, 2)])
+def test_correlation_window_boundary_is_inclusive_and_bounded(seconds, expected_groups):
+    events = [
+        signal("first", at=NOW),
+        signal("second", at=NOW + timedelta(seconds=seconds)),
+    ]
+    result = correlate(events, "tenant-1", window_seconds=300)
+    assert len(result["groups"]) == expected_groups
+    assert sum(group["event_count"] for group in result["groups"]) == 2
+
+
+def test_equivalent_timezone_offsets_produce_same_group_identity():
+    from datetime import timedelta
+
+    utc_signal = signal("same-event", at=NOW)
+    offset_signal = signal(
+        "same-event",
+        at=NOW.astimezone(timezone(timedelta(hours=5, minutes=30))),
+    )
+    utc_result = correlate([utc_signal], "tenant-1")
+    offset_result = correlate([offset_signal], "tenant-1")
+    assert utc_result["groups"][0]["group_id"] == offset_result["groups"][0]["group_id"]
+    assert utc_result["groups"][0]["first_observed_at"] == offset_result["groups"][0]["first_observed_at"]
+
+
+def test_distinct_sources_with_same_external_id_are_not_deduplicated():
+    result = correlate([
+        signal("same-id", source="otel"),
+        signal("same-id", source="prometheus"),
+    ], "tenant-1")
+    assert result["deduplicated_events"] == 0
+    assert result["groups"][0]["event_count"] == 2
+    assert result["conflicting_source_events"] == 0
