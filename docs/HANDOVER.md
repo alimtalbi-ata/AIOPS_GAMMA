@@ -1086,3 +1086,13 @@
   Commit: `8e0b70dcb106242ecdf466fc51b655f6caaf1736`.
 - Internal isolated lab `/tmp/gamma_correlation_lab` using exact-source-verified `app/reused/correlation.py`, `correlation_evidence.py`, and `evidence.py`: added equivalent focused checks and ran `python -m pytest -q`: **38 passed in 0.10s** (34 previous focused cases + 4 new grouping-boundary cases).
 - **Qualification limit:** these four new cases were run as equivalent local focused tests, not as the byte-identical complete committed `tests/test_correlation.py`; no full repository suite was executed. No PostgreSQL, IdP, independently enforced actor→tenant→resource ACL, GitHub Actions, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Multi-group Evidence joins and conservative temporal/source mismatch
+
+- Added three tests to `tests/test_correlation_evidence.py`:
+  - Two correlation groups with distinct symptoms/events receive only their exact `(source, external_event_id)` evidence; both groups are covered but remain `UNVERIFIED`, and the preview remains non-persistent/non-live.
+  - An evidence item sharing an external ID but coming from the wrong source is not cross-linked; the alert remains uncovered and the evidence is reported unmatched.
+  - Future-dated evidence can be identity-covered but must make the group `UNKNOWN` and join inconsistent.
+  Commit: `6e098f552c5423b311911d0dec5dd6b2e8d6b1e9`.
+- Internal lab copied to writable `/tmp/gamma_join_lab`, using exact-source-verified `correlation.py`, `correlation_evidence.py`, and `evidence.py`. Added equivalent focused tests and ran `python -m pytest -q`: **33 passed in 0.09s**. This is a focused local suite, not execution of the exact committed `tests/test_correlation_evidence.py` file or the full repo suite.
+- No PostgreSQL, IdP, independent actor→tenant→resource ACL, GitHub Actions, merge, deploy or LIVE. **HOLD / NO_GO**.
