@@ -786,3 +786,10 @@
 - Executed the expanded local authentic subset `python -m pytest -q tests/test_upstream.py tests/test_tenant_scope_guard.py tests/test_redaction.py tests/test_python_source_parse_contract.py -k 'not postgres'`: **59 passed, 2 deselected in 0.35s**.
 - Canonical tests verify 503 for core/evidence/twin even when legacy enable flag and token are set, 404 for unknown resources, and no `httpx.AsyncClient` invocation; origin validator tests reject unsafe URLs. No actual upstream network requests made.
 - Evidence applies to this **partial** locally materialized authentic source subset, not a full repository checkout or real HTTP/PostgreSQL/IdP/source-side ACL qualification. No GitHub Actions, DB connection, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Genuine gateway verifier + isolated FastAPI HTTP boundary in ChatGPT lab
+
+- Materialized the actual `app/security.py`, `app/settings.py`, and `tests/test_gateway_auth_extra.py` into `/mnt/data/gamma_security_lab/` from the GitHub branch. Executed the **16 original signed assertion tests** successfully.
+- Built a minimal local FastAPI `TestClient` harness that imports the **real `internal_principal` dependency** and tests two HTTP behaviors: a forged `X-Tenant-ID` cannot override the tenant in a valid signed gateway assertion, and `X-Tenant-ID` plus service key without gateway assertion returns 401.
+- `cd /mnt/data/gamma_security_lab && python -m pytest -q tests/test_gateway_auth_extra.py tests/test_http_gateway_probe.py` => **18 passed in 0.32s**. Promoted the two new tests to the actual repository's existing isolated FastAPI dependency suite `tests/test_gateway_dependency_http_isolated.py` (commit `657bd8b4bda6222b17236ccc89c63433f0ab7169`). The entire original HTTP suite has not yet been materialized/run locally.
+- These tests validate the exact gateway verifier and dependency against a **local synthetic probe route**, not real GAMMA business routes, external IdP, actor membership, source-side resource ACL, PostgreSQL or replay. No GitHub Actions, DB, merge, deploy or LIVE. **HOLD / NO_GO**.
