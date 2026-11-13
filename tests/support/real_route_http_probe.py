@@ -416,3 +416,24 @@ def test_evidence_preview_rejects_invalid_age_bounds_before_normalization(max_ag
     assert response.status_code == 422, response.text
     assert calls == []
     assert response.headers["cache-control"] == "no-store"
+
+@pytest.mark.parametrize("field,bytes_count", [("payload", 65537), ("provenance", 8193)])
+def test_evidence_preview_rejects_oversized_json_fields_before_normalization(field, bytes_count, monkeypatch):
+    from app.security import verify_gateway_assertion
+    import app.main as main_module
+
+    path = "/api/v1/incidents/evidence/preview"
+    token = signed("POST", path)
+    tenant = str(verify_gateway_assertion(token, method="POST", path=path).tenant_id)
+    item = evidence_item(tenant)
+    item[field] = {"text": "x" * bytes_count}
+    calls = []
+    monkeypatch.setattr(main_module, "normalize_evidence", lambda *a, **kw: calls.append(1))
+    with TestClient(app) as client:
+        response = client.post(path, headers={
+            "X-Internal-API-Key": "service-secret",
+            "X-Gateway-Principal": token,
+        }, json={"items": [item]})
+    assert response.status_code == 422, response.text
+    assert calls == []
+    assert response.headers["cache-control"] == "no-store"
