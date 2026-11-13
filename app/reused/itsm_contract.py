@@ -93,9 +93,10 @@ def plan_incident_sync(req: IncidentSyncPreview, tenant_id: UUID) -> dict:
             raise ValueError("Enrichment requires matching authoritative ITSM reference")
     rule = next((r for r in req.matrix.rules
                  if r.impact == incident.impact and r.urgency == incident.urgency), None)
-    if not incident.evidence_refs:
+    if not isinstance(incident.evidence_refs, list) or not incident.evidence_refs:
         raise ValueError("Incident requires evidence before ITSM sync proposal")
-    if any(not ref.strip() or len(ref) > 255 or any(ord(char) < 32 or ord(char) == 127 for char in ref)
+    if any(not isinstance(ref, str) or not ref.strip() or len(ref) > 255 or
+           any(ord(char) < 32 or ord(char) == 127 for char in ref)
            for ref in incident.evidence_refs):
         raise ValueError("Invalid evidence reference")
     # Identity of a logical proposed operation does not change with model output,
