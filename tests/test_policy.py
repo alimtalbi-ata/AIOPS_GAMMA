@@ -44,3 +44,20 @@ def test_read_only_decision_no_execution_grant():
     result = evaluate(proposal(command="OBSERVE"))
     assert result["decision"] == "ALLOW_READ_ONLY"
     assert result["live_execution_authorized"] is False
+
+
+def test_all_live_effect_commands_require_independent_execution_gate():
+    # Client-controlled approval flags must never grant an effectful LIVE action.
+    for command in ("EXECUTE", "RESOLVE", "REMEDIATE", "CANCEL"):
+        result = evaluate(proposal(command=command))
+        assert result["state"] == "BLOCKED", (command, result)
+        assert result["decision"] == "HUMAN_APPROVAL", (command, result)
+        assert result["live_execution_authorized"] is False, (command, result)
+
+
+def test_all_synthetic_modes_never_grant_live_execution():
+    for mode in ("DEMO", "REPLAY", "STORY"):
+        for command in ("EXECUTE", "RESOLVE", "REMEDIATE", "CANCEL"):
+            result = evaluate(proposal(mode=mode, command=command))
+            assert result["decision"] == "SIMULATE", (mode, command, result)
+            assert result["live_execution_authorized"] is False, (mode, command, result)
