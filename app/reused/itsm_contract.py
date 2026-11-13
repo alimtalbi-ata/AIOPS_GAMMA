@@ -32,7 +32,7 @@ class PriorityMatrix(BaseModel):
     @model_validator(mode="after")
     def safe_policy_identity(self):
         for value in (self.policy_id, self.version):
-            if not value.strip() or any(ord(char) < 32 or ord(char) == 127 for char in value):
+            if not isinstance(value, str) or not value.strip() or any(ord(char) < 32 or ord(char) == 127 for char in value):
                 raise ValueError("Invalid priority policy identity")
         return self
 
@@ -59,7 +59,8 @@ def plan_incident_sync(req: IncidentSyncPreview, tenant_id: UUID) -> dict:
     if req.operation not in ("propose_create", "propose_enrichment"):
         raise ValueError("Invalid ITSM sync operation")
     # Pydantic model_copy(update=...) and mutable models can bypass construction validators.
-    if any(not value.strip() or any(ord(char) < 32 or ord(char) == 127 for char in value)
+    if any(not isinstance(value, str) or not value.strip() or
+           any(ord(char) < 32 or ord(char) == 127 for char in value)
            for value in (req.matrix.policy_id, req.matrix.version)):
         raise ValueError("Invalid priority policy identity")
     # The matrix is mutable: recheck its complete mapping at the execution boundary.
