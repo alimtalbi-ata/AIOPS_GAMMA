@@ -1,3 +1,5 @@
+import pytest
+from pydantic import ValidationError
 from app.reused.policy import RemediationProposal, evaluate
 
 
@@ -61,3 +63,33 @@ def test_all_synthetic_modes_never_grant_live_execution():
             result = evaluate(proposal(mode=mode, command=command))
             assert result["decision"] == "SIMULATE", (mode, command, result)
             assert result["live_execution_authorized"] is False, (mode, command, result)
+
+
+@pytest.mark.parametrize("field", [
+    "critic_validated", "redundancy_ok", "evidence_fresh",
+    "preconditions_verified", "fencing_verified", "recipe_approved",
+    "asset_owner_verified", "low_risk",
+])
+def test_each_live_precondition_independently_blocks(field):
+    result = evaluate(proposal(**{field: False}))
+    assert result["state"] == "BLOCKED"
+    assert result["live_execution_authorized"] is False
+
+
+@pytest.mark.parametrize("confidence", [-0.01, 1.01])
+def test_invalid_confidence_rejected(confidence):
+    with pytest.raises(ValidationError):
+        proposal(confidence=confidence)
+
+
+@pytest.mark.parametrize("count", [-1, -100])
+def test_negative_evidence_rejected(count):
+    with pytest.raises(ValidationError):
+        proposal(evidence_count=count)
+
+
+def test_live_readonly_at_confidence_boundary():
+    for confidence, expected in [(0.8999, "BLOCKED"), (0.9, "PASS")]:
+        result = evaluate(proposal(command="OBSERVE", confidence=confidence))
+        assert result["state"] == expected
+        assert result["live_execution_authorized"] is False
