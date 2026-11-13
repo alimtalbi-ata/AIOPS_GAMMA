@@ -278,3 +278,4 @@ async def test_rollback_failure_does_not_return_success_on_duplicate():
             expires_at=1_800_000_000,
         )
     session.commit.assert_not_awaited()
+    session.rollback.assert_awaited_once()
