@@ -111,8 +111,15 @@ jobs:
                 grep -Eqi '^Cache-Control: no-store' "$headers"
                 rm -f "$headers"
               done
-              status=$(curl --silent --show-error --max-time 3 -o /dev/null -w '%{http_code}' http://127.0.0.1:18080/api/v1/private)
+              private_headers=$(mktemp)
+              status=$(curl --silent --show-error --max-time 3 -o /dev/null -D "$private_headers" -w '%{http_code}' http://127.0.0.1:18080/api/v1/private)
               test "$status" = 404
+              grep -Eqi '^Cache-Control: no-store' "$private_headers"
+              grep -Eqi '^X-Content-Type-Options: nosniff' "$private_headers"
+              grep -Eqi '^Referrer-Policy: no-referrer' "$private_headers"
+              grep -Eqi '^X-Frame-Options: DENY' "$private_headers"
+              grep -Eqi '^Content-Security-Policy: ' "$private_headers"
+              rm -f "$private_headers"
               exit 0
             fi
             sleep 1
