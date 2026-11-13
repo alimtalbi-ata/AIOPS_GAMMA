@@ -125,3 +125,43 @@ def test_public_demo_routes_only_call_reviewed_synthetic_helpers():
         assert result.value.func.id == helper
         assert not result.value.args and not result.value.keywords
         assert not any(isinstance(child, ast.Await) for child in ast.walk(node))
+
+def _assert_no_unreviewed_route_registration(source):
+    """Prevent bypassing the explicit @app route inventory."""
+    tree = ast.parse(source)
+    forbidden_calls = {"include_router", "add_api_route", "add_route", "mount"}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            func = node.func
+            if isinstance(func, ast.Attribute) and func.attr in forbidden_calls:
+                raise AssertionError(f"Unreviewed dynamic route registration: {func.attr}")
+            if isinstance(func, ast.Name) and func.id in {"APIRouter", "add_api_route"}:
+                raise AssertionError(f"Unreviewed router registration: {func.id}")
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            for decorator in node.decorator_list:
+                if (isinstance(decorator, ast.Call)
+                    and isinstance(decorator.func, ast.Attribute)
+                    and decorator.func.attr in {"get", "post", "put", "patch", "delete"}
+                    and not (isinstance(decorator.func.value, ast.Name)
+                             and decorator.func.value.id == "app")):
+                    raise AssertionError("Unreviewed router decorator")
+
+
+def test_no_alternate_route_registration_bypasses_inventory():
+    _assert_no_unreviewed_route_registration(MAIN.read_text(encoding="utf-8"))
+
+
+def test_alternate_route_registration_mutations_are_rejected():
+    import pytest
+
+    mutations = (
+        'app.include_router(router)',
+        'app.add_api_route("/api/v1/unsafe", handler)',
+        'app.router.add_api_route("/api/v1/unsafe", handler)',
+        'app.mount("/unsafe", subapp)',
+        'router = APIRouter()',
+        '@router.get("/api/v1/unsafe")\ndef handler():\n    return {}',
+    )
+    for mutation in mutations:
+        with pytest.raises(AssertionError):
+            _assert_no_unreviewed_route_registration(mutation)
