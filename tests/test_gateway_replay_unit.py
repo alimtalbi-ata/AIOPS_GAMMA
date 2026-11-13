@@ -453,3 +453,23 @@ async def test_result_read_failure_rolls_back_without_commit():
         )
     session.commit.assert_not_awaited()
     session.rollback.assert_awaited_once()
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", [
+    RuntimeError("sql unavailable"),
+    __import__("asyncio").CancelledError(),
+])
+async def test_execute_and_rollback_both_fail_never_authorize(failure):
+    """A secondary rollback failure must never produce successful access."""
+    session = SimpleNamespace(
+        execute=AsyncMock(side_effect=failure),
+        commit=AsyncMock(),
+        rollback=AsyncMock(side_effect=RuntimeError("rollback unavailable")),
+    )
+    with pytest.raises(RuntimeError, match="rollback unavailable"):
+        await consume_assertion_before_access(
+            session, issuer="gateway", assertion_id="assertion-123456",
+            expires_at=1_800_000_000,
+        )
+    session.commit.assert_not_awaited()
+    session.rollback.assert_awaited_once()
