@@ -15,4 +15,4 @@ def test_real_route_http_isolation():
         check=False,
     )
     assert result.returncode == 0, result.stdout + "\n" + result.stderr
-    assert "43 passed" in result.stdout, result.stdout
+    assert "46 passed" in result.stdout, result.stdout
