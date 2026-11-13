@@ -139,3 +139,41 @@ def test_replay_db_rejects_non_loopback_server_before_yield():
 
     if not any(is_rejection(node) for node in ast.walk(fixture)):
         pytest.fail("Missing effective non-loopback rejection before session yield")
+
+def test_loopback_decision_comes_from_database_query():
+    """Reject a hardcoded True that bypasses the real server address check."""
+    source = (Path(__file__).parent / "test_gateway_replay_postgres.py").read_text(
+        encoding="utf-8"
+    )
+    tree = ast.parse(source)
+    fixtures = [
+        node for node in tree.body
+        if isinstance(node, ast.AsyncFunctionDef) and node.name == "replay_db"
+    ]
+    if len(fixtures) != 1:
+        pytest.fail("Expected exactly one replay_db fixture")
+    fixture = fixtures[0]
+    assignments = [
+        node for node in ast.walk(fixture)
+        if isinstance(node, ast.Assign)
+        and any(isinstance(target, ast.Name) and target.id == "is_loopback"
+                for target in node.targets)
+    ]
+    if len(assignments) != 1:
+        pytest.fail("Loopback decision must have exactly one assignment")
+    value = assignments[0].value
+    if not (
+        isinstance(value, ast.Await)
+        and isinstance(value.value, ast.Call)
+        and isinstance(value.value.func, ast.Attribute)
+        and value.value.func.attr == "scalar"
+        and isinstance(value.value.func.value, ast.Name)
+        and value.value.func.value.id == "connection"
+        and len(value.value.args) == 1
+        and isinstance(value.value.args[0], ast.Call)
+        and isinstance(value.value.args[0].func, ast.Name)
+        and value.value.args[0].func.id == "text"
+        and value.value.args[0].args
+        and "inet_server_addr()" in ast.unparse(value.value.args[0].args[0])
+    ):
+        pytest.fail("Loopback decision must await connection.scalar of server address SQL")
