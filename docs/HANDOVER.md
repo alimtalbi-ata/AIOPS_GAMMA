@@ -657,3 +657,11 @@
 - Current PR #1 exact HEAD is `053b40d49c0e59914797b05925a79cd3af08563f`. Four latest push/PR workflow runs: Python [43416548953](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43416548953), deployment PR [43416548656](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43416548656), deployment push [43416541682](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43416541682), Python push [43416541671](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43416541671).
 - Direct jobs API: all 18 jobs show `runner_id: 0`, empty runner name and zero steps. No Python, frontend, replay PostgreSQL, Compose, Helm or runtime smoke test ran. This remains a pre-runner failure; root cause not established.
 - PR #1 remains open Draft, unmerged. No application runtime, migrations, database, gateway, upstream route, GLPI or LIVE state changed. Canonical reads remain hard 503. **HOLD / NO_GO**.
+
+### 2026-11-13 — CI retry confirms runner bootstrap failure
+
+- Retried failed jobs on exact HEAD `e5197c194d760308ca98d9f755ee12382a9b4b9e`: Python checks run `43416611552` and Deployment contract run `43416611515` (attempt 2).
+- Both retry attempts terminated in approximately 2 seconds. All 9 jobs report `runner_id: 0`, empty `runner_name`, zero steps, and no job logs are available (GitHub job-log endpoint returns BlobNotFound). Thus no checkout, dependency installation, pytest, PostgreSQL service, Docker, Helm or runtime step started.
+- The repeat rules out a one-off transient runner allocation delay but does not identify the account/repository-level root cause. Workflow YAML declares `ubuntu-latest`; repository Actions permissions/runners configuration could not be inspected through the available GitHub connector. An authorized repository administrator must inspect Actions settings/billing/runner availability and check-suite annotations.
+- No code changes made to CI workflows to mask this infrastructure failure. No test result has been inferred from the red check state.
+- Exact HEAD remains `e5197c194d760308ca98d9f755ee12382a9b4b9e`; PR #1 open Draft/unmerged. Canonical reads remain hard 503. **HOLD / NO_GO**.
