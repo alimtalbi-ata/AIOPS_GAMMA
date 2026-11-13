@@ -56,29 +56,30 @@ async def replay_db():
         async with engine.connect() as connection:
             # Verify the connected DB identity as well as the URL before writes.
             db_name = await connection.scalar(text("SELECT current_database()"))
-            assert db_name and db_name.endswith("_replay_test"), "Unsafe database identity"
+            if not db_name or not db_name.endswith("_replay_test"):
+                pytest.fail("Unsafe connected database identity")
             server_version = await connection.scalar(text("SHOW server_version_num"))
-            assert server_version is not None and int(server_version) // 10000 == 16, (
-                "Replay integration qualification requires PostgreSQL 16"
-            )
+            if server_version is None or int(server_version) // 10000 != 16:
+                pytest.fail("Replay integration qualification requires PostgreSQL 16")
             # Check the actual connected server endpoint, not only the DSN
             # hostname (which could resolve unexpectedly).
             is_loopback = await connection.scalar(text(
                 "SELECT inet_server_addr() << inet '127.0.0.0/8' "
                 "OR inet_server_addr() = inet '::1'"
             ))
-            assert is_loopback is True, "Replay DB connection must terminate on loopback"
+            if is_loopback is not True:
+                pytest.fail("Replay DB connection must terminate on loopback")
             # Fail rather than creating schema in an unqualified database.
             present = await connection.scalar(
                 text("SELECT to_regclass('gateway_assertion_replay')")
             )
-            assert present is not None, "Apply reviewed migration 0002 to disposable test DB"
+            if present is None:
+                pytest.fail("Apply reviewed migration 0002 to disposable test DB")
             revision = await connection.scalar(
                 text("SELECT version_num FROM alembic_version")
             )
-            assert revision == "0002_gateway_replay", (
-                "Disposable replay DB must be at reviewed Alembic revision 0002"
-            )
+            if revision != "0002_gateway_replay":
+                pytest.fail("Disposable replay DB must be at reviewed Alembic revision 0002")
         yield async_sessionmaker(engine, expire_on_commit=False)
     finally:
         await engine.dispose()
