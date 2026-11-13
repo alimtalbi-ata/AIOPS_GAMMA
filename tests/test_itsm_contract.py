@@ -101,3 +101,21 @@ def test_priority_policy_identity_accepts_normal_values():
     result = matrix()
     assert result.policy_id == "enterprise-priority"
     assert result.version == "v1"
+
+
+@pytest.mark.parametrize("field,value", [
+    ("policy_id", "   "), ("policy_id", "policy\nforged"),
+    ("version", "\t"), ("version", "v2\rforged"),
+])
+def test_sync_rechecks_policy_identity_after_unvalidated_model_copy(field, value):
+    altered = matrix().model_copy(update={field: value})
+    req = IncidentSyncPreview(incident=incident(), matrix=altered)
+    with pytest.raises(ValueError, match="Invalid priority policy identity"):
+        plan_incident_sync(req, TENANT)
+
+
+def test_sync_rechecks_policy_identity_after_mutation():
+    req = IncidentSyncPreview(incident=incident(), matrix=matrix())
+    req.matrix.version = "v1\x7f"
+    with pytest.raises(ValueError, match="Invalid priority policy identity"):
+        plan_incident_sync(req, TENANT)
