@@ -731,3 +731,9 @@
 - Re-fetched the updated source and verified those literal escaped-newline sequences are absent and the three added unsafe URL cases remain present.
 - **Evidence boundary:** this was an authentic repository source inspection and committed repair, not a successful full checkout `ast.parse` or execution of the repository test module. The newly committed `test_python_source_parse_contract.py` is designed to catch exactly this class of defect once executable against a complete checkout.
 - No GitHub Actions invocation, DB connection, migrations, upstream calls, merge, deployment or LIVE changes. PR #1 remains Draft; **HOLD / NO_GO**.
+
+### 2026-11-13 — In-memory HTTP SQL-spy tenant fixture fidelity
+
+- Corrected `tests/test_resource_list_http_tenant_isolation.py`: the tenant A/B request pair previously used the same signed `sub` and `jti`, and the two binding objects shared one UUID. It now uses tenant-distinct actor subjects, unique assertion IDs and unique service-binding IDs. Commit `8dcd418585071b2d4c16de500035bb7fd8ad69d7`.
+- Executed the available reconstructed ChatGPT local harness `cd /mnt/data/gamma_lab && python -m pytest -q`: **36 passed in 0.24s**. These are reconstructed unit tests only; the modified authentic repository HTTP test has **not** been executed in the container.
+- No GitHub Actions, database connection, migration, runtime change, merge, deployment or LIVE action. Draft PR #1 and **HOLD / NO_GO** remain.
