@@ -808,3 +808,9 @@
 - Exercised the actual static HOLD guard against two local mutated copies of `app/reused/upstream.py`: (1) replacing unconditional 503 with a positive return, and (2) inserting network I/O before the 503. Both were rejected; targeted run **3 passed in 0.03s** (the original guard and two local mutation tests).
 - Promoted both mutation checks to authentic `tests/test_canonical_acl_hard_hold_static.py`, commit `854ed77d41112e6c9679cab327acf0424d04491d`. Local mutation checks used a separate helper file with equivalent logic; newly committed exact test file has not been rerun after promotion.
 - Static source and local subset only: not real business-route HTTP, upstream source ACL, PostgreSQL, IdP or replay. No GitHub Actions, DB, merge, deploy or LIVE. **HOLD / NO_GO**.
+
+### 2026-11-13 — Executed promoted canonical HOLD mutation tests; fixed false evidence
+
+- Reproduced the **exact two promoted mutation tests** in the ChatGPT lab with authentic `app/reused/upstream.py` and the actual static guard. Initial run: **1 failed, 2 passed** in the targeted suite: the pre-denial network mutation inserted literal `\\n`, causing `SyntaxError` rather than exercising the intended AST denial assertion.
+- Fixed the test string to inject a real newline, commit `5abc8ffa34b06d43006f9120920042b2b3f75d24`; reran `python -m pytest -q tests/test_canonical_acl_hard_hold_static.py tests/test_upstream.py tests/test_tenant_scope_guard.py tests/test_redaction.py`: **58 passed in 0.36s** in the partial authentic source lab.
+- This repairs test validity; no new runtime authorization was established. The guard still enforces static unconditional denial of canonical reads. No full checkout, business-route HTTP, PostgreSQL, IdP or upstream resource ACL validation. No GitHub Actions, DB, merge, deploy or LIVE. **HOLD / NO_GO**.
