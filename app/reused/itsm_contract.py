@@ -55,6 +55,10 @@ class IncidentSyncPreview(BaseModel):
 
 def plan_incident_sync(req: IncidentSyncPreview, tenant_id: UUID) -> dict:
     incident = req.incident
+    # Pydantic model_copy(update=...) and mutable models can bypass construction validators.
+    if any(not value.strip() or any(ord(char) < 32 or ord(char) == 127 for char in value)
+           for value in (req.matrix.policy_id, req.matrix.version)):
+        raise ValueError("Invalid priority policy identity")
     if incident.tenant_id != tenant_id:
         raise ValueError("Tenant mismatch")
     if not incident.incident_id.strip() or any(ord(char) < 32 or ord(char) == 127 for char in incident.incident_id):
