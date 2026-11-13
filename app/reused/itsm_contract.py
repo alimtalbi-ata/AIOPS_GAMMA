@@ -6,6 +6,7 @@ These functions never call a vendor API, create a ticket or approve a change.
 from __future__ import annotations
 
 from hashlib import sha256
+from re import fullmatch
 from typing import Literal
 from uuid import UUID
 
@@ -65,6 +66,10 @@ def plan_incident_sync(req: IncidentSyncPreview, tenant_id: UUID) -> dict:
                 for urgency in ("high", "medium", "low")}
     if len(pairs) != 9 or set(pairs) != expected:
         raise ValueError("Invalid priority matrix mapping")
+    if any(not isinstance(rule.priority, str) or
+           fullmatch(r"[a-zA-Z0-9_.-]{1,32}", rule.priority) is None
+           for rule in req.matrix.rules):
+        raise ValueError("Invalid priority matrix rule")
     if incident.tenant_id != tenant_id:
         raise ValueError("Tenant mismatch")
     if not incident.incident_id.strip() or any(ord(char) < 32 or ord(char) == 127 for char in incident.incident_id):
