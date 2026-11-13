@@ -606,3 +606,14 @@
 - The commit combined-status endpoint reports `pending` with zero status contexts; it does not override the failed Actions run.
 - Actionable operator-side diagnostic remains in GitHub UI: inspect the run/job error annotation and repository/org Actions policy/hosted-runner availability; contact GitHub support if the annotation points to service-side provisioning. No repository-side configuration change is justified without that evidence.
 - No application tests, frontend build, Compose/Docker smoke or PostgreSQL replay test executed. Keep **HOLD / NO_GO**, PR #1 Draft, no merge/deployment/LIVE.
+
+### 2026-11-13 — CI recheck on documentation HEAD `c33248837b85f5ec1b73c718c61e64a846f4fc44`
+
+- The documentation-only checkpoint itself triggered four runs on exact HEAD `c33248837b85f5ec1b73c718c61e64a846f4fc44`:
+  - Python PR run [43415587282](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43415587282)
+  - Python push run [43415570490](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43415570490)
+  - Deployment-contract PR run [43415587656](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43415587656)
+  - Deployment-contract push run [43415570396](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43415570396)
+- Direct REST job records confirm **all 18 jobs** across these four runs failed before execution: `runner_id: 0`, empty runner name, zero steps; each started and completed within 1–2 seconds. This covers Python, frontend, disposable PostgreSQL replay, Compose, Helm, single-directory runtime, UI image and PostgreSQL non-root experiment.
+- Therefore no compileall, pytest, frontend build, Docker/Compose, Helm or PostgreSQL step executed on this HEAD. The repeat across both `push` and `pull_request` events rules out a PR-only trigger issue, but does not identify the underlying hosted-runner provisioning cause.
+- No speculative code/workflow edits or reruns made. Operator must inspect GitHub Actions UI annotations and repository/org runner policy/support. HOLD / NO_GO; no merge/deploy/LIVE.
