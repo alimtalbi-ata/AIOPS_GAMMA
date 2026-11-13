@@ -174,3 +174,14 @@ def test_sync_accepts_supported_create_operation():
     result = plan_incident_sync(req, TENANT)
     assert result["operation"] == "propose_create"
     assert result["itsm_mutations_performed"] is False
+
+
+@pytest.mark.parametrize("field,value", [
+    ("policy_id", None), ("policy_id", 123),
+    ("version", None), ("version", ["v1"]),
+])
+def test_sync_rejects_nonstring_policy_identity_after_mutation(field, value):
+    req = IncidentSyncPreview(incident=incident(), matrix=matrix())
+    setattr(req.matrix, field, value)
+    with pytest.raises(ValueError, match="Invalid priority policy identity"):
+        plan_incident_sync(req, TENANT)
