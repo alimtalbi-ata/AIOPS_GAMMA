@@ -120,6 +120,9 @@ jobs:
               grep -Eqi '^X-Frame-Options: DENY' "$private_headers"
               grep -Eqi '^Content-Security-Policy: ' "$private_headers"
               rm -f "$private_headers"
+              # Exact /api must never be handled by the SPA fallback.
+              status=$(curl --silent --show-error --max-time 3 -o /dev/null -w '%{http_code}' http://127.0.0.1:18080/api)
+              test "$status" = 404
               exit 0
             fi
             sleep 1
