@@ -160,3 +160,13 @@ def test_verified_ci_requires_nonempty_cmdb_identifier(cmdb_ci_id):
             discovery_source="otel", last_observed_at=datetime.now(timezone.utc),
             verified_against_cmdb=True,
         )
+
+
+def test_verified_ci_with_real_cmdb_identifier_is_accepted():
+    ci = ObservedCI(
+        service_name="checkout", cmdb_ci_id="CMDB-CI-123",
+        discovery_source="otel", last_observed_at=datetime.now(timezone.utc),
+        verified_against_cmdb=True,
+    )
+    assert ci.verified_against_cmdb is True
+    assert ci.cmdb_ci_id == "CMDB-CI-123"
