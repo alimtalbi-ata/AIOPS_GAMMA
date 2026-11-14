@@ -1565,3 +1565,10 @@
 - `evaluate` now checks proposal type and revalidates its entire Pydantic payload before any decision. Four tests cover mutated invalid mode, command, approval type and request structure.
 - This is a synthetic/advisory gate only. Even valid LIVE requests cannot authorize effects; signed one-use HITL receipt and independent execution gate are still absent.
 - CI Python workflow `43616155871` failed, and job `132511547278` had no recorded steps; job log fetch returned HTTP 404 BlobNotFound. No claim of test execution. Issue #8 remains unresolved. PR #1 remains Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — UC02 direct correlation boundary
+- `correlate` now validates list/window shape and tenant identity and revalidates every mutable `CorrelationSignal` before grouping, deduplication and hashing.
+- Added seven negative cases to `tests/test_correlation.py`: mutated severity, timestamp and event ID; three invalid window types; missing tenant identity.
+- Source remains caller-supplied, non-canonical and read-only. No incident creation or LIVE action.
+- Full test suite **not executed**; private GitHub checkout was unavailable from the local container (DNS resolution for github.com failed). GitHub Actions issue #8 remains unresolved. PR #1 stays Draft HOLD / NO_GO.
