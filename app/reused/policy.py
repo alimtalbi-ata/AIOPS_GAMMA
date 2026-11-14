@@ -28,6 +28,11 @@ LIVE_EFFECTS = frozenset(("EXECUTE", "RESOLVE", "REMEDIATE", "CANCEL"))
 
 
 def evaluate(proposal: RemediationProposal) -> dict:
+    if not isinstance(proposal, RemediationProposal):
+        raise ValueError("Invalid remediation proposal")
+    # Models are mutable: an invalid mode must never fall through to SIMULATE.
+    # Revalidate all fields before evaluating any advisory decision.
+    proposal = RemediationProposal.model_validate(proposal.model_dump())
     def decision(state: str, action: str, reason: str) -> dict:
         return {
             "state": state,
