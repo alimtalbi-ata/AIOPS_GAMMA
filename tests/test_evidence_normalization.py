@@ -307,3 +307,10 @@ def test_direct_normalization_rejects_mutated_control_character_identity():
     item.external_id = "evt\x00forged"
     with pytest.raises(ValidationError, match="canonical printable"):
         normalize([item], now=NOW)
+
+
+def test_normalization_result_is_never_authoritative_or_live():
+    result = normalize([evidence()], now=NOW)
+    assert result["persisted"] is False
+    assert result["live_remediation_authorized"] is False
+    assert result["items"][0]["integrity"] == "UNVERIFIED"
