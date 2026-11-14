@@ -259,6 +259,7 @@ async def test_public_glpi_read_never_reaches_transport_without_qualified_acl(mo
         await glpi_read.read_glpi_incident(uuid4(), 12)
     assert exc.value.status_code == 503
     assert "ACL not qualified" in str(exc.value.detail)
+    assert exc.value.headers["Cache-Control"] == "no-store"
 
 
 @pytest.mark.asyncio
@@ -267,6 +268,7 @@ async def test_public_glpi_read_rejects_invalid_ticket_before_acl(ticket_id):
     with pytest.raises(HTTPException) as exc:
         await glpi_read.read_glpi_incident(uuid4(), ticket_id)
     assert exc.value.status_code == 422
+    assert exc.value.headers["Cache-Control"] == "no-store"
 
 
 @pytest.mark.asyncio
