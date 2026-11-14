@@ -159,7 +159,7 @@ class InternalRouteDependencyGuard(unittest.TestCase):
                     {"MAIN": candidate},
                 ):
                     with self.assertRaisesRegex(
-                        AssertionError, "Unreviewed .* route decorator"
+                        AssertionError, "Unreviewed .*route decorator"
                     ):
                         self.test_all_non_public_http_routes_require_internal_principal()
 
