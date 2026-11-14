@@ -11,7 +11,7 @@ from app.reused import glpi_read
 async def test_disabled_by_default(monkeypatch):
     monkeypatch.setattr(glpi_read.settings, "enable_glpi_reads", False)
     with pytest.raises(HTTPException) as exc:
-        await glpi_read.read_glpi_incident(uuid4(), 12)
+        await glpi_read._read_glpi_incident_unqualified(uuid4(), 12)
     assert exc.value.status_code == 503
 
 
@@ -20,7 +20,7 @@ async def test_cross_tenant_denied_before_network(monkeypatch):
     monkeypatch.setattr(glpi_read.settings, "enable_glpi_reads", True)
     monkeypatch.setattr(glpi_read.settings, "glpi_tenant_id", str(uuid4()))
     with pytest.raises(HTTPException) as exc:
-        await glpi_read.read_glpi_incident(uuid4(), 12)
+        await glpi_read._read_glpi_incident_unqualified(uuid4(), 12)
     assert exc.value.status_code == 403
 
 
@@ -63,10 +63,10 @@ async def test_entity_binding_and_safe_projection(monkeypatch, payload, status):
     monkeypatch.setattr(glpi_read.httpx, "AsyncClient", mock_client)
     if status == 502:
         with pytest.raises(HTTPException) as exc:
-            await glpi_read.read_glpi_incident(tenant, 12)
+            await glpi_read._read_glpi_incident_unqualified(tenant, 12)
         assert exc.value.status_code == 502
     else:
-        result = await glpi_read.read_glpi_incident(tenant, 12)
+        result = await glpi_read._read_glpi_incident_unqualified(tenant, 12)
         assert result["ticket_id"] == 12
         assert result["entity_id"] == 8
         assert result["read_only"] is True
@@ -78,7 +78,7 @@ async def test_entity_binding_and_safe_projection(monkeypatch, payload, status):
 async def test_invalid_ticket_id_rejected_before_network(monkeypatch, ticket_id):
     monkeypatch.setattr(glpi_read.settings, "enable_glpi_reads", True)
     with pytest.raises(HTTPException) as exc:
-        await glpi_read.read_glpi_incident(uuid4(), ticket_id)
+        await glpi_read._read_glpi_incident_unqualified(uuid4(), ticket_id)
     assert exc.value.status_code == 422
 
 
@@ -105,7 +105,7 @@ async def test_upstream_non_200_is_fail_closed(monkeypatch, http_status):
 
     monkeypatch.setattr(glpi_read.httpx, "AsyncClient", mock_client)
     with pytest.raises(HTTPException) as exc:
-        await glpi_read.read_glpi_incident(tenant, 12)
+        await glpi_read._read_glpi_incident_unqualified(tenant, 12)
     assert exc.value.status_code == 502
     assert "test-session" not in str(exc.value.detail)
 
@@ -131,7 +131,7 @@ async def test_upstream_non_json_rejected(monkeypatch):
 
     monkeypatch.setattr(glpi_read.httpx, "AsyncClient", mock_client)
     with pytest.raises(HTTPException) as exc:
-        await glpi_read.read_glpi_incident(tenant, 12)
+        await glpi_read._read_glpi_incident_unqualified(tenant, 12)
     assert exc.value.status_code == 502
 
 
@@ -164,7 +164,7 @@ async def test_unsafe_glpi_origin_rejected_before_network(monkeypatch, origin):
 
     monkeypatch.setattr(glpi_read.httpx, "AsyncClient", no_network)
     with pytest.raises(HTTPException) as exc:
-        await glpi_read.read_glpi_incident(tenant, 12)
+        await glpi_read._read_glpi_incident_unqualified(tenant, 12)
     assert exc.value.status_code == 503
 
 
@@ -195,7 +195,7 @@ async def test_glpi_response_size_and_json_shape_fail_closed(monkeypatch, body, 
 
     monkeypatch.setattr(glpi_read.httpx, "AsyncClient", mock_client)
     with pytest.raises(HTTPException) as exc:
-        await glpi_read.read_glpi_incident(tenant, 12)
+        await glpi_read._read_glpi_incident_unqualified(tenant, 12)
     assert exc.value.status_code == 502
 
 
@@ -218,7 +218,7 @@ async def test_invalid_server_entity_configuration_fails_before_network(monkeypa
 
     monkeypatch.setattr(glpi_read.httpx, "AsyncClient", no_network)
     with pytest.raises(HTTPException) as exc:
-        await glpi_read.read_glpi_incident(tenant, 12)
+        await glpi_read._read_glpi_incident_unqualified(tenant, 12)
     assert exc.value.status_code == 503
 
 
@@ -244,5 +244,26 @@ async def test_missing_glpi_configuration_fails_before_network(monkeypatch, miss
 
     monkeypatch.setattr(glpi_read.httpx, "AsyncClient", no_network)
     with pytest.raises(HTTPException) as exc:
-        await glpi_read.read_glpi_incident(tenant, 12)
+        await glpi_read._read_glpi_incident_unqualified(tenant, 12)
     assert exc.value.status_code == 403
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("enabled", [False, True])
+async def test_public_glpi_read_never_reaches_transport_without_qualified_acl(monkeypatch, enabled):
+    monkeypatch.setattr(glpi_read.settings, "enable_glpi_reads", enabled)
+    def no_network(*args, **kwargs):
+        raise AssertionError("Public GLPI read must not make network requests")
+    monkeypatch.setattr(glpi_read.httpx, "AsyncClient", no_network)
+    with pytest.raises(HTTPException) as exc:
+        await glpi_read.read_glpi_incident(uuid4(), 12)
+    assert exc.value.status_code == 503
+    assert "ACL not qualified" in str(exc.value.detail)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("ticket_id", [0, -1, True, "12"])
+async def test_public_glpi_read_rejects_invalid_ticket_before_acl(ticket_id):
+    with pytest.raises(HTTPException) as exc:
+        await glpi_read.read_glpi_incident(uuid4(), ticket_id)
+    assert exc.value.status_code == 422
