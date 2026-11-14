@@ -771,3 +771,21 @@ def test_replay_db_sessionmaker_uses_qualified_engine():
             and isinstance(call.keywords[0].value, ast.Constant)
             and call.keywords[0].value.value is False):
         pytest.fail("Session factory must use only the qualified engine")
+
+
+def test_replay_db_fixture_cannot_shadow_qualified_session_factory_via_arguments():
+    """Fixture arguments must not replace the reviewed session factory binding."""
+    source = (Path(__file__).parent / "test_gateway_replay_postgres.py").read_text(
+        encoding="utf-8"
+    )
+    fixtures = [
+        node for node in ast.parse(source).body
+        if isinstance(node, ast.AsyncFunctionDef) and node.name == "replay_db"
+    ]
+    if len(fixtures) != 1:
+        pytest.fail("Expected exactly one replay_db fixture")
+    arguments = fixtures[0].args
+    if (arguments.posonlyargs or arguments.args or arguments.kwonlyargs
+            or arguments.vararg is not None or arguments.kwarg is not None
+            or arguments.defaults or any(v is not None for v in arguments.kw_defaults)):
+        pytest.fail("Replay fixture must not accept arguments that shadow security bindings")
