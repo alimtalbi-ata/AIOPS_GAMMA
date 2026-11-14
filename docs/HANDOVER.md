@@ -9,8 +9,8 @@
 - Workflow definitions use `runs-on: ubuntu-latest` for all jobs; no custom runner labels found. GitHub connection cannot inspect repository/org Actions administration settings or run-page pre-step annotations. Administrator must supply the redacted error and verify hosted-runner entitlement/availability, Actions policy, runner-group access, billing/usage and approvals.
 - Gateway assertion settings in Helm map to Pydantic settings; assertion Secret reference remains empty by default, so verifier fails closed until provisioned by an approved operator.
 - API NetworkPolicy is deny-all while gateway namespace/pod selector maps are empty. When both are populated, the only allowed peer is their namespaceSelector + podSelector conjunction on the API port. Do not guess labels.
-- UI Nginx proxies only two public synthetic demo GET endpoints; all other `/api/` paths return 404. Do not add UI pods as a tenant API peer. The deny-all policy also blocks demo proxy paths across separate UI/API pods; resolve this without widening tenant API trust.
-- Frontend demo buttons now use fixed local synthetic fixtures and make no browser fetch to the API. UI status labels explicitly say `LOCAL DEMO`; correlation is illustrative, evidence remains `UNVERIFIED`, and this does not test the FastAPI correlation/evidence-join path. Backend demo endpoints and tightly scoped proxy configuration remain available for separately authorized API/gateway qualification; do not count the UI fixture as API test evidence.
+- Frontend demo buttons use fixed local synthetic fixtures and make no browser fetch to the API. UI status labels explicitly say `LOCAL DEMO`; correlation is illustrative, evidence remains `UNVERIFIED`, and this does not test the FastAPI correlation/evidence-join path.
+- Removed all UI→API proxying from both Nginx production config and Vite dev config. Both now return 404/no-store for every `/api` path; the frontend is a static synthetic demo, not an API client. Docker Compose no longer waits for API health before starting the frontend. Do not add UI pods as tenant API NetworkPolicy peers.
 - No Gateway/IdP owner response or approved issuer/audience, authoritative membership/resource ACL, secret lifecycle, or trusted namespace/pod labels has been recorded in issue #2.
 - Source review only. No pytest, Helm render/lint, Kubernetes/CNI, Gateway/IdP, staging or PostgreSQL runtime qualification on this HEAD.
 - **Decision: HOLD / NO_GO.** Keep canonical reads disabled, PR draft, and do not merge, deploy or enable LIVE.
@@ -1319,3 +1319,12 @@
 - Nine of nine jobs again stopped before any step. No test/build/Helm/Compose/Docker/PostgreSQL execution is evidenced. Root cause remains unproven; no blind retry, workflow edit, permission change or self-hosted runner action taken.
 - Repository/org administrator must provide the redacted Actions UI pre-step error and verify GitHub-hosted runner entitlement/availability, organization Actions policy, runner-group access, billing/usage and approval restrictions.
 - Gateway/IdP owner inputs remain absent. PR #1 remains open/draft; canonical reads disabled. **HOLD / NO_GO**; no merge, LIVE, tenant reads or deployment.
+
+
+### 2026-11-14 — Remove frontend-to-API proxy path entirely
+- `frontend/src/App.tsx` already uses local synthetic fixtures for both demo actions; updated `frontend/nginx.conf` and `frontend/vite.config.ts` to deny every `/api` path with 404 and `Cache-Control: no-store`, removing all proxy destinations and allowlists.
+- Removed the frontend service's `depends_on: api: service_healthy` from `docker-compose.yml`; the static UI no longer needs API startup or ingress reachability.
+- Replaced `tests/test_frontend_demo_contract.py` with static contracts for local/non-authoritative fixtures, no API fetch, Nginx/Vite deny-all API behavior, loopback dev binding, and no Compose UI→API dependency.
+- This narrows the frontend trust boundary and removes the UI's need to be a NetworkPolicy peer. It does not qualify FastAPI demo handlers, correlation engine, evidence join, or tenant API authorization.
+- Validation: GitHub source updates and content re-fetch only. No pytest, frontend build, Nginx config test, Compose validation, Helm, Kubernetes/CNI or runtime execution performed; Actions runner blocker remains.
+- PR #1 remains open/draft; **HOLD / NO_GO**. No merge, LIVE, tenant reads or deployment.
