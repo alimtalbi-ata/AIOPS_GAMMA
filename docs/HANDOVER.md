@@ -1716,3 +1716,9 @@
 - Added ITIL regression test with two observations sharing the same caller-declared CI ID. The legacy `verified_cis` and explicit `caller_declared_verified_cis` counts both represent observations, **not** unique independently verified CMDB entities.
 - Test requires `canonical_cmdb_verified=False` and caller-supplied provenance; no change to authorization or external integrations.
 - Tests **not executed**. CI issue #8 and canonical ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — Unique caller-declared CI IDs
+- ITIL synthetic projection now reports `caller_declared_unique_ci_ids` as the size of the set of caller-declared verified CI identifiers, separate from the existing observation counts `verified_cis` and `caller_declared_verified_cis`.
+- Added tests for duplicate and distinct caller-declared identifiers. Neither count implies canonical CMDB verification, authority, persistence or LIVE permission.
+- Repository tests **not executed**. CI issue #8 and independent actor→tenant→resource ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
