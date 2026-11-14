@@ -347,3 +347,53 @@ def test_public_demo_signature_mutations_are_rejected(tmp_path, monkeypatch):
             patch.setattr(module, "MAIN", candidate)
             with pytest.raises(AssertionError):
                 test_public_demo_routes_only_call_reviewed_synthetic_helpers()
+
+
+def _assert_public_liveness_handler(source):
+    """Keep the unauthenticated health endpoint static and input-free."""
+    tree = ast.parse(source)
+    routes = [
+        node for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and any(
+            isinstance(decorator, ast.Call)
+            and isinstance(decorator.func, ast.Attribute)
+            and isinstance(decorator.func.value, ast.Name)
+            and decorator.func.value.id == "app"
+            and decorator.func.attr == "get"
+            and len(decorator.args) == 1
+            and isinstance(decorator.args[0], ast.Constant)
+            and decorator.args[0].value == "/api/v1/health/live"
+            for decorator in node.decorator_list
+        )
+    ]
+    assert len(routes) == 1, "Missing or duplicate public liveness handler"
+    node = routes[0]
+    expected = ast.parse(
+        '@app.get("/api/v1/health/live")\n'
+        'async def live():\n'
+        '    return {"status": "ok"}\n'
+    ).body[0]
+    assert ast.dump(node, include_attributes=False) == ast.dump(
+        expected, include_attributes=False
+    ), "Public liveness handler must remain an exact static response"
+
+
+def test_public_liveness_handler_exact_static_contract():
+    _assert_public_liveness_handler(MAIN.read_text(encoding="utf-8"))
+
+
+def test_public_liveness_handler_mutations_rejected():
+    import pytest
+
+    source = MAIN.read_text(encoding="utf-8")
+    original = 'async def live():\n    return {"status": "ok"}'
+    assert source.count(original) == 1
+    for changed in (
+        'async def live(request):\n    return {"status": "ok"}',
+        'async def live():\n    return {"status": "ok", "tenant": "unsafe"}',
+        'async def live():\n    return await fetch_status()',
+        'async def live():\n    return {"status": "ok"}\n    print("side effect")',
+    ):
+        with pytest.raises(AssertionError, match="Public liveness handler"):
+            _assert_public_liveness_handler(source.replace(original, changed, 1))
