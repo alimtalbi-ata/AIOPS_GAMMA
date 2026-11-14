@@ -100,3 +100,20 @@ def test_mutated_timeline_timestamp_is_revalidated():
     req.timeline[0].occurred_at = datetime(2026, 11, 14, 12)
     with pytest.raises(ValidationError):
         draft_postmortem(req, TENANT)
+
+
+def test_post_validation_tenant_mutation_cannot_bypass_authority():
+    req = request()
+    req.tenant_id = OTHER
+    with pytest.raises(PermissionError, match="Cross-tenant"):
+        draft_postmortem(req, TENANT)
+
+
+def test_invalid_authorized_tenant_type_is_rejected():
+    with pytest.raises(ValueError, match="authorized tenant"):
+        draft_postmortem(request(), str(TENANT))
+
+
+def test_invalid_request_type_is_rejected():
+    with pytest.raises(ValueError, match="postmortem request"):
+        draft_postmortem({"tenant_id": str(TENANT)}, TENANT)
