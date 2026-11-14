@@ -13,6 +13,9 @@ api:
   gatewayAssertionIssuer: gamma-gateway
   gatewayAssertionAudience: aiops-gamma
   gatewayAssertionMaxTtlSeconds: 60
+  # Empty selectors intentionally produce an API ingress deny-all policy.
+  gatewayNamespaceLabels: {}
+  gatewayPodLabels: {}
   databaseUrlSecret: gamma-database
   databaseUrlSecretKey: url
   resources:
