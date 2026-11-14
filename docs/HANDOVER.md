@@ -1558,3 +1558,10 @@
 - Reviewed existing `tests/test_itsm_contract.py` expectations and identified a potential regression: full nested Pydantic revalidation before contract-specific gates would change expected `ValueError` messages for malformed operation, matrix, reference, policy and evidence inputs.
 - Moved the full nested `IncidentSyncPreview.model_validate(req.model_dump())` pass after the established explicit guards but before proposal/idempotency-key construction. Updated the new invalid-priority regression assertion to expect the existing explicit error.
 - This is a source-level compatibility fix; no full repository test run has been completed. Existing CI blocker issue #8 remains. PR #1 stays Draft HOLD / NO_GO; no canonical reads or LIVE actions.
+
+
+### 2026-11-14 — UC08/UC09 mutated policy input fail-closed
+- Found an advisory decision risk: a post-validation mutation of `RemediationProposal.mode` to an unknown value could fall through `mode != "LIVE"` and return `SIMULATE`.
+- `evaluate` now checks proposal type and revalidates its entire Pydantic payload before any decision. Four tests cover mutated invalid mode, command, approval type and request structure.
+- This is a synthetic/advisory gate only. Even valid LIVE requests cannot authorize effects; signed one-use HITL receipt and independent execution gate are still absent.
+- CI Python workflow `43616155871` failed, and job `132511547278` had no recorded steps; job log fetch returned HTTP 404 BlobNotFound. No claim of test execution. Issue #8 remains unresolved. PR #1 remains Draft HOLD / NO_GO.
