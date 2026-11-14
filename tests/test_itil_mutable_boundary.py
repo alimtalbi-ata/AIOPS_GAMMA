@@ -364,3 +364,39 @@ def test_model_copy_update_cannot_claim_verified_ci_without_identifier(invalid_c
     )
     with pytest.raises(ValidationError, match="Verified CI requires CMDB identifier"):
         preview_itil_workflow(item)
+
+
+def test_full_synthetic_itil_projection_never_grants_authority():
+    item = incident()
+    item.affected_cis[0].verified_against_cmdb = True
+    item.itsm_ref = ITSMReference(system="glpi", external_id="DEMO-INC-42")
+    problem = ProblemAssessment(
+        tenant_id=TENANT, related_incident_ids=["DEMO-INC-1"],
+        suspected_root_cause="Unverified synthetic hypothesis",
+        supporting_evidence_refs=["DEMO-EVIDENCE-1"],
+        problem_ref=ITSMReference(system="glpi", external_id="DEMO-PROB-42"),
+    )
+    change = ChangeProposal(
+        tenant_id=TENANT, source_incident_id="DEMO-INC-1",
+        target_ci_id="CI-DEMO-1", runbook_id="demo", runbook_version="v1",
+        impact_summary="Synthetic only", risk="unknown",
+        implementation_plan_ref="demo-implement",
+        rollback_plan_ref="demo-rollback",
+        verification_plan_ref="demo-verify", evidence_refs=["DEMO-EVIDENCE-1"],
+        itsm_change_ref=ITSMReference(system="glpi", external_id="DEMO-CHG-42"),
+    )
+    result = preview_itil_workflow(item, problem=problem, change=change)
+    assert result["data_source"] == "caller_supplied_preview"
+    assert result["authoritative"] is False
+    assert result["persisted"] is False
+    assert result["service_configuration_management"]["canonical_cmdb_verified"] is False
+    assert result["problem_management"]["status"] == "PROPOSED_WITH_EVIDENCE"
+    assert result["change_enablement"]["status"] == "DRAFT_AWAITING_ITSM_CHANGE_AUTHORITY"
+    assert result["change_enablement"]["authorization_state"] == "NOT_ASSESSED_BY_CHANGE_AUTHORITY"
+    assert result["change_enablement"]["approved_standard_model_verified"] is False
+    assert result["change_enablement"]["target_ci_canonical_verified"] is False
+    assert result["execution"] == {
+        "state": "FORBIDDEN_IN_PREVIEW",
+        "live_remediation_authorized": False,
+        "itsm_mutations_performed": False,
+    }
