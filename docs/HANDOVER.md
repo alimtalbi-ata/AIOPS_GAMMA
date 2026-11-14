@@ -1770,3 +1770,9 @@
 - Added three parametrized tests for `ObservedCI.model_copy(update=...)` asserting caller-declared verification with `None`, empty, or whitespace-only CMDB identifier.
 - The synthetic ITIL preview must revalidate the nested CI and raise `ValidationError`; no canonical CMDB lookup or authorization is claimed.
 - Tests **not executed**. CI issue #8 and independent actor→tenant→resource ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — Current HEAD CI evidence refresh
+- At reviewed SHA `f7bf8913ea21403658762c5e18325cedc9841a63`, Python checks run `43622717249` and Deployment contract run `43622717214` both failed.
+- Python `test` job `132531736563` and Deployment `compose` job `132531736441` returned `steps: []`; job listings had no logs URL. No fresh log download was attempted and no test execution is proven.
+- See `docs/CI-QUALIFICATION-BLOCKER.md` for run links and administrator actions. Issue #8 remains open; issue #2 independently blocks canonical reads. PR #1 stays Draft HOLD / NO_GO.
