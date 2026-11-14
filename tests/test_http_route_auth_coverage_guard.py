@@ -104,6 +104,30 @@ class InternalRouteDependencyGuard(unittest.TestCase):
         self.assertEqual(found, EXPECTED_ROUTES,
                          "HTTP route inventory changed; review ACL and update allowlist")
 
+    def test_duplicate_public_and_private_route_registrations_are_rejected(self):
+        """A set inventory must not hide a second route with the same method/path."""
+        from tempfile import TemporaryDirectory
+        from unittest.mock import patch
+
+        source = MAIN.read_text(encoding="utf-8")
+        for decorator in (
+            '@app.get("/api/v1/demo/correlation")',
+            '@app.post("/api/v1/observability/logs/search")',
+        ):
+            self.assertEqual(source.count(decorator), 1)
+            with TemporaryDirectory() as directory:
+                candidate = Path(directory) / "main.py"
+                candidate.write_text(
+                    source.replace(decorator, decorator + "\n" + decorator, 1),
+                    encoding="utf-8",
+                )
+                with patch.dict(
+                    self.test_all_non_public_http_routes_require_internal_principal.__globals__,
+                    {"MAIN": candidate},
+                ):
+                    with self.assertRaisesRegex(AssertionError, "Duplicate HTTP route"):
+                        self.test_all_non_public_http_routes_require_internal_principal()
+
     def test_public_route_allowlist_is_narrow(self):
         self.assertEqual(PUBLIC_ROUTES, {
             ("GET", "/api/v1/health/live"),
