@@ -1448,3 +1448,10 @@
 - Synthetic incident ID and evidence references are explicitly supplied; no correlation group is promoted to canonical incident identity. Enterprise priority matrix is synthetic.
 - **Tests committed but not executed.** Full exact-HEAD CI, gateway actor→tenant→resource ACL and disposable PostgreSQL remain unqualified.
 - PR #1 remains Draft, **HOLD / NO_GO**. No merge, LIVE, PostgreSQL or deployment.
+
+
+### 2026-11-14 — UC06 synthetic RCA evidence safety
+- Added `tests/test_synthetic_rca_usecase.py`: five tests for UNKNOWN preservation, tenant denial, unresolved evidence rejection, conflicting citations, and non-authorizing supported labels.
+- Exercises existing `app/reused/investigation.py` pure evaluation only; no agent/tool invocation, external provenance verification or adjudicated RCA.
+- **Tests not executed**: runner/bootstrap and exact-HEAD qualification remain pending.
+- PR #1 Draft; **HOLD / NO_GO**, no merge, LIVE, PostgreSQL or deployment.
