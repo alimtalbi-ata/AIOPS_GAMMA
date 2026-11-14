@@ -332,3 +332,11 @@ def test_future_evidence_cannot_be_promoted_to_fresh():
     result = normalize([evidence(observed_at=NOW + timedelta(seconds=1))], now=NOW)
     assert result["items"][0]["freshness"] == "UNKNOWN"
     assert result["items"][0]["state"] == "UNKNOWN"
+
+
+def test_identical_duplicate_evidence_does_not_become_verified():
+    item = evidence()
+    result = normalize([item, item.model_copy(deep=True)], now=NOW)
+    assert result["duplicates"] == 1
+    assert len(result["items"]) == 1
+    assert result["items"][0]["integrity"] == "UNVERIFIED"
