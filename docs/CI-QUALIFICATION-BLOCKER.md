@@ -55,6 +55,7 @@ python -m pytest -q \
   tests/test_synthetic_end_to_end_usecase.py \
   tests/test_synthetic_runbook_hitl_usecase.py \
   tests/test_synthetic_journey_negative_gates.py \
+  tests/test_evidence_normalization.py \
   tests/test_itil_mutable_boundary.py
 ```
 
