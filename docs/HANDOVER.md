@@ -1469,3 +1469,10 @@
 - Verifies correlation deduplication, unverified evidence, impact UNKNOWN and non-canonical CMDB, non-authoritative RCA, no ITSM mutation/persistence and no LIVE remediation.
 - This is a **synthetic composition regression**, not a deployed workflow, canonical incident join, authenticated actor→tenant→resource ACL, validated provenance or production integration.
 - **Not executed**; exact-HEAD CI remains unqualified. PR #1 stays Draft **HOLD / NO_GO**; no merge, LIVE, PostgreSQL or deployment.
+
+
+### 2026-11-14 — UC08/UC09 synthetic runbook/HITL acceptance
+- Added `tests/test_synthetic_runbook_hitl_usecase.py` with ten parametrized cases: DEMO/REPLAY/STORY simulation-only, four LIVE effect commands blocked even with caller-controlled approval flags, missing evidence UNKNOWN, unapproved recipe blocked and HITL boolean never grants execution.
+- Uses the existing pure `app/reused/policy.py` evaluator. No Temporal worker, signed one-use HITL receipt, independent execution gate or runbook execution has been implemented.
+- Tried obtaining a local repository checkout for isolated pytest execution; network DNS could not resolve github.com in the local runner. **No tests were run or passed**; no CI qualification claimed.
+- PR #1 Draft **HOLD / NO_GO**, no merge, LIVE, PostgreSQL or deployment.
