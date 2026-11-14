@@ -1782,3 +1782,9 @@
 - Added a full incident→problem→change synthetic test with caller-declared CI verification, evidence and GLPI reference strings.
 - The test asserts preview provenance, no persistence, no canonical CMDB confirmation, no assessed change authority, and execution forbidden even with all three projections present.
 - Tests **not executed**. CI issue #8 remains unqualified (recent jobs returned empty steps); independent canonical ACL issue #2 remains a release blocker. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — ITIL mutable collection limits
+- Added synthetic boundary regressions for an incident mutated to contain 101 observed CIs (limit 100) and a change mutated to contain 51 evidence references (limit 50).
+- Both must fail during model revalidation before a preview is returned; no external CMDB/ITSM calls or authorizing behavior were introduced.
+- Tests **not executed**. CI issue #8 and independent actor→tenant→resource ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
