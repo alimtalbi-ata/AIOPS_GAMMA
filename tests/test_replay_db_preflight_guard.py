@@ -854,12 +854,18 @@ def test_replay_db_security_dependencies_not_shadowed_in_nested_module_control_f
 
     class ModuleBindingVisitor(ast.NodeVisitor):
         def visit_FunctionDef(self, node):
+            if node.name in protected:
+                pytest.fail(f"Module control flow defines security dependency: {node.name}")
             return
 
         def visit_AsyncFunctionDef(self, node):
+            if node.name in protected:
+                pytest.fail(f"Module control flow defines security dependency: {node.name}")
             return
 
         def visit_ClassDef(self, node):
+            if node.name in protected:
+                pytest.fail(f"Module control flow defines security dependency: {node.name}")
             return
 
         def visit_Lambda(self, node):
