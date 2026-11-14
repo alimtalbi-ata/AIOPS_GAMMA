@@ -75,8 +75,12 @@ def normalize(items: list[EvidenceInput], *, now: datetime, max_age_seconds: int
         raise ValueError("evidence bounds exceeded")
     if any(not isinstance(item, EvidenceInput) for item in items):
         raise ValueError("Invalid evidence input structure")
-    # Mutable evidence and nested payload/provenance can bypass construction
-    # validators. Recheck timestamps, finite JSON and byte budgets at use time.
+    # Mutable nested containers may be cyclic or deeply nested. Reject those
+    # before model_dump, whose serializer is not our bounded validation gate.
+    for item in items:
+        _require_string_json_keys(item.payload)
+        _require_string_json_keys(item.provenance)
+    # Recheck timestamps, finite JSON and byte budgets at use time.
     items = [EvidenceInput.model_validate(item.model_dump()) for item in items]
     now = now.astimezone(timezone.utc)
     seen = {}
