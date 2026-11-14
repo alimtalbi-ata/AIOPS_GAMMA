@@ -4,6 +4,12 @@ Pure in-memory graph traversal. No canonical CMDB reads, network, writes or auth
 """
 MAX_NODES = 200
 MAX_EDGES = 1000
+MAX_ID_LENGTH = 255
+
+
+def _valid_id(value: object) -> bool:
+    return (isinstance(value, str) and 1 <= len(value) <= MAX_ID_LENGTH
+            and value == value.strip() and value.isprintable())
 
 
 def preview_service_dependencies(
@@ -14,18 +20,18 @@ def preview_service_dependencies(
     Cycles and incomplete graphs are flagged as UNKNOWN, not treated as proof
     of healthy topology. Caller-supplied identifiers are never authenticated.
     """
-    if (not isinstance(service_id, str) or not service_id.strip()
+    if (not _valid_id(service_id)
             or not isinstance(nodes, list) or not 1 <= len(nodes) <= MAX_NODES
             or not isinstance(edges, list) or len(edges) > MAX_EDGES):
         raise ValueError("Invalid topology preview bounds")
-    if (any(not isinstance(node, str) or not node.strip() for node in nodes)
+    if (any(not _valid_id(node) for node in nodes)
             or len(set(nodes)) != len(nodes) or service_id not in nodes):
         raise ValueError("Invalid topology node identifiers")
     graph = {node: set() for node in nodes}
     incomplete = False
     for edge in edges:
         if (not isinstance(edge, (tuple, list)) or len(edge) != 2
-                or any(not isinstance(endpoint, str) or not endpoint.strip() for endpoint in edge)):
+                or any(not _valid_id(endpoint) for endpoint in edge)):
             raise ValueError("Invalid topology edge")
         source, target = edge
         if source not in graph or target not in graph:
