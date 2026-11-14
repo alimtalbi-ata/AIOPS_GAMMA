@@ -63,9 +63,8 @@ def plan_incident_sync(req: IncidentSyncPreview, tenant_id: UUID) -> dict:
         raise ValueError("Invalid ITSM sync request structure")
     if not isinstance(tenant_id, UUID):
         raise ValueError("Invalid authorized tenant")
-    # Revalidate mutable nested incident/CI/ITSM reference and matrix fields.
-    # The manual checks below preserve explicit operation and authority gates.
-    req = IncidentSyncPreview.model_validate(req.model_dump())
+    # Preserve explicit, stable errors for the existing ITSM authority gates.
+    # A complete Pydantic revalidation follows those checks below.
     incident = req.incident
     if req.operation not in ("propose_create", "propose_enrichment"):
         raise ValueError("Invalid ITSM sync operation")
@@ -120,6 +119,10 @@ def plan_incident_sync(req: IncidentSyncPreview, tenant_id: UUID) -> dict:
            any(ord(char) < 32 or ord(char) == 127 for char in ref)
            for ref in incident.evidence_refs):
         raise ValueError("Invalid evidence reference")
+    # Validate nested incident, observed CIs, references and priority policy
+    # after stable contract-specific errors have been checked.
+    req = IncidentSyncPreview.model_validate(req.model_dump())
+    incident = req.incident
     # Identity of a logical proposed operation does not change with model output,
     # timestamps or enterprise priority mapping. Durable uniqueness and receipts
     # must be enforced by canonical Core/ITSM adapters in a later milestone.
