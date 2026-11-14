@@ -260,3 +260,30 @@ async def prevent_tenant_api_caching(request, call_next):
     ):
         with pytest.raises(AssertionError):
             _assert_exact_cache_middleware(mutated)
+
+
+def test_gateway_assertion_helm_wiring_is_optional_and_fail_closed():
+    """Chart may mount an owner-provisioned HMAC secret, never embed key material."""
+    root = Path(__file__).resolve().parents[1]
+    values = (root / "deploy/helm/gamma/values.yaml").read_text(encoding="utf-8")
+    api = (root / "deploy/helm/gamma/templates/api.yaml").read_text(encoding="utf-8")
+    security = (root / "app/security.py").read_text(encoding="utf-8")
+
+    for setting in (
+        "gatewayAssertionSecret:",
+        "gatewayAssertionSecretKey:",
+        "gatewayAssertionIssuer:",
+        "gatewayAssertionAudience:",
+        "gatewayAssertionMaxTtlSeconds:",
+    ):
+        assert setting in values, f"Missing Helm setting: {setting}"
+
+    assert 'if .Values.api.gatewayAssertionSecret' in api
+    assert "name: GATEWAY_ASSERTION_SECRET" in api
+    assert ".Values.api.gatewayAssertionSecretKey" in api
+    assert "name: GATEWAY_ASSERTION_ISSUER" in api
+    assert "name: GATEWAY_ASSERTION_AUDIENCE" in api
+    assert "name: GATEWAY_ASSERTION_MAX_TTL_SECONDS" in api
+    assert 'gatewayAssertionSecret: ""' in values, "HMAC Secret must remain unconfigured by default"
+    assert 'settings.gateway_assertion_secret' in security
+    assert 'Gateway assertion verification not configured' in security
