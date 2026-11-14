@@ -393,3 +393,9 @@ def test_same_service_different_symptoms_never_merge():
     result = correlate([signal("a", symptom="timeout"), signal("b", symptom="cpu")], "tenant-1")
     assert len(result["groups"]) == 2
     assert {g["symptom_key"] for g in result["groups"]} == {"timeout", "cpu"}
+
+
+def test_resolved_only_correlation_group_is_not_firing():
+    result = correlate([signal("a", status="resolved"), signal("b", status="resolved")], "tenant-1")
+    assert result["groups"][0]["status"] == "resolved"
+    assert result["live_remediation_authorized"] is False
