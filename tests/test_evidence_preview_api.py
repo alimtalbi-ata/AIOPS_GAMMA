@@ -1,5 +1,6 @@
 """API contract tests: tenant isolation and read-only evidence preview."""
 from datetime import datetime, timezone
+import time
 from uuid import UUID
 
 from fastapi.testclient import TestClient
@@ -9,6 +10,11 @@ from app.security import Principal, internal_principal
 
 TENANT = UUID("11111111-1111-4111-8111-111111111111")
 OTHER = UUID("22222222-2222-4222-8222-222222222222")
+PATH = "/api/v1/incidents/evidence/preview"
+
+
+def principal():
+    return Principal(TENANT, "test-user", "user", "test-assertion-0001", int(time.time()) + 30)
 
 
 def payload(tenant=TENANT):
@@ -21,10 +27,10 @@ def payload(tenant=TENANT):
 
 
 def test_preview_tenant_bound_and_no_store():
-    app.dependency_overrides[internal_principal] = lambda: Principal(TENANT)
+    app.dependency_overrides[internal_principal] = principal
     try:
         with TestClient(app) as client:
-            result = client.post("/api/v1/incidents/evidence/preview", json=payload())
+            result = client.post(PATH, json=payload())
         assert result.status_code == 200, result.text
         assert result.headers["cache-control"] == "no-store"
         data = result.json()
@@ -35,21 +41,23 @@ def test_preview_tenant_bound_and_no_store():
         app.dependency_overrides.clear()
 
 
-def test_cross_tenant_rejected():
-    app.dependency_overrides[internal_principal] = lambda: Principal(TENANT)
+def test_cross_tenant_rejected_no_store():
+    app.dependency_overrides[internal_principal] = principal
     try:
         with TestClient(app) as client:
-            result = client.post("/api/v1/incidents/evidence/preview", json=payload(OTHER))
+            result = client.post(PATH, json=payload(OTHER))
         assert result.status_code == 403
+        assert result.headers["cache-control"] == "no-store"
     finally:
         app.dependency_overrides.clear()
 
 
-def test_empty_payload_rejected():
-    app.dependency_overrides[internal_principal] = lambda: Principal(TENANT)
+def test_empty_payload_rejected_no_store():
+    app.dependency_overrides[internal_principal] = principal
     try:
         with TestClient(app) as client:
-            result = client.post("/api/v1/incidents/evidence/preview", json={"items": []})
+            result = client.post(PATH, json={"items": []})
         assert result.status_code == 422
+        assert result.headers["cache-control"] == "no-store"
     finally:
         app.dependency_overrides.clear()
