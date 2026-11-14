@@ -328,3 +328,32 @@ def test_glpi_http_response_never_caches_denied_ticket(monkeypatch):
             app.dependency_overrides.pop(internal_principal, None)
         else:
             app.dependency_overrides[internal_principal] = previous_override
+
+
+def test_glpi_http_rejects_missing_gateway_assertion_before_adapter(monkeypatch):
+    """A service key alone must never authorize a GLPI ticket read."""
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.security import internal_principal
+    from app.settings import settings
+
+    monkeypatch.setattr(settings, "internal_api_key", "synthetic-test-service-key")
+    monkeypatch.setattr(settings, "enable_glpi_reads", True)
+
+    def no_network(*args, **kwargs):
+        raise AssertionError("Unauthorized GLPI request must not contact upstream")
+
+    monkeypatch.setattr(glpi_read.httpx, "AsyncClient", no_network)
+    previous_override = app.dependency_overrides.pop(internal_principal, None)
+    try:
+        with TestClient(app) as client:
+            response = client.get(
+                "/api/v1/itil4/glpi/incidents/12/snapshot",
+                headers={"X-Internal-Api-Key": "synthetic-test-service-key"},
+            )
+        assert response.status_code == 401
+        assert response.headers["cache-control"] == "no-store"
+        assert "gateway principal" in response.json()["detail"].lower()
+    finally:
+        if previous_override is not None:
+            app.dependency_overrides[internal_principal] = previous_override
