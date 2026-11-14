@@ -72,7 +72,7 @@ def test_mutated_change_risk_rejected():
     )
     change.risk = "critical"
     with pytest.raises(ValidationError):
-        preview_itil_workflow(item, change)
+        preview_itil_workflow(item, change=change)
 
 
 @pytest.mark.parametrize("invalid", [None, {}, "incident"])
@@ -112,7 +112,7 @@ def test_mutated_change_tenant_mismatch_rejected():
     )
     change.tenant_id = OTHER
     with pytest.raises(ValueError, match="Change tenant or incident reference mismatch"):
-        preview_itil_workflow(item, change)
+        preview_itil_workflow(item, change=change)
 
 
 def test_mutated_change_target_requires_verified_binding():
@@ -126,7 +126,7 @@ def test_mutated_change_target_requires_verified_binding():
         verification_plan_ref="demo-verify", evidence_refs=["demo-evidence"],
     )
     with pytest.raises(ValueError, match="Change target CI must have a verified CMDB binding"):
-        preview_itil_workflow(item, change)
+        preview_itil_workflow(item, change=change)
 
 
 @pytest.mark.parametrize("invalid", [{}, "problem", []])
