@@ -1273,3 +1273,11 @@
 - Posted this network-path finding to issue #2. No owner-provided gateway labels/identity contract have appeared in the reviewed issue comments.
 - Validation: source review only; no Helm render, pytest, Kubernetes/CNI connectivity, gateway or staging test performed.
 - Decision: HOLD / NO_GO; no merge/LIVE/deployment.
+
+
+### 2026-11-14 — exact-HEAD CI retry after handover refresh
+- Exact HEAD: `a0ae9252cdbbb36fd7083fea49dd1738e6bc47fa`.
+- Python checks run `43591498333`; Deployment contract run `43591498352`. All 9 jobs were inspected individually; each returned an empty step list (`steps: []`). No command executed, so this is neither a test failure nor a pass.
+- Posted administrator action request to issue #2: inspect repository/org Actions policy, runner group/labels/access, hosted runner availability/entitlement, billing/usage, approvals and run annotations; then rerun on exact PR HEAD and attach step/log evidence. No runner policy or permissions were changed by this agent.
+- Gateway owner inputs remain outstanding. No runtime tests, Helm rendering, Kubernetes/CNI, gateway, staging or PostgreSQL qualification performed.
+- Decision remains HOLD / NO_GO; PR #1 remains draft; no merge, LIVE or deployment.
