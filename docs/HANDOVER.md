@@ -1979,3 +1979,9 @@
 - `631c10a`: added `possible_direct_dependent_ids` and `possible_indirect_dependent_ids` to the caller-supplied reverse preview, reusing the validated reversed graph's direct/indirect partitions. No canonical CMDB authority or LIVE action.
 - `705afdb`: added tests for partition/disjointness, direct edge precedence when an indirect path also exists, and self-loop exclusion with UNKNOWN.
 - Tests **not executed**. Require exact-HEAD compileall and `python -m pytest -q tests/test_topology_preview.py` after GitHub Actions issue #8 is resolved. Independent actor→tenant→resource ACL issue #2 still blocks release. PR #1 Draft HOLD / NO_GO; no merge, deployment, real PostgreSQL or LIVE/remediation.
+
+
+### 2026-11-14 — UC04 cycle and unresolved-edge independence regressions
+- Added three parameterized synthetic regressions (six forward/reverse cases) in `tests/test_topology_preview.py`: reachable cycles with unrelated missing edges only report the cycle; an isolated selected CI ignores disconnected cycles and missing edges; a reachable cycle with a reachable missing endpoint reports both flags.
+- Test commit `b7a4c3b`. No runtime code, canonical CMDB access, external service or LIVE action changed. These new tests have **not been executed**; record exact-HEAD `python -m compileall -q app tests` and `python -m pytest -q tests/test_topology_preview.py` only in an authorized isolated environment after CI issue #8 is resolved.
+- Independent actor→tenant→resource ACL issue #2 remains blocking. PR #1 remains Draft — HOLD / NO_GO. No merge, deployment, real PostgreSQL or LIVE/remediation.
