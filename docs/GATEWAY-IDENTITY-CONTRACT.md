@@ -6,7 +6,7 @@
 
 For every tenant-scoped API request, the service expects:
 
-- `X-Internal-API-Key`: service-to-service workload credential. It authenticates the callering workload only; it is not tenant authorization.
+- `X-Internal-API-Key`: service-to-service workload credential. It authenticates the calling workload only; it is not tenant authorization.
 - `X-Gateway-Principal`: compact `base64url(payload).base64url(HMAC-SHA256)` assertion signed over the encoded payload.
 - The service ignores `X-Tenant-ID` for authorization. Tenant context is taken only from the verified assertion.
 
@@ -39,7 +39,7 @@ Before deployment, the gateway/IdP owner must provide and approve:
 
 ## Deployment blockers
 
-- Helm values currently expose the internal API key Secret only; they do not wire the gateway assertion secret, issuer, audience or TTL into the API Deployment.
+- Helm now exposes explicit issuer, audience and TTL values and can optionally mount the HMAC assertion key from a Kubernetes Secret. The Secret reference is omitted while `api.gatewayAssertionSecret` is empty; in that default state the service verifier remains unconfigured and fails closed. Configure a real Secret only after gateway-owner approval.
 - No trusted gateway namespace/pod selector is configured in the chart.
 - No live gateway/IdP contract, key rotation, mTLS, network bypass test or two-principal actor→tenant test has been evidenced.
 - Existing signed-assertion unit tests prove verifier behavior against synthetic HMAC tokens only. They do not prove the gateway issued the token after checking a real membership directory.
