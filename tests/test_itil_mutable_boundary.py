@@ -322,3 +322,11 @@ def test_mutated_nested_problem_itsm_reference_rejected():
     problem.problem_ref.external_id = "invalid problem ref"
     with pytest.raises(ValidationError):
         preview_itil_workflow(item, problem=problem)
+
+
+@pytest.mark.parametrize("invalid_id", ["   ", "DEMO\\nINC", "DEMO\\x7fINC"])
+def test_mutated_incident_identifier_rejected(invalid_id):
+    item = incident()
+    item.incident_id = invalid_id
+    with pytest.raises(ValueError, match="Invalid incident identifier"):
+        preview_itil_workflow(item)
