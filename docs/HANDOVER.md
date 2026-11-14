@@ -1814,3 +1814,10 @@
 - The existing `preview_itil_workflow` relationship checks must raise `ValueError` before projection. No canonical read or LIVE behavior introduced.
 - Isolated Pydantic 2.13.5 `model_copy(update=...)` probe was executed locally: an injected extra attribute is accessible but omitted from `model_dump()`. This confirms the framework behavior discussed above, not any repository tests.
 - Repository tests **not executed**. CI issue #8 and independent actor→tenant→resource ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — Product use-case traceability
+- Added `docs/USE-CASE-CATALOG.md` with UC01–UC12, user value, known API entry points, honest maturity labels, end-to-end target journey, priorities and acceptance gates.
+- Linked the catalog from `README.md` and `docs/ROADMAP.md`; roadmap explicitly requires technical work to trace to product use cases.
+- Catalog distinguishes synthetic demos, feature-flagged APIs, non-authoritative previews and undelivered target capabilities. It does not claim new runtime functionality.
+- ITIL boundary tests remain unexecuted. CI issue #8 (jobs failing before steps) and independent canonical ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
