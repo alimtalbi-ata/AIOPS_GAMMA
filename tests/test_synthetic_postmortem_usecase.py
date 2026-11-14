@@ -66,3 +66,37 @@ def test_timeline_order_is_deterministic():
     req = request()
     reverse = request(timeline=list(reversed(req.timeline)))
     assert draft_postmortem(req, TENANT) == draft_postmortem(reverse, TENANT)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("incident_id", "  "),
+    ("service_name", " checkout"),
+    ("rca_summary", "\\n"),
+    ("impact_summary", "unknown\\n"),
+])
+def test_invalid_incident_fields_rejected(field, value):
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError):
+        request(**{field: value})
+
+
+def test_untrusted_follow_up_text_rejected():
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError):
+        request(follow_up_candidates=["Restart service\\nwithout review"])
+
+
+def test_post_validation_mutation_does_not_bypass_boundary():
+    from pydantic import ValidationError
+    req = request()
+    req.incident_id = "  "
+    with pytest.raises(ValidationError):
+        draft_postmortem(req, TENANT)
+
+
+def test_mutated_timeline_timestamp_is_revalidated():
+    from pydantic import ValidationError
+    req = request()
+    req.timeline[0].occurred_at = datetime(2026, 11, 14, 12)
+    with pytest.raises(ValidationError):
+        draft_postmortem(req, TENANT)
