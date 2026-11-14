@@ -1961,3 +1961,9 @@
 - On `2a975e7724d0450571dff277ff17e683226ba770`, Python checks `43630918281` and Deployment contract `43630918325` both completed failure. Sampled `test` job `132557084360` and `compose` job `132557084471` each returned `steps: []`; all job listings lacked log URLs.
 - Documented in `docs/CI-QUALIFICATION-BLOCKER.md` commit `bfb843e`. No logs downloaded, tests run, or application failures proven. Admin must investigate Actions runner/platform reason in issue #8; independent ACL #2 remains blocked.
 - PR #1 Draft HOLD / NO_GO. No merge, deployment, real PostgreSQL or LIVE/remediation.
+
+
+### 2026-11-14 — UC04 dense unique-edge graph bounds
+- Added two synthetic regression tests for a 200-node DAG with exactly 1,000 distinct directed edges, in forward and reverse traversal. Both assert no false cycle, reachable count, consistent hop/path witness and nonauthority flags.
+- Test commit `3a873d4`. This complements the earlier 1,000 duplicate-edge test. No code or external system action. Tests **not executed**; require exact-HEAD compileall and `python -m pytest -q tests/test_topology_preview.py`.
+- CI #8 continues to fail before steps; independent ACL #2 blocks canonical reads. PR #1 Draft HOLD / NO_GO; no merge, deployment, real PostgreSQL or LIVE/remediation.
