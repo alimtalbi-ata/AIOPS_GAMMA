@@ -103,3 +103,34 @@ def test_synthetic_itsm_preview_rejects_other_tenant():
     )
     with pytest.raises(ValueError, match="Tenant mismatch"):
         plan_incident_sync(IncidentSyncPreview(incident=incident, matrix=matrix()), TENANT)
+
+
+def test_mutated_evidence_tenant_rejected_at_correlation_boundary():
+    req = scenario()
+    req.evidence[0].tenant_id = str(OTHER_TENANT)
+    with pytest.raises(PermissionError, match="Cross-tenant"):
+        preview(req, str(TENANT), now=NOW)
+
+
+def test_mutated_evidence_timestamp_rejected_at_correlation_boundary():
+    from pydantic import ValidationError
+    req = scenario()
+    req.evidence[0].observed_at = datetime(2026, 11, 14, 12)
+    with pytest.raises(ValidationError, match="observed_at requires timezone"):
+        preview(req, str(TENANT), now=NOW)
+
+
+def test_mutated_evidence_payload_limit_rejected_at_correlation_boundary():
+    from pydantic import ValidationError
+    req = scenario()
+    req.evidence[0].payload = {"untrusted": "x" * 65537}
+    with pytest.raises(ValidationError, match="payload exceeds"):
+        preview(req, str(TENANT), now=NOW)
+
+
+def test_mutated_evidence_freshness_bound_rejected_at_correlation_boundary():
+    from pydantic import ValidationError
+    req = scenario()
+    req.max_age_seconds = 0
+    with pytest.raises(ValidationError):
+        preview(req, str(TENANT), now=NOW)
