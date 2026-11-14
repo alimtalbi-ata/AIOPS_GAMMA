@@ -108,7 +108,7 @@ Voir [architecture et prochaines étapes](docs/ARCHITECTURE.md).
 
 ## Cas d’usage produit
 
-Le catalogue [GAMMA — cas d’usage](docs/USE-CASE-CATALOG.md) décrit les parcours UC01–UC12, leur maturité réelle, leurs points d’entrée et leurs critères d’acceptation. Il distingue explicitement démonstrations synthétiques, API sous feature flag, prévisualisations et capacités non livrées.
+Le catalogue [GAMMA — cas d’usage](docs/USE-CASE-CATALOG.md) décrit les parcours UC01–UC10, leur maturité réelle, leurs points d’entrée et leurs critères d’acceptation. Il distingue explicitement démonstrations synthétiques, API sous feature flag, prévisualisations et capacités non livrées.
 
 ## Objectif produit : plateforme AI SRE
 
