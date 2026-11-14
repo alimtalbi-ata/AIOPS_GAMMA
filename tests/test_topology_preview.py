@@ -526,3 +526,35 @@ def test_255_character_id_is_accepted_but_256_is_rejected(reverse):
     assert accepted["canonical_cmdb_verified"] is False
     with pytest.raises(ValueError, match="Invalid topology preview bounds"):
         call(selected + "s", [selected + "s"], [])
+
+
+def test_reverse_direct_and_indirect_consumer_partition():
+    result = preview_upstream_dependents(
+        "db", ["db", "app", "service", "batch", "unrelated"],
+        [("app", "db"), ("service", "app"), ("batch", "db")],
+    )
+    assert result["possible_dependent_ids"] == ["app", "batch", "service"]
+    assert result["possible_direct_dependent_ids"] == ["app", "batch"]
+    assert result["possible_indirect_dependent_ids"] == ["service"]
+    assert set(result["possible_direct_dependent_ids"]).isdisjoint(
+        result["possible_indirect_dependent_ids"]
+    )
+    assert result["canonical_cmdb_verified"] is False
+
+
+def test_reverse_direct_consumer_precedence_when_also_indirect():
+    result = preview_upstream_dependents(
+        "db", ["db", "app", "service"],
+        [("app", "db"), ("service", "app"), ("service", "db")],
+    )
+    assert result["possible_direct_dependent_ids"] == ["app", "service"]
+    assert result["possible_indirect_dependent_ids"] == []
+    assert result["dependent_paths"]["service"] == ["db", "service"]
+
+
+def test_reverse_self_loop_does_not_classify_selected_ci_as_consumer():
+    result = preview_upstream_dependents("db", ["db"], [("db", "db")])
+    assert result["possible_direct_dependent_ids"] == []
+    assert result["possible_indirect_dependent_ids"] == []
+    assert result["topology_state"] == "UNKNOWN"
+    assert result["authoritative"] is False
