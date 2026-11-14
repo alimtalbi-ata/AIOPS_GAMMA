@@ -1440,3 +1440,11 @@
 - Prioritized an end-to-end **synthetic-only** workflow from duplicate alert through read-only evidence/impact and ITSM preview, explicitly requiring zero canonical Core or GLPI writes. This is an acceptance specification, not an executed test.
 - GitHub Actions runner/bootstrap is still unqualified; do not report a green exact-HEAD CI, PostgreSQL test or external runtime qualification from source inspection.
 - PR #1 stays Draft, **HOLD / NO_GO**; no merge, LIVE, PostgreSQL access or deployment.
+
+
+### 2026-11-14 — UC02/UC03/UC05 synthetic incident-to-ITSM composition regression
+- Added `tests/test_synthetic_incident_usecase.py` to compose existing pure correlation/evidence and ITSM preview functions without network, DB, Core, GLPI or LIVE calls.
+- Four defined tests cover duplicate alert deduplication, explicit UNVERIFIED evidence, missing-evidence UNKNOWN, cross-tenant evidence rejection and cross-tenant ITSM denial. The main path asserts unverified CMDB impact, deterministic proposal identity, no persistence, no ticket mutation and no remediation authorization.
+- Synthetic incident ID and evidence references are explicitly supplied; no correlation group is promoted to canonical incident identity. Enterprise priority matrix is synthetic.
+- **Tests committed but not executed.** Full exact-HEAD CI, gateway actor→tenant→resource ACL and disposable PostgreSQL remain unqualified.
+- PR #1 remains Draft, **HOLD / NO_GO**. No merge, LIVE, PostgreSQL or deployment.
