@@ -10,6 +10,7 @@
 - Gateway assertion settings in Helm map to Pydantic settings; assertion Secret reference remains empty by default, so verifier fails closed until provisioned by an approved operator.
 - API NetworkPolicy is deny-all while gateway namespace/pod selector maps are empty. When both are populated, the only allowed peer is their namespaceSelector + podSelector conjunction on the API port. Do not guess labels.
 - UI Nginx proxies only two public synthetic demo GET endpoints; all other `/api/` paths return 404. Do not add UI pods as a tenant API peer. The deny-all policy also blocks demo proxy paths across separate UI/API pods; resolve this without widening tenant API trust.
+- Frontend demo buttons now use fixed local synthetic fixtures and make no browser fetch to the API. UI status labels explicitly say `LOCAL DEMO`; correlation is illustrative, evidence remains `UNVERIFIED`, and this does not test the FastAPI correlation/evidence-join path. Backend demo endpoints and tightly scoped proxy configuration remain available for separately authorized API/gateway qualification; do not count the UI fixture as API test evidence.
 - No Gateway/IdP owner response or approved issuer/audience, authoritative membership/resource ACL, secret lifecycle, or trusted namespace/pod labels has been recorded in issue #2.
 - Source review only. No pytest, Helm render/lint, Kubernetes/CNI, Gateway/IdP, staging or PostgreSQL runtime qualification on this HEAD.
 - **Decision: HOLD / NO_GO.** Keep canonical reads disabled, PR draft, and do not merge, deploy or enable LIVE.
