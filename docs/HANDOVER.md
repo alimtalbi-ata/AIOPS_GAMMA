@@ -1800,3 +1800,10 @@
 - Added three synthetic ITIL regressions for injected extra fields on incident, nested CI and change models: `canonical_authorized`, `canonical_cmdb_verified`, and `approved_by_change_authority`.
 - The tests assert these untrusted fields do not surface as authorization, canonical verification, persistence, or LIVE execution in the preview. Initial tests incorrectly expected a guaranteed `ValidationError` for extra fields; corrected to assert the nonauthorization contract instead.
 - Tests **not executed**. CI issue #8 and independent actor→tenant→resource ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — Injected problem approval remains nonauthorizing
+- Added a synthetic Problem Management regression for `ProblemAssessment.model_copy(update={"known_error_approved": True})`.
+- The preview must retain `PROPOSED_WITH_EVIDENCE`, omit the injected approval claim, and keep both `authoritative=False` and LIVE remediation forbidden.
+- Isolated local Pydantic 2.13.5 probe confirmed `model_copy(update=...)` with `extra="forbid"` can retain an injected attribute while `model_dump()` omits it; `model_validate(model_dump())` therefore does not necessarily raise. This is a framework-behavior check, **not repository test execution**.
+- Repository tests **not executed**. CI issue #8 and independent actor→tenant→resource ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
