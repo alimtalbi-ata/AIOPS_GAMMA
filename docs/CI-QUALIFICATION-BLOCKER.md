@@ -70,3 +70,25 @@ canonical Core/Evidence/Twin, GLPI, signed HITL, PostgreSQL or LIVE qualificatio
 - Therefore the rerun **did not establish a runner or a pytest execution**. Avoid repeated blind reruns until an administrator identifies the run-summary error.
 - Tracking issue: https://github.com/alimtalbi-ata/AIOPS_GAMMA/issues/8
 - No code-level test failures are proven. PR remains Draft HOLD / NO_GO.
+
+
+## Latest HEAD qualification check — 2026-11-14
+
+At reviewed HEAD `5b00b71d6248df34552588798e519b58dab2ceb4`:
+
+| Workflow | Run | Outcome |
+| --- | --- | --- |
+| Python checks | [43618484414](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43618484414) | completed / failure |
+| Deployment contract (static + runtime smoke) | [43618484411](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43618484411) | completed / failure |
+
+The job-step endpoint returned **`steps: []`** for these sampled jobs:
+
+- Python `test` — `132518669917`
+- Python `gateway-replay-postgres` — `132518670201`
+- Deployment `postgres-nonroot-experiment` — `132518670088`
+
+The jobs' failed status alone does **not** prove that tests or database commands ran. No fresh job logs were inspected in this check. The earlier `404 BlobNotFound` observation above pertains to the earlier run and should not be automatically attributed to these new runs.
+
+**Operator evidence needed:** capture the exact GitHub run-summary or runner-allocation error for these run IDs; confirm Actions permissions, billing/usage and runner availability. Do not rerun blindly. Once fixed, qualify the exact reviewed SHA with recorded per-step logs and test counts, using disposable infrastructure only. Canonical ACL issue #2 is an independent blocker.
+
+**PR #1 remains Draft — HOLD / NO_GO.**
