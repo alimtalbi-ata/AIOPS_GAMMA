@@ -61,3 +61,12 @@ These pure synthetic tests are not substitutes for gateway ACL, staging,
 canonical Core/Evidence/Twin, GLPI, signed HITL, PostgreSQL or LIVE qualification.
 
 **Release decision: HOLD / NO_GO. No merge, LIVE action or deployment.**
+
+
+## Targeted rerun evidence — 2026-11-14
+
+- GitHub accepted a targeted rerun of the Python `test` job on run `43614889197` for commit `056db62d76c4362a98fca4884d240da931dd5293`.
+- Replacement job `132507795650` finished `failure`; its job-step endpoint returned an empty array and log retrieval returned `404 BlobNotFound`.
+- Therefore the rerun **did not establish a runner or a pytest execution**. Avoid repeated blind reruns until an administrator identifies the run-summary error.
+- Tracking issue: https://github.com/alimtalbi-ata/AIOPS_GAMMA/issues/8
+- No code-level test failures are proven. PR remains Draft HOLD / NO_GO.
