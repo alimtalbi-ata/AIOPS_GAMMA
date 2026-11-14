@@ -347,7 +347,7 @@ def test_correlation_evidence_reference_boundary_and_mutation_revalidation():
 @pytest.mark.parametrize("field", [
     "source", "external_event_id", "service_name", "environment", "symptom_key", "ci_id",
 ])
-@pytest.mark.parametrize("bad_character", ["\\x00", "\\x1f", "\\x7f", "\\ud800"])
+@pytest.mark.parametrize("bad_character", ["\x00", "\x1f", "\x7f", "\ud800"])
 def test_correlation_identity_rejects_controls_and_surrogates(field, bad_character):
     payload = signal("safe", ci="CI-1").model_dump()
     payload[field] = "valid" + bad_character + "suffix"
@@ -357,6 +357,6 @@ def test_correlation_identity_rejects_controls_and_surrogates(field, bad_charact
 
 def test_direct_correlation_rejects_mutated_surrogate_identity():
     item = signal("safe")
-    item.symptom_key = "bad\\ud800key"
+    item.symptom_key = "bad\ud800key"
     with pytest.raises(ValidationError):
         correlate([item], "tenant-1")
