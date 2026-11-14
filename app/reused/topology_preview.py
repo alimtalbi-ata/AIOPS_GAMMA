@@ -76,7 +76,7 @@ def preview_service_dependencies(
     reachable = sorted(set(depths) - {service_id})
     direct = sorted(graph[service_id] - {service_id})
     indirect = sorted(set(reachable) - set(direct))
-    paths = {
+    paths = {}
     for dependency in reachable:
         path = [dependency]
         while path[-1] != service_id:
