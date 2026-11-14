@@ -268,3 +268,20 @@ def test_unverified_observation_does_not_inflate_caller_declared_unique_ci_ids()
     assert cmdb["caller_declared_unique_ci_ids"] == 1
     assert cmdb["unverified_cis"] == 1
     assert cmdb["canonical_cmdb_verified"] is False
+
+
+@pytest.mark.parametrize("invalid_type", ["preapproved", "STANDARD", None, 1])
+def test_mutated_change_type_rejected_before_any_preview(invalid_type):
+    item = incident()
+    item.affected_cis[0].verified_against_cmdb = True
+    change = ChangeProposal(
+        tenant_id=TENANT, source_incident_id="DEMO-INC-1",
+        target_ci_id="CI-DEMO-1", runbook_id="demo", runbook_version="v1",
+        impact_summary="Synthetic only", risk="unknown",
+        implementation_plan_ref="demo-implement",
+        rollback_plan_ref="demo-rollback",
+        verification_plan_ref="demo-verify", evidence_refs=["demo-evidence"],
+    )
+    change.change_type = invalid_type
+    with pytest.raises(ValidationError):
+        preview_itil_workflow(item, change=change)
