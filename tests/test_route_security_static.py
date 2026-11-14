@@ -404,7 +404,7 @@ def test_public_liveness_handler_mutations_rejected():
         '@app.get("/api/v1/health/live", dependencies=[])',
         '@unexpected_decorator\\n@app.get("/api/v1/health/live")',
     ):
-        candidate = source.replace(decorator, changed.replace("\\\\n", "\\n"), 1)
+        candidate = source.replace(decorator, changed.replace("\\n", "\n"), 1)
         with pytest.raises(AssertionError, match="Public liveness handler"):
             _assert_public_liveness_handler(candidate)
 
