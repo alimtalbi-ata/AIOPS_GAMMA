@@ -1401,3 +1401,9 @@
 - The route-auth AST guard now rejects extra positional decorator arguments and unreviewed keyword options, including unpacked or nonliteral values. It explicitly allows only the two existing `status_code=201` creation routes (`POST /api/v1/topology/bindings` and `POST /api/v1/incidents/{incident_id}/evidence`), with exact values; no auth/route behavior is relaxed.
 - Added disposable-source mutation tests for unreviewed dependencies/schema/positional decorator options and changes/removal/additional options to the approved creation status. Reviewed `app/main.py` source: 21 HTTP route decorators, only those two have explicit `status_code=201` options.
 - These are source and test-definition checks, **not pytest execution**. CI runner/bootstrap remains unqualified; PR #1 Draft, **HOLD / NO_GO**, no merge, LIVE, PostgreSQL or deployment.
+
+
+### 2026-11-14 — Align exact FastAPI internal-principal dependency checks
+- The legacy `tests/test_http_route_auth_coverage_guard.py` guard accepted `Depends(internal_principal, **kwargs)` because it checked only the positional argument. The independent `tests/test_route_security_static.py` guard already required `not default.keywords`. Aligned the legacy guard with the stricter exact invocation contract.
+- Added a disposable-source mutation test that replaces the first real private route dependency with `Depends(internal_principal, use_cache=False)` or `Depends(internal_principal, scope='read')` and requires the guard to reject it. Re-fetched `app/main.py` confirms the first occurrence belongs to the protected logs-search route, and the source contains 18 exact dependency occurrences.
+- No pytest or runtime test execution claimed; CI runner/bootstrap remains blocked. PR #1 Draft, **HOLD / NO_GO**, no merge, LIVE, PostgreSQL or deployment.
