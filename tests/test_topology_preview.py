@@ -175,3 +175,33 @@ def test_cycle_path_witness_does_not_imply_verified_topology():
     assert result["dependency_paths"] == {"a": ["service", "a"]}
     assert result["topology_state"] == "UNKNOWN"
     assert result["authoritative"] is False
+
+
+def test_direct_and_indirect_dependencies_are_disjoint_and_complete():
+    result = preview("service", ["service", "app", "db", "cache", "unrelated"], [
+        ("service", "app"), ("app", "db"), ("service", "cache"),
+    ])
+    assert result["direct_dependency_ids"] == ["app", "cache"]
+    assert result["indirect_dependency_ids"] == ["db"]
+    assert set(result["direct_dependency_ids"]).isdisjoint(result["indirect_dependency_ids"])
+    assert sorted(result["direct_dependency_ids"] + result["indirect_dependency_ids"]) == result["dependency_ids"]
+    assert result["dependency_hops"] == {"app": 1, "cache": 1, "db": 2}
+
+
+def test_direct_edge_overrides_indirect_route_classification():
+    result = preview("service", ["service", "app", "db"], [
+        ("service", "app"), ("app", "db"), ("service", "db"),
+    ])
+    assert result["direct_dependency_ids"] == ["app", "db"]
+    assert result["indirect_dependency_ids"] == []
+    assert result["dependency_paths"]["db"] == ["service", "db"]
+
+
+def test_self_loop_is_unknown_without_self_dependency():
+    result = preview("service", ["service"], [("service", "service")])
+    assert result["cycle_detected"] is True
+    assert result["topology_state"] == "UNKNOWN"
+    assert result["dependency_ids"] == []
+    assert result["direct_dependency_ids"] == []
+    assert result["indirect_dependency_ids"] == []
+    assert result["live_remediation_authorized"] is False
