@@ -55,8 +55,16 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
     Caller tenant identity must be independently authenticated. No inferred
     cross-service topology; that requires separately verified CMDB data.
     """
-    if not 1 <= len(signals) <= 500 or not 30 <= window_seconds <= 3600:
+    if (not isinstance(signals, list) or not 1 <= len(signals) <= 500
+            or not isinstance(window_seconds, int) or isinstance(window_seconds, bool)
+            or not 30 <= window_seconds <= 3600):
         raise ValueError("correlation bounds exceeded")
+    if not isinstance(tenant_id, str) or not tenant_id.strip() or tenant_id != tenant_id.strip():
+        raise ValueError("Invalid correlation tenant identity")
+    if any(not isinstance(signal, CorrelationSignal) for signal in signals):
+        raise ValueError("Invalid correlation signal structure")
+    # Protect direct callers against mutations after Pydantic construction.
+    signals = [CorrelationSignal.model_validate(signal.model_dump()) for signal in signals]
     seen: dict[tuple[str, str], CorrelationSignal] = {}
     conflicting_identities: set[tuple[str, str]] = set()
     duplicates = 0
