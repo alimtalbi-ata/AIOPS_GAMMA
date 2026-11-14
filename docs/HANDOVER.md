@@ -1432,3 +1432,11 @@
 - Fixed `tests/test_http_route_auth_coverage_guard.py`: `unittest.subTest` previously intercepted `AssertionError` for missing `Depends(internal_principal)`, preventing direct `assertRaisesRegex` mutation assertions from observing it. The guard now raises directly with the HTTP method/path in its diagnostic.
 - Extended dependency mutation coverage to replace the reviewed principal dependency with `Depends(get_session)` or `None`, alongside modified `Depends` keyword options. Source checks only; these tests are **not claimed executed** because CI jobs still fail before steps.
 - PR #1 Draft, **HOLD / NO_GO**; no merge, LIVE, PostgreSQL or deployment.
+
+
+### 2026-11-14 — Middleware positional mutations and product use-case acceptance
+- Added three disposable-source regression mutations in `tests/test_http_route_auth_coverage_guard.py`: middleware type changed to `websocket`, an extra positional argument, and unpacked `*args`. The existing AST assertions must reject each. The mutations were committed but **not run by pytest**.
+- Updated `docs/ROADMAP.md` with UC01–UC10 covering command center, correlation, multi-source investigation, CMDB/Twin impact, GLPI/ITSM, evidence-based RCA, LLM SLO, Policy/runbooks, future controlled remediation and postmortems. Each has negative tests and phased release gates.
+- Prioritized an end-to-end **synthetic-only** workflow from duplicate alert through read-only evidence/impact and ITSM preview, explicitly requiring zero canonical Core or GLPI writes. This is an acceptance specification, not an executed test.
+- GitHub Actions runner/bootstrap is still unqualified; do not report a green exact-HEAD CI, PostgreSQL test or external runtime qualification from source inspection.
+- PR #1 stays Draft, **HOLD / NO_GO**; no merge, LIVE, PostgreSQL access or deployment.
