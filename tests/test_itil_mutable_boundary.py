@@ -330,3 +330,27 @@ def test_mutated_incident_identifier_rejected(invalid_id):
     item.incident_id = invalid_id
     with pytest.raises(ValueError, match="Invalid incident identifier"):
         preview_itil_workflow(item)
+
+
+def test_model_copy_update_cannot_bypass_ci_verification_boolean_validation():
+    item = incident()
+    item.affected_cis[0] = item.affected_cis[0].model_copy(
+        update={"verified_against_cmdb": "true"}
+    )
+    with pytest.raises(ValidationError):
+        preview_itil_workflow(item)
+
+
+def test_model_copy_update_cannot_bypass_change_type_validation():
+    item = incident()
+    item.affected_cis[0].verified_against_cmdb = True
+    change = ChangeProposal(
+        tenant_id=TENANT, source_incident_id="DEMO-INC-1",
+        target_ci_id="CI-DEMO-1", runbook_id="demo", runbook_version="v1",
+        impact_summary="Synthetic only", risk="unknown",
+        implementation_plan_ref="demo-implement",
+        rollback_plan_ref="demo-rollback",
+        verification_plan_ref="demo-verify", evidence_refs=["demo-evidence"],
+    ).model_copy(update={"change_type": "preapproved"})
+    with pytest.raises(ValidationError):
+        preview_itil_workflow(item, change=change)
