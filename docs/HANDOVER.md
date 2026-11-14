@@ -1524,3 +1524,10 @@
 - Added three parametrized tests: empty timeline, one alert, and apparent detection/resolution events. Caller-supplied event labels/timestamps never create authoritative SRE KPIs or close an incident.
 - Latest checked Python workflow run `43615593851` failed; `test` job `132509817688` reported **zero recorded steps**. No assertion that tests executed or passed. Issue #8 remains open.
 - PR #1 remains Draft HOLD / NO_GO; no merge, real PostgreSQL, LIVE or deployment.
+
+
+### 2026-11-14 — UC06 mutable RCA graph revalidation
+- Updated `app/reused/investigation.py`: validate request and independent authorized tenant types; revalidate the entire mutable Pydantic investigation/evidence/hypothesis graph at evaluation time; then enforce tenant equality.
+- Expanded `tests/test_synthetic_rca_usecase.py` with four regression cases: mutated unknown supporting evidence, mutated tenant, mutated timezone-naive evidence timestamp, invalid authority type.
+- Existing preview remains synthetic, source-unverified, human-unadjudicated and never authorizes LIVE action. No canonical reads are enabled.
+- Tests **not executed** for this change; CI zero-step failure remains issue #8. PR #1 stays Draft HOLD / NO_GO.
