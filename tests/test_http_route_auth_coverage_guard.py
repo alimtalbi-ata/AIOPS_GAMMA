@@ -75,6 +75,10 @@ class InternalRouteDependencyGuard(unittest.TestCase):
                 self.assertIsInstance(decorator.args[0].value, str,
                                       "Route path must be a literal string")
                 route = (func.attr.upper(), decorator.args[0].value)
+                self.assertNotIn(
+                    route, found,
+                    "Duplicate HTTP route registration can shadow an authenticated handler",
+                )
                 found.add(route)
                 if route in PUBLIC_ROUTES:
                     continue
