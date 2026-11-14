@@ -137,6 +137,7 @@ def preview_itil_workflow(
             "observed_cis": len(incident.affected_cis),
             "verified_cis": verified_observations,  # Legacy count: caller-declared only.
             "caller_declared_verified_cis": verified_observations,
+            "caller_declared_unique_ci_ids": len(verified_ci_ids),
             "unverified_cis": len(incident.affected_cis) - verified_observations,
             "cmdb_is_authoritative": True,
             # A caller-provided verification flag is not a canonical CMDB read.
