@@ -3,6 +3,7 @@
 Pure in-memory graph traversal. No canonical CMDB reads, network, writes or authority.
 """
 from collections import deque
+
 MAX_NODES = 200
 MAX_EDGES = 1000
 MAX_ID_LENGTH = 255
@@ -61,20 +62,31 @@ def preview_service_dependencies(
     # Breadth-first traversal reports the minimum number of dependency edges
     # from the selected service. It is not a latency, risk or impact score.
     depths = {service_id: 0}
+    # Sorted neighbors + FIFO traversal select a deterministic shortest witness.
+    parents: dict[str, str] = {}
     queue = deque([service_id])
     while queue:
         node = queue.popleft()
         for child in sorted(graph[node]):
             if child not in depths:
                 depths[child] = depths[node] + 1
+                parents[child] = node
                 queue.append(child)
 
     reachable = sorted(set(depths) - {service_id})
+    paths = {}
+    for dependency in reachable:
+        path = [dependency]
+        while path[-1] != service_id:
+            path.append(parents[path[-1]])
+        paths[dependency] = list(reversed(path))
+
     return {
         "service_id": service_id,
         "dependency_ids": reachable,
         "dependency_count": len(reachable),
         "dependency_hops": {node: depths[node] for node in reachable},
+        "dependency_paths": paths,
         "topology_state": "UNKNOWN" if cyclic or incomplete else "CALLER_SUPPLIED_PREVIEW",
         "cycle_detected": cyclic,
         "unresolved_edge_detected": incomplete,
