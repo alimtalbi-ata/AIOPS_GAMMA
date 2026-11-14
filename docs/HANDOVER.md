@@ -1455,3 +1455,10 @@
 - Exercises existing `app/reused/investigation.py` pure evaluation only; no agent/tool invocation, external provenance verification or adjudicated RCA.
 - **Tests not executed**: runner/bootstrap and exact-HEAD qualification remain pending.
 - PR #1 Draft; **HOLD / NO_GO**, no merge, LIVE, PostgreSQL or deployment.
+
+
+### 2026-11-14 — UC04 synthetic CMDB blast radius preview
+- Added `app/reused/synthetic_impact.py`: bounded, deterministic, tenant-scoped transitive dependency preview. Direction is upstream CI → dependent CI; cycles handled without infinite loops.
+- Added `tests/test_synthetic_impact_usecase.py`: eight acceptance/negative tests for cycle traversal, incomplete/stale/future-dated graph UNKNOWN, tenant denial, missing graph coverage, ordering determinism and freshness bounds.
+- A fresh and caller-claimed complete graph produces `CANDIDATE_ONLY`, **not** canonical CMDB verification. No resource-level ACL, real Twin access or LIVE actions are implemented.
+- **Tests not executed**; exact-HEAD CI and actor→tenant→resource ACL remain unqualified. PR #1 Draft, **HOLD / NO_GO**, no merge or deployment.
