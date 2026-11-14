@@ -144,3 +144,37 @@ def test_same_claim_with_different_payloads_is_unknown():
     result = normalize([one, two], now=NOW)
     assert len(result["items"]) == 2
     assert {entry["state"] for entry in result["items"]} == {"UNKNOWN"}
+
+
+def test_mutated_evidence_timestamp_rejected_at_normalization_boundary():
+    item = evidence()
+    item.observed_at = datetime(2026, 11, 10, 12)
+    with pytest.raises(ValidationError, match="observed_at requires timezone"):
+        normalize([item], now=NOW)
+
+
+def test_mutated_evidence_payload_limit_rejected_at_normalization_boundary():
+    item = evidence()
+    item.payload["text"] = "x" * 65537
+    with pytest.raises(ValidationError, match="payload exceeds"):
+        normalize([item], now=NOW)
+
+
+def test_mutated_evidence_nan_rejected_at_normalization_boundary():
+    item = evidence()
+    item.payload["value"] = float("nan")
+    with pytest.raises(ValidationError, match="finite JSON"):
+        normalize([item], now=NOW)
+
+
+def test_mutated_evidence_identity_rejected_at_normalization_boundary():
+    item = evidence()
+    item.source = ""
+    with pytest.raises(ValidationError):
+        normalize([item], now=NOW)
+
+
+@pytest.mark.parametrize("invalid_age", [True, 60.5, "60"])
+def test_evidence_normalization_rejects_invalid_freshness_types(invalid_age):
+    with pytest.raises(ValueError, match="bounds"):
+        normalize([evidence()], now=NOW, max_age_seconds=invalid_age)
