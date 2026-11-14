@@ -1375,3 +1375,10 @@
 - Updated the public allowlist to exactly health/live and these two synthetic demo GET routes, added both to `EXPECTED_ROUTES`, and renamed the test to `test_all_non_public_http_routes_require_internal_principal`. The independent stricter guard `tests/test_route_security_static.py` already requires both public handlers to invoke only reviewed synthetic helpers; all other routes still require internal principal.
 - Re-fetched GitHub source and compared 21 declared route method/path pairs with the 21 expected entries: exact match, with precisely three allowlisted public GET endpoints. This is a JS source inspection, not pytest.
 - **HOLD / NO_GO**, PR #1 remains Draft; CI runner/bootstrap qualification still outstanding. No merge, LIVE, PostgreSQL or deployment.
+
+
+### 2026-11-14 — Lock public synthetic demo endpoint signatures
+- Hardened `tests/test_route_security_static.py`: the two intentionally public synthetic demo GET handlers must have no positional, keyword-only, variadic or defaulted parameters and exactly one decorator, in addition to their existing reviewed synthetic-only body contract. This prevents unreviewed request input/dependency injection or extra decorator behavior from silently entering the public demo surface.
+- Added a mutation test which rewrites the demo correlation handler signature in a disposable temporary file with positional input, injected principal or keyword-only tenant input, and asserts the guard rejects each variant. It does not connect to a DB or network.
+- Re-fetched the actual `app/main.py` and test source from GitHub: both public demo handlers currently have zero arguments and the new guard/mutation test is present. No pytest or runtime test execution claimed.
+- PR #1 remains Draft. **HOLD / NO_GO** pending runner/bootstrap and gateway owner qualification; no merge, LIVE or deployment.
