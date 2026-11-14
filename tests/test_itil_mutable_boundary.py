@@ -400,3 +400,30 @@ def test_full_synthetic_itil_projection_never_grants_authority():
         "live_remediation_authorized": False,
         "itsm_mutations_performed": False,
     }
+
+
+def test_mutated_incident_ci_list_over_limit_rejected_before_preview():
+    item = incident()
+    item.affected_cis.extend(
+        item.affected_cis[0].model_copy(deep=True) for _ in range(100)
+    )
+    assert len(item.affected_cis) == 101
+    with pytest.raises(ValidationError):
+        preview_itil_workflow(item)
+
+
+def test_mutated_change_evidence_list_over_limit_rejected_before_preview():
+    item = incident()
+    item.affected_cis[0].verified_against_cmdb = True
+    change = ChangeProposal(
+        tenant_id=TENANT, source_incident_id="DEMO-INC-1",
+        target_ci_id="CI-DEMO-1", runbook_id="demo", runbook_version="v1",
+        impact_summary="Synthetic only", risk="unknown",
+        implementation_plan_ref="demo-implement",
+        rollback_plan_ref="demo-rollback",
+        verification_plan_ref="demo-verify", evidence_refs=["DEMO-EVIDENCE-1"],
+    )
+    change.evidence_refs.extend(f"DEMO-EVIDENCE-{i}" for i in range(2, 52))
+    assert len(change.evidence_refs) == 51
+    with pytest.raises(ValidationError):
+        preview_itil_workflow(item, change=change)
