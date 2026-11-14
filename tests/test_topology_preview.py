@@ -629,3 +629,40 @@ def test_reachable_missing_edge_without_cycle_stays_unknown(reverse):
     assert result["topology_state"] == "UNKNOWN"
     assert result["canonical_cmdb_verified"] is False
     assert result["live_remediation_authorized"] is False
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_all_witness_paths_match_real_edges_and_minimum_hops(reverse):
+    nodes = ["root", "a", "b", "c", "leaf", "unrelated"]
+    # Two equal-hop routes to leaf, plus a longer route via c.
+    directed = [
+        ("root", "a"), ("root", "b"), ("a", "leaf"),
+        ("b", "leaf"), ("a", "c"), ("c", "leaf"),
+    ]
+    edges = [(target, source) for source, target in directed] if reverse else directed
+    call = preview_upstream_dependents if reverse else preview
+    result = call("root", nodes, edges)
+    paths = result["dependent_paths"] if reverse else result["dependency_paths"]
+    hops = result["dependent_hops"] if reverse else result["dependency_hops"]
+    ids = result["possible_dependent_ids"] if reverse else result["dependency_ids"]
+    direct = result["possible_direct_dependent_ids"] if reverse else result["direct_dependency_ids"]
+    indirect = result["possible_indirect_dependent_ids"] if reverse else result["indirect_dependency_ids"]
+    assert ids == ["a", "b", "c", "leaf"]
+    assert sorted(paths) == ids
+    assert sorted(hops) == ids
+    assert sorted(direct + indirect) == ids
+    assert set(direct).isdisjoint(indirect)
+    assert paths["leaf"] == ["root", "a", "leaf"]
+    assert hops["leaf"] == 2
+    assert result["cycle_detected"] is False
+    assert result["unresolved_edge_detected"] is False
+    for node, path in paths.items():
+        assert path[0] == "root"
+        assert path[-1] == node
+        assert len(path) == len(set(path))
+        assert len(path) - 1 == hops[node]
+        assert all((src, dst) in directed for src, dst in zip(path, path[1:]))
+        assert (hops[node] == 1) == (node in direct)
+    assert result["authoritative"] is False
+    assert result["persisted"] is False
+    assert result["live_remediation_authorized"] is False
