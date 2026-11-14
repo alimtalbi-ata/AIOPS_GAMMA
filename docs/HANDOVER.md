@@ -1298,3 +1298,13 @@
 - Repository Actions administration endpoints for runner inventory/permissions are not available through the current GitHub connection, so runner entitlement, organization policy, billing and group restrictions cannot be confirmed here.
 - No workflow change made: changing runner labels or adding self-hosted runners without administrator confirmation would be speculative and could weaken security.
 - Decision remains HOLD / NO_GO; PR draft, no merge, LIVE, deployment or tenant reads.
+
+
+### 2026-11-14 — Latest exact-HEAD CI evidence (post-checkpoint)
+- Current exact PR/branch HEAD at inspection: `06122065d86e8425474b59fe63c47c5fcdc1c155`.
+- Python checks run `43591826567`: jobs `test`, `frontend`, `gateway-replay-postgres` all completed failure; each individually inspected and returned an empty step list (`steps: 0`).
+- Deployment contract run `43591826589`: jobs `helm`, `single-directory-runtime`, `api-postgres-runtime`, `postgres-nonroot-experiment`, `compose`, `ui-image` all completed failure; each individually inspected and returned an empty step list (`steps: 0`).
+- Total: 9/9 jobs stopped before any step. No code/test/build/Helm/Compose/Docker/PostgreSQL execution is evidenced. This does not identify the root cause. Prior workflow inspection established all jobs request `ubuntu-latest`; no custom runner labels were found. Actions administration endpoints remain inaccessible to this connection.
+- No new blind retry was initiated. Administrator must inspect the Actions UI pre-step banner/annotations and runner/hosted-runner policy, billing/usage and org restrictions; provide exact redacted diagnostic evidence.
+- Gateway/IdP owner inputs remain absent; no approved issuer/audience, ACL contract, secret lifecycle, or namespace/pod labels. No runtime qualification.
+- PR #1 remains open/draft. **HOLD / NO_GO**; no merge, LIVE, canonical reads, tenant reads or deployment.
