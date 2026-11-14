@@ -1684,3 +1684,10 @@
 - Eight parametrized negative cases cover both construction-time and post-construction mutation of the flag.
 - A literal `True` remains only a caller assertion, **not** canonical CMDB evidence or independent authorization.
 - Tests **not executed**. CI issue #8 and canonical actor→tenant→resource ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — Explicit caller-declared CI verification count
+- Synthetic ITIL projection now exposes `caller_declared_verified_cis` alongside legacy `verified_cis` (same caller-supplied count), preserving compatibility while avoiding implied canonical CMDB verification.
+- Two parametrized cases assert both counts and `canonical_cmdb_verified=False`.
+- Isolated local Pydantic 2.13.5 smoke check confirmed `Field(strict=True)` rejects `"true"`, `1`, `None` and accepts literal booleans. This is **not** execution of repository tests.
+- Repository tests **not executed**. CI issue #8 and canonical ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
