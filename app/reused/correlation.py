@@ -77,7 +77,10 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
             or not isinstance(window_seconds, int) or isinstance(window_seconds, bool)
             or not 30 <= window_seconds <= 3600):
         raise ValueError("correlation bounds exceeded")
-    if not isinstance(tenant_id, str) or not tenant_id.strip() or tenant_id != tenant_id.strip():
+    if (not isinstance(tenant_id, str) or not tenant_id.strip()
+            or tenant_id != tenant_id.strip()
+            or any(ord(ch) < 32 or ord(ch) == 127 or 0xD800 <= ord(ch) <= 0xDFFF
+                   for ch in tenant_id)):
         raise ValueError("Invalid correlation tenant identity")
     if any(not isinstance(signal, CorrelationSignal) for signal in signals):
         raise ValueError("Invalid correlation signal structure")
