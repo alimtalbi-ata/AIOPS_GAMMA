@@ -4,8 +4,8 @@
 
 ## Current checkpoint — 2026-11-14 (supersedes historical HEADs below)
 
-- Latest code/CI evidence base: `2f6cb3f63016ea2d85028a87d0703c785694b7a3`; this handover-only refresh does not change application, test, Helm or workflow code. PR #1 remains open, draft, not merged.
-- Latest exact-HEAD Actions runs: Python checks `43592028145`; Deployment contract `43592028128`. All 9 jobs were individually inspected; every job has `steps: 0`. No checkout, tests, Helm, Compose, Docker or PostgreSQL command executed. This is a pre-step Actions failure, not a project test result; root cause remains unestablished.
+- Latest application/config/test HEAD: `da4acdc7a5a0457593ecd5ea3363104b37a2a9cb`; handover-only follow-up commit will supersede this code HEAD. PR #1 remains open, draft, not merged.
+- Latest Actions on that code HEAD: Python checks `43592735596`; Deployment contract `43592735669`. All 9 jobs were individually inspected; every job has `steps: 0`. No checkout, tests, Helm, Compose, Docker or PostgreSQL command executed. This is a pre-step Actions failure, not a project test result; root cause remains unestablished.
 - Workflow definitions use `runs-on: ubuntu-latest` for all jobs; no custom runner labels found. GitHub connection cannot inspect repository/org Actions administration settings or run-page pre-step annotations. Administrator must supply the redacted error and verify hosted-runner entitlement/availability, Actions policy, runner-group access, billing/usage and approvals.
 - Gateway assertion settings in Helm map to Pydantic settings; assertion Secret reference remains empty by default, so verifier fails closed until provisioned by an approved operator.
 - API NetworkPolicy is deny-all while gateway namespace/pod selector maps are empty. When both are populated, the only allowed peer is their namespaceSelector + podSelector conjunction on the API port. Do not guess labels.
@@ -1328,3 +1328,13 @@
 - This narrows the frontend trust boundary and removes the UI's need to be a NetworkPolicy peer. It does not qualify FastAPI demo handlers, correlation engine, evidence join, or tenant API authorization.
 - Validation: GitHub source updates and content re-fetch only. No pytest, frontend build, Nginx config test, Compose validation, Helm, Kubernetes/CNI or runtime execution performed; Actions runner blocker remains.
 - PR #1 remains open/draft; **HOLD / NO_GO**. No merge, LIVE, tenant reads or deployment.
+
+
+### 2026-11-14 — Frontend API proxy removal and security header correction
+- Application/config/test HEAD: `da4acdc7a5a0457593ecd5ea3363104b37a2a9cb`.
+- Removed the demo API proxy from Nginx and Vite entirely. Both frontend servers now deny every `/api` path with 404/no-store; no upstream API host or proxy config remains. Docker Compose frontend no longer depends on API health.
+- Frontend remains static synthetic fixtures only: correlation is illustrative; evidence is `UNVERIFIED`. The local fixture is not a FastAPI test or API-engine qualification.
+- Important Nginx inheritance detail: location-level `add_header Cache-Control` suppresses inherited server-level `add_header` directives on older/common Nginx behavior. Repeated X-Content-Type-Options, Referrer-Policy, X-Frame-Options and CSP headers explicitly in both denied API locations. Added a static regression test for those headers.
+- Replaced `tests/test_frontend_demo_contract.py` with 11 focused static contracts covering local fixtures, no API fetch/proxy, Nginx/Vite deny-all API behavior, Compose decoupling, loopback dev binding, and retained response security headers.
+- Exact-HEAD CI runs `43592735596` (Python) and `43592735669` (Deployment contract): all 9 jobs have `steps: 0`; no command executed. Source updates and GitHub re-fetch only; no pytest/build/Nginx/Compose/Helm/Kubernetes runtime validation.
+- Decision: HOLD / NO_GO; PR #1 remains draft; no merge, LIVE, tenant reads or deployment.
