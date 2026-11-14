@@ -2,10 +2,10 @@
 
 Endpoint: `GET /api/v1/itil4/glpi/incidents/{ticket_id}/snapshot`.
 
-This is a **disabled-by-default**, server-configured, **single-tenant** prototype using the GLPI legacy `/apirest.php/Ticket/{id}` API. It is not a qualified production connector. No GLPI session initialization, ticket creation, update, CMDB mutation, or change approval occurs.
+**CURRENT HOLD:** The public endpoint unconditionally returns HTTP 503 for valid ticket IDs, even if `ENABLE_GLPI_READS=true`. No GLPI HTTP request is made through the public route. The legacy `/apirest.php/Ticket/{id}` transport is retained only in the private `_read_glpi_incident_unqualified` helper for offline contract tests; it is not an authorized entry point. This is not a qualified production connector. No GLPI session initialization, ticket creation, update, CMDB mutation, or change approval occurs.
 
-Required environment settings:
-- `ENABLE_GLPI_READS=true` (default false)
+Historical transport configuration (does **not** enable the public endpoint):
+- `ENABLE_GLPI_READS=true` (default false; **insufficient to bypass HOLD**)
 - `GLPI_READ_URL=https://glpi.internal` (fixed HTTPS origin, no path)
 - `GLPI_TENANT_ID=<trusted UUID>` (server-side binding, never browser supplied)
 - `GLPI_ENTITY_ID=<authorized GLPI entity integer>`
@@ -32,4 +32,7 @@ Remaining: GLPI version-pinned contract tests, service-session lifecycle/expiry,
 Follow [GLPI staging qualification](GLPI-STAGING-QUALIFICATION.md) before enabling the adapter. The matrix is a **plan**, not an executed test report. Do not treat passing mock-based CI as production RBAC or API compatibility attestation.
 
 ## Snapshot caching policy
-Successful incident snapshot responses include `Cache-Control: no-store` to discourage intermediary and browser retention of incident metadata. Deployment gateways must independently disable caching and redact sensitive request/response headers; this application header is not a substitute for gateway policy.
+The route sets `Cache-Control: no-store` before invoking its fail-closed read guard. Any future successful incident snapshot responses must also include `Cache-Control: no-store` to discourage intermediary and browser retention of incident metadata. Deployment gateways must independently disable caching and redact sensitive request/response headers; this application header is not a substitute for gateway policy.
+
+## Re-enablement requirements
+Do not remove the unconditional public-route 503 until the gateway's actor-to-tenant-to-resource authorization and GLPI resource-level ACL are independently verified, including cross-tenant and out-of-scope ticket denial, version-pinned staging contracts, egress controls and current-HEAD CI. The server-owned entity ID and echoed `entities_id` are **not** authorization proofs. See issues #2 and #8. The PR remains Draft / HOLD / NO_GO.
