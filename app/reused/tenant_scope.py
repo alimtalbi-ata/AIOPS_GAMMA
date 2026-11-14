@@ -26,6 +26,10 @@ def reject_unqualified_tenant_scope(value: object) -> None:
         if visited > 4096:
             raise ValueError("tenant-scope scan bound exceeded")
         if isinstance(item, dict):
+            # Refuse oversized containers before materializing their children.
+            # The total scan budget also bounds pending work and memory.
+            if len(item) + visited + len(pending) > 4096:
+                raise ValueError("tenant-scope scan bound exceeded")
             for key, child in item.items():
                 if not isinstance(key, str):
                     raise ValueError("invalid tenant-scope key")
@@ -41,4 +45,6 @@ def reject_unqualified_tenant_scope(value: object) -> None:
                     raise ValueError("unqualified tenant scope claim")
                 pending.append(child)
         elif isinstance(item, (list, tuple)):
+            if len(item) + visited + len(pending) > 4096:
+                raise ValueError("tenant-scope scan bound exceeded")
             pending.extend(item)
