@@ -306,3 +306,30 @@ def test_replay_db_connection_qualification_is_reachable_before_session_yield():
     if sum(isinstance(node, (ast.Yield, ast.YieldFrom))
            for node in ast.walk(fixture)) != 1:
         pytest.fail("Expected exactly one session yield")
+
+
+def test_replay_db_optimized_python_rejection_is_direct():
+    """Reject an optimized-mode failure hidden inside an unreachable nested branch."""
+    source = (Path(__file__).parent / "test_gateway_replay_postgres.py").read_text(encoding="utf-8")
+    fixtures = [node for node in ast.parse(source).body
+                if isinstance(node, ast.AsyncFunctionDef) and node.name == "replay_db"]
+    if len(fixtures) != 1:
+        pytest.fail("Expected exactly one replay_db fixture")
+    fixture = fixtures[0]
+    first = fixture.body[0] if fixture.body else None
+    if not (isinstance(first, ast.If)
+            and isinstance(first.test, ast.UnaryOp)
+            and isinstance(first.test.op, ast.Not)
+            and isinstance(first.test.operand, ast.Name)
+            and first.test.operand.id == "__debug__"
+            and len(first.body) == 1
+            and not first.orelse):
+        pytest.fail("Optimized-mode rejection must be a direct, unconditional guard")
+    statement = first.body[0]
+    if not (isinstance(statement, ast.Expr)
+            and isinstance(statement.value, ast.Call)
+            and isinstance(statement.value.func, ast.Attribute)
+            and isinstance(statement.value.func.value, ast.Name)
+            and statement.value.func.value.id == "pytest"
+            and statement.value.func.attr == "fail"):
+        pytest.fail("Optimized-mode guard must call pytest.fail directly")
