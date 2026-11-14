@@ -493,3 +493,36 @@ def test_maximum_unique_edge_dag_reverse_preview_stays_acyclic():
         result["dependent_paths"][nodes[0]]
     ) - 1
     assert result["live_remediation_authorized"] is False
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_201_nodes_are_rejected_before_graph_traversal(reverse):
+    nodes = [f"ci-{i:03d}" for i in range(201)]
+    call = preview_upstream_dependents if reverse else preview
+    with pytest.raises(ValueError, match="Invalid topology preview bounds"):
+        call(nodes[0], nodes, [])
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_1001_edges_are_rejected_even_if_duplicates(reverse):
+    call = preview_upstream_dependents if reverse else preview
+    with pytest.raises(ValueError, match="Invalid topology preview bounds"):
+        call("service", ["service"], [("service", "service")] * 1001)
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_empty_node_collection_is_rejected(reverse):
+    call = preview_upstream_dependents if reverse else preview
+    with pytest.raises(ValueError, match="Invalid topology preview bounds"):
+        call("service", [], [])
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_255_character_id_is_accepted_but_256_is_rejected(reverse):
+    selected = "s" * 255
+    call = preview_upstream_dependents if reverse else preview
+    accepted = call(selected, [selected], [])
+    assert accepted["topology_state"] == "CALLER_SUPPLIED_PREVIEW"
+    assert accepted["canonical_cmdb_verified"] is False
+    with pytest.raises(ValueError, match="Invalid topology preview bounds"):
+        call(selected + "s", [selected + "s"], [])
