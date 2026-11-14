@@ -1831,3 +1831,10 @@
 
 
 - Updated the UC03 row in `docs/USE-CASE-CATALOG.md` to distinguish regression coverage present from tests actually executed. Catalog update commit: `7155ab8`.
+
+
+### 2026-11-14 — UC03 correlation/evidence join boundary
+- Added four tests to `tests/test_correlation_evidence.py`: mutated nested correlation severity is revalidated; oversized mutated evidence payload is rejected; evidence collection above 500 is rejected; conflicting source-event identity cannot yield a consistent evidence join.
+- Tightened the three validation assertions to expect Pydantic `ValidationError` specifically (rather than broad `Exception`), so unrelated failures cannot satisfy these tests.
+- Exact commit `42524b2cb26a9f32909c495dfc7d239adbf44a66` has no GitHub Actions runs returned. No repository tests have been executed in this session.
+- UC03 remains preview-only. Persistent dedup/correlation is issue #4; upstream telemetry mapping/tenant isolation is issue #3; canonical actor→tenant→resource ACL is issue #2. PR #1 remains Draft HOLD / NO_GO.
