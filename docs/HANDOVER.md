@@ -1482,3 +1482,11 @@
 - Added `tests/test_synthetic_journey_negative_gates.py` with independent tenant-denial checks at correlation/evidence, synthetic CMDB impact, RCA and ITSM preview boundaries, plus missing-evidence/unknown-impact policy fail-closed behavior.
 - The tests do **not** establish authenticated actor→tenant→resource ACL, real CMDB reads, source verification, HITL receipts or executable recovery.
 - **Not executed**; no green pytest/CI claim. PR #1 remains Draft **HOLD / NO_GO**; no merge, LIVE, PostgreSQL or deployment.
+
+
+### 2026-11-14 — UC10 synthetic postmortem draft
+- Added `app/reused/synthetic_postmortem.py` and `tests/test_synthetic_postmortem_usecase.py` (five test functions) for a deterministic, tenant-scoped, caller-supplied postmortem preview.
+- Chronology is sorted by UTC event time and ID; duplicate event IDs and cross-tenant drafts are rejected. Missing RCA, impact and timeline remain UNKNOWN; supplied claims are UNVERIFIED.
+- No verified evidence provenance, automatic RCA validation, canonical incident closure, ITSM mutation, persistence or LIVE action. Human review required.
+- Removed a misleading caller-controlled RCA verification field; no source verification is possible in this preview.
+- **Tests not executed** due to unresolved GitHub Actions zero-step failures tracked in issue #8. PR #1 remains Draft HOLD / NO_GO.
