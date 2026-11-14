@@ -54,3 +54,32 @@ def test_human_approval_boolean_is_not_signed_hitl_receipt():
     assert approved["live_execution_authorized"] is False
     assert unapproved["live_execution_authorized"] is False
     assert approved["decision"] == unapproved["decision"] == "HUMAN_APPROVAL"
+
+
+def test_mutated_invalid_mode_cannot_fall_through_to_simulation():
+    from pydantic import ValidationError
+    req = proposal()
+    req.mode = "UNRECOGNIZED"
+    with pytest.raises(ValidationError):
+        evaluate(req)
+
+
+def test_mutated_invalid_command_cannot_be_advisory_pass():
+    from pydantic import ValidationError
+    req = proposal(mode="LIVE", command="OBSERVE")
+    req.command = "UNKNOWN_COMMAND"
+    with pytest.raises(ValidationError):
+        evaluate(req)
+
+
+def test_mutated_non_boolean_approval_flag_rejected():
+    from pydantic import ValidationError
+    req = proposal(mode="LIVE")
+    req.recipe_approved = ["yes"]
+    with pytest.raises(ValidationError):
+        evaluate(req)
+
+
+def test_invalid_proposal_structure_rejected():
+    with pytest.raises(ValueError, match="Invalid remediation proposal"):
+        evaluate({"mode": "REPLAY"})
