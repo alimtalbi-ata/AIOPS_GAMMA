@@ -59,3 +59,20 @@ def test_tuple_nested_untrusted_scope_claim_rejected(metadata):
 
 def test_benign_tuple_metadata_allowed():
     reject_unqualified_tenant_scope(({"source": "synthetic"}, {"severity": "P3"}))
+
+
+@pytest.mark.parametrize("metadata", [
+    [{"source": "synthetic"} for _ in range(4096)],
+    {f"key_{i}": "synthetic" for i in range(4096)},
+    ({"source": "synthetic"},) * 4096,
+])
+def test_oversized_containers_rejected_before_child_queue_expansion(metadata):
+    with pytest.raises(ValueError, match="scan bound exceeded"):
+        reject_unqualified_tenant_scope(metadata)
+
+
+def test_nested_container_pending_work_is_bounded():
+    metadata = [{"source": "synthetic"} for _ in range(4094)]
+    metadata.append({"nested": [{"source": "synthetic"}]})
+    with pytest.raises(ValueError, match="scan bound exceeded"):
+        reject_unqualified_tenant_scope(metadata)
