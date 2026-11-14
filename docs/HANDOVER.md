@@ -1677,3 +1677,10 @@
 - `preview_itil_workflow` now explicitly returns `data_source="caller_supplied_preview"`, `authoritative=False`, and `persisted=False`.
 - Two parametrized regression cases confirm nonauthority, no persistence, no canonical CMDB verification, no ITSM mutation and no LIVE permission regardless of caller-declared CI verification.
 - Tests **not executed**. CI issue #8 and canonical actor→tenant→resource ACL issue #2 remain blockers. PR #1 remains Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — Strict caller-declared CI verification flag
+- `ObservedCI.verified_against_cmdb` now uses `Field(default=False, strict=True)` to prevent Pydantic coercion of strings, numbers and null into a CMDB verification claim.
+- Eight parametrized negative cases cover both construction-time and post-construction mutation of the flag.
+- A literal `True` remains only a caller assertion, **not** canonical CMDB evidence or independent authorization.
+- Tests **not executed**. CI issue #8 and canonical actor→tenant→resource ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
