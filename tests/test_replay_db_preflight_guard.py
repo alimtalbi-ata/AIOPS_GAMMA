@@ -543,3 +543,30 @@ def test_disposable_url_validator_rejects_unsafe_routing():
             or not isinstance(body[-1].value, ast.Name)
             or body[-1].value.id != "raw_url"):
         pytest.fail("Validator must return only the reviewed raw URL")
+
+
+def test_disposable_url_validator_guards_precede_only_return():
+    """Do not permit early returns that bypass disposable URL qualifications."""
+    source = (Path(__file__).parent / "test_gateway_replay_postgres.py").read_text(
+        encoding="utf-8"
+    )
+    validators = [
+        node for node in ast.parse(source).body
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "_require_disposable_database_url"
+    ]
+    if len(validators) != 1:
+        pytest.fail("Expected exactly one disposable URL validator")
+    validator = validators[0]
+    returns = [node for node in ast.walk(validator) if isinstance(node, ast.Return)]
+    if len(returns) != 1 or returns[0] is not validator.body[-1]:
+        pytest.fail("Disposable URL validator must have only one final return")
+    if not (isinstance(returns[0].value, ast.Name)
+            and returns[0].value.id == "raw_url"):
+        pytest.fail("Disposable URL validator must return the validated raw URL")
+    checks = [node for node in validator.body if isinstance(node, ast.If)]
+    if len(checks) != 5 or not all(node.lineno < returns[0].lineno for node in checks):
+        pytest.fail("All five direct URL guards must precede the final return")
+    tries = [node for node in validator.body if isinstance(node, ast.Try)]
+    if len(tries) != 1 or not (checks[0].lineno < tries[0].lineno < checks[1].lineno):
+        pytest.fail("URL parsing must follow empty URL rejection and precede routing guards")
