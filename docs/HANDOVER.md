@@ -1794,3 +1794,9 @@
 - Added complementary synthetic boundary tests for exactly 100 caller-declared verified CI observations (one distinct CI ID, no canonical verification) and exactly 50 change evidence references (draft only, no change authority).
 - Complements previous 101-CI and 51-evidence rejection tests without altering production code.
 - Tests **not executed**. CI issue #8 and independent actor→tenant→resource ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — Injected authority claims via model_copy(update=...)
+- Added three synthetic ITIL regressions for injected extra fields on incident, nested CI and change models: `canonical_authorized`, `canonical_cmdb_verified`, and `approved_by_change_authority`.
+- The tests assert these untrusted fields do not surface as authorization, canonical verification, persistence, or LIVE execution in the preview. Initial tests incorrectly expected a guaranteed `ValidationError` for extra fields; corrected to assert the nonauthorization contract instead.
+- Tests **not executed**. CI issue #8 and independent actor→tenant→resource ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
