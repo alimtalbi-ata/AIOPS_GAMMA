@@ -268,6 +268,31 @@ class InternalRouteDependencyGuard(unittest.TestCase):
                     ):
                         self.test_all_non_public_http_routes_require_internal_principal()
 
+    def test_middleware_decorator_positional_mutations_require_review(self):
+        """The reviewed HTTP middleware must not accept alternate registration forms."""
+        from tempfile import TemporaryDirectory
+        from unittest.mock import patch
+
+        source = MAIN.read_text(encoding="utf-8")
+        original = '@app.middleware("http")'
+        self.assertEqual(source.count(original), 1)
+        for changed in (
+            '@app.middleware("websocket")',
+            '@app.middleware("http", "unexpected")',
+            '@app.middleware(*("http",))',
+        ):
+            with TemporaryDirectory() as directory:
+                candidate = Path(directory) / "main.py"
+                candidate.write_text(
+                    source.replace(original, changed, 1), encoding="utf-8"
+                )
+                with patch.dict(
+                    self.test_all_non_public_http_routes_require_internal_principal.__globals__,
+                    {"MAIN": candidate},
+                ):
+                    with self.assertRaises(AssertionError):
+                        self.test_all_non_public_http_routes_require_internal_principal()
+
     def test_public_route_allowlist_is_narrow(self):
         self.assertEqual(PUBLIC_ROUTES, {
             ("GET", "/api/v1/health/live"),
