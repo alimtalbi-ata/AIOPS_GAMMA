@@ -1955,3 +1955,9 @@
 - Added three tests to `tests/test_topology_preview.py` for deterministic equal-hop reverse diamond paths under input permutations/duplicate edges, direct consumer precedence over a longer path, and self-loop UNKNOWN without self-dependent inclusion.
 - Test commit `381d129`; no production code changes. Tests **not executed**; exact-HEAD `python -m compileall -q app tests` and `python -m pytest -q tests/test_topology_preview.py` are required after CI #8 is repaired.
 - Canonical ACL #2 remains independently blocked. PR #1 Draft HOLD / NO_GO; no merge, deployment, real PostgreSQL or LIVE/remediation.
+
+
+### 2026-11-14 — CI evidence on reverse-path test HEAD
+- On `2a975e7724d0450571dff277ff17e683226ba770`, Python checks `43630918281` and Deployment contract `43630918325` both completed failure. Sampled `test` job `132557084360` and `compose` job `132557084471` each returned `steps: []`; all job listings lacked log URLs.
+- Documented in `docs/CI-QUALIFICATION-BLOCKER.md` commit `bfb843e`. No logs downloaded, tests run, or application failures proven. Admin must investigate Actions runner/platform reason in issue #8; independent ACL #2 remains blocked.
+- PR #1 Draft HOLD / NO_GO. No merge, deployment, real PostgreSQL or LIVE/remediation.
