@@ -18,6 +18,10 @@ def _require_string_json_keys(value: object) -> None:
         if leaving:
             active.remove(id(node))
             continue
+        if isinstance(node, str):
+            if any(0xD800 <= ord(ch) <= 0xDFFF for ch in node):
+                raise ValueError("Unpaired Unicode surrogate rejected")
+            continue
         if not isinstance(node, (dict, list, tuple)):
             continue
         if depth > 64:
@@ -30,6 +34,8 @@ def _require_string_json_keys(value: object) -> None:
             for key, nested in node.items():
                 if not isinstance(key, str):
                     raise ValueError("JSON object keys must be strings")
+                if any(0xD800 <= ord(ch) <= 0xDFFF for ch in key):
+                    raise ValueError("Unpaired Unicode surrogate in JSON key")
                 stack.append((nested, depth + 1, False))
         else:
             for nested in node:
@@ -48,6 +54,10 @@ class EvidenceInput(BaseModel):
 
     @model_validator(mode="after")
     def aware_timestamp(self):
+        for name in ("tenant_id", "incident_id", "source", "external_id", "claim"):
+            value = getattr(self, name)
+            if value != value.strip() or any(0xD800 <= ord(ch) <= 0xDFFF for ch in value):
+                raise ValueError(f"{name} must be canonical Unicode text")
         if self.observed_at.tzinfo is None or self.observed_at.utcoffset() is None:
             raise ValueError("observed_at requires timezone")
         for name, limit in (("payload", 65536), ("provenance", 8192)):
