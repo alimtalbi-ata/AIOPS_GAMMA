@@ -28,6 +28,54 @@ jobs:
           node-version: "22"
       - run: npm install --no-audit --no-fund
       - run: npm run build
+      - name: Smoke Vite preview API denial and SPA availability
+        run: |
+          node --input-type=module <<'JS'
+          import { spawn } from 'node:child_process';
+          import { setTimeout as delay } from 'node:timers/promises';
+
+          const server = spawn('npm', ['run', 'preview', '--', '--port', '4173', '--strictPort'], {
+            stdio: 'ignore',
+            env: process.env,
+          });
+          const base = 'http://127.0.0.1:4173';
+          async function request(path, method = 'GET') {
+            return fetch(base + path, { method, signal: AbortSignal.timeout(2000) });
+          }
+          try {
+            let ready = false;
+            for (let i = 0; i < 30; i++) {
+              if (server.exitCode !== null) throw new Error('Vite preview exited before readiness');
+              try {
+                const response = await request('/');
+                if (response.status === 200) {
+                  if (!(await response.text()).toLowerCase().includes('<html')) {
+                    throw new Error('Preview root is not HTML');
+                  }
+                  ready = true;
+                  break;
+                }
+              } catch (error) {
+                if (error.message === 'Preview root is not HTML') throw error;
+              }
+              await delay(300);
+            }
+            if (!ready) throw new Error('Vite preview not ready');
+            for (const path of ['/api', '/api/', '/api/v1/demo/correlation', '/api/v1/demo/investigation', '/api/v1/private?x=1']) {
+              for (const method of ['GET', 'POST']) {
+                const response = await request(path, method);
+                if (response.status !== 404) {
+                  throw new Error(method + ' ' + path + ': expected 404, got ' + response.status);
+                }
+                if (response.headers.get('cache-control') !== 'no-store') {
+                  throw new Error(method + ' ' + path + ': missing no-store');
+                }
+              }
+            }
+          } finally {
+            server.kill('SIGTERM');
+          }
+          JS
 
   gateway-replay-postgres:
     runs-on: ubuntu-latest
