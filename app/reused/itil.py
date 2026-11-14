@@ -135,6 +135,9 @@ def preview_itil_workflow(
             "verified_cis": verified_observations,
             "unverified_cis": len(incident.affected_cis) - verified_observations,
             "cmdb_is_authoritative": True,
+            # A caller-provided verification flag is not a canonical CMDB read.
+            "canonical_cmdb_verified": False,
+            "ci_verification_source": "caller_supplied_preview",
         },
         "problem_management": {
             "status": problem_status,
