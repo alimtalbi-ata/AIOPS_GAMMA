@@ -61,11 +61,13 @@ class PostmortemDraftRequest(BaseModel):
 
 
 def draft_postmortem(req: PostmortemDraftRequest, authorized_tenant: UUID) -> dict:
-    if req.tenant_id != authorized_tenant:
-        raise PermissionError("Cross-tenant postmortem rejected")
+    if not isinstance(req, PostmortemDraftRequest) or not isinstance(authorized_tenant, UUID):
+        raise ValueError("Invalid postmortem request or authorized tenant")
     # Mutable Pydantic models may be changed after validation. Revalidate at
     # the preview boundary before interpreting any caller-provided fields.
     req = PostmortemDraftRequest.model_validate(req.model_dump())
+    if req.tenant_id != authorized_tenant:
+        raise PermissionError("Cross-tenant postmortem rejected")
     if len({e.event_id for e in req.timeline}) != len(req.timeline):
         raise ValueError("Duplicate timeline event identifier")
     events = sorted(req.timeline, key=lambda e: (e.occurred_at.astimezone(timezone.utc), e.event_id))
