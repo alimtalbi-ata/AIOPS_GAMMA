@@ -1607,3 +1607,10 @@
 - Asserts unknown RCA/impact, unverified caller timeline, unknown resolution duration, human review, no persistence, no ITSM mutations, no incident closure and no LIVE authority.
 - This is a synthetic-only test, not an integration test against canonical Core, Evidence, Twin, GLPI or PostgreSQL.
 - Test **not executed**. CI issue #8 and canonical ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — UC03 deterministic JSON validation
+- `EvidenceInput` now checks payload/provenance JSON with `sort_keys=True` at validation time, matching the deterministic normalizer's hashing requirements; timestamps also require a usable UTC offset.
+- Five regression cases reject mixed JSON key types both at construction and after mutation, and confirm key-order invariant payload digests.
+- Hashes remain fingerprints of caller-supplied content, **not** authenticated provenance or canonical evidence.
+- Tests **not executed**. CI issue #8 and canonical ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO; no persistence, ITSM mutation or LIVE action.
