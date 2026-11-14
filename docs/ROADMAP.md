@@ -14,7 +14,7 @@ Tracking: GitHub Issues in this repository. Every workstream requires acceptance
 
 ## Product use-case traceability
 
-The [UC01–UC12 catalog](USE-CASE-CATALOG.md) maps operator journeys to current endpoints, maturity, release dependencies and acceptance gates. Use it when prioritizing work so implementation remains tied to platform use cases rather than isolated technical hardening.
+The [UC01–UC10 catalog](USE-CASE-CATALOG.md) maps operator journeys to current endpoints, maturity, release dependencies and acceptance gates. Use it when prioritizing work so implementation remains tied to platform use cases rather than isolated technical hardening.
 
 ## Priority and work intake
 - **P0 urgent:** tenant ACL and safe adapter boundaries; CI/migrations and documentation.
