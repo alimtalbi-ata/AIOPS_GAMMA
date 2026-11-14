@@ -811,3 +811,21 @@ def test_disposable_url_validator_does_not_shadow_url_parser():
     ]
     if writes:
         pytest.fail("Disposable URL parser must not be locally shadowed")
+
+
+def test_replay_db_security_dependencies_not_shadowed_at_module_scope():
+    """Module-level rebinding must not replace reviewed DB safety dependencies."""
+    source = (Path(__file__).parent / "test_gateway_replay_postgres.py").read_text(
+        encoding="utf-8"
+    )
+    protected = {"make_url", "create_async_engine", "async_sessionmaker", "pytest"}
+    tree = ast.parse(source)
+    for statement in tree.body:
+        if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if statement.name in protected:
+                pytest.fail(f"Module-level dependency shadowed: {statement.name}")
+        if isinstance(statement, (ast.Assign, ast.AnnAssign, ast.AugAssign, ast.Delete)):
+            for node in ast.walk(statement):
+                if (isinstance(node, ast.Name) and node.id in protected
+                        and isinstance(node.ctx, (ast.Store, ast.Del))):
+                    pytest.fail(f"Module-level dependency shadowed: {node.id}")
