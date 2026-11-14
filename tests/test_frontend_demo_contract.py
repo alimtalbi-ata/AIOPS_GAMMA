@@ -125,7 +125,7 @@ def test_vite_preview_denies_api_namespace_using_same_middleware_as_dev():
 def test_frontend_ci_smokes_preview_api_denial_over_real_http():
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     assert "Smoke Vite preview API denial and SPA availability" in workflow
-    assert "npm run preview" in workflow
+    assert "spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview'" in workflow
     assert "expected 404, got " in workflow
     assert "missing no-store" in workflow
     assert "['GET', 'POST']" in workflow
