@@ -126,3 +126,19 @@ Python `test` job `132553648125` and deployment `compose` job `132553648255` bot
 **Next operator action:** inspect the run summaries for GitHub-hosted runner allocation, Actions permissions, billing/usage or platform restrictions; record the exact error in [issue #8](https://github.com/alimtalbi-ata/AIOPS_GAMMA/issues/8). Do not blindly rerun. Once repaired, run the **exact reviewed SHA** and retain per-step checkout, install, compileall, pytest, frontend and disposable PostgreSQL evidence. Include `tests/test_topology_preview.py` in the pure Python regression suite. No real database or LIVE access.
 
 **Independent blocker:** canonical actor→tenant→resource ACL [issue #2](https://github.com/alimtalbi-ata/AIOPS_GAMMA/issues/2). PR #1 remains Draft HOLD / NO_GO.
+
+
+## Follow-up CI observation — 2026-11-14
+
+At PR HEAD `998fdf1a631f30ad328e1ad9d6699eb3c17a56df`:
+
+| Workflow | Run | Outcome | Sampled job |
+| --- | --- | --- | --- |
+| Python checks | [43630497249](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43630497249) | completed / failure | `test` `132555803705`: `steps: []` |
+| Deployment contract | [43630497344](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43630497344) | completed / failure | `compose` `132555804039`: `steps: []` |
+
+All jobs listed for these two runs returned `logs_url: null`. No log download was attempted in this observation; do not infer `BlobNotFound` for these runs. No checkout, pytest, compose or database execution has been demonstrated.
+
+**Administrator handoff:** inspect both run summaries in GitHub's UI; capture the exact pre-step/runner allocation error, Actions policy and usage/billing constraints. Record findings in [issue #8](https://github.com/alimtalbi-ata/AIOPS_GAMMA/issues/8), then obtain per-step evidence for the exact reviewed HEAD after repair. Do not rerun blindly or weaken test gates. Independent ACL [issue #2](https://github.com/alimtalbi-ata/AIOPS_GAMMA/issues/2) remains blocking.
+
+**PR #1 Draft — HOLD / NO_GO.**
