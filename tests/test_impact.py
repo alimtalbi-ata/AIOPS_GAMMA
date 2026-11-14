@@ -1,5 +1,3 @@
-import math
-
 import pytest
 
 from app.reused.impact import estimate_impact
