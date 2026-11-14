@@ -56,8 +56,11 @@ class EvidenceInput(BaseModel):
     def aware_timestamp(self):
         for name in ("tenant_id", "incident_id", "source", "external_id", "claim"):
             value = getattr(self, name)
-            if value != value.strip() or any(0xD800 <= ord(ch) <= 0xDFFF for ch in value):
-                raise ValueError(f"{name} must be canonical Unicode text")
+            if value != value.strip() or any(
+                ord(ch) < 32 or ord(ch) == 127 or 0xD800 <= ord(ch) <= 0xDFFF
+                for ch in value
+            ):
+                raise ValueError(f"{name} must be canonical printable Unicode text")
         if self.observed_at.tzinfo is None or self.observed_at.utcoffset() is None:
             raise ValueError("observed_at requires timezone")
         for name, limit in (("payload", 65536), ("provenance", 8192)):
