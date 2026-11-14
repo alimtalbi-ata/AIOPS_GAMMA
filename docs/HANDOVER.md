@@ -1308,3 +1308,12 @@
 - No new blind retry was initiated. Administrator must inspect the Actions UI pre-step banner/annotations and runner/hosted-runner policy, billing/usage and org restrictions; provide exact redacted diagnostic evidence.
 - Gateway/IdP owner inputs remain absent; no approved issuer/audience, ACL contract, secret lifecycle, or namespace/pod labels. No runtime qualification.
 - PR #1 remains open/draft. **HOLD / NO_GO**; no merge, LIVE, canonical reads, tenant reads or deployment.
+
+
+### 2026-11-14 — Latest CI retry after handover commit
+- Exact inspected HEAD: `07f908d278d7caa95b4a027f81bd2488e2e93445`.
+- Python checks run `43591940311`: jobs `test`, `frontend`, `gateway-replay-postgres` all completed failure; individually fetched step lists are empty (`steps: 0`).
+- Deployment contract run `43591940396`: jobs `compose`, `postgres-nonroot-experiment`, `ui-image`, `helm`, `api-postgres-runtime`, `single-directory-runtime` all completed failure; individually fetched step lists are empty (`steps: 0`).
+- Nine of nine jobs again stopped before any step. No test/build/Helm/Compose/Docker/PostgreSQL execution is evidenced. Root cause remains unproven; no blind retry, workflow edit, permission change or self-hosted runner action taken.
+- Repository/org administrator must provide the redacted Actions UI pre-step error and verify GitHub-hosted runner entitlement/availability, organization Actions policy, runner-group access, billing/usage and approval restrictions.
+- Gateway/IdP owner inputs remain absent. PR #1 remains open/draft; canonical reads disabled. **HOLD / NO_GO**; no merge, LIVE, tenant reads or deployment.
