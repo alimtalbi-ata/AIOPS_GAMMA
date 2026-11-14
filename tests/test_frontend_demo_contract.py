@@ -139,3 +139,22 @@ def test_ui_image_smoke_does_not_require_api_dns_or_proxy():
     assert "--add-host api:127.0.0.1" not in ui_image
     assert "The static UI has no API upstream" in ui_image
     assert 'test "$status" = 404' in ui_image
+
+
+def test_frontend_app_has_no_network_fetch_or_api_route_dependency():
+    app = (ROOT / "frontend/src/App.tsx").read_text(encoding="utf-8")
+    assert "fetch(" not in app
+    assert "/api/" not in app
+    assert "XMLHttpRequest" not in app
+    assert "WebSocket(" not in app
+
+
+def test_ci_preview_smoke_owns_and_terminates_vite_process():
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    smoke = workflow.split("Smoke Vite preview API denial and SPA availability", 1)[1].split(
+        "\n  gateway-replay-postgres:", 1
+    )[0]
+    assert "spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview'" in smoke
+    assert "server.kill('SIGTERM')" in smoke
+    assert "server.kill('SIGKILL')" in smoke
+    assert "spawn('npm'" not in smoke
