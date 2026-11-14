@@ -1,4 +1,4 @@
-"""Synthetic UC02→UC04→UC06→UC05 journey; no canonical reads or writes.
+"""Synthetic UC02→UC04→UC06→UC05→UC10 journey; no canonical reads or writes.
 
 This test deliberately composes pure preview boundaries. Each stage receives
 explicit caller-supplied data; outputs are not trusted as authorizations.
@@ -13,6 +13,7 @@ from app.reused.synthetic_impact import DependencyEdge, ImpactPreviewRequest, pr
 from app.reused.investigation import EvidenceRef, Hypothesis, InvestigationPreview, evaluate_investigation
 from app.reused.itil import IncidentAssessment
 from app.reused.itsm_contract import IncidentSyncPreview, PriorityMatrix, PriorityRule, plan_incident_sync
+from app.reused.synthetic_postmortem import PostmortemDraftRequest, TimelineEvent, draft_postmortem, render_postmortem_markdown
 
 TENANT = UUID("11111111-1111-4111-8111-111111111111")
 NOW = datetime(2026, 11, 14, 12, tzinfo=timezone.utc)
@@ -94,3 +95,33 @@ def test_synthetic_incident_journey_preserves_all_authority_boundaries():
     assert proposal["itsm_mutations_performed"] is False
     assert proposal["live_remediation_authorized"] is False
     assert all(stage["live_remediation_authorized"] is False for stage in (correlation, impact, proposal))
+
+    # UC10 receives only explicitly supplied, unverified facts. It must not
+    # turn an ITSM proposal into a persisted or closed incident.
+    postmortem_request = PostmortemDraftRequest(
+        tenant_id=TENANT, incident_id=proposal["incident_id"],
+        service_name=group["service_name"],
+        timeline=[TimelineEvent(
+            event_id="demo-alert", occurred_at=NOW,
+            summary="Synthetic latency alert", evidence_ref="demo-trace-1",
+        )],
+        rca_summary=None, impact_summary=None,
+        follow_up_candidates=["Human review of latency hypothesis"],
+    )
+    postmortem = draft_postmortem(postmortem_request, TENANT)
+    markdown = render_postmortem_markdown(postmortem_request, TENANT)
+    assert postmortem["incident_id"] == proposal["incident_id"]
+    assert postmortem["root_cause_state"] == "UNKNOWN"
+    assert postmortem["impact_state"] == "UNKNOWN"
+    assert postmortem["timeline_state"] == "UNVERIFIED"
+    assert postmortem["incident_metrics"]["time_to_resolve_seconds"] is None
+    assert postmortem["human_review_required"] is True
+    assert postmortem["authoritative"] is False
+    assert postmortem["persisted"] is False
+    assert postmortem["incident_closed"] is False
+    assert postmortem["itsm_mutations_performed"] is False
+    assert postmortem["live_remediation_authorized"] is False
+    assert "HUMAN REVIEW REQUIRED" in markdown
+    assert "Root cause — UNKNOWN" in markdown
+    assert "Impact — UNKNOWN" in markdown
+    assert "durations: UNKNOWN" in markdown
