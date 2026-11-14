@@ -1734,3 +1734,9 @@
 - Added an ITIL boundary test with one caller-declared verified CI and one unverified CI bearing a distinct identifier.
 - Requires `caller_declared_unique_ci_ids=1`, `caller_declared_verified_cis=1`, `unverified_cis=1`, and `canonical_cmdb_verified=False`; an unverified identifier must not inflate the claimed unique count.
 - Tests **not executed**. CI issue #8 and canonical ACL issue #2 remain blockers; PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — Mutated ITIL change-type rejection
+- Added four parametrized ITIL regression cases for invalid post-construction `ChangeProposal.change_type` values (`preapproved`, `STANDARD`, `None`, `1`), passed via the explicit `change=change` argument.
+- Expected behavior: Pydantic validation rejects mutated values before emitting any synthetic preview; no ITSM change authority is inferred.
+- Tests **not executed**. CI issue #8 and canonical actor→tenant→resource ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
