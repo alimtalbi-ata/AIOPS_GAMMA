@@ -243,3 +243,24 @@ def test_shared_noncyclic_json_subtree_is_allowed():
     shared = {"value": 1}
     result = normalize([evidence(payload={"a": shared, "b": shared})], now=NOW)
     assert result["items"][0]["integrity"] == "UNVERIFIED"
+
+
+@pytest.mark.parametrize("field", ["payload", "provenance"])
+def test_mutated_cyclic_json_rejected_before_model_dump(field):
+    item = evidence()
+    cyclic = {}
+    cyclic["self"] = cyclic
+    setattr(item, field, cyclic)
+    with pytest.raises(ValueError, match="Cyclic JSON container"):
+        normalize([item], now=NOW)
+
+
+@pytest.mark.parametrize("field", ["payload", "provenance"])
+def test_mutated_excessive_nesting_rejected_before_model_dump(field):
+    item = evidence()
+    nested = {"leaf": 1}
+    for _ in range(66):
+        nested = {"child": nested}
+    setattr(item, field, nested)
+    with pytest.raises(ValueError, match="JSON nesting exceeds"):
+        normalize([item], now=NOW)
