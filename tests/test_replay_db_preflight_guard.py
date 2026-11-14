@@ -626,3 +626,25 @@ def test_disposable_url_validator_never_reassigns_parsed_url():
             and isinstance(assignment.value.args[0], ast.Name)
             and assignment.value.args[0].id == "raw_url"):
         pytest.fail("Parsed URL must come exclusively from make_url(raw_url)")
+
+
+def test_disposable_url_validator_rejects_destructured_parsed_rebinding():
+    """Tuple unpacking must not replace the parsed user-supplied URL."""
+    source = (Path(__file__).parent / "test_gateway_replay_postgres.py").read_text(
+        encoding="utf-8"
+    )
+    validators = [
+        node for node in ast.parse(source).body
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "_require_disposable_database_url"
+    ]
+    if len(validators) != 1:
+        pytest.fail("Expected exactly one disposable URL validator")
+    stores = [
+        node for node in ast.walk(validators[0])
+        if isinstance(node, ast.Name)
+        and node.id == "parsed"
+        and isinstance(node.ctx, (ast.Store, ast.Del))
+    ]
+    if len(stores) != 1:
+        pytest.fail("Parsed URL must have exactly one binding, including unpacking")
