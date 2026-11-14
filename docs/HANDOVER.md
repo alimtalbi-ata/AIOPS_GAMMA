@@ -4,7 +4,7 @@
 
 ## Current checkpoint — 2026-11-14 (supersedes historical HEADs below)
 
-- Exact branch/PR HEAD at latest inspection: `2f6cb3f63016ea2d85028a87d0703c785694b7a3`; PR #1 remains open, draft, not merged.
+- Latest code/CI evidence base: `2f6cb3f63016ea2d85028a87d0703c785694b7a3`; this handover-only refresh does not change application, test, Helm or workflow code. PR #1 remains open, draft, not merged.
 - Latest exact-HEAD Actions runs: Python checks `43592028145`; Deployment contract `43592028128`. All 9 jobs were individually inspected; every job has `steps: 0`. No checkout, tests, Helm, Compose, Docker or PostgreSQL command executed. This is a pre-step Actions failure, not a project test result; root cause remains unestablished.
 - Workflow definitions use `runs-on: ubuntu-latest` for all jobs; no custom runner labels found. GitHub connection cannot inspect repository/org Actions administration settings or run-page pre-step annotations. Administrator must supply the redacted error and verify hosted-runner entitlement/availability, Actions policy, runner-group access, billing/usage and approvals.
 - Gateway assertion settings in Helm map to Pydantic settings; assertion Secret reference remains empty by default, so verifier fails closed until provisioned by an approved operator.
