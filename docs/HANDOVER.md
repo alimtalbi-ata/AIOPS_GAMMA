@@ -1407,3 +1407,10 @@
 - The legacy `tests/test_http_route_auth_coverage_guard.py` guard accepted `Depends(internal_principal, **kwargs)` because it checked only the positional argument. The independent `tests/test_route_security_static.py` guard already required `not default.keywords`. Aligned the legacy guard with the stricter exact invocation contract.
 - Added a disposable-source mutation test that replaces the first real private route dependency with `Depends(internal_principal, use_cache=False)` or `Depends(internal_principal, scope='read')` and requires the guard to reject it. Re-fetched `app/main.py` confirms the first occurrence belongs to the protected logs-search route, and the source contains 18 exact dependency occurrences.
 - No pytest or runtime test execution claimed; CI runner/bootstrap remains blocked. PR #1 Draft, **HOLD / NO_GO**, no merge, LIVE, PostgreSQL or deployment.
+
+
+### 2026-11-14 — Fail closed on HTTP middleware decorator options
+- `tests/test_http_route_auth_coverage_guard.py` already enforced the literal `@app.middleware("http")` positional argument, but ignored extra keyword arguments. The guard now rejects all middleware decorator keyword options, including `**kwargs` unpacking.
+- Added disposable-source mutation tests for both an explicit `unexpected=True` option and unpacked `**{"unexpected": True}` on the HTTP middleware decorator; the guard must reject either.
+- Re-fetched `app/main.py`: its only `@app.middleware` decorator is the reviewed `@app.middleware("http")`, with no extra options. The mutation tests are **defined, not executed** while CI runners still fail before steps.
+- PR #1 remains Draft, **HOLD / NO_GO**. No merge, PostgreSQL, LIVE or deployment.
