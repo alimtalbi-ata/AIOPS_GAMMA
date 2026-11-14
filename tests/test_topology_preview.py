@@ -380,3 +380,41 @@ def test_unrelated_missing_edges_are_permutation_and_duplicate_invariant():
     assert first == second
     assert first["unresolved_edge_detected"] is False
     assert first["topology_state"] == "CALLER_SUPPLIED_PREVIEW"
+
+
+@pytest.mark.parametrize("nodes,edges", [
+    (("service",), []),
+    ({"service"}, []),
+    (["service"], ()),
+    (["service"], None),
+    (None, []),
+    (["service"], "service"),
+])
+def test_topology_rejects_nonlist_top_level_containers(nodes, edges):
+    with pytest.raises(ValueError):
+        preview("service", nodes, edges)
+
+
+@pytest.mark.parametrize("bad_id", [None, 0, True, 3.14, [], {}])
+def test_topology_rejects_nonstring_service_identifiers(bad_id):
+    with pytest.raises(ValueError):
+        preview(bad_id, ["service"], [])
+
+
+@pytest.mark.parametrize("bad_edge", [
+    "service", 3, None, {}, ("service",), ("service", "app", "extra"),
+    ("service", True), ("service", None),
+])
+def test_topology_rejects_malformed_edge_shapes_and_types(bad_edge):
+    with pytest.raises(ValueError):
+        preview("service", ["service", "app"], [bad_edge])
+
+
+def test_reverse_preview_rejects_nonlist_edge_container_before_reversal():
+    with pytest.raises(ValueError):
+        preview_upstream_dependents("db", ["db"], ())
+
+
+def test_reverse_preview_rejects_unknown_selected_ci():
+    with pytest.raises(ValueError):
+        preview_upstream_dependents("missing", ["db"], [])
