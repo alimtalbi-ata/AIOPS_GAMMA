@@ -393,3 +393,45 @@ def test_replay_db_write_acknowledgement_is_direct_before_engine_creation():
     ).body
     if ast.dump(guard.test) != ast.dump(expected):
         pytest.fail("Write acknowledgement must require the exact opt-in token")
+
+def test_replay_db_loopback_sql_matches_reviewed_ipv4_ipv6_query():
+    """Require the reviewed SQL expression, not just inet_server_addr() text."""
+    source = (Path(__file__).parent / "test_gateway_replay_postgres.py").read_text(
+        encoding="utf-8"
+    )
+    fixtures = [
+        node for node in ast.parse(source).body
+        if isinstance(node, ast.AsyncFunctionDef) and node.name == "replay_db"
+    ]
+    if len(fixtures) != 1:
+        pytest.fail("Expected exactly one replay_db fixture")
+    assignments = [
+        node for node in ast.walk(fixtures[0])
+        if isinstance(node, ast.Assign)
+        and len(node.targets) == 1
+        and isinstance(node.targets[0], ast.Name)
+        and node.targets[0].id == "is_loopback"
+    ]
+    if len(assignments) != 1:
+        pytest.fail("Expected exactly one loopback SQL assignment")
+    value = assignments[0].value
+    if not (isinstance(value, ast.Await)
+            and isinstance(value.value, ast.Call)
+            and isinstance(value.value.func, ast.Attribute)
+            and isinstance(value.value.func.value, ast.Name)
+            and value.value.func.value.id == "connection"
+            and value.value.func.attr == "scalar"
+            and len(value.value.args) == 1):
+        pytest.fail("Loopback qualification must await connection.scalar")
+    query = value.value.args[0]
+    if not (isinstance(query, ast.Call)
+            and isinstance(query.func, ast.Name)
+            and query.func.id == "text"
+            and len(query.args) == 1
+            and isinstance(query.args[0], ast.Constant)
+            and isinstance(query.args[0].value, str)):
+        pytest.fail("Loopback SQL must be a literal text() argument")
+    expected = ("SELECT inet_server_addr() << inet '127.0.0.0/8' "
+                "OR inet_server_addr() = inet '::1'")
+    if query.args[0].value != expected:
+        pytest.fail("Loopback SQL differs from reviewed IPv4/IPv6 expression")
