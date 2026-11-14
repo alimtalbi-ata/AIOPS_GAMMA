@@ -1621,3 +1621,10 @@
 - Six parametrized regression cases cover nested and standalone numeric keys at construction and post-mutation normalization. Two earlier mixed-key tests now expect the specific key-validation message.
 - Hashes still do **not** authenticate caller-supplied source evidence; no canonical read or persistence.
 - Tests **not executed**; CI issue #8 and canonical ACL issue #2 remain unresolved. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — UC03 cyclic and deep JSON guard
+- `_require_string_json_keys` now traverses containers iteratively, rejects active-path cycles and nesting beyond 64 levels, while permitting shared acyclic subtrees.
+- Five new parametrized cases cover payload/provenance cyclic structures, excessive nesting, and valid shared subtrees.
+- The validator remains a synthetic-only input guard; it does not authenticate evidence or authorize canonical reads.
+- Tests **not executed**. CI issue #8 and canonical ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
