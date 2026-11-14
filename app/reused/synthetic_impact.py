@@ -41,8 +41,9 @@ def preview_impact(req: ImpactPreviewRequest, authorized_tenant: UUID, *,
         raise PermissionError("Cross-tenant CMDB preview rejected")
     if not isinstance(max_age_seconds, int) or isinstance(max_age_seconds, bool) or not 1 <= max_age_seconds <= 86400:
         raise ValueError("Invalid freshness bound")
-    current = now or datetime.now(timezone.utc)
-    if current.tzinfo is None or current.utcoffset() is None:
+    current = datetime.now(timezone.utc) if now is None else now
+    if (not isinstance(current, datetime) or current.tzinfo is None
+            or current.utcoffset() is None):
         raise ValueError("Current time must be timezone-aware")
     age = (current - req.observed_at).total_seconds()
     fresh = 0 <= age <= max_age_seconds
