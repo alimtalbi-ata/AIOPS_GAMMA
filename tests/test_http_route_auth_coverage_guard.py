@@ -136,6 +136,33 @@ class InternalRouteDependencyGuard(unittest.TestCase):
                     with self.assertRaisesRegex(AssertionError, "Duplicate HTTP route"):
                         self.test_all_non_public_http_routes_require_internal_principal()
 
+    def test_unreviewed_route_decorator_options_are_rejected(self):
+        """Decorator options must not silently change auth or route semantics."""
+        from tempfile import TemporaryDirectory
+        from unittest.mock import patch
+
+        source = MAIN.read_text(encoding="utf-8")
+        original = '@app.post("/api/v1/observability/logs/search")'
+        self.assertEqual(source.count(original), 1)
+        for changed in (
+            '@app.post("/api/v1/observability/logs/search", dependencies=[])',
+            '@app.post("/api/v1/observability/logs/search", include_in_schema=False)',
+            '@app.post("/api/v1/observability/logs/search", 123)',
+        ):
+            with TemporaryDirectory() as directory:
+                candidate = Path(directory) / "main.py"
+                candidate.write_text(
+                    source.replace(original, changed, 1), encoding="utf-8"
+                )
+                with patch.dict(
+                    self.test_all_non_public_http_routes_require_internal_principal.__globals__,
+                    {"MAIN": candidate},
+                ):
+                    with self.assertRaisesRegex(
+                        AssertionError, "Unreviewed .* route decorator"
+                    ):
+                        self.test_all_non_public_http_routes_require_internal_principal()
+
     def test_public_route_allowlist_is_narrow(self):
         self.assertEqual(PUBLIC_ROUTES, {
             ("GET", "/api/v1/health/live"),
