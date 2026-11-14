@@ -225,6 +225,8 @@ class InternalRouteDependencyGuard(unittest.TestCase):
         for changed in (
             "Depends(internal_principal, use_cache=False)",
             "Depends(internal_principal, scope='read')",
+            "Depends(get_session)",
+            "None",
         ):
             with TemporaryDirectory() as directory:
                 candidate = Path(directory) / "main.py"
