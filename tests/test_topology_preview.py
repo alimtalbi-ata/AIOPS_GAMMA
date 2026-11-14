@@ -113,3 +113,35 @@ def test_canonical_missing_endpoint_remains_unknown():
     assert result["unresolved_edge_detected"] is True
     assert result["topology_state"] == "UNKNOWN"
     assert result["authoritative"] is False
+
+
+def test_dependency_hops_are_shortest_path_not_dfs_discovery_order():
+    result = preview("service", ["service", "a", "b", "db"], [
+        ("service", "a"), ("a", "b"), ("b", "db"),
+        ("service", "db"),
+    ])
+    assert result["dependency_hops"] == {"a": 1, "b": 2, "db": 1}
+    assert result["dependency_count"] == 3
+    assert result["authoritative"] is False
+
+
+def test_dependency_hops_are_permutation_and_duplicate_invariant():
+    nodes = ["service", "a", "b", "db"]
+    edges = [
+        ("service", "a"), ("service", "b"),
+        ("a", "db"), ("b", "db"),
+    ]
+    first = preview("service", nodes, edges)
+    second = preview("service", list(reversed(nodes)), list(reversed(edges)) + [edges[0]])
+    assert first == second
+    assert first["dependency_hops"] == {"a": 1, "b": 1, "db": 2}
+
+
+def test_dependency_hops_exclude_unrelated_nodes_and_service_cycle():
+    result = preview("service", ["service", "a", "unrelated"], [
+        ("service", "a"), ("a", "service"),
+    ])
+    assert result["dependency_hops"] == {"a": 1}
+    assert result["cycle_detected"] is True
+    assert result["topology_state"] == "UNKNOWN"
+    assert result["live_remediation_authorized"] is False
