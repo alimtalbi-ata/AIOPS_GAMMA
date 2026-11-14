@@ -326,3 +326,9 @@ def test_exact_freshness_boundary_does_not_upgrade_integrity():
     result = normalize([evidence(observed_at=NOW - timedelta(seconds=3600))], now=NOW)
     assert result["items"][0]["freshness"] == "FRESH"
     assert result["items"][0]["integrity"] == "UNVERIFIED"
+
+
+def test_future_evidence_cannot_be_promoted_to_fresh():
+    result = normalize([evidence(observed_at=NOW + timedelta(seconds=1))], now=NOW)
+    assert result["items"][0]["freshness"] == "UNKNOWN"
+    assert result["items"][0]["state"] == "UNKNOWN"
