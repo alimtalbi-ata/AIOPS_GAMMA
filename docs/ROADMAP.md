@@ -91,3 +91,14 @@ These scenarios are product requirements, not claims of production readiness.
 **First synthetic acceptance scenario:** ingest duplicate alerts for one service; present a single correlated preview with source IDs and evidence freshness; estimate conservative CMDB impact; propose an ITSM incident without a Core/GLPI write. Assert that an unrelated tenant cannot observe the scenario, that missing evidence remains UNKNOWN, and that all UI data are identified as synthetic. This scenario is **not yet executed**.
 
 **Release boundary:** exact-HEAD CI and real disposable PostgreSQL, gateway actor→tenant→resource ACL, upstream contract and deployment parity tests remain mandatory. Draft / HOLD / NO_GO. No merge, LIVE reads or remediation, production PostgreSQL access, or deployment.
+
+## Reprioritization — 2026-11-14 (functional integration first)
+
+1. **P0 unblock validation (issue #8):** obtain the exact GitHub Actions pre-step error from the repository owner; qualify Python/frontend, disposable PostgreSQL migrations and Compose/Helm on the reviewed HEAD. Never rerun or weaken workflows on speculation.
+2. **P1 safe signal-to-evidence slice (issues #3/#4):** harden deterministic alert correlation and provenance boundaries with synthetic tests; keep the API preview-only. The current slice bounds evidence reference length and rejects control/invalid Unicode characters. No persisted incidents, no GLPI writes.
+3. **P1 independently authorized canonical reads (issue #2):** gateway actor→tenant→resource ACL and real upstream Core/Evidence/Twin/GLPI contracts are mandatory before any feature flag or HTTP fetch is enabled.
+4. **P2 real telemetry integration (issue #3):** validate OTel/Data Prepper/OpenSearch/Cortex index mappings, TLS/DLS and source identity in disposable staging, then Sentinel/ArgusLM read-only KPI projections with provenance.
+5. **P3 durable incident reconciliation (issue #4), then P4 evidence-grounded RCA (issue #5):** only after the above contracts pass. HolmesGPT/Aurora remain evaluation candidates, not deployed agents.
+6. **P5/P6 policy/HITL and remediation (issue #6):** remain explicitly out of scope until independent authorization, replay fencing, rollback and human approval are qualified.
+
+**Release state:** PR #1 stays Draft / HOLD / NO_GO. The above is an implementation order, not proof of production readiness or CI success.
