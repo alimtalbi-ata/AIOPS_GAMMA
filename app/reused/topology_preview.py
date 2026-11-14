@@ -74,7 +74,9 @@ def preview_service_dependencies(
                 queue.append(child)
 
     reachable = sorted(set(depths) - {service_id})
-    paths = {}
+    direct = sorted(graph[service_id] - {service_id})
+    indirect = sorted(set(reachable) - set(direct))
+    paths = {
     for dependency in reachable:
         path = [dependency]
         while path[-1] != service_id:
@@ -85,6 +87,8 @@ def preview_service_dependencies(
         "service_id": service_id,
         "dependency_ids": reachable,
         "dependency_count": len(reachable),
+        "direct_dependency_ids": direct,
+        "indirect_dependency_ids": indirect,
         "dependency_hops": {node: depths[node] for node in reachable},
         "dependency_paths": paths,
         "topology_state": "UNKNOWN" if cyclic or incomplete else "CALLER_SUPPLIED_PREVIEW",
