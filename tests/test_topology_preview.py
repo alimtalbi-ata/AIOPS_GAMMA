@@ -296,3 +296,48 @@ def test_dense_duplicate_edges_remain_bounded_and_deterministic():
     assert result["dependency_count"] == 1
     assert result["dependency_paths"] == {"app": ["service", "app"]}
     assert result["topology_state"] == "CALLER_SUPPLIED_PREVIEW"
+
+
+def test_unrelated_incomplete_component_does_not_taint_selected_service():
+    result = preview("service", ["service", "app", "other"], [
+        ("service", "app"), ("other", "missing"),
+    ])
+    assert result["dependency_ids"] == ["app"]
+    assert result["unresolved_edge_detected"] is False
+    assert result["topology_state"] == "CALLER_SUPPLIED_PREVIEW"
+    assert result["canonical_cmdb_verified"] is False
+
+
+def test_reachable_incomplete_edge_remains_unknown():
+    result = preview("service", ["service", "app", "other"], [
+        ("service", "app"), ("app", "missing"), ("other", "absent"),
+    ])
+    assert result["unresolved_edge_detected"] is True
+    assert result["topology_state"] == "UNKNOWN"
+    assert result["authoritative"] is False
+
+
+def test_unknown_source_cannot_be_reached_from_selected_service():
+    result = preview("service", ["service", "app"], [
+        ("service", "app"), ("missing", "app"),
+    ])
+    assert result["unresolved_edge_detected"] is False
+    assert result["topology_state"] == "CALLER_SUPPLIED_PREVIEW"
+
+
+def test_reverse_preview_marks_reachable_unknown_consumer_as_unknown():
+    result = preview_upstream_dependents("db", ["db", "app", "other"], [
+        ("app", "db"), ("missing", "app"), ("other", "absent"),
+    ])
+    assert result["possible_dependent_ids"] == ["app"]
+    assert result["unresolved_edge_detected"] is True
+    assert result["topology_state"] == "UNKNOWN"
+
+
+def test_reverse_preview_ignores_unrelated_incomplete_component():
+    result = preview_upstream_dependents("db", ["db", "app", "other"], [
+        ("app", "db"), ("other", "absent"),
+    ])
+    assert result["possible_dependent_ids"] == ["app"]
+    assert result["unresolved_edge_detected"] is False
+    assert result["topology_state"] == "CALLER_SUPPLIED_PREVIEW"
