@@ -74,6 +74,14 @@ class InternalRouteDependencyGuard(unittest.TestCase):
                                       "Dynamic route path needs review")
                 self.assertIsInstance(decorator.args[0].value, str,
                                       "Route path must be a literal string")
+                self.assertEqual(
+                    len(decorator.args), 1,
+                    "Unreviewed positional route decorator arguments",
+                )
+                self.assertFalse(
+                    decorator.keywords,
+                    "Unreviewed route decorator keywords need explicit review",
+                )
                 route = (func.attr.upper(), decorator.args[0].value)
                 self.assertNotIn(
                     route, found,
