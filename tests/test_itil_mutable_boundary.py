@@ -237,5 +237,18 @@ def test_duplicate_caller_verified_ci_observations_do_not_imply_unique_canonical
     assert cmdb["observed_cis"] == 2
     assert cmdb["verified_cis"] == 2
     assert cmdb["caller_declared_verified_cis"] == 2
+    assert cmdb["caller_declared_unique_ci_ids"] == 1
     assert cmdb["canonical_cmdb_verified"] is False
     assert cmdb["ci_verification_source"] == "caller_supplied_preview"
+
+
+def test_distinct_caller_declared_ci_ids_counted_separately_without_canonical_authority():
+    item = incident()
+    item.affected_cis[0].verified_against_cmdb = True
+    other_ci = item.affected_cis[0].model_copy(deep=True)
+    other_ci.cmdb_ci_id = "CI-DEMO-2"
+    item.affected_cis.append(other_ci)
+    cmdb = preview_itil_workflow(item)["service_configuration_management"]
+    assert cmdb["caller_declared_verified_cis"] == 2
+    assert cmdb["caller_declared_unique_ci_ids"] == 2
+    assert cmdb["canonical_cmdb_verified"] is False
