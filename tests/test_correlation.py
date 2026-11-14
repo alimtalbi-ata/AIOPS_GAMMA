@@ -380,3 +380,10 @@ def test_identical_external_ids_from_distinct_sources_remain_distinct():
     result = correlate([signal("evt", source="otel"), signal("evt", source="prometheus")], "tenant-1")
     assert result["deduplicated_events"] == 0
     assert sorted(e["source"] for e in result["groups"][0]["source_events"]) == ["otel", "prometheus"]
+
+
+def test_correlation_evidence_references_are_deduplicated_across_events():
+    first = signal("a").model_copy(update={"evidence_refs": ["z", "a"]})
+    second = signal("b").model_copy(update={"evidence_refs": ["a", "m"]})
+    result = correlate([first, second], "tenant-1")
+    assert result["groups"][0]["evidence_refs"] == ["a", "m", "z"]
