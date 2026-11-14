@@ -159,3 +159,17 @@ All listed jobs in both workflows returned `logs_url: null` and failure. No log 
 **Operator next step:** capture the exact run-summary failure reason, runner assignment, Actions policy/permissions and billing/usage status for these run IDs in [issue #8](https://github.com/alimtalbi-ata/AIOPS_GAMMA/issues/8). Do not blindly rerun. After repair, qualify the **exact reviewed SHA** with real step logs and test counts; the isolated fallback includes `tests/test_topology_preview.py`. Independent ACL [issue #2](https://github.com/alimtalbi-ata/AIOPS_GAMMA/issues/2) still blocks release.
 
 **PR #1 Draft — HOLD / NO_GO.**
+
+
+## Exact-HEAD CI verification — 2026-11-14 (UC04 witness tests)
+
+At PR commit `de2261bac37783f86f78b4cb283d82cf0c04b127`, GitHub reported:
+
+| Workflow | Run | Outcome |
+| --- | --- | --- |
+| Python checks | [43633546954](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43633546954) | completed / failure |
+| Deployment contract | [43633546928](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43633546928) | completed / failure |
+
+All **nine** listed jobs were completed/failure with `logs_url: null` in the job-list responses. Direct job-step queries returned `steps: []` for Python `test` job `132565289375` and Deployment `compose` job `132565289344`. No job-log download was attempted for these runs; earlier 404 observations do not establish the state of these logs. A combined commit-status query returned no individual legacy statuses, which is **not** evidence of green CI.
+
+**Interpretation:** the available evidence does not prove checkout, compileall, pytest, Compose, PostgreSQL or deployment commands ran. The GitHub administrator must inspect the run summaries and runner allocation / Actions policy / billing constraints, record the exact platform error in [issue #8](https://github.com/alimtalbi-ata/AIOPS_GAMMA/issues/8), and obtain actual per-step logs and test counts for the *then-current exact reviewed HEAD* after repair. No blind rerun, weakened checks, real PostgreSQL or LIVE action. Independent ACL [issue #2](https://github.com/alimtalbi-ata/AIOPS_GAMMA/issues/2) remains blocking. **PR #1 Draft — HOLD / NO_GO.**
