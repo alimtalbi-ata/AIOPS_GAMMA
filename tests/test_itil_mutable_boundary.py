@@ -6,7 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.reused.itil import (
-    ChangeProposal, IncidentAssessment, ObservedCI, ProblemAssessment,
+    ChangeProposal, IncidentAssessment, ITSMReference, ObservedCI, ProblemAssessment,
     preview_itil_workflow,
 )
 
@@ -283,5 +283,30 @@ def test_mutated_change_type_rejected_before_any_preview(invalid_type):
         verification_plan_ref="demo-verify", evidence_refs=["demo-evidence"],
     )
     change.change_type = invalid_type
+    with pytest.raises(ValidationError):
+        preview_itil_workflow(item, change=change)
+
+
+def test_mutated_nested_itsm_reference_rejected():
+    item = incident()
+    item.itsm_ref = ITSMReference(system="glpi", external_id="DEMO-42")
+    item.itsm_ref.external_id = "bad external id"
+    with pytest.raises(ValidationError):
+        preview_itil_workflow(item)
+
+
+def test_mutated_nested_change_itsm_reference_rejected():
+    item = incident()
+    item.affected_cis[0].verified_against_cmdb = True
+    change = ChangeProposal(
+        tenant_id=TENANT, source_incident_id="DEMO-INC-1",
+        target_ci_id="CI-DEMO-1", runbook_id="demo", runbook_version="v1",
+        impact_summary="Synthetic only", risk="unknown",
+        implementation_plan_ref="demo-implement",
+        rollback_plan_ref="demo-rollback",
+        verification_plan_ref="demo-verify", evidence_refs=["demo-evidence"],
+        itsm_change_ref=ITSMReference(system="glpi", external_id="DEMO-CHG-42"),
+    )
+    change.itsm_change_ref.system = "unrecognized"
     with pytest.raises(ValidationError):
         preview_itil_workflow(item, change=change)
