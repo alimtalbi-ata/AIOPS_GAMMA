@@ -30,14 +30,17 @@ def preview_service_dependencies(
             or len(set(nodes)) != len(nodes) or service_id not in nodes):
         raise ValueError("Invalid topology node identifiers")
     graph = {node: set() for node in nodes}
-    incomplete = False
+    unresolved_sources: set[str] = set()
     for edge in edges:
         if (not isinstance(edge, (tuple, list)) or len(edge) != 2
                 or any(not _valid_id(endpoint) for endpoint in edge)):
             raise ValueError("Invalid topology edge")
         source, target = edge
         if source not in graph or target not in graph:
-            incomplete = True
+            # Only an edge leaving a reachable known node can make this
+            # selected traversal incomplete. Unknown sources are unreachable.
+            if source in graph:
+                unresolved_sources.add(source)
             continue
         graph[source].add(target)
 
@@ -73,6 +76,7 @@ def preview_service_dependencies(
                 parents[child] = node
                 queue.append(child)
 
+    incomplete = bool(unresolved_sources.intersection(depths))
     reachable = sorted(set(depths) - {service_id})
     direct = sorted(graph[service_id] - {service_id})
     indirect = sorted(set(reachable) - set(direct))
