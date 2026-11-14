@@ -66,6 +66,11 @@ class InvestigationPreview(BaseModel):
 
 
 def evaluate_investigation(req: InvestigationPreview, authorized_tenant: UUID) -> dict:
+    if not isinstance(req, InvestigationPreview) or not isinstance(authorized_tenant, UUID):
+        raise ValueError("Invalid investigation request or authorized tenant")
+    # Caller-supplied Pydantic objects can be mutated after construction.
+    # Revalidate the full graph (including reference integrity) at this boundary.
+    req = InvestigationPreview.model_validate(req.model_dump())
     if req.tenant_id != authorized_tenant:
         raise PermissionError("Cross-tenant investigation rejected")
     count = len(req.hypotheses)
