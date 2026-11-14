@@ -399,3 +399,9 @@ def test_resolved_only_correlation_group_is_not_firing():
     result = correlate([signal("a", status="resolved"), signal("b", status="resolved")], "tenant-1")
     assert result["groups"][0]["status"] == "resolved"
     assert result["live_remediation_authorized"] is False
+
+
+def test_distinct_ci_identifiers_never_merge_even_with_same_service():
+    result = correlate([signal("a", ci="CI-A"), signal("b", ci="CI-B")], "tenant-1")
+    assert len(result["groups"]) == 2
+    assert {g["ci_id"] for g in result["groups"]} == {"CI-A", "CI-B"}
