@@ -342,3 +342,21 @@ def test_correlation_evidence_reference_boundary_and_mutation_revalidation():
     item.evidence_refs = ["x" * 257]
     with pytest.raises(ValidationError, match="invalid correlation evidence reference"):
         correlate([item], "tenant-1")
+
+
+@pytest.mark.parametrize("field", [
+    "source", "external_event_id", "service_name", "environment", "symptom_key", "ci_id",
+])
+@pytest.mark.parametrize("bad_character", ["\\x00", "\\x1f", "\\x7f", "\\ud800"])
+def test_correlation_identity_rejects_controls_and_surrogates(field, bad_character):
+    payload = signal("safe", ci="CI-1").model_dump()
+    payload[field] = "valid" + bad_character + "suffix"
+    with pytest.raises(ValidationError):
+        CorrelationSignal.model_validate(payload)
+
+
+def test_direct_correlation_rejects_mutated_surrogate_identity():
+    item = signal("safe")
+    item.symptom_key = "bad\\ud800key"
+    with pytest.raises(ValidationError):
+        correlate([item], "tenant-1")
