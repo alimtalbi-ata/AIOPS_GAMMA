@@ -12,6 +12,10 @@ Tracking: GitHub Issues in this repository. Every workstream requires acceptance
 | P5 — safe planning | approved runbooks, risk model, policy/HITL, dry-run | P4, approved procedure catalog | No unapproved recipe, replayed receipt or unauthorized actor can pass |
 | P6 — qualified autonomy | audited execution and recovery verification | P5, Temporal/Worker, rollback qualification | Failure injection, idempotency/fencing, rollback, post-action SLI and ITSM closure verified |
 
+## Product use-case traceability
+
+The [UC01–UC12 catalog](USE-CASE-CATALOG.md) maps operator journeys to current endpoints, maturity, release dependencies and acceptance gates. Use it when prioritizing work so implementation remains tied to platform use cases rather than isolated technical hardening.
+
 ## Priority and work intake
 - **P0 urgent:** tenant ACL and safe adapter boundaries; CI/migrations and documentation.
 - **P1 next:** observability mappings and correlation/ITSM reliability.
