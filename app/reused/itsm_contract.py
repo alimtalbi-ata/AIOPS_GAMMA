@@ -61,6 +61,11 @@ def plan_incident_sync(req: IncidentSyncPreview, tenant_id: UUID) -> dict:
             or not isinstance(req.incident, IncidentAssessment)
             or not isinstance(req.matrix, PriorityMatrix)):
         raise ValueError("Invalid ITSM sync request structure")
+    if not isinstance(tenant_id, UUID):
+        raise ValueError("Invalid authorized tenant")
+    # Revalidate mutable nested incident/CI/ITSM reference and matrix fields.
+    # The manual checks below preserve explicit operation and authority gates.
+    req = IncidentSyncPreview.model_validate(req.model_dump())
     incident = req.incident
     if req.operation not in ("propose_create", "propose_enrichment"):
         raise ValueError("Invalid ITSM sync operation")
