@@ -208,6 +208,32 @@ class InternalRouteDependencyGuard(unittest.TestCase):
                     with self.assertRaisesRegex(AssertionError, "Unreviewed route decorator"):
                         self.test_all_non_public_http_routes_require_internal_principal()
 
+    def test_internal_principal_dependency_options_require_review(self):
+        """A modified Depends call must not pass this exact auth guard."""
+        from tempfile import TemporaryDirectory
+        from unittest.mock import patch
+
+        source = MAIN.read_text(encoding="utf-8")
+        original = "Depends(internal_principal)"
+        self.assertIn(original, source)
+        for changed in (
+            "Depends(internal_principal, use_cache=False)",
+            "Depends(internal_principal, scope='read')",
+        ):
+            with TemporaryDirectory() as directory:
+                candidate = Path(directory) / "main.py"
+                candidate.write_text(
+                    source.replace(original, changed, 1), encoding="utf-8"
+                )
+                with patch.dict(
+                    self.test_all_non_public_http_routes_require_internal_principal.__globals__,
+                    {"MAIN": candidate},
+                ):
+                    with self.assertRaisesRegex(
+                        AssertionError, "Route missing internal service auth dependency"
+                    ):
+                        self.test_all_non_public_http_routes_require_internal_principal()
+
     def test_public_route_allowlist_is_narrow(self):
         self.assertEqual(PUBLIC_ROUTES, {
             ("GET", "/api/v1/health/live"),
