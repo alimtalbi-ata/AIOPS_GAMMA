@@ -78,11 +78,32 @@ class InternalRouteDependencyGuard(unittest.TestCase):
                     len(decorator.args), 1,
                     "Unreviewed positional route decorator arguments",
                 )
-                self.assertFalse(
-                    decorator.keywords,
-                    "Unreviewed route decorator keywords need explicit review",
-                )
                 route = (func.attr.upper(), decorator.args[0].value)
+                # Two existing creation endpoints intentionally return 201.
+                # All other decorator options require explicit security review.
+                allowed_options = {
+                    ("POST", "/api/v1/topology/bindings"): {"status_code": 201},
+                    ("POST", "/api/v1/incidents/{incident_id}/evidence"): {"status_code": 201},
+                }
+                actual_options = {}
+                for keyword in decorator.keywords:
+                    self.assertIsNotNone(
+                        keyword.arg,
+                        "Unreviewed route decorator keyword unpacking",
+                    )
+                    self.assertIsInstance(
+                        keyword.value, ast.Constant,
+                        "Unreviewed route decorator nonliteral option",
+                    )
+                    self.assertNotIn(
+                        keyword.arg, actual_options,
+                        "Unreviewed duplicate route decorator option",
+                    )
+                    actual_options[keyword.arg] = keyword.value.value
+                self.assertEqual(
+                    actual_options, allowed_options.get(route, {}),
+                    "Unreviewed route decorator options need explicit review",
+                )
                 self.assertNotIn(
                     route, found,
                     "Duplicate HTTP route registration can shadow an authenticated handler",
