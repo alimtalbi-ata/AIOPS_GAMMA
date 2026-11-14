@@ -1866,3 +1866,10 @@
 - Corrected `docs/USE-CASE-CATALOG.md` to match the pre-existing canonical UC01–UC10 numbering in `docs/ROADMAP.md` and synthetic test journeys. The earlier UC01–UC12 table had inadvertently assigned conflicting meanings to UC02/UC03/UC05–UC10 and incorrectly described the synthetic UC10 postmortem as not delivered.
 - The catalog now distinguishes delivered **synthetic** UC04 topology, UC06 RCA, UC08 runbook/HITL and UC10 postmortem previews from unqualified canonical/live features. Governance and ingestion remain cross-cutting rather than invented UC11/UC12 identifiers.
 - Updated README and ROADMAP catalog references from UC01–UC12 to UC01–UC10. Documentation-only changes; no tests executed. CI #8 and actor→tenant→resource ACL #2 remain blockers; PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — UC04 topology identifier validation
+- Added `_valid_id` in `app/reused/topology_preview.py`: service/node/edge endpoint identifiers must be printable, trim-stable and at most 255 characters; rejects blank, padded and control-character IDs. Valid missing endpoints still produce UNKNOWN rather than a fabricated topology link.
+- Added parameterized regressions in `tests/test_topology_preview.py` for invalid service IDs, node IDs, edge endpoints and a canonical unresolved endpoint.
+- Commits: `4c42967` code, `f712a6f` tests. Tests **not executed** in this session; no claim of CI success. Synthetic preview only, not a trusted CMDB identity check.
+- CI #8 and independent actor→tenant→resource ACL #2 remain blockers. PR #1 remains Draft HOLD / NO_GO.
