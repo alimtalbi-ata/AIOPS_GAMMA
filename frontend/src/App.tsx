@@ -40,52 +40,28 @@ export function App(){
  const [investigationStatus,setInvestigationStatus]=useState("Non exécuté");
  const [investigationSummary,setInvestigationSummary]=useState("");
  const [investigationEvidence,setInvestigationEvidence]=useState<{source:string;external_id:string;claim:string;state:string}[]>([]);
- const runInvestigationDemo=async()=>{
-   setInvestigationStatus("Exécution…");
+ const runInvestigationDemo=()=>{
+   setInvestigationStatus("Exécution locale…");
    setInvestigationSummary("");
    setInvestigationEvidence([]);
-   try {
-     const response=await fetch("/api/v1/demo/investigation",{cache:"no-store",signal:AbortSignal.timeout(8000)});
-     if(!response.ok) throw new Error("HTTP "+response.status);
-     const payload:unknown=await response.json();
-     if(!payload || typeof payload!=="object" || !("mode" in payload) || payload.mode!=="synthetic_demo" || !("authoritative" in payload) || payload.authoritative!==false || !("evidence_source_verified" in payload) || payload.evidence_source_verified!==false || !("investigation" in payload)) throw new Error("Réponse invalide");
-     const result=payload.investigation;
-     if(!result || typeof result!=="object" || !("groups" in result) || !Array.isArray(result.groups) || result.groups.length!==1 || !("evidence_join_complete" in result) || result.evidence_join_complete!==true || !("evidence_join_consistent" in result) || result.evidence_join_consistent!==true || !("persisted" in result) || result.persisted!==false || !("live_remediation_authorized" in result) || result.live_remediation_authorized!==false) throw new Error("Preuves non reliées");
-     const group=result.groups[0];
-     if(!group || typeof group!=="object" || !("evidence" in group) || !Array.isArray(group.evidence) || !("evidence_state" in group)) throw new Error("Groupe invalide");
-     if(group.evidence_state!=="UNVERIFIED" || group.evidence.length!==2) throw new Error("Preuves inattendues");
-     const verifiedEvidence=group.evidence.map((item:unknown)=>{
-       if(!item || typeof item!=="object" || !("source" in item) || typeof item.source!=="string" || !("external_id" in item) || typeof item.external_id!=="string" || !("claim" in item) || typeof item.claim!=="string" || !("state" in item) || item.state!=="UNVERIFIED") throw new Error("Preuve invalide");
-       return {source:item.source,external_id:item.external_id,claim:item.claim,state:item.state};
-     });
-     setInvestigationEvidence(verifiedEvidence);
-     setInvestigationSummary(`${group.evidence.length} preuves synthétiques reliées · état ${String(group.evidence_state)} · source NON VÉRIFIÉE`);
-     setInvestigationStatus("PASS · Jointure corrélation/preuves API");
-   } catch {
-     setInvestigationStatus("FAIL · Investigation API indisponible");
-   }
+   // Bundled fixtures deliberately avoid a UI→API network dependency. These
+   // records are synthetic and unverified; they are not an API/runtime test.
+   const evidence=[
+     {source:"gamma-synthetic",external_id:"demo-payment-timeout-1",claim:"Synthetic timeout observation 1",state:"UNVERIFIED"},
+     {source:"gamma-synthetic",external_id:"demo-payment-timeout-2",claim:"Synthetic timeout observation 2",state:"UNVERIFIED"},
+   ];
+   setInvestigationEvidence(evidence);
+   setInvestigationSummary("2 preuves synthétiques reliées · état UNVERIFIED · source NON VÉRIFIÉE");
+   setInvestigationStatus("LOCAL DEMO · Jointure illustrative uniquement");
  };
  const [demoGroups,setDemoGroups]=useState(0);
  const [demoEvents,setDemoEvents]=useState(0);
- const runSyntheticDemo=async()=>{
-   setDemoStatus("Exécution…");
-   setDemoGroups(0);
-   setDemoEvents(0);
-   try {
-     const response=await fetch("/api/v1/demo/correlation",{cache:"no-store",signal:AbortSignal.timeout(8000)});
-     if(!response.ok) throw new Error("HTTP "+response.status);
-     const payload:unknown=await response.json();
-     if(!payload || typeof payload!=="object" || !("mode" in payload) || payload.mode!=="synthetic_demo" || !("authoritative" in payload) || payload.authoritative!==false || !("correlation" in payload)) throw new Error("Réponse invalide");
-     const correlation=payload.correlation;
-     if(!correlation || typeof correlation!=="object" || !("groups" in correlation) || !Array.isArray(correlation.groups) || correlation.groups.length!==1 || !("source_events" in correlation) || correlation.source_events!==2 || !("persisted" in correlation) || correlation.persisted!==false || !("live_remediation_authorized" in correlation) || correlation.live_remediation_authorized!==false) throw new Error("Corrélation invalide");
-     setDemoGroups(correlation.groups.length);
-     setDemoEvents(correlation.source_events);
-     setDemoStatus("PASS · Moteur de corrélation API");
-   } catch {
-     setDemoGroups(0);
-     setDemoEvents(0);
-     setDemoStatus("FAIL · API de démonstration indisponible");
-   }
+ const runSyntheticDemo=()=>{
+   setDemoStatus("Exécution locale…");
+   // Fixed local fixture: this does not call FastAPI or qualify the API engine.
+   setDemoGroups(1);
+   setDemoEvents(2);
+   setDemoStatus("LOCAL DEMO · Corrélation illustrative uniquement");
  };
  const [query,setQuery]=useState("");
  const [service,setService]=useState<Service|null>(null);
