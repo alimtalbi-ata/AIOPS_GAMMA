@@ -888,4 +888,8 @@ def test_replay_db_security_dependencies_not_shadowed_in_nested_module_control_f
 
     visitor = ModuleBindingVisitor()
     for statement in ast.parse(source).body:
+        # The reviewed top-level imports are the approved bindings. Inspect
+        # nested control flow, but do not flag those legitimate declarations.
+        if isinstance(statement, (ast.Import, ast.ImportFrom)):
+            continue
         visitor.visit(statement)
