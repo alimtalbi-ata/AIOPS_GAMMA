@@ -1885,3 +1885,10 @@
 - Added `dependency_paths` to the pure synthetic topology preview. Each reachable dependency now has a shortest service→dependency path derived from sorted-neighbor BFS; path length minus one matches `dependency_hops`. Paths do **not** prove canonical CMDB edges or blast radius.
 - Added tests for deterministic equal-length tie breaking, direct-vs-longer path selection and UNKNOWN on cyclic topology; updated UC04 catalog.
 - Commits: `98f7116` code, `d45c835` tests, `946d4d2` catalog. Repository tests **not executed**. CI #8 and canonical ACL #2 remain blockers; PR #1 remains Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — UC04 direct/indirect synthetic dependencies
+- `app/reused/topology_preview.py` now exposes sorted `direct_dependency_ids` (immediate neighbors of the selected service, excluding self) and `indirect_dependency_ids` (reachable dependencies without a direct service edge). These sets partition `dependency_ids`; a direct edge takes precedence even if a longer route exists.
+- `tests/test_topology_preview.py` adds disjointness/coverage, direct-edge precedence and self-loop UNKNOWN regressions; UC04 catalog updated.
+- Commits: `a279b09` code, `9f2c133` tests, `a86cbe8` catalog. Repository tests **not executed**. Synthetic caller-supplied topology only; no verified CMDB, authority or LIVE remediation.
+- CI #8 and actor→tenant→resource ACL #2 remain blockers. PR #1 remains Draft HOLD / NO_GO.
