@@ -496,3 +496,17 @@ def test_model_copy_injected_change_approval_cannot_escape_preview():
     assert result["change_enablement"]["approved_standard_model_verified"] is False
     assert result["execution"]["live_remediation_authorized"] is False
     assert "approved_by_change_authority" not in result["change_enablement"]
+
+
+def test_model_copy_injected_problem_approval_cannot_escape_preview():
+    item = incident()
+    problem = ProblemAssessment(
+        tenant_id=TENANT, related_incident_ids=["DEMO-INC-1"],
+        suspected_root_cause="Unverified synthetic hypothesis",
+        supporting_evidence_refs=["DEMO-EVIDENCE-1"],
+    ).model_copy(update={"known_error_approved": True})
+    result = preview_itil_workflow(item, problem=problem)
+    assert result["problem_management"]["status"] == "PROPOSED_WITH_EVIDENCE"
+    assert "known_error_approved" not in result["problem_management"]
+    assert result["authoritative"] is False
+    assert result["execution"]["live_remediation_authorized"] is False
