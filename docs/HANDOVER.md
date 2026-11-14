@@ -1905,3 +1905,10 @@
 - At `1eafd9ab0722d39d3db87aec3dccd4759f0548a7`, Python checks run `43629797277` and Deployment contract run `43629797288` completed failure. Python `test` job `132553648125` and deployment `compose` job `132553648255` had `steps: []`; job listings reported no logs URL. No evidence that pytest or Compose ran.
 - Updated `docs/CI-QUALIFICATION-BLOCKER.md` with exact run/job IDs and administrator action; no blind rerun, no code or test execution. Include `tests/test_topology_preview.py` in future authorized pure-Python qualification.
 - CI #8 and independent ACL #2 remain blockers. PR #1 remains Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — UC04 syntax repair (priority)
+- Direct source inspection revealed an actual syntax defect in `app/reused/topology_preview.py`: `paths = {` was not closed before the subsequent `for` statement. Fixed to `paths = {}` in `ca09d59`. The defect prevented module import; prior tests were **not executed** and must not be reported as passing.
+- Added `test_dependency_path_dictionary_is_materialized_for_empty_graph` in `36e7dad` to exercise the empty-graph mapping. Test import would also catch syntax failures once pytest is actually run.
+- CI #8 still reports pre-step failures; no exact-HEAD compileall or pytest proof. Require `python -m compileall -q app tests` and `python -m pytest -q tests/test_topology_preview.py` on the exact reviewed SHA in a safe environment. ACL #2 remains independently blocking.
+- PR #1 remains Draft HOLD / NO_GO. No merge, deployment, real PostgreSQL or LIVE actions.
