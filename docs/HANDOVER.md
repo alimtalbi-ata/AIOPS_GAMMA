@@ -1758,3 +1758,9 @@
 - Added three parametrized ITIL boundary cases for mutated incident IDs: whitespace-only, embedded newline and ASCII DEL.
 - The existing `preview_itil_workflow` identifier guard must reject each before producing a preview; no canonical read, ITSM mutation or LIVE behavior was added.
 - Tests **not executed**. CI issue #8 and independent actor→tenant→resource ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — Pydantic model_copy(update=...) ITIL boundary regressions
+- Added two tests for models produced by `model_copy(update=...)`, which can bypass assignment validation: non-boolean CI verification claim and invalid change type.
+- Expected behavior: `preview_itil_workflow` revalidates both nested CI and change model before returning a synthetic projection. No canonical verification or change approval is implied.
+- Tests **not executed**. CI issue #8 and independent actor→tenant→resource ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
