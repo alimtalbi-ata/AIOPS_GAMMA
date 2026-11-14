@@ -1937,3 +1937,9 @@
 - At `998fdf1a631f30ad328e1ad9d6699eb3c17a56df`, Python checks run `43630497249` and Deployment contract run `43630497344` failed. Sampled Python `test` job `132555803705` and `compose` job `132555804039` both returned `steps: []`; job listings had `logs_url: null`.
 - Documented exact run IDs and administrator actions in `docs/CI-QUALIFICATION-BLOCKER.md` (`91fe9f7`). No new tests executed; no log download or blind rerun attempted. This does not prove application test failure.
 - CI #8 and independent ACL #2 still block qualification. PR #1 remains Draft HOLD / NO_GO. No merge, deployment, real PostgreSQL or LIVE actions.
+
+
+### 2026-11-14 — UC04 invalid input type regression coverage
+- Added parameterized negative tests for invalid top-level node/edge containers, non-string service IDs, malformed edge shape and endpoint types, and reverse-preview invalid edge containers/unknown selected CI.
+- Commit `405eb3c` changes only `tests/test_topology_preview.py`; no code or external system action. Tests **not executed**. Require exact-HEAD `python -m compileall -q app tests` and `python -m pytest -q tests/test_topology_preview.py` after CI runner repair.
+- CI #8 and independent actor→tenant→resource ACL #2 remain release blockers. PR #1 Draft HOLD / NO_GO; no merge, deployment, real PostgreSQL or LIVE/remediation.
