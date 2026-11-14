@@ -1828,3 +1828,6 @@
 - These are regression specifications for the existing deterministic, read-only preview; no persistent clustering, canonical CMDB impact or ITSM writes were added.
 - Exact commit `c319f14d3acf99d5ed1eaac8108908387c4bec1d` currently has no GitHub Actions runs returned. Tests have **not** been executed locally or in CI.
 - UC03 durable correlation and ITSM reconciliation remain tracked in issue #4; upstream observability/tenant qualification #3 and canonical ACL #2 remain dependencies. PR #1 stays Draft HOLD / NO_GO.
+
+
+- Updated the UC03 row in `docs/USE-CASE-CATALOG.md` to distinguish regression coverage present from tests actually executed. Catalog update commit: `7155ab8`.
