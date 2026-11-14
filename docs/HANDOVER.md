@@ -1234,3 +1234,12 @@
 - Validation: source/documentation review only; no pytest, runner, gateway, Kubernetes, PostgreSQL or staging execution performed.
 - Decision: HOLD / NO_GO; no LIVE, merge, activation or deployment.
 - Next: obtain gateway owner-approved issuer/audience, membership semantics, secret rotation and workload labels; then wire chart and add gateway-only ingress policy with negative bypass tests.
+
+
+### 2026-11-14 — Optional gateway assertion Helm wiring
+- Added Helm values for gateway assertion issuer, audience, TTL and optional Kubernetes Secret name/key; the API Deployment injects those settings and mounts the HMAC key only when an operator explicitly supplies a Secret reference.
+- Default remains fail-closed: `api.gatewayAssertionSecret` is empty, so `GATEWAY_ASSERTION_SECRET` is not mounted and tenant-scoped requests fail with verifier-not-configured until provisioned.
+- Added a static regression guard to `tests/test_route_security_static.py` for the optional secret mount, settings env vars and empty default.
+- This does not configure production identity values, create a Kubernetes Secret, or restrict API ingress to the gateway. NetworkPolicy peer selector remains blocked on gateway namespace/pod labels from the owner.
+- Validation: GitHub source changes only; no Helm rendering, pytest, Kubernetes, Gateway/IdP, PostgreSQL or staging execution performed.
+- Decision: HOLD / NO_GO; PR remains draft, no merge/LIVE/deployment.
