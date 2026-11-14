@@ -310,3 +310,15 @@ def test_mutated_nested_change_itsm_reference_rejected():
     change.itsm_change_ref.system = "unrecognized"
     with pytest.raises(ValidationError):
         preview_itil_workflow(item, change=change)
+
+
+def test_mutated_nested_problem_itsm_reference_rejected():
+    item = incident()
+    problem = ProblemAssessment(
+        tenant_id=TENANT, related_incident_ids=["DEMO-INC-1"],
+        suspected_root_cause="Unknown synthetic hypothesis",
+        problem_ref=ITSMReference(system="glpi", external_id="DEMO-PROB-42"),
+    )
+    problem.problem_ref.external_id = "invalid problem ref"
+    with pytest.raises(ValidationError):
+        preview_itil_workflow(item, problem=problem)
