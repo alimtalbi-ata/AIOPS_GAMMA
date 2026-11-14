@@ -22,6 +22,17 @@ spec:
             - name: INTERNAL_API_KEY
               valueFrom:
                 secretKeyRef: {name: {{ .Values.api.internalApiKeySecret | quote }}, key: {{ .Values.api.internalApiKeySecretKey | quote }}}
+            - name: GATEWAY_ASSERTION_ISSUER
+              value: {{ .Values.api.gatewayAssertionIssuer | quote }}
+            - name: GATEWAY_ASSERTION_AUDIENCE
+              value: {{ .Values.api.gatewayAssertionAudience | quote }}
+            - name: GATEWAY_ASSERTION_MAX_TTL_SECONDS
+              value: {{ .Values.api.gatewayAssertionMaxTtlSeconds | quote }}
+            {{- if .Values.api.gatewayAssertionSecret }}
+            - name: GATEWAY_ASSERTION_SECRET
+              valueFrom:
+                secretKeyRef: {name: {{ .Values.api.gatewayAssertionSecret | quote }}, key: {{ .Values.api.gatewayAssertionSecretKey | quote }}}
+            {{- end }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef: {name: {{ .Values.api.databaseUrlSecret | quote }}, key: {{ .Values.api.databaseUrlSecretKey | quote }}}
