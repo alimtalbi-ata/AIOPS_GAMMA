@@ -1722,3 +1722,9 @@
 - ITIL synthetic projection now reports `caller_declared_unique_ci_ids` as the size of the set of caller-declared verified CI identifiers, separate from the existing observation counts `verified_cis` and `caller_declared_verified_cis`.
 - Added tests for duplicate and distinct caller-declared identifiers. Neither count implies canonical CMDB verification, authority, persistence or LIVE permission.
 - Repository tests **not executed**. CI issue #8 and independent actor→tenant→resource ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — Fix ITIL regression argument routing
+- Audited `tests/test_itil_mutable_boundary.py`: three change-related tests mistakenly passed `ChangeProposal` as the second positional `problem` argument to `preview_itil_workflow`.
+- Changed all three calls to `change=change`, so the tests actually reach the intended invalid-risk, cross-tenant and unverified-target checks.
+- **Tests not executed**: this fixes test invocation, not a proven green result. CI issue #8 and independent canonical ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
