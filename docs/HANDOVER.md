@@ -1710,3 +1710,9 @@
 - Added `tests/test_evidence_normalization.py` to the synthetic-only local pytest command in `docs/CI-QUALIFICATION-BLOCKER.md`, alongside ITIL boundary tests.
 - Verified that all seven paths referenced by this command exist on `feat/observability-foundation`; this is a path check, **not** a test execution.
 - CI issue #8 and independent canonical actor→tenant→resource ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO; no LIVE, merge or deployment.
+
+
+### 2026-11-14 — Duplicate caller-declared CI observations
+- Added ITIL regression test with two observations sharing the same caller-declared CI ID. The legacy `verified_cis` and explicit `caller_declared_verified_cis` counts both represent observations, **not** unique independently verified CMDB entities.
+- Test requires `canonical_cmdb_verified=False` and caller-supplied provenance; no change to authorization or external integrations.
+- Tests **not executed**. CI issue #8 and canonical ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
