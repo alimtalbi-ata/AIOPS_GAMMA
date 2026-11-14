@@ -427,3 +427,34 @@ def test_mutated_change_evidence_list_over_limit_rejected_before_preview():
     assert len(change.evidence_refs) == 51
     with pytest.raises(ValidationError):
         preview_itil_workflow(item, change=change)
+
+
+def test_itil_ci_collection_accepts_exact_limit_without_inflating_unique_ids():
+    item = incident()
+    item.affected_cis[0].verified_against_cmdb = True
+    item.affected_cis.extend(
+        item.affected_cis[0].model_copy(deep=True) for _ in range(99)
+    )
+    cmdb = preview_itil_workflow(item)["service_configuration_management"]
+    assert cmdb["observed_cis"] == 100
+    assert cmdb["caller_declared_verified_cis"] == 100
+    assert cmdb["caller_declared_unique_ci_ids"] == 1
+    assert cmdb["canonical_cmdb_verified"] is False
+
+
+def test_itil_change_evidence_collection_accepts_exact_limit_without_authority():
+    item = incident()
+    item.affected_cis[0].verified_against_cmdb = True
+    change = ChangeProposal(
+        tenant_id=TENANT, source_incident_id="DEMO-INC-1",
+        target_ci_id="CI-DEMO-1", runbook_id="demo", runbook_version="v1",
+        impact_summary="Synthetic only", risk="unknown",
+        implementation_plan_ref="demo-implement",
+        rollback_plan_ref="demo-rollback",
+        verification_plan_ref="demo-verify",
+        evidence_refs=[f"DEMO-EVIDENCE-{i}" for i in range(50)],
+    )
+    result = preview_itil_workflow(item, change=change)
+    assert result["change_enablement"]["status"] == "DRAFT_AWAITING_ITSM_CHANGE_AUTHORITY"
+    assert result["change_enablement"]["authorization_state"] == "NOT_ASSESSED_BY_CHANGE_AUTHORITY"
+    assert result["execution"]["live_remediation_authorized"] is False
