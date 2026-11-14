@@ -76,3 +76,13 @@ def test_nested_container_pending_work_is_bounded():
     metadata.append({"nested": [{"source": "synthetic"}]})
     with pytest.raises(ValueError, match="scan bound exceeded"):
         reject_unqualified_tenant_scope(metadata)
+
+
+@pytest.mark.parametrize("key", ["x" * 256, "Ｔ" * 256])
+def test_oversized_untrusted_metadata_key_rejected_before_normalization(key):
+    with pytest.raises(ValueError, match="invalid tenant-scope key"):
+        reject_unqualified_tenant_scope({"diagnostics": {key: "synthetic"}})
+
+
+def test_maximum_length_benign_metadata_key_is_allowed():
+    reject_unqualified_tenant_scope({"x" * 255: "synthetic"})
