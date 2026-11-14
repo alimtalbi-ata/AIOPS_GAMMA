@@ -226,3 +226,16 @@ def test_explicit_caller_declared_ci_count(caller_claims_verified, expected_coun
     assert cmdb["caller_declared_verified_cis"] == expected_count
     assert cmdb["verified_cis"] == expected_count  # Legacy compatibility.
     assert cmdb["canonical_cmdb_verified"] is False
+
+
+def test_duplicate_caller_verified_ci_observations_do_not_imply_unique_canonical_cis():
+    item = incident()
+    item.affected_cis[0].verified_against_cmdb = True
+    item.affected_cis.append(item.affected_cis[0].model_copy(deep=True))
+    cmdb = preview_itil_workflow(item)["service_configuration_management"]
+    # Legacy count tracks observations, not unique verified canonical CMDB IDs.
+    assert cmdb["observed_cis"] == 2
+    assert cmdb["verified_cis"] == 2
+    assert cmdb["caller_declared_verified_cis"] == 2
+    assert cmdb["canonical_cmdb_verified"] is False
+    assert cmdb["ci_verification_source"] == "caller_supplied_preview"
