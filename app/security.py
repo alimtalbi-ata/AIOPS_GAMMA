@@ -121,9 +121,12 @@ def internal_principal(
     # authorize a tenant and cannot be used with a caller-selected X-Tenant-ID.
     if not settings.internal_api_key:
         raise HTTPException(status_code=503, detail="Internal service authentication not configured")
-    if not x_internal_api_key or not hmac.compare_digest(
-        x_internal_api_key.encode("utf-8"), settings.internal_api_key.encode("utf-8")
-    ):
+    try:
+        supplied_key = x_internal_api_key.encode("utf-8") if x_internal_api_key else b""
+        expected_key = settings.internal_api_key.encode("utf-8")
+    except UnicodeError as exc:
+        raise HTTPException(status_code=401, detail="Unauthorized") from exc
+    if not supplied_key or not hmac.compare_digest(supplied_key, expected_key):
         raise HTTPException(status_code=401, detail="Unauthorized")
     if not x_gateway_principal:
         raise HTTPException(status_code=401, detail="Verified gateway principal required")
