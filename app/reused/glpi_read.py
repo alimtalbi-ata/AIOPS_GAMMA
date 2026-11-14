@@ -15,15 +15,18 @@ from app.settings import settings
 
 
 async def read_glpi_incident(tenant_id: UUID, ticket_id: int) -> dict:
-    """Read an incident only after verifying a server-owned tenant/entity binding."""
+    """Fail closed until independent actor/tenant/resource ACL is qualified."""
+    if type(ticket_id) is not int or ticket_id <= 0:
+        raise HTTPException(422, "Invalid GLPI ticket id")
+    raise HTTPException(503, "GLPI actor/tenant/resource ACL not qualified")
+
+
+async def _read_glpi_incident_unqualified(tenant_id: UUID, ticket_id: int) -> dict:
+    """Offline-testable transport contract; NEVER expose as an API endpoint."""
     if type(ticket_id) is not int or ticket_id <= 0:
         raise HTTPException(422, "Invalid GLPI ticket id")
     if not settings.enable_glpi_reads:
         raise HTTPException(503, "GLPI reads disabled")
-    # HOLD: a configured tenant/entity mapping is not actor-to-resource ACL.
-    # Keep all GLPI network access disabled until independently qualified
-    # gateway identity, resource authorization and cross-tenant E2E tests.
-    raise HTTPException(503, "GLPI actor/tenant/resource ACL not qualified")
     # This is a deliberately single-tenant prototype. No browser-supplied entity
     # or token is ever accepted; additional tenants need an ACL-backed registry.
     if (not settings.glpi_tenant_id or str(tenant_id) != settings.glpi_tenant_id
