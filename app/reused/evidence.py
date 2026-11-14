@@ -9,6 +9,18 @@ import json
 from pydantic import BaseModel, Field, model_validator
 
 
+def _require_string_json_keys(value: object) -> None:
+    """Prevent JSON key coercion from aliasing distinct evidence objects."""
+    if isinstance(value, dict):
+        for key, nested in value.items():
+            if not isinstance(key, str):
+                raise ValueError("JSON object keys must be strings")
+            _require_string_json_keys(nested)
+    elif isinstance(value, (list, tuple)):
+        for nested in value:
+            _require_string_json_keys(nested)
+
+
 class EvidenceInput(BaseModel):
     tenant_id: str = Field(min_length=1, max_length=128)
     incident_id: str = Field(min_length=1, max_length=255)
@@ -24,6 +36,7 @@ class EvidenceInput(BaseModel):
         if self.observed_at.tzinfo is None or self.observed_at.utcoffset() is None:
             raise ValueError("observed_at requires timezone")
         for name, limit in (("payload", 65536), ("provenance", 8192)):
+            _require_string_json_keys(getattr(self, name))
             try:
                 encoded = json.dumps(getattr(self, name), allow_nan=False, sort_keys=True, separators=(",", ":"))
             except (TypeError, ValueError) as exc:
