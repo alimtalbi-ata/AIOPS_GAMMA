@@ -435,3 +435,43 @@ def test_replay_db_loopback_sql_matches_reviewed_ipv4_ipv6_query():
                 "OR inet_server_addr() = inet '::1'")
     if query.args[0].value != expected:
         pytest.fail("Loopback SQL differs from reviewed IPv4/IPv6 expression")
+
+def test_replay_db_disposable_url_validator_is_direct_before_engine():
+    """Reject bypassing the disposable DB URL validator before engine creation."""
+    source = (Path(__file__).parent / "test_gateway_replay_postgres.py").read_text(
+        encoding="utf-8"
+    )
+    fixtures = [
+        node for node in ast.parse(source).body
+        if isinstance(node, ast.AsyncFunctionDef) and node.name == "replay_db"
+    ]
+    if len(fixtures) != 1:
+        pytest.fail("Expected exactly one replay_db fixture")
+    body = fixtures[0].body
+    urls = [
+        (index, node) for index, node in enumerate(body)
+        if isinstance(node, ast.Assign)
+        and len(node.targets) == 1
+        and isinstance(node.targets[0], ast.Name)
+        and node.targets[0].id == "url"
+    ]
+    if len(urls) != 1:
+        pytest.fail("Expected exactly one direct URL assignment")
+    index, assignment = urls[0]
+    expected = ast.parse(
+        'url = _require_disposable_database_url('
+        'os.environ.get("GAMMA_REPLAY_TEST_DATABASE_URL", ""))'
+    ).body[0].value
+    if ast.dump(assignment.value) != ast.dump(expected):
+        pytest.fail("URL must be validated directly using the disposable DB validator")
+    if index == 0 or not isinstance(body[index - 1], ast.If):
+        pytest.fail("URL validation must follow the optimized Python rejection")
+    if index + 1 >= len(body) or not isinstance(body[index + 1], ast.If):
+        pytest.fail("URL validation must precede explicit write acknowledgement")
+    if any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "create_async_engine"
+        for statement in body[:index + 1] for node in ast.walk(statement)
+    ):
+        pytest.fail("Engine must not be created before URL validation")
