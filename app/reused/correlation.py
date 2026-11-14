@@ -28,8 +28,11 @@ class CorrelationSignal(BaseModel):
     @field_validator("source", "external_event_id", "service_name", "environment", "symptom_key")
     @classmethod
     def validate_identity(cls, value: str) -> str:
-        if value != value.strip():
-            raise ValueError("identity fields must not contain surrounding whitespace")
+        if value != value.strip() or any(
+            ord(ch) < 32 or ord(ch) == 127 or 0xD800 <= ord(ch) <= 0xDFFF
+            for ch in value
+        ):
+            raise ValueError("identity fields must be canonical printable text")
         return value
 
     @field_validator("evidence_refs")
@@ -45,8 +48,12 @@ class CorrelationSignal(BaseModel):
 
     @model_validator(mode="after")
     def validate_time(self):
-        if self.ci_id is not None and self.ci_id != self.ci_id.strip():
-            raise ValueError("ci_id must not contain surrounding whitespace")
+        if self.ci_id is not None and (
+            self.ci_id != self.ci_id.strip()
+            or any(ord(ch) < 32 or ord(ch) == 127 or 0xD800 <= ord(ch) <= 0xDFFF
+                   for ch in self.ci_id)
+        ):
+            raise ValueError("ci_id must be canonical printable text")
         if self.observed_at.tzinfo is None:
             raise ValueError("observed_at must have a timezone")
         return self
