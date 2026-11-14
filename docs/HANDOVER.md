@@ -4,13 +4,14 @@
 
 ## Current checkpoint — 2026-11-14 (supersedes historical HEADs below)
 
-- Exact branch/PR HEAD: `f3b5e7bbb3fe1390156b2870826ca1a8ed2c19fa`; PR #1 remains open, draft, not merged.
-- Gateway assertion settings in Helm (`GATEWAY_ASSERTION_SECRET`, issuer, audience, max TTL) match the Pydantic settings names consumed by `app/security.py`. The Secret reference is empty by default; verifier remains fail-closed until an owner-provisioned Secret is configured.
-- API NetworkPolicy is deny-all while gateway namespace/pod selector maps are empty. With both maps populated, its sole API ingress peer is their namespaceSelector + podSelector conjunction on the API port. Do not guess these labels.
-- UI Nginx proxies only two public synthetic demo GET endpoints; all other `/api/` paths return 404. Do not add UI pods as a tenant API peer. The deny-all policy also blocks the demo proxy paths across separate UI/API pods; resolve this availability tradeoff without widening tenant API trust.
-- Exact-HEAD Actions runs: Python checks `43591406421` and Deployment contract `43591406440` completed failure, but all 9 jobs expose `steps: []`. No checkout, tests, Helm, Compose, Docker or PostgreSQL command ran. This is a runner/bootstrap failure signal, not a code test result; its root cause remains unestablished.
-- No gateway owner response/approved issuer, audience, membership contract, secret lifecycle or namespace/pod labels has been recorded in issue #2.
-- Source review only. No pytest, Helm render/lint, Kubernetes/CNI, gateway, staging or PostgreSQL runtime qualification on this HEAD.
+- Exact branch/PR HEAD at latest inspection: `2f6cb3f63016ea2d85028a87d0703c785694b7a3`; PR #1 remains open, draft, not merged.
+- Latest exact-HEAD Actions runs: Python checks `43592028145`; Deployment contract `43592028128`. All 9 jobs were individually inspected; every job has `steps: 0`. No checkout, tests, Helm, Compose, Docker or PostgreSQL command executed. This is a pre-step Actions failure, not a project test result; root cause remains unestablished.
+- Workflow definitions use `runs-on: ubuntu-latest` for all jobs; no custom runner labels found. GitHub connection cannot inspect repository/org Actions administration settings or run-page pre-step annotations. Administrator must supply the redacted error and verify hosted-runner entitlement/availability, Actions policy, runner-group access, billing/usage and approvals.
+- Gateway assertion settings in Helm map to Pydantic settings; assertion Secret reference remains empty by default, so verifier fails closed until provisioned by an approved operator.
+- API NetworkPolicy is deny-all while gateway namespace/pod selector maps are empty. When both are populated, the only allowed peer is their namespaceSelector + podSelector conjunction on the API port. Do not guess labels.
+- UI Nginx proxies only two public synthetic demo GET endpoints; all other `/api/` paths return 404. Do not add UI pods as a tenant API peer. The deny-all policy also blocks demo proxy paths across separate UI/API pods; resolve this without widening tenant API trust.
+- No Gateway/IdP owner response or approved issuer/audience, authoritative membership/resource ACL, secret lifecycle, or trusted namespace/pod labels has been recorded in issue #2.
+- Source review only. No pytest, Helm render/lint, Kubernetes/CNI, Gateway/IdP, staging or PostgreSQL runtime qualification on this HEAD.
 - **Decision: HOLD / NO_GO.** Keep canonical reads disabled, PR draft, and do not merge, deploy or enable LIVE.
 
 
