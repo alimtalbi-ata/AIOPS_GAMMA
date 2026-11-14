@@ -310,3 +310,25 @@ def test_api_network_policy_denies_ingress_until_gateway_peer_selectors_exist():
     assert "podSelector:" in policy
     assert "ingress: []" in policy
     assert "deny all API ingress until the gateway" in policy
+
+
+def test_public_demo_signature_mutations_are_rejected(tmp_path, monkeypatch):
+    """Exercise the public-handler guard against injected request inputs."""
+    import pytest
+    import sys
+
+    source = MAIN.read_text(encoding="utf-8")
+    original = "async def demo_correlation():"
+    assert source.count(original) == 1
+    module = sys.modules[__name__]
+    for changed in (
+        "async def demo_correlation(user_input: str):",
+        "async def demo_correlation(principal=Depends(internal_principal)):",
+        "async def demo_correlation(*, tenant_id: str):",
+    ):
+        candidate = tmp_path / "main.py"
+        candidate.write_text(source.replace(original, changed, 1), encoding="utf-8")
+        with monkeypatch.context() as patch:
+            patch.setattr(module, "MAIN", candidate)
+            with pytest.raises(AssertionError):
+                test_public_demo_routes_only_call_reviewed_synthetic_helpers()
