@@ -397,3 +397,18 @@ def test_public_liveness_handler_mutations_rejected():
     ):
         with pytest.raises(AssertionError, match="Public liveness handler"):
             _assert_public_liveness_handler(source.replace(original, changed, 1))
+
+    decorator = '@app.get("/api/v1/health/live")'
+    assert source.count(decorator) == 1
+    for changed in (
+        '@app.get("/api/v1/health/live", dependencies=[])',
+        '@unexpected_decorator\\n@app.get("/api/v1/health/live")',
+    ):
+        candidate = source.replace(decorator, changed.replace("\\\\n", "\\n"), 1)
+        with pytest.raises(AssertionError, match="Public liveness handler"):
+            _assert_public_liveness_handler(candidate)
+
+    with pytest.raises(AssertionError, match="Public liveness handler"):
+        _assert_public_liveness_handler(
+            source.replace("async def live():", "def live():", 1)
+        )
