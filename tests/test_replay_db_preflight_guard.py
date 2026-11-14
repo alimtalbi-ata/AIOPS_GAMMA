@@ -359,3 +359,37 @@ def test_replay_db_disposes_engine_directly_in_finally():
             and statement.value.value.func.value.id == "engine"
             and statement.value.value.func.attr == "dispose"):
         pytest.fail("Engine disposal must be directly awaited in finally")
+
+
+def test_replay_db_write_acknowledgement_is_direct_before_engine_creation():
+    """Require explicit write opt-in to fail directly before creating any engine."""
+    source = (Path(__file__).parent / "test_gateway_replay_postgres.py").read_text(encoding="utf-8")
+    fixtures = [node for node in ast.parse(source).body
+                if isinstance(node, ast.AsyncFunctionDef) and node.name == "replay_db"]
+    if len(fixtures) != 1:
+        pytest.fail("Expected exactly one replay_db fixture")
+    body = fixtures[0].body
+    engines = [i for i, node in enumerate(body)
+               if isinstance(node, ast.Assign)
+               and isinstance(node.value, ast.Call)
+               and isinstance(node.value.func, ast.Name)
+               and node.value.func.id == "create_async_engine"]
+    if len(engines) != 1 or engines[0] < 1:
+        pytest.fail("Expected one direct engine creation after write acknowledgement")
+    guard = body[engines[0] - 1]
+    if not (isinstance(guard, ast.If)
+            and not guard.orelse
+            and len(guard.body) == 1
+            and isinstance(guard.body[0], ast.Expr)
+            and isinstance(guard.body[0].value, ast.Call)
+            and isinstance(guard.body[0].value.func, ast.Attribute)
+            and isinstance(guard.body[0].value.func.value, ast.Name)
+            and guard.body[0].value.func.value.id == "pytest"
+            and guard.body[0].value.func.attr == "fail"):
+        pytest.fail("Write acknowledgement must reject directly before engine creation")
+    expected = ast.parse(
+        'os.environ.get("GAMMA_REPLAY_TEST_ALLOW_WRITE") != "I_UNDERSTAND_DISPOSABLE_DB"',
+        mode="eval"
+    ).body
+    if ast.dump(guard.test) != ast.dump(expected):
+        pytest.fail("Write acknowledgement must require the exact opt-in token")
