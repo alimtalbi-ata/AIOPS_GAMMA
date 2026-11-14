@@ -35,9 +35,14 @@ class ImpactEstimate:
 
 
 def estimate_impact(direct_impact: float, redundant_paths: int, total_paths: int) -> ImpactEstimate:
-    if not 0.0 <= direct_impact <= 1.0:
-        raise ValueError("direct_impact must be between 0 and 1")
-    if total_paths < 0 or redundant_paths < 0 or redundant_paths > total_paths:
+    # bool is an int subclass in Python; reject it explicitly at this boundary.
+    if (not isinstance(direct_impact, (int, float))
+            or isinstance(direct_impact, bool)
+            or not 0.0 <= direct_impact <= 1.0):
+        raise ValueError("direct_impact must be a finite number between 0 and 1")
+    if (not isinstance(redundant_paths, int) or isinstance(redundant_paths, bool)
+            or not isinstance(total_paths, int) or isinstance(total_paths, bool)
+            or total_paths < 0 or redundant_paths < 0 or redundant_paths > total_paths):
         raise ValueError("invalid path counts")
     if total_paths == 0:
         return ImpactEstimate("UNKNOWN", 0.0)
