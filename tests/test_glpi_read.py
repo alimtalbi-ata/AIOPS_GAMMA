@@ -298,3 +298,29 @@ async def test_glpi_api_route_remains_fail_closed_with_feature_enabled(monkeypat
     assert response.headers["Cache-Control"] == "no-store"
     assert exc.value.status_code == 503
     assert "ACL not qualified" in str(exc.value.detail)
+
+
+def test_glpi_http_response_never_caches_denied_ticket(monkeypatch):
+    """ASGI response must carry no-store, not just an injected Response object."""
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.security import Principal, internal_principal
+
+    tenant = uuid4()
+    monkeypatch.setattr(glpi_read.settings, "enable_glpi_reads", True)
+
+    def no_network(*args, **kwargs):
+        raise AssertionError("GLPI denied snapshot must not contact upstream")
+
+    monkeypatch.setattr(glpi_read.httpx, "AsyncClient", no_network)
+    principal = Principal(tenant_id=tenant, subject="synthetic-actor",
+                          actor_type="user", assertion_id="synthetic", expires_at=1)
+    app.dependency_overrides[internal_principal] = lambda: principal
+    try:
+        with TestClient(app) as client:
+            for ticket_id, expected in [("12", 503), ("0", 422)]:
+                response = client.get(f"/api/v1/itil4/glpi/incidents/{ticket_id}/snapshot")
+                assert response.status_code == expected
+                assert response.headers["cache-control"] == "no-store"
+    finally:
+        app.dependency_overrides.pop(internal_principal, None)
