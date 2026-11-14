@@ -216,3 +216,13 @@ def test_ci_verification_flag_rejected_at_construction(invalid_flag):
             last_observed_at=NOW, cmdb_ci_id="CI-DEMO-1",
             verified_against_cmdb=invalid_flag,
         )
+
+
+@pytest.mark.parametrize("caller_claims_verified,expected_count", [(False, 0), (True, 1)])
+def test_explicit_caller_declared_ci_count(caller_claims_verified, expected_count):
+    item = incident()
+    item.affected_cis[0].verified_against_cmdb = caller_claims_verified
+    cmdb = preview_itil_workflow(item)["service_configuration_management"]
+    assert cmdb["caller_declared_verified_cis"] == expected_count
+    assert cmdb["verified_cis"] == expected_count  # Legacy compatibility.
+    assert cmdb["canonical_cmdb_verified"] is False
