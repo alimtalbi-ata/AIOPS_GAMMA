@@ -1593,3 +1593,10 @@
 - Caller-supplied fields are HTML/Markdown escaped; timeline, RCA and impact retain UNKNOWN/UNVERIFIED states; incident durations remain UNKNOWN rather than fabricated. Output explicitly requires human review and forbids treating it as closure or an ITSM mutation.
 - Four new tests cover deterministic ordering, untrusted markup, missing facts and cross-tenant denial.
 - Tests **not executed**; CI issue #8 remains unresolved. Canonical ACL issue #2 remains blocked. PR #1 stays Draft HOLD / NO_GO; no persistence, ITSM writes or LIVE action.
+
+
+### 2026-11-14 — UC04 supplied-clock fail-closed
+- `preview_impact` now uses the current UTC clock only when `now is None`, and checks explicit clock type, timezone and UTC offset before arithmetic.
+- Seven new cases cover malformed/falsy supplied clocks and a valid non-UTC timezone offset. Invalid inputs now raise a stable `ValueError` rather than an `AttributeError` or implicit fallback.
+- Synthetic graph remains caller-supplied; `CANDIDATE_ONLY` never means canonical CMDB verification.
+- Tests **not executed**; CI issue #8 remains unresolved. Canonical actor→tenant→resource ACL issue #2 remains blocked. PR #1 stays Draft HOLD / NO_GO; no persistence, ITSM mutation or LIVE action.
