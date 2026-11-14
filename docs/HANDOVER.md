@@ -1892,3 +1892,10 @@
 - `tests/test_topology_preview.py` adds disjointness/coverage, direct-edge precedence and self-loop UNKNOWN regressions; UC04 catalog updated.
 - Commits: `a279b09` code, `9f2c133` tests, `a86cbe8` catalog. Repository tests **not executed**. Synthetic caller-supplied topology only; no verified CMDB, authority or LIVE remediation.
 - CI #8 and actor→tenant→resource ACL #2 remain blockers. PR #1 remains Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — UC04 reverse dependency preview
+- Added `preview_upstream_dependents(failed_ci_id, nodes, edges)` to `app/reused/topology_preview.py`. Edges remain consumer→dependency; the pure preview reverses them to list possible upstream consumers of a caller-supplied failed CI, with minimum-hop paths. It does not type nodes as verified services or establish actual outage impact.
+- Added regressions in `tests/test_topology_preview.py` for direction, transitive consumer paths, unknown endpoints, malformed edges and cycles. Updated UC04 catalog.
+- Commits: `51dadf7` code, `79618e6` tests, `f4badea` catalog. Tests **not executed**; CI #8 and actor→tenant→resource ACL #2 still block qualification.
+- PR #1 remains Draft HOLD / NO_GO. No merge, deployment, real database or LIVE/remediation access.
