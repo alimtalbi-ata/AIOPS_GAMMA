@@ -32,6 +32,17 @@ class CorrelationSignal(BaseModel):
             raise ValueError("identity fields must not contain surrounding whitespace")
         return value
 
+    @field_validator("evidence_refs")
+    @classmethod
+    def validate_evidence_refs(cls, refs: list[str]) -> list[str]:
+        # Bounded, printable references only: never propagate arbitrary upstream
+        # text or control characters as evidence identifiers in a preview.
+        if any(not ref or len(ref) > 256 or ref != ref.strip()
+               or any(ord(ch) < 32 or ord(ch) == 127 or 0xD800 <= ord(ch) <= 0xDFFF
+                      for ch in ref) for ref in refs):
+            raise ValueError("invalid correlation evidence reference")
+        return refs
+
     @model_validator(mode="after")
     def validate_time(self):
         if self.ci_id is not None and self.ci_id != self.ci_id.strip():
