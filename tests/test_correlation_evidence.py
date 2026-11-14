@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 import pytest
+from pydantic import ValidationError
 
 from app.reused.correlation import CorrelationSignal, CorrelationPreview
 from app.reused.evidence import EvidenceInput
@@ -589,21 +590,21 @@ def test_join_rejects_invalid_authorized_tenant_identity(invalid_tenant):
 def test_preview_revalidates_mutated_nested_correlation_signal():
     req = request()
     req.correlation.signals[0].severity = "unknown"
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         preview(req, TENANT, now=NOW)
 
 
 def test_preview_revalidates_mutated_nested_evidence_payload_limit():
     req = request()
     req.evidence[0].payload = {"blob": "x" * 100_000}
-    with pytest.raises((ValueError, Exception)):
+    with pytest.raises(ValidationError):
         preview(req, TENANT, now=NOW)
 
 
 def test_preview_rejects_mutated_evidence_collection_over_limit():
     req = request()
     req.evidence = [req.evidence[0].model_copy(deep=True) for _ in range(501)]
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         preview(req, TENANT, now=NOW)
 
 
