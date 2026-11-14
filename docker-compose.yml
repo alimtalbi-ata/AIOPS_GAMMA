@@ -3,9 +3,6 @@ services:
     build: ./frontend
     ports: ["127.0.0.1:5173:8080"]
     restart: unless-stopped
-    depends_on:
-      api:
-        condition: service_healthy
   api:
     build: .
     ports: ["127.0.0.1:8000:8000"]
