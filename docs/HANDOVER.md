@@ -1395,3 +1395,9 @@
 - Added a disposable-source mutation test that duplicates the public synthetic correlation route decorator and a private logs-search route decorator; each must trigger the duplicate-route guard. No database or network is involved.
 - Re-fetched `app/main.py` from GitHub: 21 registered HTTP route pairs, 21 unique pairs. The new mutation test is defined but has **not** been executed by pytest; source-only inspection is not CI qualification.
 - **HOLD / NO_GO**; PR #1 remains Draft. No merge, PostgreSQL, LIVE or deployment.
+
+
+### 2026-11-14 — Review and lock HTTP route decorator options
+- The route-auth AST guard now rejects extra positional decorator arguments and unreviewed keyword options, including unpacked or nonliteral values. It explicitly allows only the two existing `status_code=201` creation routes (`POST /api/v1/topology/bindings` and `POST /api/v1/incidents/{incident_id}/evidence`), with exact values; no auth/route behavior is relaxed.
+- Added disposable-source mutation tests for unreviewed dependencies/schema/positional decorator options and changes/removal/additional options to the approved creation status. Reviewed `app/main.py` source: 21 HTTP route decorators, only those two have explicit `status_code=201` options.
+- These are source and test-definition checks, **not pytest execution**. CI runner/bootstrap remains unqualified; PR #1 Draft, **HOLD / NO_GO**, no merge, LIVE, PostgreSQL or deployment.
