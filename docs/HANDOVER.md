@@ -1788,3 +1788,9 @@
 - Added synthetic boundary regressions for an incident mutated to contain 101 observed CIs (limit 100) and a change mutated to contain 51 evidence references (limit 50).
 - Both must fail during model revalidation before a preview is returned; no external CMDB/ITSM calls or authorizing behavior were introduced.
 - Tests **not executed**. CI issue #8 and independent actor→tenant→resource ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — Exact-limit ITIL collection acceptance
+- Added complementary synthetic boundary tests for exactly 100 caller-declared verified CI observations (one distinct CI ID, no canonical verification) and exactly 50 change evidence references (draft only, no change authority).
+- Complements previous 101-CI and 51-evidence rejection tests without altering production code.
+- Tests **not executed**. CI issue #8 and independent actor→tenant→resource ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
