@@ -321,3 +321,24 @@ def test_direct_correlation_revalidates_mutated_evidence_reference_types():
     item.evidence_refs = ["valid", 42]
     with pytest.raises(ValidationError):
         correlate([item], "tenant-1")
+
+
+@pytest.mark.parametrize("invalid_ref", [
+    "", " ", " padded", "padded ", "x" * 257,
+    "trace\nforged", "trace\x00forged", "trace\x7fforged", "\ud800",
+])
+def test_untrusted_correlation_evidence_reference_is_rejected(invalid_ref):
+    payload = signal("event").model_dump()
+    payload["evidence_refs"] = [invalid_ref]
+    with pytest.raises(ValidationError, match="invalid correlation evidence reference"):
+        CorrelationSignal.model_validate(payload)
+
+
+def test_correlation_evidence_reference_boundary_and_mutation_revalidation():
+    item = signal("event")
+    item.evidence_refs = ["x" * 256]
+    result = correlate([item], "tenant-1")
+    assert result["groups"][0]["evidence_refs"] == ["x" * 256]
+    item.evidence_refs = ["x" * 257]
+    with pytest.raises(ValidationError, match="invalid correlation evidence reference"):
+        correlate([item], "tenant-1")
