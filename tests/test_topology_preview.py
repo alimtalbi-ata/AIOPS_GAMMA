@@ -599,3 +599,33 @@ def test_reachable_cycle_and_missing_edge_report_both_signals(reverse):
     assert result["topology_state"] == "UNKNOWN"
     assert result["authoritative"] is False
     assert result["live_remediation_authorized"] is False
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_mixed_cycle_and_missing_edge_flags_are_permutation_invariant(reverse):
+    call = preview_upstream_dependents if reverse else preview
+    nodes = ["root", "app", "other"]
+    edges = [("root", "app"), ("app", "root"), ("other", "absent")]
+    edges.append(("missing", "app") if reverse else ("app", "missing"))
+    first = call("root", nodes, edges)
+    second = call("root", list(reversed(nodes)), list(reversed(edges)) + [edges[0]])
+    assert first == second
+    assert first["cycle_detected"] is True
+    assert first["unresolved_edge_detected"] is True
+    assert first["topology_state"] == "UNKNOWN"
+    assert first["authoritative"] is False
+    assert first["persisted"] is False
+    assert first["live_remediation_authorized"] is False
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_reachable_missing_edge_without_cycle_stays_unknown(reverse):
+    call = preview_upstream_dependents if reverse else preview
+    edges = [("root", "app")]
+    edges.append(("missing", "app") if reverse else ("app", "missing"))
+    result = call("root", ["root", "app"], edges)
+    assert result["cycle_detected"] is False
+    assert result["unresolved_edge_detected"] is True
+    assert result["topology_state"] == "UNKNOWN"
+    assert result["canonical_cmdb_verified"] is False
+    assert result["live_remediation_authorized"] is False
