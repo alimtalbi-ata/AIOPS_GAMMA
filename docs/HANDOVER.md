@@ -1853,3 +1853,10 @@
 - Added `tests/test_topology_preview.py`: transitive paths, cycle, unresolved edge, diamond DAG, unrelated nodes and malformed/oversized inputs.
 - Updated UC04 catalog maturity to describe synthetic-only graph preview. This is **not** an authenticated CMDB topology or production blast-radius estimate.
 - Tests **not executed**; CI issue #8 and canonical actor→tenant→resource ACL issue #2 remain release blockers. PR #1 remains Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — UC04 shared-dependency DFS correction
+- Fixed a false-positive cycle bug in `app/reused/topology_preview.py`: queued sibling nodes previously could appear gray while not actually active in the DFS. Traversal now retains per-frame child iterators and marks a node gray only during its active traversal.
+- Added tests for a DAG with a shared dependency and cross-edge, and for a genuine back-edge to an active ancestor.
+- Commits: `f5aa513` implementation, `553cca6` tests. No tests were executed in this session; graph output remains caller-supplied, noncanonical and nonauthoritative.
+- CI #8 and canonical ACL #2 still block qualification. PR #1 remains Draft HOLD / NO_GO.
