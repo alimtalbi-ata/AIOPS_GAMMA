@@ -1640,3 +1640,9 @@
 - Corrected two post-mutation mixed/nested JSON key regression tests to expect `ValueError` from `normalize`'s pre-serialization guard, rather than `ValidationError` from Pydantic model construction.
 - Invalid keys remain rejected; no relaxation of input checks.
 - Tests **not executed**. CI issue #8 and canonical ACL issue #2 remain blockers; PR #1 Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — UC03 construction depth test compatibility
+- Construction-time deep JSON tests now assert `ValidationError` without relying on the message of the first rejecting layer: Pydantic may enforce its own recursion limit before the explicit 64-level validator.
+- Post-mutation normalization tests still assert the explicit `ValueError("JSON nesting exceeds 64 levels")` from the pre-serialization guard.
+- Tests **not executed**; CI issue #8 and canonical ACL issue #2 remain unresolved. PR #1 stays Draft HOLD / NO_GO; no LIVE or canonical access.
