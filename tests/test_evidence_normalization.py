@@ -291,3 +291,19 @@ def test_evidence_direct_normalize_rejects_mutated_surrogate(field):
     setattr(item, field, {"proof": "bad\\ud800value"})
     with pytest.raises(ValueError, match="surrogate"):
         normalize([item], now=NOW)
+
+
+@pytest.mark.parametrize("field", ["tenant_id", "incident_id", "source", "external_id", "claim"])
+@pytest.mark.parametrize("control", ["\\x00", "\\x1f", "\\x7f"])
+def test_evidence_identity_rejects_embedded_control_characters(field, control):
+    payload = evidence().model_dump()
+    payload[field] = "safe" + control + "suffix"
+    with pytest.raises(ValidationError, match="canonical printable"):
+        EvidenceInput.model_validate(payload)
+
+
+def test_direct_normalization_rejects_mutated_control_character_identity():
+    item = evidence()
+    item.external_id = "evt\\x00forged"
+    with pytest.raises(ValidationError, match="canonical printable"):
+        normalize([item], now=NOW)
