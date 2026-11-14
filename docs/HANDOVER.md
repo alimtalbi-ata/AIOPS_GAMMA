@@ -1860,3 +1860,9 @@
 - Added tests for a DAG with a shared dependency and cross-edge, and for a genuine back-edge to an active ancestor.
 - Commits: `f5aa513` implementation, `553cca6` tests. No tests were executed in this session; graph output remains caller-supplied, noncanonical and nonauthoritative.
 - CI #8 and canonical ACL #2 still block qualification. PR #1 remains Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — use-case ID traceability correction
+- Corrected `docs/USE-CASE-CATALOG.md` to match the pre-existing canonical UC01–UC10 numbering in `docs/ROADMAP.md` and synthetic test journeys. The earlier UC01–UC12 table had inadvertently assigned conflicting meanings to UC02/UC03/UC05–UC10 and incorrectly described the synthetic UC10 postmortem as not delivered.
+- The catalog now distinguishes delivered **synthetic** UC04 topology, UC06 RCA, UC08 runbook/HITL and UC10 postmortem previews from unqualified canonical/live features. Governance and ingestion remain cross-cutting rather than invented UC11/UC12 identifiers.
+- Updated README and ROADMAP catalog references from UC01–UC12 to UC01–UC10. Documentation-only changes; no tests executed. CI #8 and actor→tenant→resource ACL #2 remain blockers; PR #1 stays Draft HOLD / NO_GO.
