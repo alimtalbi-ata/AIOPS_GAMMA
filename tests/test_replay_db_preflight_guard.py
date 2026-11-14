@@ -333,3 +333,29 @@ def test_replay_db_optimized_python_rejection_is_direct():
             and statement.value.func.value.id == "pytest"
             and statement.value.func.attr == "fail"):
         pytest.fail("Optimized-mode guard must call pytest.fail directly")
+
+
+def test_replay_db_disposes_engine_directly_in_finally():
+    """Require direct awaited engine disposal even if qualification or tests fail."""
+    source = (Path(__file__).parent / "test_gateway_replay_postgres.py").read_text(encoding="utf-8")
+    fixtures = [node for node in ast.parse(source).body
+                if isinstance(node, ast.AsyncFunctionDef) and node.name == "replay_db"]
+    if len(fixtures) != 1:
+        pytest.fail("Expected exactly one replay_db fixture")
+    tries = [node for node in fixtures[0].body if isinstance(node, ast.Try)]
+    if len(tries) != 1:
+        pytest.fail("Expected exactly one direct engine lifecycle try block")
+    finalbody = tries[0].finalbody
+    if len(finalbody) != 1:
+        pytest.fail("Engine cleanup must be a direct finally statement")
+    statement = finalbody[0]
+    if not (isinstance(statement, ast.Expr)
+            and isinstance(statement.value, ast.Await)
+            and isinstance(statement.value.value, ast.Call)
+            and not statement.value.value.args
+            and not statement.value.value.keywords
+            and isinstance(statement.value.value.func, ast.Attribute)
+            and isinstance(statement.value.value.func.value, ast.Name)
+            and statement.value.value.func.value.id == "engine"
+            and statement.value.value.func.attr == "dispose"):
+        pytest.fail("Engine disposal must be directly awaited in finally")
