@@ -198,3 +198,21 @@ def test_itil_preview_never_promotes_caller_claims_to_authority(caller_claims_ve
     assert result["execution"]["state"] == "FORBIDDEN_IN_PREVIEW"
     assert result["execution"]["live_remediation_authorized"] is False
     assert result["execution"]["itsm_mutations_performed"] is False
+
+
+@pytest.mark.parametrize("invalid_flag", ["true", "false", 1, 0, None])
+def test_mutated_ci_verification_flag_must_be_literal_boolean(invalid_flag):
+    item = incident()
+    item.affected_cis[0].verified_against_cmdb = invalid_flag
+    with pytest.raises(ValidationError):
+        preview_itil_workflow(item)
+
+
+@pytest.mark.parametrize("invalid_flag", ["true", 1, None])
+def test_ci_verification_flag_rejected_at_construction(invalid_flag):
+    with pytest.raises(ValidationError):
+        ObservedCI(
+            service_name="checkout", discovery_source="synthetic",
+            last_observed_at=NOW, cmdb_ci_id="CI-DEMO-1",
+            verified_against_cmdb=invalid_flag,
+        )
