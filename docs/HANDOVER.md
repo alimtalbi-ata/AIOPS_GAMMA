@@ -1698,3 +1698,9 @@
 - Explicitly separated older `404 BlobNotFound` log observation from the latest runs; no latest logs were examined, no pytest result established and no blind rerun initiated.
 - Operator must identify runner/platform run-summary error before qualifying a new exact HEAD. Issue #8 remains open; independent canonical ACL issue #2 remains open.
 - PR #1 stays Draft HOLD / NO_GO; no merge, LIVE, canonical access or deployment.
+
+
+### 2026-11-14 — Include ITIL boundary tests in CI fallback
+- Added `tests/test_itil_mutable_boundary.py` to the isolated synthetic-only pytest command in `docs/CI-QUALIFICATION-BLOCKER.md`.
+- This is a reproducible test **instruction**, not a test run or evidence of passing checks. Use a reviewed checkout without production secrets; never connect a real PostgreSQL database.
+- CI issue #8 and canonical actor→tenant→resource ACL issue #2 remain unresolved. PR #1 stays Draft HOLD / NO_GO.
