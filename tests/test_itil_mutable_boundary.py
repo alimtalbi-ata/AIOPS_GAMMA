@@ -252,3 +252,19 @@ def test_distinct_caller_declared_ci_ids_counted_separately_without_canonical_au
     assert cmdb["caller_declared_verified_cis"] == 2
     assert cmdb["caller_declared_unique_ci_ids"] == 2
     assert cmdb["canonical_cmdb_verified"] is False
+
+
+def test_unverified_observation_does_not_inflate_caller_declared_unique_ci_ids():
+    item = incident()
+    item.affected_cis[0].verified_against_cmdb = True
+    unverified = item.affected_cis[0].model_copy(deep=True)
+    unverified.cmdb_ci_id = "CI-UNVERIFIED-2"
+    unverified.verified_against_cmdb = False
+    item.affected_cis.append(unverified)
+    cmdb = preview_itil_workflow(item)["service_configuration_management"]
+    assert cmdb["observed_cis"] == 2
+    assert cmdb["verified_cis"] == 1
+    assert cmdb["caller_declared_verified_cis"] == 1
+    assert cmdb["caller_declared_unique_ci_ids"] == 1
+    assert cmdb["unverified_cis"] == 1
+    assert cmdb["canonical_cmdb_verified"] is False
