@@ -475,3 +475,71 @@ def test_replay_db_disposable_url_validator_is_direct_before_engine():
         for statement in body[:index + 1] for node in ast.walk(statement)
     ):
         pytest.fail("Engine must not be created before URL validation")
+
+def test_disposable_url_validator_rejects_unsafe_routing():
+    """Require direct URL validation guards without pinning the entire function AST."""
+    source = (Path(__file__).parent / "test_gateway_replay_postgres.py").read_text(
+        encoding="utf-8"
+    )
+    functions = [node for node in ast.parse(source).body
+                 if isinstance(node, ast.FunctionDef)
+                 and node.name == "_require_disposable_database_url"]
+    if len(functions) != 1:
+        pytest.fail("Expected exactly one disposable URL validator")
+    body = functions[0].body
+    required = (
+        'not raw_url',
+        'parsed.drivername != "postgresql+asyncpg"',
+        'not parsed.database or not parsed.database.endswith("_replay_test")',
+        'parsed.host not in ("localhost", "127.0.0.1", "::1")',
+        'parsed.query',
+    )
+    for condition in required:
+        expected = ast.dump(ast.parse(condition, mode="eval").body)
+        guards = [node for node in body if isinstance(node, ast.If)
+                  and ast.dump(node.test) == expected]
+        if len(guards) != 1:
+            pytest.fail(f"Missing direct URL guard: {condition}")
+        direct = guards[0].body
+        if (len(direct) != 1 or not isinstance(direct[0], ast.Expr)
+                or not isinstance(direct[0].value, ast.Call)):
+            pytest.fail(f"URL guard must reject directly: {condition}")
+        call = direct[0].value
+        method = "skip" if condition == "not raw_url" else "fail"
+        if not (isinstance(call.func, ast.Attribute)
+                and isinstance(call.func.value, ast.Name)
+                and call.func.value.id == "pytest" and call.func.attr == method):
+            pytest.fail(f"URL guard must call pytest.{method}: {condition}")
+    tries = [node for node in body if isinstance(node, ast.Try)]
+    if len(tries) != 1 or not any(
+        isinstance(node, ast.Assign) and len(node.targets) == 1
+        and isinstance(node.targets[0], ast.Name) and node.targets[0].id == "parsed"
+        and isinstance(node.value, ast.Call)
+        and isinstance(node.value.func, ast.Name)
+        and node.value.func.id == "make_url" and len(node.value.args) == 1
+        and isinstance(node.value.args[0], ast.Name)
+        and node.value.args[0].id == "raw_url"
+        for node in tries[0].body
+    ):
+        pytest.fail("URL must be parsed directly in a guarded try block")
+    if not any(isinstance(node, ast.Assign)
+               and isinstance(node.value, ast.Attribute)
+               and isinstance(node.value.value, ast.Name)
+               and node.value.value.id == "parsed"
+               and node.value.attr == "port" for node in tries[0].body):
+        pytest.fail("URL port must be parsed eagerly")
+    if (len(tries[0].handlers) != 1
+            or not tries[0].handlers[0].body
+            or not isinstance(tries[0].handlers[0].body[0], ast.Expr)):
+        pytest.fail("Malformed URL exception must be handled")
+    handler_call = tries[0].handlers[0].body[0].value
+    if not (isinstance(handler_call, ast.Call)
+            and isinstance(handler_call.func, ast.Attribute)
+            and isinstance(handler_call.func.value, ast.Name)
+            and handler_call.func.value.id == "pytest"
+            and handler_call.func.attr == "fail"):
+        pytest.fail("Malformed URL must fail")
+    if (not isinstance(body[-1], ast.Return)
+            or not isinstance(body[-1].value, ast.Name)
+            or body[-1].value.id != "raw_url"):
+        pytest.fail("Validator must return only the reviewed raw URL")
