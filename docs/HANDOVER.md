@@ -1345,3 +1345,11 @@
 - Expanded correlation-evidence HTTP tests to cover matching evidence (`UNVERIFIED`, never authoritative), cross-tenant rejection with `no-store`, missing evidence (`UNKNOWN`/incomplete), unmatched evidence (incomplete), and invalid request (`422`/`no-store`). Evidence preview tests also assert no-store on rejected cross-tenant and empty payload responses.
 - This is source/test correction only. No test process ran in this environment. Exact-HEAD Actions runs `43593030262` (Python checks) and `43593030298` (Deployment contract): all 9 jobs have `steps: 0`; no project command executed.
 - Do not interpret dependency-overridden HTTP tests as validation of real Gateway/IdP actor membership or resource ACL. No PostgreSQL/runtime qualification. **HOLD / NO_GO** remains.
+
+
+### 2026-11-14 — Align UI image smoke with deny-all frontend API policy
+- Found a stale deployment workflow assertion after removing the frontend API proxy: `ui-image` smoke still expected `403` from the former demo proxy. The current Nginx contract deliberately denies every `/api` path directly with `404`, including demo paths.
+- Updated `.github/workflows/deployment-contract.yml` to expect `404` for both former demo paths while continuing to assert X-Content-Type-Options, Referrer-Policy, X-Frame-Options, CSP and Cache-Control no-store. This makes the smoke contract agree with the current no-proxy architecture.
+- Source-level re-fetch confirms the old `403` assertion is gone and the `404` assertion is present.
+- Exact-HEAD runs `43593232482` (Python) and `43593232547` (Deployment contract): all 9 jobs individually inspected, each with `steps: 0`. No workflow command ran; cannot claim the smoke passed.
+- PR #1 remains draft. **HOLD / NO_GO**; no merge, LIVE or deployment.
