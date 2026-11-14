@@ -105,3 +105,21 @@ def test_invalid_authorized_tenant_type_rejected():
 def test_invalid_freshness_bound_types_rejected(invalid_age):
     with pytest.raises(ValueError, match="freshness"):
         preview_impact(request(), TENANT, now=NOW, max_age_seconds=invalid_age)
+
+
+@pytest.mark.parametrize("invalid_now", [
+    "", "2026-11-14T12:00:00Z", 0, False, [],
+    datetime(2026, 11, 14, 12),
+])
+def test_invalid_supplied_clock_fails_closed(invalid_now):
+    with pytest.raises(ValueError, match="Current time must be timezone-aware"):
+        preview_impact(request(), TENANT, now=invalid_now)
+
+
+def test_explicit_timezone_aware_clock_preserves_freshness():
+    from datetime import timedelta
+    offset_now = NOW.astimezone(timezone(timedelta(hours=5, minutes=30)))
+    result = preview_impact(request(), TENANT, now=offset_now)
+    assert result["graph_fresh"] is True
+    assert result["impact_state"] == "CANDIDATE_ONLY"
+    assert result["canonical_cmdb_verified"] is False
