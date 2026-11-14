@@ -1572,3 +1572,10 @@
 - Added seven negative cases to `tests/test_correlation.py`: mutated severity, timestamp and event ID; three invalid window types; missing tenant identity.
 - Source remains caller-supplied, non-canonical and read-only. No incident creation or LIVE action.
 - Full test suite **not executed**; private GitHub checkout was unavailable from the local container (DNS resolution for github.com failed). GitHub Actions issue #8 remains unresolved. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — UC03 direct evidence normalization boundary
+- `normalize` now validates current timestamp, evidence list/element types and integer freshness bound, then revalidates every mutable `EvidenceInput` before sorting, hashing or deduplication.
+- Added seven negative cases: mutated naive timestamp, oversized payload, NaN payload, empty source, and boolean/float/string freshness limits.
+- The existing standalone normalizer intentionally supports multiple tenant-labelled items for preview; authorization remains the independent responsibility of the correlation/evidence tenant gate, not a claim that these inputs are canonical evidence.
+- Tests **not executed**; CI issue #8 remains unresolved. PR #1 stays Draft HOLD / NO_GO; no canonical ACL reads, ITSM mutations or LIVE effects.
