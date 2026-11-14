@@ -1752,3 +1752,9 @@
 - Added a synthetic ITIL test for a mutated `ProblemAssessment.problem_ref.external_id` with invalid whitespace; it must raise `ValidationError` before a preview is emitted.
 - Incident, problem and change paths now each have a nested ITSM-reference mutation regression. This does not establish external GLPI authorization or canonical ACL.
 - Tests **not executed**. CI issue #8 and independent actor→tenant→resource ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — Incident identifier control-character regression
+- Added three parametrized ITIL boundary cases for mutated incident IDs: whitespace-only, embedded newline and ASCII DEL.
+- The existing `preview_itil_workflow` identifier guard must reject each before producing a preview; no canonical read, ITSM mutation or LIVE behavior was added.
+- Tests **not executed**. CI issue #8 and independent actor→tenant→resource ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
