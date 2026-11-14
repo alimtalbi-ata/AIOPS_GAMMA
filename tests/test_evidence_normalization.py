@@ -320,3 +320,9 @@ def test_normalized_evidence_retains_original_tenant_and_incident():
     result = normalize([evidence(tenant_id="tenant-b", incident_id="inc-99")], now=NOW)
     assert result["items"][0]["tenant_id"] == "tenant-b"
     assert result["items"][0]["incident_id"] == "inc-99"
+
+
+def test_exact_freshness_boundary_does_not_upgrade_integrity():
+    result = normalize([evidence(observed_at=NOW - timedelta(seconds=3600))], now=NOW)
+    assert result["items"][0]["freshness"] == "FRESH"
+    assert result["items"][0]["integrity"] == "UNVERIFIED"
