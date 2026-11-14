@@ -374,3 +374,9 @@ def test_correlation_reversed_arrival_order_keeps_group_ids():
     reverse = correlate(list(reversed(events)), "tenant-1")
     assert forward == reverse
     assert forward["groups"][0]["event_count"] == 2
+
+
+def test_identical_external_ids_from_distinct_sources_remain_distinct():
+    result = correlate([signal("evt", source="otel"), signal("evt", source="prometheus")], "tenant-1")
+    assert result["deduplicated_events"] == 0
+    assert sorted(e["source"] for e in result["groups"][0]["source_events"]) == ["otel", "prometheus"]
