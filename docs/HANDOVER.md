@@ -2,6 +2,18 @@
 
 **Snapshot: 2026-11-12.** Read this first when taking over work, after a session interruption, or when changing developer/agent.
 
+## Current checkpoint — 2026-11-14 (supersedes historical HEADs below)
+
+- Exact branch/PR HEAD: `f3b5e7bbb3fe1390156b2870826ca1a8ed2c19fa`; PR #1 remains open, draft, not merged.
+- Gateway assertion settings in Helm (`GATEWAY_ASSERTION_SECRET`, issuer, audience, max TTL) match the Pydantic settings names consumed by `app/security.py`. The Secret reference is empty by default; verifier remains fail-closed until an owner-provisioned Secret is configured.
+- API NetworkPolicy is deny-all while gateway namespace/pod selector maps are empty. With both maps populated, its sole API ingress peer is their namespaceSelector + podSelector conjunction on the API port. Do not guess these labels.
+- UI Nginx proxies only two public synthetic demo GET endpoints; all other `/api/` paths return 404. Do not add UI pods as a tenant API peer. The deny-all policy also blocks the demo proxy paths across separate UI/API pods; resolve this availability tradeoff without widening tenant API trust.
+- Exact-HEAD Actions runs: Python checks `43591406421` and Deployment contract `43591406440` completed failure, but all 9 jobs expose `steps: []`. No checkout, tests, Helm, Compose, Docker or PostgreSQL command ran. This is a runner/bootstrap failure signal, not a code test result; its root cause remains unestablished.
+- No gateway owner response/approved issuer, audience, membership contract, secret lifecycle or namespace/pod labels has been recorded in issue #2.
+- Source review only. No pytest, Helm render/lint, Kubernetes/CNI, gateway, staging or PostgreSQL runtime qualification on this HEAD.
+- **Decision: HOLD / NO_GO.** Keep canonical reads disabled, PR draft, and do not merge, deploy or enable LIVE.
+
+
 > **CURRENT SECURITY GATE — HOLD / NO_GO.** Draft PR #1 must not be merged or deployed. Do not activate LIVE, wire replay into `app/security.py` / `app/main.py`, or treat Gateway actor→tenant→resource ACL as qualified. Real PostgreSQL, HTTP and upstream authorization remain unqualified until executable evidence exists.
 
 ## Current working state
