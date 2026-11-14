@@ -458,3 +458,33 @@ def test_itil_change_evidence_collection_accepts_exact_limit_without_authority()
     assert result["change_enablement"]["status"] == "DRAFT_AWAITING_ITSM_CHANGE_AUTHORITY"
     assert result["change_enablement"]["authorization_state"] == "NOT_ASSESSED_BY_CHANGE_AUTHORITY"
     assert result["execution"]["live_remediation_authorized"] is False
+
+
+def test_model_copy_extra_incident_field_rejected_before_preview():
+    item = incident().model_copy(update={"canonical_authorized": True})
+    with pytest.raises(ValidationError):
+        preview_itil_workflow(item)
+
+
+def test_model_copy_extra_nested_ci_field_rejected_before_preview():
+    item = incident()
+    item.affected_cis[0] = item.affected_cis[0].model_copy(
+        update={"canonical_cmdb_verified": True}
+    )
+    with pytest.raises(ValidationError):
+        preview_itil_workflow(item)
+
+
+def test_model_copy_extra_change_approval_field_rejected_before_preview():
+    item = incident()
+    item.affected_cis[0].verified_against_cmdb = True
+    change = ChangeProposal(
+        tenant_id=TENANT, source_incident_id="DEMO-INC-1",
+        target_ci_id="CI-DEMO-1", runbook_id="demo", runbook_version="v1",
+        impact_summary="Synthetic only", risk="unknown",
+        implementation_plan_ref="demo-implement",
+        rollback_plan_ref="demo-rollback",
+        verification_plan_ref="demo-verify", evidence_refs=["DEMO-EVIDENCE-1"],
+    ).model_copy(update={"approved_by_change_authority": True})
+    with pytest.raises(ValidationError):
+        preview_itil_workflow(item, change=change)
