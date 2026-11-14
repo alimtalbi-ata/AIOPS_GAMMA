@@ -723,3 +723,24 @@ def test_replay_db_engine_uses_only_validated_url():
             and call.args[0].id == "url"
             and assignment.lineno < engines[0].lineno):
         pytest.fail("Engine must consume the previously validated URL directly")
+
+
+def test_replay_db_engine_binding_cannot_be_replaced():
+    """A validated engine must not be replaced before database qualifications."""
+    source = (Path(__file__).parent / "test_gateway_replay_postgres.py").read_text(
+        encoding="utf-8"
+    )
+    fixtures = [
+        node for node in ast.parse(source).body
+        if isinstance(node, ast.AsyncFunctionDef) and node.name == "replay_db"
+    ]
+    if len(fixtures) != 1:
+        pytest.fail("Expected exactly one replay_db fixture")
+    writes = [
+        node for node in ast.walk(fixtures[0])
+        if isinstance(node, ast.Name)
+        and node.id == "engine"
+        and isinstance(node.ctx, (ast.Store, ast.Del))
+    ]
+    if len(writes) != 1:
+        pytest.fail("Replay engine must have exactly one binding")
