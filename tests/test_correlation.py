@@ -366,3 +366,11 @@ def test_direct_correlation_rejects_mutated_surrogate_identity():
 def test_direct_correlation_rejects_control_or_surrogate_tenant(tenant):
     with pytest.raises(ValueError, match="tenant identity"):
         correlate([signal("a")], tenant)
+
+
+def test_correlation_reversed_arrival_order_keeps_group_ids():
+    events = [signal("a", at=NOW), signal("b", at=NOW + timedelta(seconds=30))]
+    forward = correlate(events, "tenant-1")
+    reverse = correlate(list(reversed(events)), "tenant-1")
+    assert forward == reverse
+    assert forward["groups"][0]["event_count"] == 2
