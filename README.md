@@ -106,6 +106,10 @@ Voir [architecture et prochaines étapes](docs/ARCHITECTURE.md).
 
 **Sécurité** : ne jamais exposer directement ce backend aux navigateurs ou à Internet. Les entêtes de tenant ne sont sûrs que derrière un gateway qui authentifie, autorise, supprime les entêtes externes et les recrée. Remplacer la clé interne par des identités de service OIDC/mTLS avant production. Ne pas exposer OpenSearch en mode sécurité désactivée.
 
+## Cas d’usage produit
+
+Le catalogue [GAMMA — cas d’usage](docs/USE-CASE-CATALOG.md) décrit les parcours UC01–UC12, leur maturité réelle, leurs points d’entrée et leurs critères d’acceptation. Il distingue explicitement démonstrations synthétiques, API sous feature flag, prévisualisations et capacités non livrées.
+
 ## Objectif produit : plateforme AI SRE
 
 AIOPS_GAMMA cible la chaîne **détecter → corréler → identifier les assets/impacts → tracer en ITSM → analyser RCA → proposer une remédiation fondée sur un runbook → vérifier Policy/HITL → exécuter par le Core/Temporal existant → vérifier et réconcilier**. Les fonctions opérationnelles autonomes ne sont pas encore qualifiées. Voir [architecture AI SRE](docs/AI-SRE-PLATFORM.md) et [réutilisation des services AIOps existants](docs/SOURCE-REUSE-AIOPS.md).
