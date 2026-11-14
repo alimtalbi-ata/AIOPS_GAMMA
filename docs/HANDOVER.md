@@ -1579,3 +1579,10 @@
 - Added seven negative cases: mutated naive timestamp, oversized payload, NaN payload, empty source, and boolean/float/string freshness limits.
 - The existing standalone normalizer intentionally supports multiple tenant-labelled items for preview; authorization remains the independent responsibility of the correlation/evidence tenant gate, not a claim that these inputs are canonical evidence.
 - Tests **not executed**; CI issue #8 remains unresolved. PR #1 stays Draft HOLD / NO_GO; no canonical ACL reads, ITSM mutations or LIVE effects.
+
+
+### 2026-11-14 — UC02/UC03 join freshness and clock boundary
+- `correlation_evidence.preview` now rejects invalid freshness types (including `bool`) and invalid/naive `now` before the optional evidence normalization branch; validates nonblank, unpadded authorized tenant identity.
+- Added nine negative parametrized cases in `tests/test_correlation_evidence.py`, including no-evidence requests that previously bypassed normalize's clock checks.
+- Read-only synthetic preview only: evidence source integrity is still UNVERIFIED, canonical actor→tenant→resource ACL remains blocked (issue #2), no ITSM writes or LIVE action.
+- New tests **not executed**. CI zero-step blocker issue #8 remains unresolved. PR #1 stays Draft HOLD / NO_GO.
