@@ -1361,3 +1361,10 @@
 - Added a static contract for smoke-process ownership/teardown. Frontend static contract file now has 16 tests defined, not an executed pass count.
 - Source and PR HEAD re-fetched and verified; no local pytest, Node, Docker, Helm or PostgreSQL command executed. Actions still require actual runner/bootstrap diagnosis and real test execution before qualification.
 - **HOLD / NO_GO**. PR #1 stays draft, no merge, LIVE or deployment.
+
+
+### 2026-11-14 — Repair stale static assertion after direct Vite preview launch
+- Found a latent guaranteed failure in `tests/test_frontend_demo_contract.py`: `test_frontend_ci_smokes_preview_api_denial_over_real_http` still asserted that the CI workflow contained `npm run preview`, although the previous commit intentionally replaced npm with a direct `spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', ...])` call. Updated that assertion to the direct-launch contract.
+- Re-fetched the committed frontend, workflow, Compose, Nginx and test sources and evaluated 43 simple literal-membership assertions from the static frontend tests against the source strings in an isolated JavaScript inspection: 43/43 matched. This is a limited source inspection, **not** an execution of Python/pytest or the full 16 tests.
+- Exact test HEAD `200a811505cba47b540c3039e8b49d1f5012c2b9`: Actions `43610024137` (Python checks) and `43610024151` (Deployment contract) each failed before steps; all 9 jobs individually inspected with `steps: 0`. No runner commands executed.
+- **HOLD / NO_GO**, PR #1 Draft; no merge, PostgreSQL, LIVE or deployment.
