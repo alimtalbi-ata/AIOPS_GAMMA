@@ -109,3 +109,14 @@ def test_nginx_denied_api_responses_retain_security_headers():
         block = nginx.split(location, 1)[1].split("}", 1)[0]
         for header in security_headers:
             assert header in block
+
+
+def test_vite_preview_denies_api_namespace_using_same_middleware_as_dev():
+    vite = (ROOT / "frontend/vite.config.ts").read_text(encoding="utf-8")
+    assert 'configureServer(server) {' in vite
+    assert 'configurePreviewServer(server) {' in vite
+    assert vite.count("server.middlewares.use(denyApi);") == 2
+    assert 'if (path === "/api" || path.startsWith("/api/")) {' in vite
+    assert 'res.statusCode = 404;' in vite
+    assert 'res.setHeader("Cache-Control", "no-store")' in vite
+    assert 'preview: { host: "127.0.0.1" }' in vite
