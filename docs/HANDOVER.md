@@ -1243,3 +1243,12 @@
 - This does not configure production identity values, create a Kubernetes Secret, or restrict API ingress to the gateway. NetworkPolicy peer selector remains blocked on gateway namespace/pod labels from the owner.
 - Validation: GitHub source changes only; no Helm rendering, pytest, Kubernetes, Gateway/IdP, PostgreSQL or staging execution performed.
 - Decision: HOLD / NO_GO; PR remains draft, no merge/LIVE/deployment.
+
+
+### 2026-11-14 — API ingress deny-by-default
+- Changed `deploy/helm/gamma/templates/networkpolicy.yaml`: API ingress now uses an explicit empty ingress list (deny all) unless both gateway namespace labels and gateway pod labels are configured.
+- Added `api.gatewayNamespaceLabels` and `api.gatewayPodLabels` as empty maps in Helm values. When both are non-empty, the sole API ingress peer is the conjunction of namespaceSelector and podSelector, on the API port.
+- Added a static regression guard in `tests/test_route_security_static.py` for the empty defaults, conditional selectors and deny-all branch.
+- Updated `docs/GATEWAY-IDENTITY-CONTRACT.md`. This is fail-closed but may make API unreachable until owner-approved selectors are supplied. Kubernetes NetworkPolicy enforcement depends on the installed CNI and has not been runtime-tested.
+- Validation: source review/publication only; no pytest, Helm template/lint, Kubernetes/CNI or connectivity tests executed.
+- Decision: HOLD / NO_GO; no merge, LIVE or deployment.
