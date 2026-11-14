@@ -1912,3 +1912,9 @@
 - Added `test_dependency_path_dictionary_is_materialized_for_empty_graph` in `36e7dad` to exercise the empty-graph mapping. Test import would also catch syntax failures once pytest is actually run.
 - CI #8 still reports pre-step failures; no exact-HEAD compileall or pytest proof. Require `python -m compileall -q app tests` and `python -m pytest -q tests/test_topology_preview.py` on the exact reviewed SHA in a safe environment. ACL #2 remains independently blocking.
 - PR #1 remains Draft HOLD / NO_GO. No merge, deployment, real PostgreSQL or LIVE actions.
+
+
+### 2026-11-14 — UC04 maximum-bound regression coverage
+- Added three tests in `tests/test_topology_preview.py` for the maximum 200-node chain (forward and reverse iterative traversals), 199-hop witness paths, and the maximum 1,000 duplicate-edge input. These are boundary assertions, not executed proof.
+- Test commit `fda2424`. No runtime or external systems invoked. Require exact-HEAD `python -m compileall -q app tests` and `python -m pytest -q tests/test_topology_preview.py` once CI #8 is repaired. Independent canonical actor→tenant→resource ACL #2 remains blocked.
+- PR #1 remains Draft HOLD / NO_GO; no merge, deployment, production PostgreSQL or LIVE/remediation.
