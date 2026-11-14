@@ -1949,3 +1949,9 @@
 - Inspected the actual `docs/CI-QUALIFICATION-BLOCKER.md` fallback command: it omitted `tests/test_topology_preview.py` despite earlier instructions to include it. Added the test module to the existing isolated pytest command in `b334da9`.
 - The checked `.github/workflows/deployment-contract.yml` explicitly defines checkout and multiple jobs with steps; the observed GitHub job API `steps: []` therefore does not demonstrate a repository-level test assertion failure. Exact platform cause still unknown.
 - No pytest, Compose or production action executed. Require exact-HEAD recorded execution and independent ACL #2; CI #8 remains blocked. PR #1 Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — UC04 reverse shortest-witness regressions
+- Added three tests to `tests/test_topology_preview.py` for deterministic equal-hop reverse diamond paths under input permutations/duplicate edges, direct consumer precedence over a longer path, and self-loop UNKNOWN without self-dependent inclusion.
+- Test commit `381d129`; no production code changes. Tests **not executed**; exact-HEAD `python -m compileall -q app tests` and `python -m pytest -q tests/test_topology_preview.py` are required after CI #8 is repaired.
+- Canonical ACL #2 remains independently blocked. PR #1 Draft HOLD / NO_GO; no merge, deployment, real PostgreSQL or LIVE/remediation.
