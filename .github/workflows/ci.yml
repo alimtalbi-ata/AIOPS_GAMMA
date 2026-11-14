@@ -34,7 +34,9 @@ jobs:
           import { spawn } from 'node:child_process';
           import { setTimeout as delay } from 'node:timers/promises';
 
-          const server = spawn('npm', ['run', 'preview', '--', '--port', '4173', '--strictPort'], {
+          // Launch Vite directly: terminating an npm wrapper may leave its
+          // child server running and mask a subsequent port collision.
+          const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--port', '4173', '--strictPort'], {
             stdio: 'ignore',
             env: process.env,
           });
@@ -73,7 +75,14 @@ jobs:
               }
             }
           } finally {
-            server.kill('SIGTERM');
+            if (server.exitCode === null) {
+              server.kill('SIGTERM');
+              await Promise.race([
+                new Promise(resolve => server.once('exit', resolve)),
+                delay(3000),
+              ]);
+              if (server.exitCode === null) server.kill('SIGKILL');
+            }
           }
           JS
 
