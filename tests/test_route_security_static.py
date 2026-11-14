@@ -336,7 +336,7 @@ def test_public_demo_signature_mutations_are_rejected(tmp_path, monkeypatch):
                 with pytest.raises(AssertionError):
                     test_public_demo_routes_only_call_reviewed_synthetic_helpers()
 
-        route = f'@app.get("/api/v1/demo/{handler[len("demo_"):]}")'
+        route = '@app.get("/api/v1/demo/' + handler[5:] + '")'
         assert source.count(route) == 1
         candidate = tmp_path / "main.py"
         candidate.write_text(
