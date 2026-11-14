@@ -1496,3 +1496,10 @@
 - Added `tests/test_synthetic_rca_postmortem_journey.py` with parametrized UNKNOWN/supported RCA cases and cross-tenant postmortem handoff denial.
 - Even a `supported` caller-supplied hypothesis is not source-verified or authoritative. The resulting postmortem retains UNVERIFIED RCA, UNKNOWN missing impact, human review, no incident closure, no persistence/ITSM mutation and no LIVE execution.
 - This test is **not executed**; GitHub Actions runner/zero-step blocker remains issue #8. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — UC10 postmortem input hardening
+- Added validators for nonblank, trimmed, control-character-free incident/timeline identifiers and summaries, bounded follow-up candidate text, and revalidation of mutable Pydantic request data at the preview boundary.
+- Expanded `tests/test_synthetic_postmortem_usecase.py` with invalid-field and post-validation mutation cases, including a naive timestamp.
+- This is still a caller-supplied, non-authoritative draft: no source verification, incident closure, persistence, ITSM writes or LIVE action.
+- **Tests not executed**: GitHub Actions zero-step runner blocker remains tracked in issue #8. PR #1 remains Draft HOLD / NO_GO.
