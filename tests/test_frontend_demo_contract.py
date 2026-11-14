@@ -94,3 +94,18 @@ def test_api_healthcheck_uses_actual_liveness_without_tenant_credentials():
     assert "127.0.0.1:8000" in api
     assert "INTERNAL_API_KEY" not in api.split("healthcheck:", 1)[1]
     assert "condition: service_completed_successfully" in api
+
+
+def test_nginx_denied_api_responses_retain_security_headers():
+    nginx = (ROOT / "frontend/nginx.conf").read_text(encoding="utf-8")
+    security_headers = (
+        "add_header X-Content-Type-Options nosniff always;",
+        "add_header Referrer-Policy no-referrer always;",
+        "add_header X-Frame-Options DENY always;",
+        "add_header Content-Security-Policy ",
+        'add_header Cache-Control "no-store" always;',
+    )
+    for location in ('location = /api {', 'location ^~ /api/ {'):
+        block = nginx.split(location, 1)[1].split("}", 1)[0]
+        for header in security_headers:
+            assert header in block
