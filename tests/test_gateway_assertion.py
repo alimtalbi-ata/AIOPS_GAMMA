@@ -225,3 +225,17 @@ def test_nonfinite_json_constant_in_signed_claims_denied(monkeypatch, nonfinite)
             path="/api/v1/observability/metrics/query", now=1030,
         )
     assert exc.value.status_code == 401
+
+
+@pytest.mark.parametrize("malformed_key", ["\ud800", "prefix\udfff", "\ud800\udfff"])
+def test_malformed_unicode_service_key_header_fails_closed(monkeypatch, malformed_key):
+    from starlette.requests import Request
+    from app.security import internal_principal
+
+    monkeypatch.setattr(settings, "internal_api_key", "lab-secret")
+    request = Request({"type": "http", "method": "POST", "path": "/probe",
+                       "headers": [], "query_string": b""})
+    with pytest.raises(HTTPException) as exc:
+        internal_principal(request, x_internal_api_key=malformed_key,
+                           x_gateway_principal="not-a-valid-assertion")
+    assert exc.value.status_code == 401
