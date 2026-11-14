@@ -648,3 +648,25 @@ def test_disposable_url_validator_rejects_destructured_parsed_rebinding():
     ]
     if len(stores) != 1:
         pytest.fail("Parsed URL must have exactly one binding, including unpacking")
+
+
+def test_disposable_url_validator_never_rebinds_raw_url():
+    """The returned URL must remain the exact input that passed the guards."""
+    source = (Path(__file__).parent / "test_gateway_replay_postgres.py").read_text(
+        encoding="utf-8"
+    )
+    validators = [
+        node for node in ast.parse(source).body
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "_require_disposable_database_url"
+    ]
+    if len(validators) != 1:
+        pytest.fail("Expected exactly one disposable URL validator")
+    writes = [
+        node for node in ast.walk(validators[0])
+        if isinstance(node, ast.Name)
+        and node.id == "raw_url"
+        and isinstance(node.ctx, (ast.Store, ast.Del))
+    ]
+    if writes:
+        pytest.fail("Disposable URL input must never be rebound or deleted")
