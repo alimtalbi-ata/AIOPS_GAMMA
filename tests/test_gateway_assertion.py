@@ -239,3 +239,13 @@ def test_malformed_unicode_service_key_header_fails_closed(monkeypatch, malforme
         internal_principal(request, x_internal_api_key=malformed_key,
                            x_gateway_principal="not-a-valid-assertion")
     assert exc.value.status_code == 401
+
+
+@pytest.mark.parametrize("configured_secret", ["\ud800" + "s" * 48, "\udfff", None])
+def test_malformed_gateway_verifier_secret_fails_closed_as_configuration_error(monkeypatch, configured_secret):
+    token = _token(monkeypatch)
+    monkeypatch.setattr(settings, "gateway_assertion_secret", configured_secret)
+    with pytest.raises(HTTPException) as exc:
+        verify_gateway_assertion(token, method="POST",
+            path="/api/v1/observability/metrics/query", now=1030)
+    assert exc.value.status_code == 503
