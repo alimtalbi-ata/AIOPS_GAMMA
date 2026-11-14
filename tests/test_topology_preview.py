@@ -341,3 +341,42 @@ def test_reverse_preview_ignores_unrelated_incomplete_component():
     assert result["possible_dependent_ids"] == ["app"]
     assert result["unresolved_edge_detected"] is False
     assert result["topology_state"] == "CALLER_SUPPLIED_PREVIEW"
+
+
+def test_disconnected_cycle_does_not_taint_selected_service():
+    result = preview("service", ["service", "app", "x", "y"], [
+        ("service", "app"), ("x", "y"), ("y", "x"),
+    ])
+    assert result["dependency_ids"] == ["app"]
+    assert result["cycle_detected"] is False
+    assert result["topology_state"] == "CALLER_SUPPLIED_PREVIEW"
+    assert result["canonical_cmdb_verified"] is False
+
+
+def test_reverse_disconnected_cycle_does_not_taint_failed_ci():
+    result = preview_upstream_dependents("db", ["db", "app", "x", "y"], [
+        ("app", "db"), ("x", "y"), ("y", "x"),
+    ])
+    assert result["possible_dependent_ids"] == ["app"]
+    assert result["cycle_detected"] is False
+    assert result["topology_state"] == "CALLER_SUPPLIED_PREVIEW"
+
+
+def test_reachable_missing_edges_are_permutation_and_duplicate_invariant():
+    nodes = ["service", "app", "other"]
+    edges = [("service", "app"), ("app", "missing"), ("other", "absent")]
+    first = preview("service", nodes, edges)
+    second = preview("service", list(reversed(nodes)), list(reversed(edges)) + [edges[1]])
+    assert first == second
+    assert first["unresolved_edge_detected"] is True
+    assert first["topology_state"] == "UNKNOWN"
+
+
+def test_unrelated_missing_edges_are_permutation_and_duplicate_invariant():
+    nodes = ["service", "app", "other"]
+    edges = [("service", "app"), ("other", "absent")]
+    first = preview("service", nodes, edges)
+    second = preview("service", list(reversed(nodes)), list(reversed(edges)) + [edges[1]])
+    assert first == second
+    assert first["unresolved_edge_detected"] is False
+    assert first["topology_state"] == "CALLER_SUPPLIED_PREVIEW"
