@@ -1552,3 +1552,9 @@
 - Added four negative tests for mutated incident urgency, mutated tenant, mutated matrix priority and invalid authorized tenant type.
 - The preview remains side-effect-free and does not create/enrich an ITSM ticket or grant LIVE remediation. Canonical Core/GLPI reads remain blocked pending issue #2.
 - **Tests not executed** for this change. GitHub Actions zero-step blocker remains issue #8; PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — UC05 backward-compatible validation ordering
+- Reviewed existing `tests/test_itsm_contract.py` expectations and identified a potential regression: full nested Pydantic revalidation before contract-specific gates would change expected `ValueError` messages for malformed operation, matrix, reference, policy and evidence inputs.
+- Moved the full nested `IncidentSyncPreview.model_validate(req.model_dump())` pass after the established explicit guards but before proposal/idempotency-key construction. Updated the new invalid-priority regression assertion to expect the existing explicit error.
+- This is a source-level compatibility fix; no full repository test run has been completed. Existing CI blocker issue #8 remains. PR #1 stays Draft HOLD / NO_GO; no canonical reads or LIVE actions.
