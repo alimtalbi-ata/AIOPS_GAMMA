@@ -1973,3 +1973,9 @@
 - Added parameterized forward/reverse tests for 201 nodes rejected, 1,001 duplicate edges rejected before deduplication, empty nodes rejected, and exactly 255-character selected ID accepted versus 256 rejected.
 - Test commit `f002221`. No application code change. Tests **not executed**; require exact-HEAD `python -m compileall -q app tests` and `python -m pytest -q tests/test_topology_preview.py`.
 - CI #8 still blocks proof of execution and ACL #2 still blocks canonical authorization. PR #1 Draft HOLD / NO_GO; no merge, deployment, real PostgreSQL or LIVE/remediation.
+
+
+### 2026-11-14 — UC04 reverse direct/indirect consumer classification
+- `631c10a`: added `possible_direct_dependent_ids` and `possible_indirect_dependent_ids` to the caller-supplied reverse preview, reusing the validated reversed graph's direct/indirect partitions. No canonical CMDB authority or LIVE action.
+- `705afdb`: added tests for partition/disjointness, direct edge precedence when an indirect path also exists, and self-loop exclusion with UNKNOWN.
+- Tests **not executed**. Require exact-HEAD compileall and `python -m pytest -q tests/test_topology_preview.py` after GitHub Actions issue #8 is resolved. Independent actor→tenant→resource ACL issue #2 still blocks release. PR #1 Draft HOLD / NO_GO; no merge, deployment, real PostgreSQL or LIVE/remediation.
