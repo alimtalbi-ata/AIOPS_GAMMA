@@ -21,11 +21,11 @@ class EvidenceInput(BaseModel):
 
     @model_validator(mode="after")
     def aware_timestamp(self):
-        if self.observed_at.tzinfo is None:
+        if self.observed_at.tzinfo is None or self.observed_at.utcoffset() is None:
             raise ValueError("observed_at requires timezone")
         for name, limit in (("payload", 65536), ("provenance", 8192)):
             try:
-                encoded = json.dumps(getattr(self, name), allow_nan=False, separators=(",", ":"))
+                encoded = json.dumps(getattr(self, name), allow_nan=False, sort_keys=True, separators=(",", ":"))
             except (TypeError, ValueError) as exc:
                 raise ValueError(f"{name} must be finite JSON") from exc
             if len(encoded.encode("utf-8")) > limit:
