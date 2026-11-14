@@ -1704,3 +1704,9 @@
 - Added `tests/test_itil_mutable_boundary.py` to the isolated synthetic-only pytest command in `docs/CI-QUALIFICATION-BLOCKER.md`.
 - This is a reproducible test **instruction**, not a test run or evidence of passing checks. Use a reviewed checkout without production secrets; never connect a real PostgreSQL database.
 - CI issue #8 and canonical actor→tenant→resource ACL issue #2 remain unresolved. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — Include UC03 evidence normalization in isolated qualification
+- Added `tests/test_evidence_normalization.py` to the synthetic-only local pytest command in `docs/CI-QUALIFICATION-BLOCKER.md`, alongside ITIL boundary tests.
+- Verified that all seven paths referenced by this command exist on `feat/observability-foundation`; this is a path check, **not** a test execution.
+- CI issue #8 and independent canonical actor→tenant→resource ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO; no LIVE, merge or deployment.
