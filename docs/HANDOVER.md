@@ -1538,3 +1538,10 @@
 - Added seven parameterized negative cases for post-validation tenant/edge/timestamp mutation, invalid authority type and invalid freshness types.
 - Graph remains caller-supplied and non-canonical; impact can only be CANDIDATE_ONLY or UNKNOWN, never verified CMDB blast radius or LIVE authorization.
 - New tests **not executed**; issue #8 still blocks GitHub Actions qualification. PR #1 remains Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — UC02/UC03 mutable correlation-evidence join
+- `app/reused/correlation_evidence.py` now revalidates the caller-supplied nested correlation/evidence Pydantic request at the preview boundary before tenant comparison and joining; malformed request/tenant types fail closed.
+- Added four negative tests in `tests/test_synthetic_incident_usecase.py`: post-validation evidence tenant mutation, timezone-naive evidence timestamp, oversized evidence payload and invalid freshness limit.
+- The evidence is still caller-supplied and UNVERIFIED/UNKNOWN, not canonical source proof; no ITSM write, persistence or LIVE action.
+- New tests **not executed**. GitHub Actions zero-step blocker remains issue #8. PR #1 stays Draft HOLD / NO_GO.
