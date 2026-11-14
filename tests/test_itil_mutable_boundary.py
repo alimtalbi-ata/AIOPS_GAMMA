@@ -184,3 +184,17 @@ def test_absent_change_has_no_target_binding_claim():
     result = preview_itil_workflow(incident())
     assert result["change_enablement"]["target_ci_binding_source"] is None
     assert result["change_enablement"]["target_ci_canonical_verified"] is False
+
+
+@pytest.mark.parametrize("caller_claims_verified", [False, True])
+def test_itil_preview_never_promotes_caller_claims_to_authority(caller_claims_verified):
+    item = incident()
+    item.affected_cis[0].verified_against_cmdb = caller_claims_verified
+    result = preview_itil_workflow(item)
+    assert result["data_source"] == "caller_supplied_preview"
+    assert result["authoritative"] is False
+    assert result["persisted"] is False
+    assert result["service_configuration_management"]["canonical_cmdb_verified"] is False
+    assert result["execution"]["state"] == "FORBIDDEN_IN_PREVIEW"
+    assert result["execution"]["live_remediation_authorized"] is False
+    assert result["execution"]["itsm_mutations_performed"] is False
