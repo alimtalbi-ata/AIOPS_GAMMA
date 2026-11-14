@@ -151,6 +151,8 @@ def preview_itil_workflow(
             "risk": change.risk if change else None,
             "authorization_state": "NOT_ASSESSED_BY_CHANGE_AUTHORITY",
             "approved_standard_model_verified": False,
+            "target_ci_binding_source": "caller_supplied_preview" if change else None,
+            "target_ci_canonical_verified": False,
             "itsm_reference": change.itsm_change_ref.model_dump() if change and change.itsm_change_ref else None,
         },
         "execution": {
