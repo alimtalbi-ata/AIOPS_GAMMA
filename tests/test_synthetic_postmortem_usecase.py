@@ -137,3 +137,49 @@ def test_unverified_timeline_never_infers_sre_duration_metrics(timeline):
     assert metrics["time_to_mitigate_seconds"] is None
     assert metrics["time_to_resolve_seconds"] is None
     assert draft["incident_closed"] is False
+
+
+def test_markdown_export_is_deterministic_and_explicitly_non_authoritative():
+    from app.reused.synthetic_postmortem import render_postmortem_markdown
+    first = render_postmortem_markdown(request(), TENANT)
+    second = render_postmortem_markdown(request(timeline=list(reversed(request().timeline))), TENANT)
+    assert first == second
+    assert "HUMAN REVIEW REQUIRED" in first
+    assert "NON-AUTHORITATIVE" in first
+    assert "source verified: NO" in first
+    assert "durations: UNKNOWN" in first
+    assert "No ITSM mutation, persistence, LIVE remediation or incident closure" in first
+
+
+def test_markdown_export_escapes_untrusted_markup():
+    from app.reused.synthetic_postmortem import render_postmortem_markdown
+    req = request(
+        timeline=[TimelineEvent(event_id="alert", occurred_at=NOW,
+                                summary="**forged** <script>alert(1)</script>")],
+        rca_summary="[approved](https://invalid.example)",
+        follow_up_candidates=["- [x] Approved remediation"],
+    )
+    output = render_postmortem_markdown(req, TENANT)
+    assert "**forged**" not in output
+    assert "<script>" not in output
+    assert "[approved](https://invalid.example)" not in output
+    assert "- [x] Approved remediation" not in output
+    assert "HUMAN REVIEW REQUIRED" in output
+
+
+def test_markdown_export_missing_facts_remain_unknown():
+    from app.reused.synthetic_postmortem import render_postmortem_markdown
+    output = render_postmortem_markdown(request(
+        timeline=[], rca_summary=None, impact_summary=None,
+        follow_up_candidates=[],
+    ), TENANT)
+    assert "Timeline — UNKNOWN" in output
+    assert "Root cause — UNKNOWN" in output
+    assert "Impact — UNKNOWN" in output
+    assert "UNKNOWN — no proposed follow-ups" in output
+
+
+def test_markdown_export_rejects_cross_tenant_request():
+    from app.reused.synthetic_postmortem import render_postmortem_markdown
+    with pytest.raises(PermissionError, match="Cross-tenant"):
+        render_postmortem_markdown(request(tenant_id=OTHER), TENANT)
