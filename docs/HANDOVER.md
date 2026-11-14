@@ -1943,3 +1943,9 @@
 - Added parameterized negative tests for invalid top-level node/edge containers, non-string service IDs, malformed edge shape and endpoint types, and reverse-preview invalid edge containers/unknown selected CI.
 - Commit `405eb3c` changes only `tests/test_topology_preview.py`; no code or external system action. Tests **not executed**. Require exact-HEAD `python -m compileall -q app tests` and `python -m pytest -q tests/test_topology_preview.py` after CI runner repair.
 - CI #8 and independent actor→tenant→resource ACL #2 remain release blockers. PR #1 Draft HOLD / NO_GO; no merge, deployment, real PostgreSQL or LIVE/remediation.
+
+
+### 2026-11-14 — CI fallback coverage correction
+- Inspected the actual `docs/CI-QUALIFICATION-BLOCKER.md` fallback command: it omitted `tests/test_topology_preview.py` despite earlier instructions to include it. Added the test module to the existing isolated pytest command in `b334da9`.
+- The checked `.github/workflows/deployment-contract.yml` explicitly defines checkout and multiple jobs with steps; the observed GitHub job API `steps: []` therefore does not demonstrate a repository-level test assertion failure. Exact platform cause still unknown.
+- No pytest, Compose or production action executed. Require exact-HEAD recorded execution and independent ACL #2; CI #8 remains blocked. PR #1 Draft HOLD / NO_GO.
