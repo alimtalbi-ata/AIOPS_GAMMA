@@ -184,6 +184,29 @@ class InternalRouteDependencyGuard(unittest.TestCase):
                     ):
                         self.test_all_non_public_http_routes_require_internal_principal()
 
+    def test_reviewed_creation_status_cannot_be_changed(self):
+        """Even previously approved decorator options are exact contracts."""
+        from tempfile import TemporaryDirectory
+        from unittest.mock import patch
+
+        source = MAIN.read_text(encoding="utf-8")
+        original = '@app.post("/api/v1/topology/bindings", status_code=201)'
+        self.assertEqual(source.count(original), 1)
+        for changed in (
+            '@app.post("/api/v1/topology/bindings", status_code=200)',
+            '@app.post("/api/v1/topology/bindings")',
+            '@app.post("/api/v1/topology/bindings", status_code=201, tags=["public"])',
+        ):
+            with TemporaryDirectory() as directory:
+                candidate = Path(directory) / "main.py"
+                candidate.write_text(source.replace(original, changed, 1), encoding="utf-8")
+                with patch.dict(
+                    self.test_all_non_public_http_routes_require_internal_principal.__globals__,
+                    {"MAIN": candidate},
+                ):
+                    with self.assertRaisesRegex(AssertionError, "Unreviewed route decorator"):
+                        self.test_all_non_public_http_routes_require_internal_principal()
+
     def test_public_route_allowlist_is_narrow(self):
         self.assertEqual(PUBLIC_ROUTES, {
             ("GET", "/api/v1/health/live"),
