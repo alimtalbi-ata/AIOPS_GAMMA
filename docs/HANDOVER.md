@@ -1991,3 +1991,9 @@
 - Added two parameterized tests (four forward/reverse synthetic cases) for stable cycle/unresolved-edge flags under reordered and duplicated edges, and for reachable missing edges without a cycle remaining UNKNOWN.
 - Test commit `e10e2bf`. No runtime behavior, canonical CMDB integration, persistence, production credentials or LIVE actions changed. Tests **not executed**; qualification requires exact-HEAD `python -m compileall -q app tests` and `python -m pytest -q tests/test_topology_preview.py` in an authorized isolated environment with recorded evidence.
 - GitHub Actions #8 and independent actor→tenant→resource ACL #2 remain blockers. PR #1 remains Draft — HOLD / NO_GO; no merge, deployment, real PostgreSQL or LIVE/remediation.
+
+
+### 2026-11-14 — UC04 shortest-witness and partition consistency
+- Added one parameterized synthetic regression (two forward/reverse cases) asserting every returned path starts at the selected CI, follows existing graph edges, has no repeated node, matches reported minimum hops, and agrees with the direct/indirect partition. Equal-hop alternatives select a deterministic witness.
+- Test commit `642c664`. Tests **not executed**. No runtime code changes, canonical CMDB access, credentials, persistence or LIVE remediation. Qualify exact reviewed SHA with recorded `python -m compileall -q app tests` and `python -m pytest -q tests/test_topology_preview.py` in an authorized isolated environment.
+- GitHub Actions issue #8 and independent ACL issue #2 remain blocking. PR #1 stays Draft — HOLD / NO_GO; no merge, deployment, real PostgreSQL or LIVE action.
