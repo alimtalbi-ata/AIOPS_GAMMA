@@ -1490,3 +1490,9 @@
 - No verified evidence provenance, automatic RCA validation, canonical incident closure, ITSM mutation, persistence or LIVE action. Human review required.
 - Removed a misleading caller-controlled RCA verification field; no source verification is possible in this preview.
 - **Tests not executed** due to unresolved GitHub Actions zero-step failures tracked in issue #8. PR #1 remains Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — UC06→UC10 synthetic RCA-to-postmortem handoff
+- Added `tests/test_synthetic_rca_postmortem_journey.py` with parametrized UNKNOWN/supported RCA cases and cross-tenant postmortem handoff denial.
+- Even a `supported` caller-supplied hypothesis is not source-verified or authoritative. The resulting postmortem retains UNVERIFIED RCA, UNKNOWN missing impact, human review, no incident closure, no persistence/ITSM mutation and no LIVE execution.
+- This test is **not executed**; GitHub Actions runner/zero-step blocker remains issue #8. PR #1 stays Draft HOLD / NO_GO.
