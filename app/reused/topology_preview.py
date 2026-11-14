@@ -123,6 +123,8 @@ def preview_upstream_dependents(
         "failed_ci_id": failed_ci_id,
         "possible_dependent_ids": result["dependency_ids"],
         "possible_dependent_count": result["dependency_count"],
+        "possible_direct_dependent_ids": result["direct_dependency_ids"],
+        "possible_indirect_dependent_ids": result["indirect_dependency_ids"],
         "dependent_hops": result["dependency_hops"],
         "dependent_paths": result["dependency_paths"],
         "topology_state": result["topology_state"],
