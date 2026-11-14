@@ -1,6 +1,9 @@
 import pytest
 
-from app.reused.topology_preview import preview_service_dependencies as preview
+from app.reused.topology_preview import (
+    preview_service_dependencies as preview,
+    preview_upstream_dependents,
+)
 
 
 def test_transitive_dependencies_are_sorted_and_nonauthoritative():
@@ -205,3 +208,50 @@ def test_self_loop_is_unknown_without_self_dependency():
     assert result["direct_dependency_ids"] == []
     assert result["indirect_dependency_ids"] == []
     assert result["live_remediation_authorized"] is False
+
+
+def test_failed_ci_reverse_traversal_finds_possible_consumers():
+    result = preview_upstream_dependents(
+        "db", ["service", "app", "db", "unrelated"],
+        [("service", "app"), ("app", "db")],
+    )
+    assert result["possible_dependent_ids"] == ["app", "service"]
+    assert result["dependent_hops"] == {"app": 1, "service": 2}
+    assert result["dependent_paths"]["service"] == ["db", "app", "service"]
+    assert result["canonical_cmdb_verified"] is False
+    assert result["authoritative"] is False
+    assert result["live_remediation_authorized"] is False
+
+
+def test_reverse_traversal_does_not_include_downstream_dependencies():
+    result = preview_upstream_dependents(
+        "app", ["service", "app", "db"],
+        [("service", "app"), ("app", "db")],
+    )
+    assert result["possible_dependent_ids"] == ["service"]
+    assert result["dependent_paths"] == {"service": ["app", "service"]}
+
+
+def test_reverse_traversal_missing_endpoint_is_unknown():
+    result = preview_upstream_dependents(
+        "db", ["service", "db"],
+        [("service", "db"), ("missing", "db")],
+    )
+    assert result["possible_dependent_ids"] == ["service"]
+    assert result["topology_state"] == "UNKNOWN"
+    assert result["unresolved_edge_detected"] is True
+
+
+def test_reverse_traversal_rejects_malformed_edge():
+    with pytest.raises(ValueError):
+        preview_upstream_dependents("db", ["db"], [("missing", " bad")])
+
+
+def test_reverse_traversal_cycle_is_unknown():
+    result = preview_upstream_dependents(
+        "db", ["db", "app"],
+        [("app", "db"), ("db", "app")],
+    )
+    assert result["cycle_detected"] is True
+    assert result["topology_state"] == "UNKNOWN"
+    assert result["persisted"] is False
