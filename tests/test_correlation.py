@@ -259,3 +259,35 @@ def test_duplicate_conflict_is_scoped_to_exact_source_identity():
     assert sum(group["conflicting_source_events"] for group in result["groups"]) == 1
     assert result["persisted"] is False
     assert result["live_remediation_authorized"] is False
+
+
+def test_mutated_signal_severity_rejected_at_direct_correlation_boundary():
+    item = signal("mutated")
+    item.severity = "unknown"
+    with pytest.raises(ValidationError):
+        correlate([item], "tenant-1")
+
+
+def test_mutated_signal_timestamp_rejected_at_direct_correlation_boundary():
+    item = signal("mutated")
+    item.observed_at = datetime(2026, 11, 9, 10)
+    with pytest.raises(ValidationError):
+        correlate([item], "tenant-1")
+
+
+def test_mutated_signal_identity_rejected_at_direct_correlation_boundary():
+    item = signal("mutated")
+    item.external_event_id = " padded "
+    with pytest.raises(ValidationError):
+        correlate([item], "tenant-1")
+
+
+@pytest.mark.parametrize("invalid_window", [True, 300.5, "300"])
+def test_direct_correlation_rejects_noninteger_window(invalid_window):
+    with pytest.raises(ValueError, match="bounds"):
+        correlate([signal("a")], "tenant-1", window_seconds=invalid_window)
+
+
+def test_direct_correlation_rejects_missing_tenant_identity():
+    with pytest.raises(ValueError, match="tenant identity"):
+        correlate([signal("a")], "")
