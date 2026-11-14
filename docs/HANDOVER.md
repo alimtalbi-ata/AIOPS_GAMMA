@@ -1510,3 +1510,10 @@
 - Command: `PYTHONPATH=. python -m pytest -q tests/test_postmortem_local.py`; result: **12 passed in 0.08s** (local pytest 9.0.2, Pydantic 2.13.5).
 - This was **not** an exact repository checkout, did **not** execute the committed `tests/test_synthetic_postmortem_usecase.py`, and does **not** qualify full repository tests, CI, gateway ACL, PostgreSQL, staging or LIVE behavior.
 - GitHub Actions remains blocked before steps; issue #8 remains open. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — UC10 tenant boundary ordering
+- `draft_postmortem` now checks request/authority types, revalidates mutable request data, then compares the revalidated tenant UUID to the independent authorized tenant.
+- Added three negative regression tests for post-validation tenant mutation, invalid authority type and invalid request type.
+- On latest observed HEAD `4ccc7724650b538cfc52a960ecc9b05a96ea895b`, Python checks run `43615348969` still reported failures; no test pass can be inferred from the job list. Issue #8 remains the CI blocker.
+- New regression tests have **not** been executed. No canonical ACL integration or LIVE effect. PR #1 stays Draft HOLD / NO_GO.
