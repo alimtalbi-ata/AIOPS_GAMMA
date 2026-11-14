@@ -39,10 +39,17 @@ def observed_at_key(value: datetime) -> str:
 
 def normalize(items: list[EvidenceInput], *, now: datetime, max_age_seconds: int = 3600) -> dict:
     """Bounded preview; identical claims can conflict and are never auto-resolved."""
-    if now.tzinfo is None:
+    if not isinstance(now, datetime) or now.tzinfo is None or now.utcoffset() is None:
         raise ValueError("now requires timezone")
-    if not 1 <= len(items) <= 500 or not 1 <= max_age_seconds <= 86400:
+    if (not isinstance(items, list) or not 1 <= len(items) <= 500
+            or not isinstance(max_age_seconds, int) or isinstance(max_age_seconds, bool)
+            or not 1 <= max_age_seconds <= 86400):
         raise ValueError("evidence bounds exceeded")
+    if any(not isinstance(item, EvidenceInput) for item in items):
+        raise ValueError("Invalid evidence input structure")
+    # Mutable evidence and nested payload/provenance can bypass construction
+    # validators. Recheck timestamps, finite JSON and byte budgets at use time.
+    items = [EvidenceInput.model_validate(item.model_dump()) for item in items]
     now = now.astimezone(timezone.utc)
     seen = {}
     conflicts = set()
