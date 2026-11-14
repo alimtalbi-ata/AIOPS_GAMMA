@@ -1382,3 +1382,9 @@
 - Added a mutation test which rewrites the demo correlation handler signature in a disposable temporary file with positional input, injected principal or keyword-only tenant input, and asserts the guard rejects each variant. It does not connect to a DB or network.
 - Re-fetched the actual `app/main.py` and test source from GitHub: both public demo handlers currently have zero arguments and the new guard/mutation test is present. No pytest or runtime test execution claimed.
 - PR #1 remains Draft. **HOLD / NO_GO** pending runner/bootstrap and gateway owner qualification; no merge, LIVE or deployment.
+
+
+### 2026-11-14 — Extend public demo signature mutation coverage to both endpoints
+- Expanded `test_public_demo_signature_mutations_are_rejected` to exercise **both** public synthetic demo handlers (`demo_correlation`, `demo_investigation`), covering positional request input, injected principal, keyword-only tenant input, `*args`, `**kwargs`, and an additional decorator. Every mutation is written only to a disposable `tmp_path` and must be rejected by the existing AST guard.
+- Re-fetched the updated test source from GitHub. These mutation cases are **defined, not executed**; no pytest pass is claimed while Actions runners still fail before steps.
+- **HOLD / NO_GO**; PR #1 remains Draft, no merge, LIVE, PostgreSQL or deployment.
