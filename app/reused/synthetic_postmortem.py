@@ -106,3 +106,60 @@ def draft_postmortem(req: PostmortemDraftRequest, authorized_tenant: UUID) -> di
         "incident_closed": False,
         "live_remediation_authorized": False,
     }
+
+
+def render_postmortem_markdown(req: PostmortemDraftRequest, authorized_tenant: UUID) -> str:
+    """Deterministic, escaped review export; never an authoritative incident report."""
+    from html import escape
+    import re
+
+    draft = draft_postmortem(req, authorized_tenant)
+
+    def safe(value: str) -> str:
+        # Escape HTML and Markdown syntax in caller-supplied text so an event
+        # cannot create forged headings, links, checkboxes or embedded HTML.
+        return re.sub(r"([\\\\`*_{}\[\]()#+.!|>~-])", r"\\\1", escape(value, quote=True))
+
+    lines = [
+        "# Synthetic postmortem — HUMAN REVIEW REQUIRED",
+        "",
+        "**NON-AUTHORITATIVE — caller-supplied preview; no verified evidence or incident closure.**",
+        "",
+        f"Incident: {safe(draft['incident_id'])}",
+        f"Service: {safe(draft['service_name'])}",
+        f"Tenant: {draft['tenant_id']}",
+        "",
+        f"## Timeline — {draft['timeline_state']}",
+    ]
+    if draft["timeline"]:
+        for event in draft["timeline"]:
+            lines.append(
+                f"- {event['occurred_at']} | {safe(event['event_id'])}: "
+                f"{safe(event['summary'])} "
+                f"(evidence: {safe(event['evidence_ref']) if event['evidence_ref'] else 'UNKNOWN'}; "
+                "source verified: NO)"
+            )
+    else:
+        lines.append("UNKNOWN — no verified timeline.")
+    lines.extend([
+        "",
+        f"## Root cause — {draft['root_cause_state']}",
+        safe(draft["root_cause_summary"]) if draft["root_cause_summary"] else "UNKNOWN",
+        "",
+        f"## Impact — {draft['impact_state']}",
+        safe(draft["impact_summary"]) if draft["impact_summary"] else "UNKNOWN",
+        "",
+        "## Incident metrics — UNKNOWN",
+        "Detection, acknowledgement, mitigation and resolution durations: UNKNOWN "
+        "(canonical timestamps not verified).",
+        "",
+        "## Follow-up candidates — NOT APPROVED",
+    ])
+    lines.extend(f"- {safe(item)}" for item in draft["follow_up_candidates"])
+    if not draft["follow_up_candidates"]:
+        lines.append("UNKNOWN — no proposed follow-ups.")
+    lines.extend([
+        "",
+        "**Human review required. No ITSM mutation, persistence, LIVE remediation or incident closure.**",
+    ])
+    return "\n".join(lines) + "\n"
