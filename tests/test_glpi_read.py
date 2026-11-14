@@ -267,3 +267,30 @@ async def test_public_glpi_read_rejects_invalid_ticket_before_acl(ticket_id):
     with pytest.raises(HTTPException) as exc:
         await glpi_read.read_glpi_incident(uuid4(), ticket_id)
     assert exc.value.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_glpi_api_route_remains_fail_closed_with_feature_enabled(monkeypatch):
+    """Exercise the actual route function, not just its transport helper."""
+    from app.main import glpi_incident_snapshot
+    from app.security import Principal
+    from fastapi import Response
+
+    tenant = uuid4()
+    monkeypatch.setattr(glpi_read.settings, "enable_glpi_reads", True)
+    monkeypatch.setattr(glpi_read.settings, "glpi_tenant_id", str(tenant))
+    monkeypatch.setattr(glpi_read.settings, "glpi_entity_id", "8")
+    monkeypatch.setattr(glpi_read.settings, "glpi_read_url", "https://glpi.internal")
+    monkeypatch.setattr(glpi_read.settings, "glpi_session_token", "test-session")
+    monkeypatch.setattr(glpi_read.settings, "glpi_app_token", "test-app")
+
+    def no_network(*args, **kwargs):
+        raise AssertionError("GLPI route must not reach HTTP transport")
+
+    monkeypatch.setattr(glpi_read.httpx, "AsyncClient", no_network)
+    principal = Principal(tenant_id=tenant, subject="synthetic-actor",
+                          actor_type="user", assertion_id="synthetic", expires_at=1)
+    with pytest.raises(HTTPException) as exc:
+        await glpi_incident_snapshot(12, Response(), principal)
+    assert exc.value.status_code == 503
+    assert "ACL not qualified" in str(exc.value.detail)
