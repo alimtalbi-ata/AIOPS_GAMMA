@@ -1224,3 +1224,13 @@
 - Added seven regression cases to `tests/test_gateway_replay_unit.py`: ordered insert-before-commit, conflict rollback-without-commit, distinct JTI digest separation under one issuer, and four noncanonical JTI rejection cases (129 characters, NUL, DEL, non-ASCII). Commit `e35cf925801c6851fba65036fc57414c8037e688`.
 - Internal lab `/mnt/data/gamma_replay_current`: verified the new test file Git blob SHA `a9f6035f44faeed9723a473b6c5797772a2f7c57` matches GitHub, and ran `python -m pytest -q tests/test_gateway_replay_unit.py tests/test_gateway_replay_migration_contract.py`: **22 passed in 0.31s** (18 replay unit + 4 migration contract). Prior lab verified the replay helper and migration source blobs against GitHub.
 - This does not establish actual PostgreSQL concurrency or migration upgrade/downgrade. Internal runtime lacks PostgreSQL binaries, Docker/Podman, and asyncpg; no external or production DB was accessed. No GitHub Actions rerun. Replay remains unwired; no merge, deploy or LIVE. **HOLD / NO_GO**.
+
+
+### 2026-11-14 — Gateway identity boundary contract (#2)
+- Branch: `feat/observability-foundation`.
+- Delivered: `docs/GATEWAY-IDENTITY-CONTRACT.md` records the implemented HMAC request-bound assertion schema, explicitly separates workload authentication from tenant authorization, and lists gateway-owner decisions and staging acceptance evidence.
+- Source review: `app/security.py` verifies signed `iss`, `aud`, `sub`, `actor_type`, `tenant_id`, `tenant_access`, `iat`, `exp`, `jti`, method and path. Synthetic unit tests exist in `tests/test_gateway_assertion.py` and `tests/test_gateway_auth_extra.py`; they are not evidence of a real gateway membership check.
+- Deployment gap: Helm currently wires only the internal API key Secret; assertion secret/issuer/audience are not wired. API NetworkPolicy has no gateway peer selector. Gateway namespace/pod labels and real issuer/audience are unknown and were not invented.
+- Validation: source/documentation review only; no pytest, runner, gateway, Kubernetes, PostgreSQL or staging execution performed.
+- Decision: HOLD / NO_GO; no LIVE, merge, activation or deployment.
+- Next: obtain gateway owner-approved issuer/audience, membership semantics, secret rotation and workload labels; then wire chart and add gateway-only ingress policy with negative bypass tests.
