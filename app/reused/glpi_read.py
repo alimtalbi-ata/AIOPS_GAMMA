@@ -17,8 +17,11 @@ from app.settings import settings
 async def read_glpi_incident(tenant_id: UUID, ticket_id: int) -> dict:
     """Fail closed until independent actor/tenant/resource ACL is qualified."""
     if type(ticket_id) is not int or ticket_id <= 0:
-        raise HTTPException(422, "Invalid GLPI ticket id")
-    raise HTTPException(503, "GLPI actor/tenant/resource ACL not qualified")
+        raise HTTPException(422, "Invalid GLPI ticket id",
+                            headers={"Cache-Control": "no-store"})
+    # Response injection headers are not propagated when HTTPException is raised.
+    raise HTTPException(503, "GLPI actor/tenant/resource ACL not qualified",
+                        headers={"Cache-Control": "no-store"})
 
 
 async def _read_glpi_incident_unqualified(tenant_id: UUID, ticket_id: int) -> dict:
