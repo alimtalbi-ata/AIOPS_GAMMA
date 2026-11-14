@@ -122,6 +122,9 @@ def preview_itil_workflow(
     return {
         "schema_version": "aiops.gamma.itil4-preview.v1",
         "tenant_id": str(tenant),
+        "data_source": "caller_supplied_preview",
+        "authoritative": False,
+        "persisted": False,
         "incident": {
             "reference": incident.incident_id,
             "priority_inputs": {"urgency": incident.urgency, "impact": incident.impact},
