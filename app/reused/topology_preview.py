@@ -2,8 +2,6 @@
 
 Pure in-memory graph traversal. No canonical CMDB reads, network, writes or authority.
 """
-from collections import deque
-
 MAX_NODES = 200
 MAX_EDGES = 1000
 
@@ -35,27 +33,23 @@ def preview_service_dependencies(
             continue
         graph[source].add(target)
 
-    # Iterative color DFS avoids recursion and detects reachable back-edges.
-    color: dict[str, int] = {}
+    # A node is gray only while its DFS frame is active. Keeping the
+    # child iterator in each frame avoids false cycles from pending siblings.
+    color: dict[str, int] = {service_id: 1}
     cyclic = False
-    stack = [(service_id, False)]
+    stack = [(service_id, iter(sorted(graph[service_id])))]
     while stack:
-        node, leaving = stack.pop()
-        if leaving:
+        node, children = stack[-1]
+        child = next(children, None)
+        if child is None:
             color[node] = 2
+            stack.pop()
             continue
-        if color.get(node) == 2:
-            continue
-        if color.get(node) == 1:
+        if color.get(child) == 1:
             cyclic = True
-            continue
-        color[node] = 1
-        stack.append((node, True))
-        for child in sorted(graph[node], reverse=True):
-            if color.get(child) == 1:
-                cyclic = True
-            elif color.get(child) != 2:
-                stack.append((child, False))
+        elif color.get(child) != 2:
+            color[child] = 1
+            stack.append((child, iter(sorted(graph[child]))))
 
     reachable = sorted(set(color) - {service_id})
     return {
