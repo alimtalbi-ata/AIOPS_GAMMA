@@ -25,7 +25,7 @@ class ObservedCI(BaseModel):
     cmdb_ci_id: str | None = Field(default=None, max_length=255)
     discovery_source: str = Field(min_length=1, max_length=80)
     last_observed_at: datetime
-    verified_against_cmdb: bool = False
+    verified_against_cmdb: bool = Field(default=False, strict=True)
 
     @model_validator(mode="after")
     def time_is_aware(self):
