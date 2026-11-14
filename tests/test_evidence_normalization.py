@@ -178,3 +178,24 @@ def test_mutated_evidence_identity_rejected_at_normalization_boundary():
 def test_evidence_normalization_rejects_invalid_freshness_types(invalid_age):
     with pytest.raises(ValueError, match="bounds"):
         normalize([evidence()], now=NOW, max_age_seconds=invalid_age)
+
+
+@pytest.mark.parametrize("field", ["payload", "provenance"])
+def test_mixed_json_object_keys_rejected_before_deterministic_hashing(field):
+    with pytest.raises(ValidationError, match="finite JSON"):
+        evidence(**{field: {"valid": 1, 2: "invalid-key"}})
+
+
+@pytest.mark.parametrize("field", ["payload", "provenance"])
+def test_mutated_mixed_json_object_keys_rejected_at_normalization_boundary(field):
+    item = evidence()
+    getattr(item, field)[2] = "invalid-key"
+    with pytest.raises(ValidationError, match="finite JSON"):
+        normalize([item], now=NOW)
+
+
+def test_evidence_payload_hash_is_independent_of_object_key_order():
+    first = normalize([evidence(payload={"z": 1, "a": 2})], now=NOW)
+    second = normalize([evidence(payload={"a": 2, "z": 1})], now=NOW)
+    assert first == second
+    assert first["items"][0]["integrity"] == "UNVERIFIED"
