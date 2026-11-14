@@ -87,3 +87,55 @@ def test_valid_unverified_ci_remains_non_authorizing():
     assert result["change_enablement"]["authorization_state"] == "NOT_ASSESSED_BY_CHANGE_AUTHORITY"
     assert result["execution"]["live_remediation_authorized"] is False
     assert result["execution"]["itsm_mutations_performed"] is False
+
+
+def test_mutated_problem_tenant_mismatch_rejected():
+    item = incident()
+    problem = ProblemAssessment(
+        tenant_id=TENANT, related_incident_ids=["DEMO-INC-1"],
+        suspected_root_cause="Unverified",
+    )
+    problem.tenant_id = OTHER
+    with pytest.raises(ValueError, match="Problem tenant or incident reference mismatch"):
+        preview_itil_workflow(item, problem)
+
+
+def test_mutated_change_tenant_mismatch_rejected():
+    item = incident()
+    change = ChangeProposal(
+        tenant_id=TENANT, source_incident_id="DEMO-INC-1",
+        target_ci_id="CI-DEMO-1", runbook_id="demo", runbook_version="v1",
+        impact_summary="Synthetic only", risk="unknown",
+        implementation_plan_ref="demo-implement",
+        rollback_plan_ref="demo-rollback",
+        verification_plan_ref="demo-verify", evidence_refs=["demo-evidence"],
+    )
+    change.tenant_id = OTHER
+    with pytest.raises(ValueError, match="Change tenant or incident reference mismatch"):
+        preview_itil_workflow(item, change)
+
+
+def test_mutated_change_target_requires_verified_binding():
+    item = incident()
+    change = ChangeProposal(
+        tenant_id=TENANT, source_incident_id="DEMO-INC-1",
+        target_ci_id="CI-DEMO-1", runbook_id="demo", runbook_version="v1",
+        impact_summary="Synthetic only", risk="unknown",
+        implementation_plan_ref="demo-implement",
+        rollback_plan_ref="demo-rollback",
+        verification_plan_ref="demo-verify", evidence_refs=["demo-evidence"],
+    )
+    with pytest.raises(ValueError, match="Change target CI must have a verified CMDB binding"):
+        preview_itil_workflow(item, change)
+
+
+@pytest.mark.parametrize("invalid", [{}, "problem", []])
+def test_invalid_problem_structure_rejected(invalid):
+    with pytest.raises(ValueError, match="Invalid ITIL preview structure"):
+        preview_itil_workflow(incident(), problem=invalid)
+
+
+@pytest.mark.parametrize("invalid", [{}, "change", []])
+def test_invalid_change_structure_rejected(invalid):
+    with pytest.raises(ValueError, match="Invalid ITIL preview structure"):
+        preview_itil_workflow(incident(), change=invalid)
