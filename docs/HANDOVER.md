@@ -1586,3 +1586,10 @@
 - Added nine negative parametrized cases in `tests/test_correlation_evidence.py`, including no-evidence requests that previously bypassed normalize's clock checks.
 - Read-only synthetic preview only: evidence source integrity is still UNVERIFIED, canonical actor→tenant→resource ACL remains blocked (issue #2), no ITSM writes or LIVE action.
 - New tests **not executed**. CI zero-step blocker issue #8 remains unresolved. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — UC10 Markdown review export
+- Added `render_postmortem_markdown(req, authorized_tenant)` in `app/reused/synthetic_postmortem.py`; delegates to the tenant-gated, fully revalidated synthetic draft and emits deterministic review-only Markdown.
+- Caller-supplied fields are HTML/Markdown escaped; timeline, RCA and impact retain UNKNOWN/UNVERIFIED states; incident durations remain UNKNOWN rather than fabricated. Output explicitly requires human review and forbids treating it as closure or an ITSM mutation.
+- Four new tests cover deterministic ordering, untrusted markup, missing facts and cross-tenant denial.
+- Tests **not executed**; CI issue #8 remains unresolved. Canonical ACL issue #2 remains blocked. PR #1 stays Draft HOLD / NO_GO; no persistence, ITSM writes or LIVE action.
