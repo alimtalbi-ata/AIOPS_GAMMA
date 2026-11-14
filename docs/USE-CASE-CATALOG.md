@@ -1,66 +1,60 @@
 # GAMMA — catalogue des cas d’usage produit
 
-Ce catalogue relie les parcours opérationnels visés aux capacités réellement présentes dans le dépôt. Il sert de garde-fou produit : une route ou une projection synthétique ne signifie pas qu'un parcours est qualifié en production.
+Ce catalogue reprend **les identifiants UC01–UC10 déjà définis dans [ROADMAP.md](ROADMAP.md#use-cases-and-acceptance-gates-2026-11-14)** et utilisés dans les scénarios synthétiques. Une prévisualisation ne constitue ni une intégration canonique, ni une qualification de production.
 
-## Légende de maturité
+> Correction de traçabilité (2026-11-14) : une première version de ce catalogue avait réattribué les IDs UC02, UC03, UC05–UC10 et créé UC11–UC12. Cette numérotation était incompatible avec la roadmap et les tests. **La roadmap UC01–UC10 fait foi.** Les thèmes transverses restent présents, sans nouveaux IDs concurrents.
 
-- **Disponible — démonstration synthétique** : parcours local/synthétique, sans source canonique ni écriture externe.
-- **Disponible — API sous feature flag / qualification partielle** : contrat présent, dépendances et sécurité encore à qualifier.
-- **Prévisualisation uniquement** : proposition non autoritative, sans persistance ni exécution.
-- **Cible — non livrée** : cas d’usage produit planifié, dépendant de contrats, ACL, tests et exploitation.
+## Catalogue aligné sur la roadmap
 
-## Catalogue
+| ID stable | Parcours opérateur | Implémentation et preuve de code | Limite et prochain critère de sortie |
+|---|---|---|---|
+| UC01 | Command center et supervision | UI React de démonstration, `GET /api/v1/health/live` | DEMO ≠ REAL ; santé du processus ≠ santé métier ; authentification et données réelles à qualifier |
+| UC02 | Corrélation d’alertes | `POST /api/v1/incidents/correlation/preview`, `app/reused/correlation.py`, `tests/test_correlation.py` | Déduplication en mémoire uniquement ; concurrence, replay et clustering durable #4 non qualifiés |
+| UC03 | Investigation et preuves | `app/reused/correlation_evidence.py`, `app/reused/investigation.py`, `tests/test_correlation_evidence.py` ; prévisualisations HTTP | Preuves fournies par l’appelant, intégrité non authentifiée ; ACL ressource, collecte et provenance canoniques manquantes |
+| UC04 | Topologie et estimation d’impact | `app/reused/impact.py`, `app/reused/synthetic_impact.py`, `app/reused/topology_preview.py`, `tests/test_topology_preview.py` | Parcours de graphe **synthétique** et estimation sur comptes de chemins ; cycles et relations manquantes → UNKNOWN ; CMDB/Twin canonique non vérifiée |
+| UC05 | ITSM/GLPI et dossier d’incident | `app/reused/itsm_contract.py`, `app/reused/itil.py`, `POST /api/v1/itil4/incidents/sync-preview` ; lecture GLPI désactivée par défaut | Proposition non autoritative ; aucun ticket/problème/changement créé ; priorité, entité et idempotence à qualifier en staging |
+| UC06 | Analyse RCA assistée | `app/reused/investigation.py`, `tests/test_synthetic_rca_usecase.py`, scénarios RCA synthétiques | Hypothèses/provenance locales seulement ; pas d’agent autonome qualifié, de benchmark adjudiqué ni de preuve canonique |
+| UC07 | Observabilité AI/LLM et SLO | `POST /api/v1/observability/llm/kpis/preview`, `app/reused/llm_kpi.py` | Échantillons fournis par l’appelant ; pas de collecte Sentinel/ArgusLM live, historique durable ni SLO qualifié |
+| UC08 | Runbook, changement et approbation | `POST /api/v1/policy/remediation/preview`, `app/reused/synthetic_runbook_hitl.py`, `app/reused/itil.py` | Conseil/dry-run synthétique ; pas de runbook approuvé, de receipt HITL indépendant ni d’écriture ITSM |
+| UC09 | Récupération contrôlée et vérification | Core/Temporal existant identifié comme **intégration cible** ; simulations de planification uniquement | **NO_GO LIVE** : Policy/HITL, fencing, rollback, vérification SLI et réconciliation non qualifiés |
+| UC10 | Postmortem et apprentissage | `app/reused/synthetic_postmortem.py`, `tests/test_synthetic_postmortem_usecase.py`, `tests/test_synthetic_end_to_end_usecase.py` | Brouillon **synthétique** avec UNKNOWN et revue humaine requise ; aucune clôture ni leçon canonique persistée |
 
-| ID | Cas d’usage | Valeur utilisateur | Capacités / point d’entrée connus | Maturité et limite |
-|---|---|---|---|---|
-| UC01 | Supervision et santé de la plateforme | Vérifier que GAMMA répond et visualiser son état de démonstration | `GET /api/v1/health/live`, Overview local | Santé du processus seulement ; ne prouve ni dépendances ni disponibilité métier |
-| UC02 | Ingestion et exploration des signaux | Rassembler logs et alertes pour une investigation par tenant/service | `POST /api/v1/observability/logs/search`, `POST /api/v1/integrations/opensearch/alerts` | Feature flags ; OpenSearch/TLS/DLS/RBAC et mappings à qualifier |
-| UC03 | Corrélation et regroupement d’incidents | Réduire le bruit en regroupant les signaux liés | `POST /api/v1/incidents/correlation/preview`, démonstration locale « 2 signaux → 1 groupe » | Prévisualisation/démonstration ; tests de permutations, doublons conflictuels et bornes de preuves présents mais non exécutés ; déduplication persistante, concurrence et replay restent à qualifier |
-| UC04 | Contexte service et impact CMDB | Relier un incident aux services et CI affectés | `POST/GET /api/v1/topology/bindings`, observations CI synthétiques | Estimation d’impact par comptes de chemins et parcours de graphe synthétique borné (`app/reused/topology_preview.py`) ; cycles/relations inconnues → UNKNOWN ; pas de graphe CMDB canonique, ACL et fraîcheur non qualifiées |
-| UC05 | Dossier d’incident et preuves | Constituer un dossier traçable pour l’investigation | `POST/GET /api/v1/incidents/{incident_id}/evidence` | Persistance de preuves disponible dans le code ; autorisation multi-tenant, rétention et audit à qualifier |
-| UC06 | KPI LLM Sentinel / ArgusLM | Suivre latence, TTFT, débit, tokens, erreurs et coût estimé | `POST /api/v1/observability/llm/kpis/preview` | Agrégation d’échantillons fournis par l’appelant ; non autoritaire, pas de collecte live ni historique durable |
-| UC07 | Analyse RCA assistée | Formuler hypothèses, confronter preuves et documenter les inconnues | Contrats de preuves et architecture AI SRE | Cible ; moteur d’investigation, benchmark humain, provenance et gestion des contradictions à livrer |
-| UC08 | Workflow ITIL 4 incident → problème → changement | Préparer une proposition cohérente, liée à l’incident et aux CI | `POST /api/v1/itil4/incidents/sync-preview`, `app/reused/itil.py` | Prévisualisation non autoritative ; pas d’écriture GLPI, de vérification CMDB canonique ni d’approbation |
-| UC09 | Planification de remédiation contrôlée | Proposer une action fondée sur un runbook, son risque, son rollback et ses vérifications | `POST /api/v1/policy/remediation/preview` | Conseil uniquement ; catalogue approuvé, Policy/HITL et validation indépendante requis |
-| UC10 | Exécution, vérification et réconciliation | Exécuter par le Core/Temporal existant, puis vérifier l’effet et clôturer | Intégration cible Core/Temporal/ITSM | Non livrée / NO_GO ; aucune action LIVE autorisée |
-| UC11 | Postmortem et apprentissage | Produire un compte rendu blameless, les actions et les récurrences | Architecture AI SRE et roadmap RCA | Cible ; données canoniques, adjudication humaine et suivi d’actions requis |
-| UC12 | Gouvernance, audit et conformité | Expliquer qui a consulté, proposé, approuvé et exécuté quoi | Contrats gateway, Policy/HITL et handover | Partiel ; ACL acteur→tenant→ressource, receipts signés et chaîne d’audit restent à qualifier |
+## Parcours de bout en bout
 
-## Parcours de bout en bout cible
+1. **UC01–UC02** — présenter des signaux étiquetés DEMO/REAL et les regrouper sans écrire dans le Core.
+2. **UC03–UC04** — relier preuves et dépendances ; afficher UNKNOWN si provenance, couverture ou CMDB sont incertaines.
+3. **UC05–UC06** — préparer l’ITSM et les hypothèses RCA, avec citations et contradictions explicites.
+4. **UC07–UC08** — examiner les KPI LLM et une proposition de runbook/changement sans conférer d’autorité.
+5. **UC09–UC10** — n’envisager l’exécution qu’après qualification indépendante ; produire aujourd’hui uniquement un postmortem synthétique soumis à revue humaine.
 
-1. Détecter : logs, métriques et alertes (UC01–UC02).
-2. Corréler : regrouper les signaux et dédupliquer (UC03).
-3. Contextualiser : service, topologie et CI canoniques (UC04).
-4. Constituer les preuves : provenance, horodatage et contradictions (UC05).
-5. Investiguer : hypothèses RCA et UNKNOWN explicite (UC07).
-6. Préparer l’ITIL : incident, problème/known error et RFC (UC08).
-7. Planifier : runbook approuvé, risque, rollback et vérification (UC09).
-8. Autoriser : Policy/HITL indépendant, identité et périmètre vérifiés (UC12).
-9. Exécuter et réconcilier : Core/Temporal, preuves post-action et ITSM (UC10).
-10. Apprendre : postmortem et suivi (UC11).
+## Thèmes transverses, sans nouvel identifiant UC
 
-## Priorisation et critères d’acceptation
+- **Ingestion et recherche** : `POST /api/v1/observability/logs/search` et `POST /api/v1/integrations/opensearch/alerts` ; OpenSearch/TLS/DLS/RBAC, mapping et isolation restent à qualifier (#3).
+- **Gouvernance et audit** : identité gateway, ACL **acteur→tenant→ressource** (#2), approbations indépendantes, receipts et traçabilité. Un `tenant_id` déclaré ne suffit jamais.
+- **ITIL 4** : incident→problème→changement est une projection UC05/UC08, pas un second parcours UC autonome.
+- **Qualité CI** : les tests présents dans le dépôt ne sont pas des tests exécutés. Le blocage pré-étapes GitHub Actions (#8) empêche une qualification sur le HEAD courant.
 
-| Priorité | Cas d’usage / incrément | Critères de sortie |
+## Critères de sortie prioritaires
+
+| Priorité | Parcours | Preuves attendues |
 |---|---|---|
-| P0 | UC01, contrat UC12 | CI réellement exécutée sur le SHA exact ; gateway authentifie l’acteur ; ACL acteur→tenant→ressource ; aucune confiance dans un tenant fourni par le navigateur |
-| P1 | UC02–UC05 | Tests tenant négatifs/positifs ; limites payload/timeout/redirect ; provenance ; idempotence et tests de concurrence ; source canonique et fraîcheur vérifiées |
-| P2 | UC06–UC07 | Adaptateurs Sentinel/ArgusLM en lecture seule ; échantillonnage, timestamps, couverture ; benchmark RCA adjudiqué ; preuves sourcées et contradictions |
-| P3 | UC08–UC09 | cycle ITSM staging idempotent ; modèles de changement approuvés ; validation indépendante des runbooks, Policy et HITL |
-| P4 | UC10–UC11 | tests d’échec, fencing/idempotence, rollback, vérification SLI après action, clôture/réconciliation et postmortem revu |
+| P0 | UC01, sécurité transverse | CI sur SHA exact ; principal authentifié et ACL ressource ; données DEMO/REAL explicites |
+| P1 | UC02–UC05 | Tests tenant positifs/négatifs ; provenance, limites et timeouts ; replay/concurrence ; CMDB/ITSM staging qualifiés |
+| P2 | UC06–UC07 | Benchmark RCA adjudiqué, contradictions et UNKNOWN ; sources KPI en lecture seule, fraîcheur et couverture |
+| P3 | UC08 | Catalogue de runbooks approuvés ; Policy/HITL indépendant, plans rollback/vérification et idempotence ITSM |
+| P4 | UC09–UC10 | Fencing, rollback, SLI post-action, réconciliation, audit et postmortem revu ; aucune autonomie avant les gates |
 
-## Garde-fous non négociables
+## Garde-fous
 
-- Les données synthétiques, prévisualisations et compteurs déclarés par un appelant ne sont jamais des preuves canoniques.
-- Aucun KPI, score RCA, statut UI ou test statique ne confère une autorisation d’exécution.
-- Toute lecture canonique exige une identité d’acteur et une ACL ressource vérifiées côté serveur, pas seulement un tenant ID.
-- Toute écriture ITSM ou remédiation exige approbation indépendante, idempotence, audit et procédure de rollback.
-- Le statut « test présent » ne vaut pas « test exécuté » ; une CI sans étapes/logs n'apporte aucune preuve de réussite.
-- Les intégrations et fonctionnalités marquées cible ne doivent pas être présentées comme livrées.
+- Une projection synthétique, un hash de payload ou une couverture de preuves ne prouve pas une source canonique.
+- Les données d’UI, les KPI LLM et les hypothèses RCA ne confèrent jamais d’autorisation d’exécution.
+- Aucune lecture canonique sans ACL acteur→tenant→ressource vérifiée côté serveur.
+- Aucune écriture ITSM ou remédiation sans approbation indépendante, idempotence et audit.
+- PR #1 demeure **Draft — HOLD / NO_GO** : aucun merge, déploiement, accès PostgreSQL réel ou LIVE.
 
-## Références de conception
+## Références
 
-- [Roadmap exécutable](ROADMAP.md)
+- [Roadmap et IDs UC01–UC10](ROADMAP.md)
 - [Architecture AI SRE](AI-SRE-PLATFORM.md)
 - [UX produit](PRODUCT-UX-DESIGN.md)
 - [Gouvernance ITIL 4](ITIL4-GOVERNANCE.md)
