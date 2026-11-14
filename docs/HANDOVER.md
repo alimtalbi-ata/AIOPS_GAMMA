@@ -1503,3 +1503,10 @@
 - Expanded `tests/test_synthetic_postmortem_usecase.py` with invalid-field and post-validation mutation cases, including a naive timestamp.
 - This is still a caller-supplied, non-authoritative draft: no source verification, incident closure, persistence, ITSM writes or LIVE action.
 - **Tests not executed**: GitHub Actions zero-step runner blocker remains tracked in issue #8. PR #1 remains Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — isolated local UC10 behavioral verification
+- Reconstructed the UC10 `synthetic_postmortem` module and 12 equivalent assertions in a disposable local Python environment from reviewed GitHub source.
+- Command: `PYTHONPATH=. python -m pytest -q tests/test_postmortem_local.py`; result: **12 passed in 0.08s** (local pytest 9.0.2, Pydantic 2.13.5).
+- This was **not** an exact repository checkout, did **not** execute the committed `tests/test_synthetic_postmortem_usecase.py`, and does **not** qualify full repository tests, CI, gateway ACL, PostgreSQL, staging or LIVE behavior.
+- GitHub Actions remains blocked before steps; issue #8 remains open. PR #1 stays Draft HOLD / NO_GO.
