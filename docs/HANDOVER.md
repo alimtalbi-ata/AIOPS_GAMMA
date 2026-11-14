@@ -1691,3 +1691,10 @@
 - Two parametrized cases assert both counts and `canonical_cmdb_verified=False`.
 - Isolated local Pydantic 2.13.5 smoke check confirmed `Field(strict=True)` rejects `"true"`, `1`, `None` and accepts literal booleans. This is **not** execution of repository tests.
 - Repository tests **not executed**. CI issue #8 and canonical ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — Latest CI evidence recorded without rerun
+- Updated `docs/CI-QUALIFICATION-BLOCKER.md` with exact reviewed HEAD `5b00b71`, failed Python/deployment workflow run IDs and three sampled jobs with empty step arrays.
+- Explicitly separated older `404 BlobNotFound` log observation from the latest runs; no latest logs were examined, no pytest result established and no blind rerun initiated.
+- Operator must identify runner/platform run-summary error before qualifying a new exact HEAD. Issue #8 remains open; independent canonical ACL issue #2 remains open.
+- PR #1 stays Draft HOLD / NO_GO; no merge, LIVE, canonical access or deployment.
