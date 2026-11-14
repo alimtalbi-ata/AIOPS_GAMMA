@@ -81,3 +81,35 @@ def test_back_edge_to_active_ancestor_is_a_real_cycle():
     assert result["cycle_detected"] is True
     assert result["topology_state"] == "UNKNOWN"
     assert result["live_remediation_authorized"] is False
+
+
+@pytest.mark.parametrize("bad_id", [
+    " service", "service ", "service\nother", "service\x7fother",
+    "x" * 256, "",
+])
+def test_invalid_service_identifier_rejected(bad_id):
+    with pytest.raises(ValueError):
+        preview(bad_id, [bad_id], [])
+
+
+@pytest.mark.parametrize("bad_id", [
+    " db", "db ", "db\nother", "db\x00other", "x" * 256,
+])
+def test_invalid_node_identifier_rejected(bad_id):
+    with pytest.raises(ValueError):
+        preview("service", ["service", bad_id], [])
+
+
+@pytest.mark.parametrize("bad_id", [
+    " missing", "missing ", "missing\nother", "missing\x00other", "x" * 256,
+])
+def test_invalid_edge_endpoint_rejected_instead_of_unknown(bad_id):
+    with pytest.raises(ValueError):
+        preview("service", ["service"], [("service", bad_id)])
+
+
+def test_canonical_missing_endpoint_remains_unknown():
+    result = preview("service", ["service"], [("service", "missing")])
+    assert result["unresolved_edge_detected"] is True
+    assert result["topology_state"] == "UNKNOWN"
+    assert result["authoritative"] is False
