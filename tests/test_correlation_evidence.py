@@ -584,3 +584,38 @@ def test_join_rejects_invalid_clock_type_even_with_no_evidence():
 def test_join_rejects_invalid_authorized_tenant_identity(invalid_tenant):
     with pytest.raises(ValueError, match="request or tenant"):
         preview(request(), invalid_tenant, now=NOW)
+
+
+def test_preview_revalidates_mutated_nested_correlation_signal():
+    req = request()
+    req.correlation.signals[0].severity = "unknown"
+    with pytest.raises(Exception):
+        preview(req, TENANT, now=NOW)
+
+
+def test_preview_revalidates_mutated_nested_evidence_payload_limit():
+    req = request()
+    req.evidence[0].payload = {"blob": "x" * 100_000}
+    with pytest.raises((ValueError, Exception)):
+        preview(req, TENANT, now=NOW)
+
+
+def test_preview_rejects_mutated_evidence_collection_over_limit():
+    req = request()
+    req.evidence = [req.evidence[0].model_copy(deep=True) for _ in range(501)]
+    with pytest.raises(Exception):
+        preview(req, TENANT, now=NOW)
+
+
+def test_preview_never_marks_complete_or_consistent_when_signal_conflict_exists():
+    req = request()
+    original = req.correlation.signals[0]
+    req.correlation.signals.append(original.model_copy(update={
+        "service_name": "other-service", "severity": "critical",
+    }))
+    result = preview(req, TENANT, now=NOW)
+    assert result["evidence_join_complete"] is True
+    assert result["evidence_join_consistent"] is False
+    assert result["groups"][0]["evidence_state"] == "UNKNOWN"
+    assert result["persisted"] is False
+    assert result["live_remediation_authorized"] is False
