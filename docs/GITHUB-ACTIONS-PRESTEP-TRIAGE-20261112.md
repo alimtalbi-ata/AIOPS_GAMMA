@@ -44,3 +44,12 @@
 - The run-level API confirms `event=pull_request`, `run_attempt=1` and the exact head SHA above. These observations do **not** establish the root cause or prove that any `compileall`, pytest, npm, Docker, PostgreSQL or Helm command ran.
 - **Operator action needed:** inspect each run's GitHub Actions UI annotations and repository/org Actions runner availability, policies, and billing; capture the actual pre-step error before modifying workflows or retrying. No automatic retry or production operation is authorized.
 - Quality P0 fixes and the new CI syntax gate remain unqualified by GitHub Actions. HOLD / NO_GO.
+
+
+## Exact-head pre-step recheck — 2026-11-14, commit 0a51b1d891066c252d87a88be3b3b54f86c42cc4
+
+- Python checks: [run 43612387057](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43612387057), created `2026-11-14T15:51:07Z`, updated `15:51:10Z`, `run_attempt=1`, completed/failure. Three jobs (`test`, `frontend`, `gateway-replay-postgres`) report failure with **zero steps**.
+- Deployment contract: [run 43612386885](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43612386885), created `2026-11-14T15:51:07Z`, updated `15:51:10Z`, `run_attempt=1`, completed/failure. Six jobs (`compose`, `single-directory-runtime`, `postgres-nonroot-experiment`, `api-postgres-runtime`, `helm`, `ui-image`) report failure with **zero steps**.
+- Both workflows completed in roughly three seconds. The synchronized pre-step failures are consistent with a shared runner/bootstrap restriction, **not proof of a particular cause**. A job-log retrieval for an earlier `test` job returned HTTP 404 `BlobNotFound`; this is a retrieval observation, not a test result.
+- **Operator handoff:** capture the exact GitHub Actions UI banner/annotation for these run links (redact sensitive data); inspect repository/org Actions permissions, hosted-runner availability, billing/usage, and pending approvals. If no annotation is available, provide these run IDs and timestamps to GitHub Support. Do not rerun without a specific diagnostic hypothesis.
+- **Release gate:** PR #1 Draft; **HOLD / NO_GO**. No pytest, npm, PostgreSQL, Docker or Helm execution is evidenced on these runs. No merge, deployment, LIVE or canonical reads.
