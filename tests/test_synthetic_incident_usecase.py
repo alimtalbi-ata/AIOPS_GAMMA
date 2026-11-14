@@ -134,3 +134,52 @@ def test_mutated_evidence_freshness_bound_rejected_at_correlation_boundary():
     req.max_age_seconds = 0
     with pytest.raises(ValidationError):
         preview(req, str(TENANT), now=NOW)
+
+
+def test_mutated_itsm_incident_priority_inputs_rejected():
+    from pydantic import ValidationError
+    req = IncidentSyncPreview(
+        incident=IncidentAssessment(
+            tenant_id=TENANT, incident_id="DEMO-INC-1",
+            urgency="high", impact="high", evidence_refs=["demo-trace"],
+        ), matrix=matrix(),
+    )
+    req.incident.urgency = "critical"
+    with pytest.raises(ValidationError):
+        plan_incident_sync(req, TENANT)
+
+
+def test_mutated_itsm_incident_tenant_denied():
+    req = IncidentSyncPreview(
+        incident=IncidentAssessment(
+            tenant_id=TENANT, incident_id="DEMO-INC-1",
+            urgency="high", impact="high", evidence_refs=["demo-trace"],
+        ), matrix=matrix(),
+    )
+    req.incident.tenant_id = OTHER_TENANT
+    with pytest.raises(ValueError, match="Tenant mismatch"):
+        plan_incident_sync(req, TENANT)
+
+
+def test_mutated_itsm_priority_matrix_rejected():
+    from pydantic import ValidationError
+    req = IncidentSyncPreview(
+        incident=IncidentAssessment(
+            tenant_id=TENANT, incident_id="DEMO-INC-1",
+            urgency="high", impact="high", evidence_refs=["demo-trace"],
+        ), matrix=matrix(),
+    )
+    req.matrix.rules[0].priority = "INVALID PRIORITY"
+    with pytest.raises(ValidationError):
+        plan_incident_sync(req, TENANT)
+
+
+def test_itsm_invalid_authority_type_rejected():
+    req = IncidentSyncPreview(
+        incident=IncidentAssessment(
+            tenant_id=TENANT, incident_id="DEMO-INC-1",
+            urgency="high", impact="high", evidence_refs=["demo-trace"],
+        ), matrix=matrix(),
+    )
+    with pytest.raises(ValueError, match="authorized tenant"):
+        plan_incident_sync(req, str(TENANT))
