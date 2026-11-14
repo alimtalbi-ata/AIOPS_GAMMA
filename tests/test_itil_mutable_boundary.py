@@ -354,3 +354,13 @@ def test_model_copy_update_cannot_bypass_change_type_validation():
     ).model_copy(update={"change_type": "preapproved"})
     with pytest.raises(ValidationError):
         preview_itil_workflow(item, change=change)
+
+
+@pytest.mark.parametrize("invalid_ci_id", [None, "", "   "])
+def test_model_copy_update_cannot_claim_verified_ci_without_identifier(invalid_ci_id):
+    item = incident()
+    item.affected_cis[0] = item.affected_cis[0].model_copy(
+        update={"verified_against_cmdb": True, "cmdb_ci_id": invalid_ci_id}
+    )
+    with pytest.raises(ValidationError, match="Verified CI requires CMDB identifier"):
+        preview_itil_workflow(item)
