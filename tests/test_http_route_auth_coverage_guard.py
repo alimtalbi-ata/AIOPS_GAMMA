@@ -63,6 +63,10 @@ class InternalRouteDependencyGuard(unittest.TestCase):
                     self.assertEqual(len(decorator.args), 1)
                     self.assertIsInstance(decorator.args[0], ast.Constant)
                     self.assertEqual(decorator.args[0].value, "http")
+                    self.assertFalse(
+                        decorator.keywords,
+                        "Unreviewed middleware decorator options need explicit review",
+                    )
                     continue
                 # Fail closed if a new app route uses a registration form this
                 # guard does not understand; otherwise it could be skipped.
