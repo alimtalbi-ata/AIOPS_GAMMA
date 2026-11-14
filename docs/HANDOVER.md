@@ -1997,3 +1997,9 @@
 - Added one parameterized synthetic regression (two forward/reverse cases) asserting every returned path starts at the selected CI, follows existing graph edges, has no repeated node, matches reported minimum hops, and agrees with the direct/indirect partition. Equal-hop alternatives select a deterministic witness.
 - Test commit `642c664`. Tests **not executed**. No runtime code changes, canonical CMDB access, credentials, persistence or LIVE remediation. Qualify exact reviewed SHA with recorded `python -m compileall -q app tests` and `python -m pytest -q tests/test_topology_preview.py` in an authorized isolated environment.
 - GitHub Actions issue #8 and independent ACL issue #2 remain blocking. PR #1 stays Draft — HOLD / NO_GO; no merge, deployment, real PostgreSQL or LIVE action.
+
+
+### 2026-11-14 — CI runner pre-step triage handoff
+- Added `docs/CI-RUNNER-TRIAGE.md` at commit `93102f8` with exact previously observed workflow/job IDs, administrator checks for Actions policy, runner allocation and billing/usage, and a copyable evidence record for issue #8.
+- This is documentation only. It does **not** identify a proven root cause, qualify any test execution or authorize blind reruns. The next CI qualification must run against the then-current exact reviewed HEAD, with actual per-step evidence and counts.
+- Independent actor→tenant→resource ACL issue #2 remains blocking. PR #1 remains Draft — HOLD / NO_GO. No merge, deployment, real PostgreSQL, LIVE access or remediation.
