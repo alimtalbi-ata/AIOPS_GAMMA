@@ -1414,3 +1414,9 @@
 - Added disposable-source mutation tests for both an explicit `unexpected=True` option and unpacked `**{"unexpected": True}` on the HTTP middleware decorator; the guard must reject either.
 - Re-fetched `app/main.py`: its only `@app.middleware` decorator is the reviewed `@app.middleware("http")`, with no extra options. The mutation tests are **defined, not executed** while CI runners still fail before steps.
 - PR #1 remains Draft, **HOLD / NO_GO**. No merge, PostgreSQL, LIVE or deployment.
+
+
+### 2026-11-14 — Lock public health liveness endpoint to a static response
+- Added an exact AST contract in `tests/test_route_security_static.py` for the intentionally unauthenticated `GET /api/v1/health/live` handler: one matching handler, exact reviewed decorator, no parameters, and only `return {"status": "ok"}`. This prevents unreviewed tenant/DB/network access or additional data from entering the public health surface.
+- Added source-only mutation cases for injected request input, extra tenant data, awaited work, and additional side-effect statements. Re-fetched `app/main.py`: its liveness handler matches the expected source and is registered once.
+- The tests are **defined, not executed**; CI runner/bootstrap still fails before any step. PR #1 Draft, **HOLD / NO_GO**, no merge, LIVE, PostgreSQL or deployment.
