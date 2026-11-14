@@ -1846,3 +1846,10 @@
 - Updated UC04 maturity wording: this is a path-count estimate only, not a canonical CMDB graph or blast-radius verification.
 - Commits: `328a0ba` implementation, `ef12a4c` tests, `8d6d81f` test cleanup, `c203a2e` catalog.
 - Tests **not executed**. CI workflows have not been shown running for these commits; ACL #2, observability #3 and persistent correlation #4 remain dependencies. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — UC04 bounded synthetic dependency graph
+- Added `app/reused/topology_preview.py`: pure in-memory service→dependency traversal with bounded nodes/edges, deterministic dependency listing, reachable cycle detection and UNKNOWN when edges reference missing nodes. No canonical CMDB read, external API, persistence, or authorization.
+- Added `tests/test_topology_preview.py`: transitive paths, cycle, unresolved edge, diamond DAG, unrelated nodes and malformed/oversized inputs.
+- Updated UC04 catalog maturity to describe synthetic-only graph preview. This is **not** an authenticated CMDB topology or production blast-radius estimate.
+- Tests **not executed**; CI issue #8 and canonical actor→tenant→resource ACL issue #2 remain release blockers. PR #1 remains Draft HOLD / NO_GO.
