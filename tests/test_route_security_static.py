@@ -313,21 +313,36 @@ def test_api_network_policy_denies_ingress_until_gateway_peer_selectors_exist():
 
 
 def test_public_demo_signature_mutations_are_rejected(tmp_path, monkeypatch):
-    """Exercise the public-handler guard against injected request inputs."""
+    """Reject input/dependency and decorator changes on both public demos."""
     import pytest
     import sys
 
     source = MAIN.read_text(encoding="utf-8")
-    original = "async def demo_correlation():"
-    assert source.count(original) == 1
     module = sys.modules[__name__]
-    for changed in (
-        "async def demo_correlation(user_input: str):",
-        "async def demo_correlation(principal=Depends(internal_principal)):",
-        "async def demo_correlation(*, tenant_id: str):",
-    ):
+    for handler in ("demo_correlation", "demo_investigation"):
+        original = f"async def {handler}():"
+        assert source.count(original) == 1
+        for changed in (
+            f"async def {handler}(user_input: str):",
+            f"async def {handler}(principal=Depends(internal_principal)):",
+            f"async def {handler}(*, tenant_id: str):",
+            f"async def {handler}(*args):",
+            f"async def {handler}(**kwargs):",
+        ):
+            candidate = tmp_path / "main.py"
+            candidate.write_text(source.replace(original, changed, 1), encoding="utf-8")
+            with monkeypatch.context() as patch:
+                patch.setattr(module, "MAIN", candidate)
+                with pytest.raises(AssertionError):
+                    test_public_demo_routes_only_call_reviewed_synthetic_helpers()
+
+        route = f'@app.get("/api/v1/demo/{handler.removeprefix("demo_")}")'
+        assert source.count(route) == 1
         candidate = tmp_path / "main.py"
-        candidate.write_text(source.replace(original, changed, 1), encoding="utf-8")
+        candidate.write_text(
+            source.replace(route, "@unexpected_decorator\n" + route, 1),
+            encoding="utf-8",
+        )
         with monkeypatch.context() as patch:
             patch.setattr(module, "MAIN", candidate)
             with pytest.raises(AssertionError):
