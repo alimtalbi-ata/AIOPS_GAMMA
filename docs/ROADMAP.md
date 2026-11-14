@@ -65,3 +65,25 @@ All GAMMA-operated components must ship as versioned OCI images with **both Dock
 ## Mandatory rootless single-directory qualification
 
 Every self-hosted GAMMA component must support a configurable `GAMMA_HOME` directory for application artifacts and persistent data, no writes to host system directories, rootless Docker/Podman operation in Compose, and non-root restricted workloads in Kubernetes. Per-component UID/permissions, persistent mounts, rootless daemon data-root, upstream images, K8s CSI/runtime exceptions and backup/restore must be qualified before release. See [ROOTLESS-SINGLE-DIRECTORY](ROOTLESS-SINGLE-DIRECTORY.md). The current overlay is opt-in and **not yet production qualified**.
+
+
+## Use cases and acceptance gates (2026-11-14)
+
+These scenarios are product requirements, not claims of production readiness.
+
+| Use case | User outcome | Essential negative tests | Gate |
+|---|---|---|---|
+| UC01 Command center | Tenant-aware signals with source, freshness and DEMO/REAL marking | Unauthorized, cross-tenant, missing or stale data | P0/P1 |
+| UC02 Alert correlation | Deduplicated incidents by source ID, time, service and CI | Retries, concurrent duplicates, cross-tenant collision | P2/P3 |
+| UC03 Investigation | Linked logs, metrics, traces, changes and cited evidence | Timeout, oversize, missing/contradictory evidence, SSRF | P2/P4 |
+| UC04 Impact | Conservative CMDB/Twin blast-radius estimate | Stale topology, unauthorized CI, unverified edges | P1/P3 |
+| UC05 ITSM/GLPI | Incident priority and ticket preview, later idempotent reconciliation | Cross-entity access, duplicate ticket, conflict, no preview writes | P1/P3 |
+| UC06 AI RCA | Analyst/Critic hypotheses, contradictory evidence, UNKNOWN and review | Cross-tenant leakage, prompt injection, invented references | P4 |
+| UC07 AI/LLM SLO | Latency, TTFT, throughput, errors, sample coverage and cost estimates | Bad provenance, missing samples, counter reset, model ACL | P2 KPI |
+| UC08 Runbook/Change | Versioned dry-run, risk, rollback and ITIL approval proposal | Unapproved runbook, stale evidence, unauthorized actor | P5 |
+| UC09 Controlled recovery | Future Core/Temporal execution and post-action SLI verification | Replayed/expired receipt, race, partial failure, rollback | P6 only |
+| UC10 Postmortem | Cited timeline, recurrence and reviewed lessons | Redaction, uncertainty, tenant isolation, human approval | P4/P6 |
+
+**First synthetic acceptance scenario:** ingest duplicate alerts for one service; present a single correlated preview with source IDs and evidence freshness; estimate conservative CMDB impact; propose an ITSM incident without a Core/GLPI write. Assert that an unrelated tenant cannot observe the scenario, that missing evidence remains UNKNOWN, and that all UI data are identified as synthetic. This scenario is **not yet executed**.
+
+**Release boundary:** exact-HEAD CI and real disposable PostgreSQL, gateway actor→tenant→resource ACL, upstream contract and deployment parity tests remain mandatory. Draft / HOLD / NO_GO. No merge, LIVE reads or remediation, production PostgreSQL access, or deployment.
