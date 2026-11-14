@@ -1290,3 +1290,11 @@
 - Issue #2 still has no Gateway/IdP owner-approved issuer/audience, authoritative actor→tenant/resource ACL, secret lifecycle, or namespace/pod selectors. Cross-repository AIOPS draft PRs remain non-authoritative and incomplete for the full GAMMA resource surface.
 - No pytest, Helm rendering, Kubernetes/CNI, Gateway/IdP, staging or PostgreSQL qualification performed. PR #1 remains open/draft; canonical reads remain disabled.
 - **Decision: HOLD / NO_GO.** No merge, LIVE, tenant reads or deployment.
+
+
+### 2026-11-14 — CI workflow configuration cross-check
+- Rechecked latest runs on exact pre-update HEAD `f3902429df9beb749827f2beee12f50df0ab96ea`: Python checks `43591715161`; Deployment contract `43591715139`. All 9 jobs again expose `steps: []`.
+- Inspected both workflow definitions. All 9 jobs use standard `runs-on: ubuntu-latest`; no custom/self-hosted runner labels are configured. This rules out an obvious repository workflow label mismatch, but does not identify the cause of hosted runner provisioning failure.
+- Repository Actions administration endpoints for runner inventory/permissions are not available through the current GitHub connection, so runner entitlement, organization policy, billing and group restrictions cannot be confirmed here.
+- No workflow change made: changing runner labels or adding self-hosted runners without administrator confirmation would be speculative and could weaken security.
+- Decision remains HOLD / NO_GO; PR draft, no merge, LIVE, deployment or tenant reads.
