@@ -555,3 +555,32 @@ def test_same_event_claimed_by_two_incidents_is_complete_but_not_consistent():
     assert result["evidence_join_consistent"] is False
     assert result["persisted"] is False
     assert result["live_remediation_authorized"] is False
+
+
+@pytest.mark.parametrize("invalid_age", [True, 60.5, "60"])
+def test_join_rejects_mutated_freshness_type_even_with_no_evidence(invalid_age):
+    req = request()
+    req.evidence = []
+    req.max_age_seconds = invalid_age
+    with pytest.raises(ValueError, match="freshness bound"):
+        preview(req, TENANT, now=NOW)
+
+
+def test_join_rejects_naive_clock_even_with_no_evidence():
+    req = request()
+    req.evidence = []
+    with pytest.raises(ValueError, match="now requires timezone"):
+        preview(req, TENANT, now=NOW.replace(tzinfo=None))
+
+
+def test_join_rejects_invalid_clock_type_even_with_no_evidence():
+    req = request()
+    req.evidence = []
+    with pytest.raises(ValueError, match="now requires timezone"):
+        preview(req, TENANT, now="2026-11-10T12:00:00Z")
+
+
+@pytest.mark.parametrize("invalid_tenant", ["", " ", " tenant-a ", None])
+def test_join_rejects_invalid_authorized_tenant_identity(invalid_tenant):
+    with pytest.raises(ValueError, match="request or tenant"):
+        preview(request(), invalid_tenant, now=NOW)
