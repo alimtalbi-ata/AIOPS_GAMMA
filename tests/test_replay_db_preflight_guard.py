@@ -670,3 +670,56 @@ def test_disposable_url_validator_never_rebinds_raw_url():
     ]
     if writes:
         pytest.fail("Disposable URL input must never be rebound or deleted")
+
+
+def test_replay_db_engine_uses_only_validated_url():
+    """The engine must receive the exact URL returned by the disposable preflight."""
+    source = (Path(__file__).parent / "test_gateway_replay_postgres.py").read_text(
+        encoding="utf-8"
+    )
+    fixtures = [
+        node for node in ast.parse(source).body
+        if isinstance(node, ast.AsyncFunctionDef) and node.name == "replay_db"
+    ]
+    if len(fixtures) != 1:
+        pytest.fail("Expected exactly one replay_db fixture")
+    body = fixtures[0].body
+    url_bindings = [
+        node for node in ast.walk(fixtures[0])
+        if isinstance(node, ast.Name)
+        and node.id == "url"
+        and isinstance(node.ctx, (ast.Store, ast.Del))
+    ]
+    if len(url_bindings) != 1:
+        pytest.fail("Validated URL must have exactly one binding")
+    assignments = [
+        node for node in body
+        if isinstance(node, ast.Assign)
+        and len(node.targets) == 1
+        and isinstance(node.targets[0], ast.Name)
+        and node.targets[0].id == "url"
+    ]
+    if len(assignments) != 1:
+        pytest.fail("Validated URL must be assigned directly in the fixture")
+    assignment = assignments[0]
+    if not (isinstance(assignment.value, ast.Call)
+            and isinstance(assignment.value.func, ast.Name)
+            and assignment.value.func.id == "_require_disposable_database_url"
+            and len(assignment.value.args) == 1
+            and not assignment.value.keywords):
+        pytest.fail("URL must originate from the disposable preflight")
+    engines = [
+        node for node in body
+        if isinstance(node, ast.Assign)
+        and isinstance(node.value, ast.Call)
+        and isinstance(node.value.func, ast.Name)
+        and node.value.func.id == "create_async_engine"
+    ]
+    if len(engines) != 1:
+        pytest.fail("Expected exactly one direct engine creation")
+    call = engines[0].value
+    if not (len(call.args) == 1
+            and isinstance(call.args[0], ast.Name)
+            and call.args[0].id == "url"
+            and assignment.lineno < engines[0].lineno):
+        pytest.fail("Engine must consume the previously validated URL directly")
