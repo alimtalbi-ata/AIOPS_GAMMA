@@ -30,7 +30,6 @@ class PostmortemDraftRequest(BaseModel):
     service_name: str = Field(min_length=1, max_length=255)
     timeline: list[TimelineEvent] = Field(default_factory=list, max_length=100)
     rca_summary: str | None = Field(default=None, min_length=1, max_length=1000)
-    rca_source_verified: bool = False
     impact_summary: str | None = Field(default=None, min_length=1, max_length=1000)
     follow_up_candidates: list[str] = Field(default_factory=list, max_length=30)
 
