@@ -1873,3 +1873,9 @@
 - Added parameterized regressions in `tests/test_topology_preview.py` for invalid service IDs, node IDs, edge endpoints and a canonical unresolved endpoint.
 - Commits: `4c42967` code, `f712a6f` tests. Tests **not executed** in this session; no claim of CI success. Synthetic preview only, not a trusted CMDB identity check.
 - CI #8 and independent actor→tenant→resource ACL #2 remain blockers. PR #1 remains Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — UC04 minimum dependency hops
+- `app/reused/topology_preview.py` now reports `dependency_hops` (minimum number of edges from the selected service to each reachable dependency), computed by a bounded breadth-first traversal. This is deterministic synthetic context, **not** latency, risk, impact, verified CMDB topology or authorization.
+- `tests/test_topology_preview.py` adds shortest-path, permutation/duplicate invariance, and cycle/unrelated-node regressions. Catalog maturity updated accordingly.
+- Commits: `39cc981` implementation, `37df943` tests, `16b636b` catalog. Tests **not executed** in this session. CI #8 and ACL #2 still block release; PR #1 remains Draft HOLD / NO_GO.
