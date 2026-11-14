@@ -1931,3 +1931,9 @@
 - Added four pure synthetic tests to `tests/test_topology_preview.py`: disconnected cycles do not taint forward/reverse selected components; duplicate and permuted edges/nodes preserve results for reachable vs unrelated missing endpoints.
 - Test commit `580045c`. No production code changes; tests **not executed**. Require exact-HEAD `python -m compileall -q app tests` and `python -m pytest -q tests/test_topology_preview.py` with recorded results.
 - CI #8 and independent canonical actor→tenant→resource ACL #2 remain blockers. PR #1 stays Draft HOLD / NO_GO; no merge, deployment, real PostgreSQL or LIVE actions.
+
+
+### 2026-11-14 — Latest UC04 HEAD CI observation
+- At `998fdf1a631f30ad328e1ad9d6699eb3c17a56df`, Python checks run `43630497249` and Deployment contract run `43630497344` failed. Sampled Python `test` job `132555803705` and `compose` job `132555804039` both returned `steps: []`; job listings had `logs_url: null`.
+- Documented exact run IDs and administrator actions in `docs/CI-QUALIFICATION-BLOCKER.md` (`91fe9f7`). No new tests executed; no log download or blind rerun attempted. This does not prove application test failure.
+- CI #8 and independent ACL #2 still block qualification. PR #1 remains Draft HOLD / NO_GO. No merge, deployment, real PostgreSQL or LIVE actions.
