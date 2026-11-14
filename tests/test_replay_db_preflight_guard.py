@@ -744,3 +744,30 @@ def test_replay_db_engine_binding_cannot_be_replaced():
     ]
     if len(writes) != 1:
         pytest.fail("Replay engine must have exactly one binding")
+
+
+def test_replay_db_sessionmaker_uses_qualified_engine():
+    """The yielded session factory must use the same engine that was qualified."""
+    source = (Path(__file__).parent / "test_gateway_replay_postgres.py").read_text(
+        encoding="utf-8"
+    )
+    fixtures = [
+        node for node in ast.parse(source).body
+        if isinstance(node, ast.AsyncFunctionDef) and node.name == "replay_db"
+    ]
+    if len(fixtures) != 1:
+        pytest.fail("Expected exactly one replay_db fixture")
+    yields = [node for node in ast.walk(fixtures[0]) if isinstance(node, ast.Yield)]
+    if len(yields) != 1 or not isinstance(yields[0].value, ast.Call):
+        pytest.fail("Expected one direct session factory yield")
+    call = yields[0].value
+    if not (isinstance(call.func, ast.Name)
+            and call.func.id == "async_sessionmaker"
+            and len(call.args) == 1
+            and isinstance(call.args[0], ast.Name)
+            and call.args[0].id == "engine"
+            and len(call.keywords) == 1
+            and call.keywords[0].arg == "expire_on_commit"
+            and isinstance(call.keywords[0].value, ast.Constant)
+            and call.keywords[0].value.value is False):
+        pytest.fail("Session factory must use only the qualified engine")
