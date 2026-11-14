@@ -89,6 +89,15 @@ def draft_postmortem(req: PostmortemDraftRequest, authorized_tenant: UUID) -> di
         "impact_state": "UNVERIFIED" if req.impact_summary else "UNKNOWN",
         "impact_summary": req.impact_summary,
         "follow_up_candidates": list(req.follow_up_candidates),
+        # Timeline events are caller-supplied and do not establish canonical
+        # detection, acknowledgement, mitigation or resolution timestamps.
+        "incident_metrics": {
+            "time_to_detect_seconds": None,
+            "time_to_acknowledge_seconds": None,
+            "time_to_mitigate_seconds": None,
+            "time_to_resolve_seconds": None,
+            "state": "UNKNOWN_UNTIL_CANONICAL_TIMESTAMPS_VERIFIED",
+        },
         "human_review_required": True,
         "authoritative": False,
         "data_source": "caller_supplied_preview",
