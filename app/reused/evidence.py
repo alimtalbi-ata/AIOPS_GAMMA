@@ -10,15 +10,30 @@ from pydantic import BaseModel, Field, model_validator
 
 
 def _require_string_json_keys(value: object) -> None:
-    """Prevent JSON key coercion from aliasing distinct evidence objects."""
-    if isinstance(value, dict):
-        for key, nested in value.items():
-            if not isinstance(key, str):
-                raise ValueError("JSON object keys must be strings")
-            _require_string_json_keys(nested)
-    elif isinstance(value, (list, tuple)):
-        for nested in value:
-            _require_string_json_keys(nested)
+    """Reject non-string keys, cyclic containers and excessive JSON nesting."""
+    stack = [(value, 0, False)]
+    active: set[int] = set()
+    while stack:
+        node, depth, leaving = stack.pop()
+        if leaving:
+            active.remove(id(node))
+            continue
+        if not isinstance(node, (dict, list, tuple)):
+            continue
+        if depth > 64:
+            raise ValueError("JSON nesting exceeds 64 levels")
+        if id(node) in active:
+            raise ValueError("Cyclic JSON container rejected")
+        active.add(id(node))
+        stack.append((node, depth, True))
+        if isinstance(node, dict):
+            for key, nested in node.items():
+                if not isinstance(key, str):
+                    raise ValueError("JSON object keys must be strings")
+                stack.append((nested, depth + 1, False))
+        else:
+            for nested in node:
+                stack.append((nested, depth + 1, False))
 
 
 class EvidenceInput(BaseModel):
