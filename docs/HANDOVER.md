@@ -1252,3 +1252,12 @@
 - Updated `docs/GATEWAY-IDENTITY-CONTRACT.md`. This is fail-closed but may make API unreachable until owner-approved selectors are supplied. Kubernetes NetworkPolicy enforcement depends on the installed CNI and has not been runtime-tested.
 - Validation: source review/publication only; no pytest, Helm template/lint, Kubernetes/CNI or connectivity tests executed.
 - Decision: HOLD / NO_GO; no merge, LIVE or deployment.
+
+
+### 2026-11-14 — Network-path review of UI/API boundary
+- Reviewed `frontend/nginx.conf` and Helm UI Deployment. Nginx proxies only the two public synthetic demo GET endpoints; every other `/api/` path is returned as 404. It does not proxy authenticated tenant API routes.
+- Do not add the UI pod as a peer to the tenant API NetworkPolicy. Keep the eventual tenant API allow-list gateway-only; adding UI as a peer would unnecessarily widen the trust boundary.
+- Availability consequence: with the current API deny-all default, the two demo proxy requests are also blocked when UI and API are separate pods. Before staging, decide whether demos should be served locally by UI, routed via the trusted gateway, or receive a separate narrowly scoped exception. No exception was added.
+- Posted this network-path finding to issue #2. No owner-provided gateway labels/identity contract have appeared in the reviewed issue comments.
+- Validation: source review only; no Helm render, pytest, Kubernetes/CNI connectivity, gateway or staging test performed.
+- Decision: HOLD / NO_GO; no merge/LIVE/deployment.
