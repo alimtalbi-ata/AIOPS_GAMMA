@@ -1807,3 +1807,10 @@
 - The preview must retain `PROPOSED_WITH_EVIDENCE`, omit the injected approval claim, and keep both `authoritative=False` and LIVE remediation forbidden.
 - Isolated local Pydantic 2.13.5 probe confirmed `model_copy(update=...)` with `extra="forbid"` can retain an injected attribute while `model_dump()` omits it; `model_validate(model_dump())` therefore does not necessarily raise. This is a framework-behavior check, **not repository test execution**.
 - Repository tests **not executed**. CI issue #8 and independent actor→tenant→resource ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — Same-tenant ITIL incident-link integrity
+- Added two synthetic boundary tests for a problem referring to an unrelated incident and a change with a different source incident, even though tenant IDs match.
+- The existing `preview_itil_workflow` relationship checks must raise `ValueError` before projection. No canonical read or LIVE behavior introduced.
+- Isolated Pydantic 2.13.5 `model_copy(update=...)` probe was executed locally: an injected extra attribute is accessible but omitted from `model_dump()`. This confirms the framework behavior discussed above, not any repository tests.
+- Repository tests **not executed**. CI issue #8 and independent actor→tenant→resource ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
