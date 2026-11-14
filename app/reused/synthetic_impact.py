@@ -33,9 +33,13 @@ class ImpactPreviewRequest(BaseModel):
 
 def preview_impact(req: ImpactPreviewRequest, authorized_tenant: UUID, *,
                    now: datetime | None = None, max_age_seconds: int = 3600) -> dict:
+    if not isinstance(req, ImpactPreviewRequest) or not isinstance(authorized_tenant, UUID):
+        raise ValueError("Invalid impact request or authorized tenant")
+    # Reject post-validation mutation of graph edges, CI identity or timestamp.
+    req = ImpactPreviewRequest.model_validate(req.model_dump())
     if req.tenant_id != authorized_tenant:
         raise PermissionError("Cross-tenant CMDB preview rejected")
-    if not 1 <= max_age_seconds <= 86400:
+    if not isinstance(max_age_seconds, int) or isinstance(max_age_seconds, bool) or not 1 <= max_age_seconds <= 86400:
         raise ValueError("Invalid freshness bound")
     current = now or datetime.now(timezone.utc)
     if current.tzinfo is None or current.utcoffset() is None:
