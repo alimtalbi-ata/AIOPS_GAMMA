@@ -170,7 +170,7 @@ def test_mutated_itsm_priority_matrix_rejected():
         ), matrix=matrix(),
     )
     req.matrix.rules[0].priority = "INVALID PRIORITY"
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValueError, match="Invalid priority matrix rule"):
         plan_incident_sync(req, TENANT)
 
 
