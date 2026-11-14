@@ -116,6 +116,7 @@ class InternalRouteDependencyGuard(unittest.TestCase):
                     and isinstance(default.func, ast.Name)
                     and default.func.id == "Depends"
                     and len(default.args) == 1
+                    and not default.keywords
                     and isinstance(default.args[0], ast.Name)
                     and default.args[0].id == "internal_principal"
                     for default in (*node.args.defaults, *node.args.kw_defaults)
