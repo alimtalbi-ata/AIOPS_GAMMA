@@ -290,7 +290,9 @@ async def test_glpi_api_route_remains_fail_closed_with_feature_enabled(monkeypat
     monkeypatch.setattr(glpi_read.httpx, "AsyncClient", no_network)
     principal = Principal(tenant_id=tenant, subject="synthetic-actor",
                           actor_type="user", assertion_id="synthetic", expires_at=1)
+    response = Response()
     with pytest.raises(HTTPException) as exc:
-        await glpi_incident_snapshot(12, Response(), principal)
+        await glpi_incident_snapshot(12, response, principal)
+    assert response.headers["Cache-Control"] == "no-store"
     assert exc.value.status_code == 503
     assert "ACL not qualified" in str(exc.value.detail)
