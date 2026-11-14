@@ -143,3 +143,19 @@ All jobs listed for these two runs returned `logs_url: null`. No log download wa
 **Administrator handoff:** inspect both run summaries in GitHub's UI; capture the exact pre-step/runner allocation error, Actions policy and usage/billing constraints. Record findings in [issue #8](https://github.com/alimtalbi-ata/AIOPS_GAMMA/issues/8), then obtain per-step evidence for the exact reviewed HEAD after repair. Do not rerun blindly or weaken test gates. Independent ACL [issue #2](https://github.com/alimtalbi-ata/AIOPS_GAMMA/issues/2) remains blocking.
 
 **PR #1 Draft — HOLD / NO_GO.**
+
+
+## Latest reverse-path test HEAD observation — 2026-11-14
+
+At reviewed PR HEAD `2a975e7724d0450571dff277ff17e683226ba770`:
+
+| Workflow | Run | Outcome | Sampled job |
+| --- | --- | --- | --- |
+| Python checks | [43630918281](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43630918281) | completed / failure | `test` `132557084360`: `steps: []` |
+| Deployment contract | [43630918325](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43630918325) | completed / failure | `compose` `132557084471`: `steps: []` |
+
+All listed jobs in both workflows returned `logs_url: null` and failure. No log download attempted for these runs; do not attribute the older `BlobNotFound` result to them. No test, compilation, Compose, PostgreSQL or deployment execution is evidenced.
+
+**Operator next step:** capture the exact run-summary failure reason, runner assignment, Actions policy/permissions and billing/usage status for these run IDs in [issue #8](https://github.com/alimtalbi-ata/AIOPS_GAMMA/issues/8). Do not blindly rerun. After repair, qualify the **exact reviewed SHA** with real step logs and test counts; the isolated fallback includes `tests/test_topology_preview.py`. Independent ACL [issue #2](https://github.com/alimtalbi-ata/AIOPS_GAMMA/issues/2) still blocks release.
+
+**PR #1 Draft — HOLD / NO_GO.**
