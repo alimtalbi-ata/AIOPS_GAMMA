@@ -1614,3 +1614,10 @@
 - Five regression cases reject mixed JSON key types both at construction and after mutation, and confirm key-order invariant payload digests.
 - Hashes remain fingerprints of caller-supplied content, **not** authenticated provenance or canonical evidence.
 - Tests **not executed**. CI issue #8 and canonical ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO; no persistence, ITSM mutation or LIVE action.
+
+
+### 2026-11-14 — UC03 recursive JSON key integrity
+- Evidence payload/provenance validation now recursively rejects non-string JSON object keys, including inside nested arrays, before deterministic serialization and SHA-256 fingerprinting. This prevents numeric key `1` from aliasing string key `"1"`.
+- Six parametrized regression cases cover nested and standalone numeric keys at construction and post-mutation normalization. Two earlier mixed-key tests now expect the specific key-validation message.
+- Hashes still do **not** authenticate caller-supplied source evidence; no canonical read or persistence.
+- Tests **not executed**; CI issue #8 and canonical ACL issue #2 remain unresolved. PR #1 stays Draft HOLD / NO_GO.
