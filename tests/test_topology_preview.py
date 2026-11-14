@@ -61,3 +61,23 @@ def test_unrelated_nodes_are_not_in_dependency_set():
         ("service", "app"),
     ])
     assert result["dependency_ids"] == ["app"]
+
+
+def test_shared_dependency_and_cross_edge_are_not_false_cycles():
+    # "b" is both a direct child and reachable through "a".
+    result = preview("service", ["service", "a", "b", "db"], [
+        ("service", "a"), ("service", "b"),
+        ("a", "b"), ("b", "db"),
+    ])
+    assert result["dependency_ids"] == ["a", "b", "db"]
+    assert result["cycle_detected"] is False
+    assert result["topology_state"] == "CALLER_SUPPLIED_PREVIEW"
+
+
+def test_back_edge_to_active_ancestor_is_a_real_cycle():
+    result = preview("service", ["service", "a", "b"], [
+        ("service", "a"), ("a", "b"), ("b", "a"),
+    ])
+    assert result["cycle_detected"] is True
+    assert result["topology_state"] == "UNKNOWN"
+    assert result["live_remediation_authorized"] is False
