@@ -1353,3 +1353,11 @@
 - Source-level re-fetch confirms the old `403` assertion is gone and the `404` assertion is present.
 - Exact-HEAD runs `43593232482` (Python) and `43593232547` (Deployment contract): all 9 jobs individually inspected, each with `steps: 0`. No workflow command ran; cannot claim the smoke passed.
 - PR #1 remains draft. **HOLD / NO_GO**; no merge, LIVE or deployment.
+
+
+### 2026-11-14 — Harden Vite preview smoke teardown and browser API isolation
+- `frontend/src/App.tsx` currently has no `fetch(`, `/api/`, `XMLHttpRequest` or `WebSocket(` usage; added a static test prohibiting their reintroduction into the synthetic frontend.
+- CI preview HTTP smoke now starts the Vite executable directly with Node rather than launching through `npm` (which could leave an orphan child process). The `finally` block sends SIGTERM, waits up to three seconds and escalates to SIGKILL if needed, checking both exit and signal status.
+- Added a static contract for smoke-process ownership/teardown. Frontend static contract file now has 16 tests defined, not an executed pass count.
+- Source and PR HEAD re-fetched and verified; no local pytest, Node, Docker, Helm or PostgreSQL command executed. Actions still require actual runner/bootstrap diagnosis and real test execution before qualification.
+- **HOLD / NO_GO**. PR #1 stays draft, no merge, LIVE or deployment.
