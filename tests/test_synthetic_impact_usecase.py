@@ -71,3 +71,37 @@ def test_dependency_order_does_not_change_result():
 def test_invalid_freshness_bound_rejected():
     with pytest.raises(ValueError, match="freshness"):
         preview_impact(request(), TENANT, now=NOW, max_age_seconds=0)
+
+
+def test_mutated_graph_tenant_denied_at_preview_boundary():
+    req = request()
+    req.tenant_id = OTHER
+    with pytest.raises(PermissionError, match="Cross-tenant"):
+        preview_impact(req, TENANT, now=NOW)
+
+
+def test_mutated_graph_edge_rejected_at_preview_boundary():
+    from pydantic import ValidationError
+    req = request()
+    req.edges[0].dependent_ci = " "
+    with pytest.raises(ValidationError):
+        preview_impact(req, TENANT, now=NOW)
+
+
+def test_mutated_graph_timestamp_rejected_at_preview_boundary():
+    from pydantic import ValidationError
+    req = request()
+    req.observed_at = datetime(2026, 11, 14, 12)
+    with pytest.raises(ValidationError, match="Graph observation"):
+        preview_impact(req, TENANT, now=NOW)
+
+
+def test_invalid_authorized_tenant_type_rejected():
+    with pytest.raises(ValueError, match="authorized tenant"):
+        preview_impact(request(), str(TENANT), now=NOW)
+
+
+@pytest.mark.parametrize("invalid_age", [True, 1.5, "3600"])
+def test_invalid_freshness_bound_types_rejected(invalid_age):
+    with pytest.raises(ValueError, match="freshness"):
+        preview_impact(request(), TENANT, now=NOW, max_age_seconds=invalid_age)
