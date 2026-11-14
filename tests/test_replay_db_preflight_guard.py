@@ -570,3 +570,22 @@ def test_disposable_url_validator_guards_precede_only_return():
     tries = [node for node in validator.body if isinstance(node, ast.Try)]
     if len(tries) != 1 or not (checks[0].lineno < tries[0].lineno < checks[1].lineno):
         pytest.fail("URL parsing must follow empty URL rejection and precede routing guards")
+
+
+def test_disposable_url_validator_catches_expected_parse_errors():
+    """Malformed URL parsing must fail closed for all expected error types."""
+    source = (Path(__file__).parent / "test_gateway_replay_postgres.py").read_text(encoding="utf-8")
+    validators = [node for node in ast.parse(source).body
+                  if isinstance(node, ast.FunctionDef)
+                  and node.name == "_require_disposable_database_url"]
+    if len(validators) != 1:
+        pytest.fail("Expected exactly one disposable URL validator")
+    tries = [node for node in validators[0].body if isinstance(node, ast.Try)]
+    if len(tries) != 1 or len(tries[0].handlers) != 1:
+        pytest.fail("Expected exactly one guarded URL parsing block")
+    handler = tries[0].handlers[0]
+    if not isinstance(handler.type, ast.Tuple):
+        pytest.fail("URL parsing must catch all reviewed exception types")
+    actual = {node.id for node in handler.type.elts if isinstance(node, ast.Name)}
+    if len(handler.type.elts) != 3 or actual != {"ArgumentError", "ValueError", "TypeError"}:
+        pytest.fail("URL parsing must catch ArgumentError, ValueError and TypeError")
