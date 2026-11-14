@@ -1462,3 +1462,10 @@
 - Added `tests/test_synthetic_impact_usecase.py`: eight acceptance/negative tests for cycle traversal, incomplete/stale/future-dated graph UNKNOWN, tenant denial, missing graph coverage, ordering determinism and freshness bounds.
 - A fresh and caller-claimed complete graph produces `CANDIDATE_ONLY`, **not** canonical CMDB verification. No resource-level ACL, real Twin access or LIVE actions are implemented.
 - **Tests not executed**; exact-HEAD CI and actor→tenant→resource ACL remain unqualified. PR #1 Draft, **HOLD / NO_GO**, no merge or deployment.
+
+
+### 2026-11-14 — Synthetic UC02→UC04→UC06→UC05 journey
+- Added `tests/test_synthetic_end_to_end_usecase.py` to compose existing pure preview boundaries for duplicate OTel alert → evidence correlation → caller-supplied incomplete CMDB dependency graph → caller-supplied UNKNOWN RCA hypothesis → deterministic ITSM proposal.
+- Verifies correlation deduplication, unverified evidence, impact UNKNOWN and non-canonical CMDB, non-authoritative RCA, no ITSM mutation/persistence and no LIVE remediation.
+- This is a **synthetic composition regression**, not a deployed workflow, canonical incident join, authenticated actor→tenant→resource ACL, validated provenance or production integration.
+- **Not executed**; exact-HEAD CI remains unqualified. PR #1 stays Draft **HOLD / NO_GO**; no merge, LIVE, PostgreSQL or deployment.
