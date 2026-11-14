@@ -4,8 +4,8 @@
 
 ## Current checkpoint — 2026-11-14 (supersedes historical HEADs below)
 
-- Latest application/config/test HEAD: `da4acdc7a5a0457593ecd5ea3363104b37a2a9cb`; handover-only follow-up commit will supersede this code HEAD. PR #1 remains open, draft, not merged.
-- Latest Actions on that code HEAD: Python checks `43592735596`; Deployment contract `43592735669`. All 9 jobs were individually inspected; every job has `steps: 0`. No checkout, tests, Helm, Compose, Docker or PostgreSQL command executed. This is a pre-step Actions failure, not a project test result; root cause remains unestablished.
+- Latest application/config/test HEAD: `5f03e52b473ec364f1bfc3fafa4a87fa43d5b9c6`; PR #1 remains open, draft, not merged.
+- Latest Actions on that exact HEAD: Python checks `43593030262`; Deployment contract `43593030298`. All 9 jobs were individually inspected; every job has `steps: 0`. No checkout, tests, Helm, Compose, Docker or PostgreSQL command executed. This is a pre-step Actions failure, not a project test result; root cause remains unestablished.
 - Workflow definitions use `runs-on: ubuntu-latest` for all jobs; no custom runner labels found. GitHub connection cannot inspect repository/org Actions administration settings or run-page pre-step annotations. Administrator must supply the redacted error and verify hosted-runner entitlement/availability, Actions policy, runner-group access, billing/usage and approvals.
 - Gateway assertion settings in Helm map to Pydantic settings; assertion Secret reference remains empty by default, so verifier fails closed until provisioned by an approved operator.
 - API NetworkPolicy is deny-all while gateway namespace/pod selector maps are empty. When both are populated, the only allowed peer is their namespaceSelector + podSelector conjunction on the API port. Do not guess labels.
@@ -1338,3 +1338,10 @@
 - Replaced `tests/test_frontend_demo_contract.py` with 11 focused static contracts covering local fixtures, no API fetch/proxy, Nginx/Vite deny-all API behavior, Compose decoupling, loopback dev binding, and retained response security headers.
 - Exact-HEAD CI runs `43592735596` (Python) and `43592735669` (Deployment contract): all 9 jobs have `steps: 0`; no command executed. Source updates and GitHub re-fetch only; no pytest/build/Nginx/Compose/Helm/Kubernetes runtime validation.
 - Decision: HOLD / NO_GO; PR #1 remains draft; no merge, LIVE, tenant reads or deployment.
+
+
+### 2026-11-14 — Correlation/evidence HTTP contract hardening
+- Fixed test fixtures in `tests/test_correlation_evidence_api.py` and `tests/test_evidence_preview_api.py`: `Principal` is a five-field dataclass; previous `Principal(TENANT)` constructions were invalid and would fail when those tests execute. Tests now supply explicit subject, actor type, assertion ID and expiry via a dependency override.
+- Expanded correlation-evidence HTTP tests to cover matching evidence (`UNVERIFIED`, never authoritative), cross-tenant rejection with `no-store`, missing evidence (`UNKNOWN`/incomplete), unmatched evidence (incomplete), and invalid request (`422`/`no-store`). Evidence preview tests also assert no-store on rejected cross-tenant and empty payload responses.
+- This is source/test correction only. No test process ran in this environment. Exact-HEAD Actions runs `43593030262` (Python checks) and `43593030298` (Deployment contract): all 9 jobs have `steps: 0`; no project command executed.
+- Do not interpret dependency-overridden HTTP tests as validation of real Gateway/IdP actor membership or resource ACL. No PostgreSQL/runtime qualification. **HOLD / NO_GO** remains.
