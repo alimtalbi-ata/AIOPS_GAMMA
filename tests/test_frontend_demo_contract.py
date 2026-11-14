@@ -20,26 +20,23 @@ def test_nginx_only_proxies_public_synthetic_demo():
     assert "location /api/v1/" not in nginx
 
 
-def test_frontend_has_real_api_demo_button_and_failure_state():
+def test_frontend_correlation_demo_uses_local_fixture_without_api_fetch():
     source = (ROOT / "frontend/src/App.tsx").read_text(encoding="utf-8")
-    assert 'fetch("/api/v1/demo/correlation"' in source
-    assert "Exécuter le scénario" in source
-    assert "FAIL · API de démonstration indisponible" in source
-    assert "PASS · Moteur de corrélation API" in source
+    assert "const runSyntheticDemo=()=>{" in source
+    assert 'setDemoGroups(1);' in source
+    assert 'setDemoEvents(2);' in source
+    assert 'LOCAL DEMO · Corrélation illustrative uniquement' in source
+    assert 'fetch("/api/v1/demo/correlation"' not in source
 
-
-def test_investigation_demo_has_exact_proxy_and_failure_state():
-    vite = (ROOT / "frontend/vite.config.ts").read_text(encoding="utf-8")
-    nginx = (ROOT / "frontend/nginx.conf").read_text(encoding="utf-8")
+def test_investigation_demo_uses_local_unverified_fixtures_without_api_fetch():
     app = (ROOT / "frontend/src/App.tsx").read_text(encoding="utf-8")
-    assert '"/api/v1/demo/investigation"' in vite
-    assert "location = /api/v1/demo/investigation" in nginx
-    assert "proxy_pass http://api:8000/api/v1/demo/investigation;" in nginx
-    assert 'fetch("/api/v1/demo/investigation"' in app
-    assert "Relier les preuves" in app
-    assert "FAIL · Investigation API indisponible" in app
-    assert "source NON VÉRIFIÉE" in app
-
+    assert "const runInvestigationDemo=()=>{" in app
+    assert 'external_id:"demo-payment-timeout-1"' in app
+    assert 'external_id:"demo-payment-timeout-2"' in app
+    assert 'state:"UNVERIFIED"' in app
+    assert 'LOCAL DEMO · Jointure illustrative uniquement' in app
+    assert 'fetch("/api/v1/demo/investigation"' not in app
+    assert "Fixtures locales · non vérifiées" in app
 
 def test_vite_dev_command_is_loopback_only():
     import json
@@ -92,39 +89,30 @@ def test_vite_rejects_unknown_api_routes_before_proxy():
     assert '"/api/v1/demo/investigation"' in vite
 
 
-def test_investigation_ui_rejects_verified_or_live_claims():
+def test_investigation_local_fixture_cannot_claim_verified_or_live_evidence():
     app = (ROOT / "frontend/src/App.tsx").read_text(encoding="utf-8")
-    for field in (
-        "payload.evidence_source_verified!==false",
-        "result.evidence_join_consistent!==true",
-        "result.persisted!==false",
-        "result.live_remediation_authorized!==false",
-        "result.groups.length!==1",
-    ):
-        assert field in app
+    handler = app.split("const runInvestigationDemo=()=>{", 1)[1].split("const [demoGroups", 1)[0]
+    assert handler.count('state:"UNVERIFIED"') == 2
+    assert 'source NON VÉRIFIÉE' in handler
+    assert 'LOCAL DEMO · Jointure illustrative uniquement' in handler
+    assert 'authoritative' not in handler
+    assert 'persisted' not in handler
+    assert 'live_remediation_authorized' not in handler
 
-
-def test_both_public_demo_requests_have_bounded_timeout():
+def test_local_demos_make_no_backend_request_or_live_claim():
     app = (ROOT / "frontend/src/App.tsx").read_text(encoding="utf-8")
-    assert 'fetch("/api/v1/demo/correlation",{cache:"no-store",signal:AbortSignal.timeout(8000)})' in app
-    assert 'fetch("/api/v1/demo/investigation",{cache:"no-store",signal:AbortSignal.timeout(8000)})' in app
-    assert 'payload.authoritative!==false' in app
+    assert 'fetch("/api/v1/demo/correlation"' not in app
+    assert 'fetch("/api/v1/demo/investigation"' not in app
+    assert "Fixture locale · sans réseau" in app
+    assert "LOCAL DEMO" in app
 
-
-def test_correlation_ui_rejects_unexpected_or_live_demo_results():
+def test_correlation_local_fixture_is_fixed_and_non_authoritative():
     app = (ROOT / "frontend/src/App.tsx").read_text(encoding="utf-8")
-    handler = app.split("const runSyntheticDemo=async()=>{", 1)[1].split("const [query,setQuery]", 1)[0]
-    for required in (
-        "payload.authoritative!==false",
-        "correlation.groups.length!==1",
-        "correlation.source_events!==2",
-        "correlation.persisted!==false",
-        "correlation.live_remediation_authorized!==false",
-    ):
-        assert required in handler
-    assert handler.count("setDemoGroups(0);") == 2
-    assert handler.count("setDemoEvents(0);") == 2
-
+    handler = app.split("const runSyntheticDemo=()=>{", 1)[1].split("const [query,setQuery]", 1)[0]
+    assert 'setDemoGroups(1);' in handler
+    assert 'setDemoEvents(2);' in handler
+    assert 'LOCAL DEMO · Corrélation illustrative uniquement' in handler
+    assert 'fetch(' not in handler
 
 def test_nginx_demo_proxy_strips_browser_credentials_and_tenant_identity():
     nginx = (ROOT / "frontend/nginx.conf").read_text(encoding="utf-8")
