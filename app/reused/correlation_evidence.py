@@ -13,6 +13,11 @@ class CorrelationEvidencePreview(BaseModel):
 
 def preview(request: CorrelationEvidencePreview, tenant_id: str, *, now: datetime | None = None) -> dict:
     """Match only explicit source+external_event_id, never a fuzzy service name."""
+    if not isinstance(request, CorrelationEvidencePreview) or not isinstance(tenant_id, str) or not tenant_id:
+        raise ValueError("Invalid correlation/evidence request or tenant")
+    # Nested Pydantic inputs may be mutated after construction. Revalidate
+    # evidence timestamps, payload bounds and correlation signals at the gate.
+    request = CorrelationEvidencePreview.model_validate(request.model_dump())
     if any(e.tenant_id != tenant_id for e in request.evidence):
         raise PermissionError("Cross-tenant evidence rejected")
     corr = correlate(request.correlation.signals, tenant_id, request.correlation.window_seconds)
