@@ -2,6 +2,7 @@
 
 Pure in-memory graph traversal. No canonical CMDB reads, network, writes or authority.
 """
+from collections import deque
 MAX_NODES = 200
 MAX_EDGES = 1000
 MAX_ID_LENGTH = 255
@@ -57,11 +58,23 @@ def preview_service_dependencies(
             color[child] = 1
             stack.append((child, iter(sorted(graph[child]))))
 
-    reachable = sorted(set(color) - {service_id})
+    # Breadth-first traversal reports the minimum number of dependency edges
+    # from the selected service. It is not a latency, risk or impact score.
+    depths = {service_id: 0}
+    queue = deque([service_id])
+    while queue:
+        node = queue.popleft()
+        for child in sorted(graph[node]):
+            if child not in depths:
+                depths[child] = depths[node] + 1
+                queue.append(child)
+
+    reachable = sorted(set(depths) - {service_id})
     return {
         "service_id": service_id,
         "dependency_ids": reachable,
         "dependency_count": len(reachable),
+        "dependency_hops": {node: depths[node] for node in reachable},
         "topology_state": "UNKNOWN" if cyclic or incomplete else "CALLER_SUPPLIED_PREVIEW",
         "cycle_detected": cyclic,
         "unresolved_edge_detected": incomplete,
