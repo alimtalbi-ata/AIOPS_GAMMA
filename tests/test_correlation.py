@@ -360,3 +360,9 @@ def test_direct_correlation_rejects_mutated_surrogate_identity():
     item.symptom_key = "bad\ud800key"
     with pytest.raises(ValidationError):
         correlate([item], "tenant-1")
+
+
+@pytest.mark.parametrize("tenant", ["tenant\x00forged", "tenant\x7fforged", "tenant\ud800forged"])
+def test_direct_correlation_rejects_control_or_surrogate_tenant(tenant):
+    with pytest.raises(ValueError, match="tenant identity"):
+        correlate([signal("a")], tenant)
