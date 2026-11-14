@@ -1531,3 +1531,10 @@
 - Expanded `tests/test_synthetic_rca_usecase.py` with four regression cases: mutated unknown supporting evidence, mutated tenant, mutated timezone-naive evidence timestamp, invalid authority type.
 - Existing preview remains synthetic, source-unverified, human-unadjudicated and never authorizes LIVE action. No canonical reads are enabled.
 - Tests **not executed** for this change; CI zero-step failure remains issue #8. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — UC04 synthetic CMDB graph boundary hardening
+- `preview_impact` now checks request/authority types, revalidates the entire mutable graph request before tenant comparison and traversal, and rejects boolean/non-integer freshness limits.
+- Added seven parameterized negative cases for post-validation tenant/edge/timestamp mutation, invalid authority type and invalid freshness types.
+- Graph remains caller-supplied and non-canonical; impact can only be CANDIDATE_ONLY or UNKNOWN, never verified CMDB blast radius or LIVE authorization.
+- New tests **not executed**; issue #8 still blocks GitHub Actions qualification. PR #1 remains Draft HOLD / NO_GO.
