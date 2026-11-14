@@ -1728,3 +1728,9 @@
 - Audited `tests/test_itil_mutable_boundary.py`: three change-related tests mistakenly passed `ChangeProposal` as the second positional `problem` argument to `preview_itil_workflow`.
 - Changed all three calls to `change=change`, so the tests actually reach the intended invalid-risk, cross-tenant and unverified-target checks.
 - **Tests not executed**: this fixes test invocation, not a proven green result. CI issue #8 and independent canonical ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — Mixed verified/unverified CI observation regression
+- Added an ITIL boundary test with one caller-declared verified CI and one unverified CI bearing a distinct identifier.
+- Requires `caller_declared_unique_ci_ids=1`, `caller_declared_verified_cis=1`, `unverified_cis=1`, and `canonical_cmdb_verified=False`; an unverified identifier must not inflate the claimed unique count.
+- Tests **not executed**. CI issue #8 and canonical ACL issue #2 remain blockers; PR #1 stays Draft HOLD / NO_GO.
