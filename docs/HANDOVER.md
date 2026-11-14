@@ -1746,3 +1746,9 @@
 - Added two ITIL boundary tests: a mutated GLPI external identifier with invalid whitespace in an incident, and an unrecognized ITSM system in a nested change reference.
 - Both are expected to raise Pydantic `ValidationError` during synthetic preview revalidation; the change test uses the explicit `change=change` argument.
 - Tests **not executed**. CI issue #8 and independent actor→tenant→resource ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO; no LIVE, merge or deployment.
+
+
+### 2026-11-14 — Problem ITSM reference mutation regression
+- Added a synthetic ITIL test for a mutated `ProblemAssessment.problem_ref.external_id` with invalid whitespace; it must raise `ValidationError` before a preview is emitted.
+- Incident, problem and change paths now each have a nested ITSM-reference mutation regression. This does not establish external GLPI authorization or canonical ACL.
+- Tests **not executed**. CI issue #8 and independent actor→tenant→resource ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
