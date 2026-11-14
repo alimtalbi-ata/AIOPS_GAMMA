@@ -126,12 +126,14 @@ class InternalRouteDependencyGuard(unittest.TestCase):
                     for default in (*node.args.defaults, *node.args.kw_defaults)
                     if default is not None
                 )
-                with self.subTest(method=route[0], path=route[1]):
-                    self.assertTrue(
-                        depends_on_principal,
-                        "Route missing internal service auth dependency; "
-                        "this is not a substitute for actor→tenant ACL",
-                    )
+                # Raise directly: subTest captures AssertionError instead of
+                # propagating it to the mutation tests' assertRaisesRegex.
+                self.assertTrue(
+                    depends_on_principal,
+                    f"{route[0]} {route[1]}: "
+                    "Route missing internal service auth dependency; "
+                    "this is not a substitute for actor→tenant ACL",
+                )
         self.assertIn(("POST", "/api/v1/observability/metrics/query"), found)
         self.assertIn(("GET", "/api/v1/canonical/{resource}/snapshot"), found)
         self.assertEqual(found & PUBLIC_ROUTES, PUBLIC_ROUTES)
