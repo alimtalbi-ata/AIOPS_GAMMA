@@ -1918,3 +1918,10 @@
 - Added three tests in `tests/test_topology_preview.py` for the maximum 200-node chain (forward and reverse iterative traversals), 199-hop witness paths, and the maximum 1,000 duplicate-edge input. These are boundary assertions, not executed proof.
 - Test commit `fda2424`. No runtime or external systems invoked. Require exact-HEAD `python -m compileall -q app tests` and `python -m pytest -q tests/test_topology_preview.py` once CI #8 is repaired. Independent canonical actor→tenant→resource ACL #2 remains blocked.
 - PR #1 remains Draft HOLD / NO_GO; no merge, deployment, production PostgreSQL or LIVE/remediation.
+
+
+### 2026-11-14 — UC04 reachable-component unresolved-edge semantics
+- `preview_service_dependencies` now tracks missing-target edges only when their known source is reachable from the selected service. A disconnected incomplete component no longer taints the selected result. Malformed IDs and edge shapes still raise `ValueError`; reachable missing targets still yield `UNKNOWN`. Reverse traversal inherits the same rule after edge reversal.
+- Five regression tests cover unrelated vs reachable missing endpoints in forward/reverse traversals, including a missing upstream consumer. No claim of canonical completeness or authority is made.
+- Commits: `8a06d82` code, `29abb8c` tests, `db4d86a` catalog. Tests **not executed**; exact-HEAD compileall/pytest still needed. CI #8 and independent ACL #2 remain blocking.
+- PR #1 remains Draft HOLD / NO_GO. No merge, deployment, real PostgreSQL or LIVE/remediation.
