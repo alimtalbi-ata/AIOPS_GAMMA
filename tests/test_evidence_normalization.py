@@ -219,3 +219,26 @@ def test_mutated_nested_non_string_json_keys_rejected_at_boundary(field):
 def test_non_string_only_json_key_cannot_alias_string_key(field):
     with pytest.raises(ValidationError, match="JSON object keys"):
         evidence(**{field: {1: "value"}})
+
+
+@pytest.mark.parametrize("field", ["payload", "provenance"])
+def test_cyclic_json_container_rejected_at_construction(field):
+    cyclic = {}
+    cyclic["self"] = cyclic
+    with pytest.raises(ValidationError, match="Cyclic JSON container"):
+        evidence(**{field: cyclic})
+
+
+@pytest.mark.parametrize("field", ["payload", "provenance"])
+def test_excessively_nested_json_rejected_at_construction(field):
+    nested = {"leaf": "ok"}
+    for _ in range(66):
+        nested = {"child": nested}
+    with pytest.raises(ValidationError, match="JSON nesting exceeds"):
+        evidence(**{field: nested})
+
+
+def test_shared_noncyclic_json_subtree_is_allowed():
+    shared = {"value": 1}
+    result = normalize([evidence(payload={"a": shared, "b": shared})], now=NOW)
+    assert result["items"][0]["integrity"] == "UNVERIFIED"
