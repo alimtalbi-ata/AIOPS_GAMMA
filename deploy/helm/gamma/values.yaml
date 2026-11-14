@@ -7,6 +7,12 @@ api:
   port: 8000
   internalApiKeySecret: gamma-api-credentials
   internalApiKeySecretKey: internal-api-key
+  # Leave empty until the trusted gateway contract and secret are provisioned.
+  gatewayAssertionSecret: ""
+  gatewayAssertionSecretKey: principal-hmac-key
+  gatewayAssertionIssuer: gamma-gateway
+  gatewayAssertionAudience: aiops-gamma
+  gatewayAssertionMaxTtlSeconds: 60
   databaseUrlSecret: gamma-database
   databaseUrlSecretKey: url
   resources:
