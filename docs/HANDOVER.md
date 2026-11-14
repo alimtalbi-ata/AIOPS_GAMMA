@@ -1545,3 +1545,10 @@
 - Added four negative tests in `tests/test_synthetic_incident_usecase.py`: post-validation evidence tenant mutation, timezone-naive evidence timestamp, oversized evidence payload and invalid freshness limit.
 - The evidence is still caller-supplied and UNVERIFIED/UNKNOWN, not canonical source proof; no ITSM write, persistence or LIVE action.
 - New tests **not executed**. GitHub Actions zero-step blocker remains issue #8. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — UC05 ITSM sync proposal revalidation
+- `plan_incident_sync` now validates the independent authorized tenant type and revalidates the mutable nested `IncidentSyncPreview` (incident, CMDB observations, ITSM references and nine-rule priority matrix) at the proposal boundary.
+- Added four negative tests for mutated incident urgency, mutated tenant, mutated matrix priority and invalid authorized tenant type.
+- The preview remains side-effect-free and does not create/enrich an ITSM ticket or grant LIVE remediation. Canonical Core/GLPI reads remain blocked pending issue #2.
+- **Tests not executed** for this change. GitHub Actions zero-step blocker remains issue #8; PR #1 stays Draft HOLD / NO_GO.
