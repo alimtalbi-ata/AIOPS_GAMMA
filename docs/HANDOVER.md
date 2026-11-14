@@ -1388,3 +1388,10 @@
 - Expanded `test_public_demo_signature_mutations_are_rejected` to exercise **both** public synthetic demo handlers (`demo_correlation`, `demo_investigation`), covering positional request input, injected principal, keyword-only tenant input, `*args`, `**kwargs`, and an additional decorator. Every mutation is written only to a disposable `tmp_path` and must be rejected by the existing AST guard.
 - Re-fetched the updated test source from GitHub. These mutation cases are **defined, not executed**; no pytest pass is claimed while Actions runners still fail before steps.
 - **HOLD / NO_GO**; PR #1 remains Draft, no merge, LIVE, PostgreSQL or deployment.
+
+
+### 2026-11-14 — Fail closed on duplicate HTTP route registration
+- `tests/test_http_route_auth_coverage_guard.py` previously collected route method/path pairs into a set, which silently collapsed duplicate registrations. The AST guard now explicitly rejects a repeated pair before inserting it into the inventory. This prevents route-shadowing or ambiguous registration from being hidden by a matching final set.
+- Added a disposable-source mutation test that duplicates the public synthetic correlation route decorator and a private logs-search route decorator; each must trigger the duplicate-route guard. No database or network is involved.
+- Re-fetched `app/main.py` from GitHub: 21 registered HTTP route pairs, 21 unique pairs. The new mutation test is defined but has **not** been executed by pytest; source-only inspection is not CI qualification.
+- **HOLD / NO_GO**; PR #1 remains Draft. No merge, PostgreSQL, LIVE or deployment.
