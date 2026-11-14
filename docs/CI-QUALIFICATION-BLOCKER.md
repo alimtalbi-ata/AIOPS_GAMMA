@@ -110,3 +110,19 @@ The Python `test` job (`132531736563`) and Deployment `compose` job (`1325317364
 These observations do not demonstrate execution of pytest, compose, PostgreSQL, or any application check. Administrator must inspect the GitHub run summary / runner allocation and Actions billing or permissions, then obtain real step logs for the reviewed SHA. Do not rerun blindly. Independent canonical ACL issue #2 still blocks release.
 
 **Decision unchanged: PR #1 Draft — HOLD / NO_GO; no merge, deploy, LIVE or remediation.**
+
+
+## CI observation on UC04 reverse-dependency HEAD — 2026-11-14
+
+Reviewed PR commit `1eafd9ab0722d39d3db87aec3dccd4759f0548a7`:
+
+| Workflow | Run | Conclusion |
+| --- | --- | --- |
+| Python checks | [43629797277](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43629797277) | completed / failure |
+| Deployment contract | [43629797288](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43629797288) | completed / failure |
+
+Python `test` job `132553648125` and deployment `compose` job `132553648255` both returned `steps: []`. The job listings returned `logs_url: null` for all sampled workflow jobs. No fresh log-download attempt was made, and the earlier BlobNotFound finding is **not** evidence for these new runs.
+
+**Next operator action:** inspect the run summaries for GitHub-hosted runner allocation, Actions permissions, billing/usage or platform restrictions; record the exact error in [issue #8](https://github.com/alimtalbi-ata/AIOPS_GAMMA/issues/8). Do not blindly rerun. Once repaired, run the **exact reviewed SHA** and retain per-step checkout, install, compileall, pytest, frontend and disposable PostgreSQL evidence. Include `tests/test_topology_preview.py` in the pure Python regression suite. No real database or LIVE access.
+
+**Independent blocker:** canonical actor→tenant→resource ACL [issue #2](https://github.com/alimtalbi-ata/AIOPS_GAMMA/issues/2). PR #1 remains Draft HOLD / NO_GO.
