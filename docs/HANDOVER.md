@@ -1600,3 +1600,10 @@
 - Seven new cases cover malformed/falsy supplied clocks and a valid non-UTC timezone offset. Invalid inputs now raise a stable `ValueError` rather than an `AttributeError` or implicit fallback.
 - Synthetic graph remains caller-supplied; `CANDIDATE_ONLY` never means canonical CMDB verification.
 - Tests **not executed**; CI issue #8 remains unresolved. Canonical actor→tenant→resource ACL issue #2 remains blocked. PR #1 stays Draft HOLD / NO_GO; no persistence, ITSM mutation or LIVE action.
+
+
+### 2026-11-14 — synthetic UC02→UC04→UC06→UC05→UC10 end-to-end regression
+- Extended `tests/test_synthetic_end_to_end_usecase.py` through UC10 structured postmortem and escaped Markdown review export.
+- Asserts unknown RCA/impact, unverified caller timeline, unknown resolution duration, human review, no persistence, no ITSM mutations, no incident closure and no LIVE authority.
+- This is a synthetic-only test, not an integration test against canonical Core, Evidence, Twin, GLPI or PostgreSQL.
+- Test **not executed**. CI issue #8 and canonical ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
