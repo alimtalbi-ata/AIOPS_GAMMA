@@ -238,6 +238,32 @@ class InternalRouteDependencyGuard(unittest.TestCase):
                     ):
                         self.test_all_non_public_http_routes_require_internal_principal()
 
+    def test_middleware_decorator_options_require_review(self):
+        """Middleware registration changes must not bypass route guard review."""
+        from tempfile import TemporaryDirectory
+        from unittest.mock import patch
+
+        source = MAIN.read_text(encoding="utf-8")
+        original = '@app.middleware("http")'
+        self.assertEqual(source.count(original), 1)
+        for changed in (
+            '@app.middleware("http", unexpected=True)',
+            '@app.middleware("http", **{"unexpected": True})',
+        ):
+            with TemporaryDirectory() as directory:
+                candidate = Path(directory) / "main.py"
+                candidate.write_text(
+                    source.replace(original, changed, 1), encoding="utf-8"
+                )
+                with patch.dict(
+                    self.test_all_non_public_http_routes_require_internal_principal.__globals__,
+                    {"MAIN": candidate},
+                ):
+                    with self.assertRaisesRegex(
+                        AssertionError, "Unreviewed middleware decorator options"
+                    ):
+                        self.test_all_non_public_http_routes_require_internal_principal()
+
     def test_public_route_allowlist_is_narrow(self):
         self.assertEqual(PUBLIC_ROUTES, {
             ("GET", "/api/v1/health/live"),
