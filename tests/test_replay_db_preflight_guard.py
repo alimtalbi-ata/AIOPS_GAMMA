@@ -829,3 +829,17 @@ def test_replay_db_security_dependencies_not_shadowed_at_module_scope():
                 if (isinstance(node, ast.Name) and node.id in protected
                         and isinstance(node.ctx, (ast.Store, ast.Del))):
                     pytest.fail(f"Module-level dependency shadowed: {node.id}")
+
+
+def test_replay_db_security_dependencies_not_rebound_by_module_loops():
+    """Top-level loop targets cannot replace reviewed database dependencies."""
+    source = (Path(__file__).parent / "test_gateway_replay_postgres.py").read_text(
+        encoding="utf-8"
+    )
+    protected = {"make_url", "create_async_engine", "async_sessionmaker", "pytest"}
+    for statement in ast.parse(source).body:
+        if isinstance(statement, (ast.For, ast.AsyncFor)):
+            for node in ast.walk(statement.target):
+                if (isinstance(node, ast.Name) and node.id in protected
+                        and isinstance(node.ctx, (ast.Store, ast.Del))):
+                    pytest.fail(f"Module-level loop shadows security dependency: {node.id}")
