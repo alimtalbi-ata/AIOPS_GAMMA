@@ -453,3 +453,43 @@ def test_reverse_self_loop_is_unknown_without_self_dependent():
     assert result["cycle_detected"] is True
     assert result["topology_state"] == "UNKNOWN"
     assert result["live_remediation_authorized"] is False
+
+
+def test_maximum_unique_edge_dag_stays_acyclic_and_bounded():
+    nodes = [f"ci-{index:03d}" for index in range(200)]
+    chain = list(zip(nodes, nodes[1:]))
+    shortcuts = [
+        (nodes[i], nodes[j])
+        for i in range(200)
+        for j in range(i + 2, 200)
+    ][:801]
+    edges = chain + shortcuts
+    assert len(edges) == 1000
+    assert len(set(edges)) == 1000
+
+    result = preview(nodes[0], nodes, edges)
+    assert result["dependency_count"] == 199
+    assert result["cycle_detected"] is False
+    assert result["topology_state"] == "CALLER_SUPPLIED_PREVIEW"
+    assert result["dependency_hops"][nodes[-1]] == len(
+        result["dependency_paths"][nodes[-1]]
+    ) - 1
+    assert result["authoritative"] is False
+
+
+def test_maximum_unique_edge_dag_reverse_preview_stays_acyclic():
+    nodes = [f"ci-{index:03d}" for index in range(200)]
+    chain = list(zip(nodes, nodes[1:]))
+    shortcuts = [
+        (nodes[i], nodes[j])
+        for i in range(200)
+        for j in range(i + 2, 200)
+    ][:801]
+    result = preview_upstream_dependents(nodes[-1], nodes, chain + shortcuts)
+    assert result["possible_dependent_count"] == 199
+    assert result["cycle_detected"] is False
+    assert result["topology_state"] == "CALLER_SUPPLIED_PREVIEW"
+    assert result["dependent_hops"][nodes[0]] == len(
+        result["dependent_paths"][nodes[0]]
+    ) - 1
+    assert result["live_remediation_authorized"] is False
