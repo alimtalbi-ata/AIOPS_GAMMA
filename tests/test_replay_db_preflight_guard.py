@@ -789,3 +789,25 @@ def test_replay_db_fixture_cannot_shadow_qualified_session_factory_via_arguments
             or arguments.vararg is not None or arguments.kwarg is not None
             or arguments.defaults or any(v is not None for v in arguments.kw_defaults)):
         pytest.fail("Replay fixture must not accept arguments that shadow security bindings")
+
+
+def test_disposable_url_validator_does_not_shadow_url_parser():
+    """The URL parser must not be locally replaced before validating the DSN."""
+    source = (Path(__file__).parent / "test_gateway_replay_postgres.py").read_text(
+        encoding="utf-8"
+    )
+    validators = [
+        node for node in ast.parse(source).body
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "_require_disposable_database_url"
+    ]
+    if len(validators) != 1:
+        pytest.fail("Expected exactly one disposable URL validator")
+    writes = [
+        node for node in ast.walk(validators[0])
+        if isinstance(node, ast.Name)
+        and node.id == "make_url"
+        and isinstance(node.ctx, (ast.Store, ast.Del))
+    ]
+    if writes:
+        pytest.fail("Disposable URL parser must not be locally shadowed")
