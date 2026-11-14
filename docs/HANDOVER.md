@@ -1985,3 +1985,9 @@
 - Added three parameterized synthetic regressions (six forward/reverse cases) in `tests/test_topology_preview.py`: reachable cycles with unrelated missing edges only report the cycle; an isolated selected CI ignores disconnected cycles and missing edges; a reachable cycle with a reachable missing endpoint reports both flags.
 - Test commit `b7a4c3b`. No runtime code, canonical CMDB access, external service or LIVE action changed. These new tests have **not been executed**; record exact-HEAD `python -m compileall -q app tests` and `python -m pytest -q tests/test_topology_preview.py` only in an authorized isolated environment after CI issue #8 is resolved.
 - Independent actor→tenant→resource ACL issue #2 remains blocking. PR #1 remains Draft — HOLD / NO_GO. No merge, deployment, real PostgreSQL or LIVE/remediation.
+
+
+### 2026-11-14 — UC04 mixed graph flag permutation regressions
+- Added two parameterized tests (four forward/reverse synthetic cases) for stable cycle/unresolved-edge flags under reordered and duplicated edges, and for reachable missing edges without a cycle remaining UNKNOWN.
+- Test commit `e10e2bf`. No runtime behavior, canonical CMDB integration, persistence, production credentials or LIVE actions changed. Tests **not executed**; qualification requires exact-HEAD `python -m compileall -q app tests` and `python -m pytest -q tests/test_topology_preview.py` in an authorized isolated environment with recorded evidence.
+- GitHub Actions #8 and independent actor→tenant→resource ACL #2 remain blockers. PR #1 remains Draft — HOLD / NO_GO; no merge, deployment, real PostgreSQL or LIVE/remediation.
