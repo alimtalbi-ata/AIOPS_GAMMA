@@ -1665,3 +1665,9 @@
 - The synthetic ITIL service-configuration projection now returns `canonical_cmdb_verified=False` and `ci_verification_source="caller_supplied_preview"`, even when a caller asserts `verified_against_cmdb=True`.
 - Two regression tests distinguish caller-declared verification counts from independent canonical proof; no changes to change approval, LIVE execution or ITSM mutations.
 - Tests **not executed**. CI issue #8 and independent canonical actor→tenant→resource ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — ITIL change-target provenance
+- Synthetic change enablement projection now explicitly returns `target_ci_binding_source="caller_supplied_preview"` for a change and `target_ci_canonical_verified=False` in all cases.
+- Two regression cases distinguish a caller-asserted target CI binding from independent CMDB verification and cover absence of a change.
+- No independent ACL, change approval, ITSM write or LIVE execution is inferred. Tests **not executed**; CI issue #8 and canonical ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
