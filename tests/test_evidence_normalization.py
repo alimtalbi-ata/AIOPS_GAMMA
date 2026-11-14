@@ -314,3 +314,9 @@ def test_normalization_result_is_never_authoritative_or_live():
     assert result["persisted"] is False
     assert result["live_remediation_authorized"] is False
     assert result["items"][0]["integrity"] == "UNVERIFIED"
+
+
+def test_normalized_evidence_retains_original_tenant_and_incident():
+    result = normalize([evidence(tenant_id="tenant-b", incident_id="inc-99")], now=NOW)
+    assert result["items"][0]["tenant_id"] == "tenant-b"
+    assert result["items"][0]["incident_id"] == "inc-99"
