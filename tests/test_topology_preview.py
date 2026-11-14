@@ -558,3 +558,44 @@ def test_reverse_self_loop_does_not_classify_selected_ci_as_consumer():
     assert result["possible_indirect_dependent_ids"] == []
     assert result["topology_state"] == "UNKNOWN"
     assert result["authoritative"] is False
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_reachable_cycle_and_disconnected_missing_edge_are_separate_signals(reverse):
+    call = preview_upstream_dependents if reverse else preview
+    result = call("root", ["root", "app", "other"], [
+        ("root", "app"), ("app", "root"), ("other", "missing"),
+    ])
+    assert result["cycle_detected"] is True
+    assert result["unresolved_edge_detected"] is False
+    assert result["topology_state"] == "UNKNOWN"
+    assert result["canonical_cmdb_verified"] is False
+    assert result["authoritative"] is False
+    assert result["live_remediation_authorized"] is False
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_isolated_selected_ci_ignores_disconnected_cycle_and_missing_edge(reverse):
+    call = preview_upstream_dependents if reverse else preview
+    result = call("root", ["root", "a", "b", "other"], [
+        ("a", "b"), ("b", "a"), ("other", "missing"),
+    ])
+    assert result["cycle_detected"] is False
+    assert result["unresolved_edge_detected"] is False
+    assert result["topology_state"] == "CALLER_SUPPLIED_PREVIEW"
+    assert result["authoritative"] is False
+    assert result["persisted"] is False
+    assert result["live_remediation_authorized"] is False
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_reachable_cycle_and_missing_edge_report_both_signals(reverse):
+    call = preview_upstream_dependents if reverse else preview
+    edges = [("root", "app"), ("app", "root")]
+    edges.append(("missing", "app") if reverse else ("app", "missing"))
+    result = call("root", ["root", "app"], edges)
+    assert result["cycle_detected"] is True
+    assert result["unresolved_edge_detected"] is True
+    assert result["topology_state"] == "UNKNOWN"
+    assert result["authoritative"] is False
+    assert result["live_remediation_authorized"] is False
