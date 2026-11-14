@@ -589,3 +589,40 @@ def test_disposable_url_validator_catches_expected_parse_errors():
     actual = {node.id for node in handler.type.elts if isinstance(node, ast.Name)}
     if len(handler.type.elts) != 3 or actual != {"ArgumentError", "ValueError", "TypeError"}:
         pytest.fail("URL parsing must catch ArgumentError, ValueError and TypeError")
+
+
+def test_disposable_url_validator_never_reassigns_parsed_url():
+    """Validation must inspect the same URL that the fixture will use."""
+    source = (Path(__file__).parent / "test_gateway_replay_postgres.py").read_text(
+        encoding="utf-8"
+    )
+    validators = [
+        node for node in ast.parse(source).body
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "_require_disposable_database_url"
+    ]
+    if len(validators) != 1:
+        pytest.fail("Expected exactly one disposable URL validator")
+    validator = validators[0]
+    assignments = []
+    for node in ast.walk(validator):
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id == "parsed":
+                    assignments.append(node)
+        elif isinstance(node, (ast.AnnAssign, ast.AugAssign, ast.NamedExpr)):
+            if isinstance(node.target, ast.Name) and node.target.id == "parsed":
+                assignments.append(node)
+    if len(assignments) != 1:
+        pytest.fail("Parsed disposable URL must be assigned exactly once")
+    assignment = assignments[0]
+    if not (isinstance(assignment, ast.Assign)
+            and len(assignment.targets) == 1
+            and isinstance(assignment.value, ast.Call)
+            and isinstance(assignment.value.func, ast.Name)
+            and assignment.value.func.id == "make_url"
+            and len(assignment.value.args) == 1
+            and not assignment.value.keywords
+            and isinstance(assignment.value.args[0], ast.Name)
+            and assignment.value.args[0].id == "raw_url"):
+        pytest.fail("Parsed URL must come exclusively from make_url(raw_url)")
