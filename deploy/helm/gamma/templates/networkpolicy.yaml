@@ -17,5 +17,18 @@ spec:
   podSelector:
     matchLabels: {app.kubernetes.io/name: gamma-api, app.kubernetes.io/instance: {{ .Release.Name }}}
   policyTypes: [Ingress]
+{{- if and (gt (len .Values.api.gatewayNamespaceLabels) 0) (gt (len .Values.api.gatewayPodLabels) 0) }}
   ingress:
-    - ports: [{protocol: TCP, port: {{ .Values.api.port }}}]
+    - from:
+        - namespaceSelector:
+            matchLabels:
+{{ toYaml .Values.api.gatewayNamespaceLabels | indent 14 }}
+          podSelector:
+            matchLabels:
+{{ toYaml .Values.api.gatewayPodLabels | indent 14 }}
+      ports: [{protocol: TCP, port: {{ .Values.api.port }}}]
+{{- else }}
+  # Explicit empty ingress list: deny all API ingress until the gateway
+  # namespace and pod selectors are supplied by the platform owner.
+  ingress: []
+{{- end }}
