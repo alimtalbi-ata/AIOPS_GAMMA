@@ -1653,3 +1653,9 @@
 - Added `tests/test_itil_mutable_boundary.py` with mutated incident urgency, nested CI timestamp/identifier, problem references, change risk, wrong input types and unverified CI non-authorization.
 - Caller-provided `verified_against_cmdb` is **not independent canonical CMDB verification**; the projection does not establish actor→tenant→resource ACL or authorize ITSM/LIVE operations.
 - Tests **not executed**. CI issue #8 and canonical ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — ITIL cross-tenant and change-target negative regression
+- Added nine parametrized/single negative cases in `tests/test_itil_mutable_boundary.py`: post-construction problem/change tenant mismatch, change target lacking a caller-declared verified CI binding, and invalid problem/change input structures.
+- The change target check is only an in-memory projection guard; it does **not** independently establish CMDB truth or actor→tenant→resource authorization.
+- Tests **not executed**. CI issue #8 and canonical ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
