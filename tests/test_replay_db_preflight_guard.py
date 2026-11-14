@@ -843,3 +843,32 @@ def test_replay_db_security_dependencies_not_rebound_by_module_loops():
                 if (isinstance(node, ast.Name) and node.id in protected
                         and isinstance(node.ctx, (ast.Store, ast.Del))):
                     pytest.fail(f"Module-level loop shadows security dependency: {node.id}")
+
+
+def test_replay_db_security_dependencies_not_shadowed_in_nested_module_control_flow():
+    """Module-scope branches and loops cannot rebind DB safety dependencies."""
+    source = (Path(__file__).parent / "test_gateway_replay_postgres.py").read_text(
+        encoding="utf-8"
+    )
+    protected = {"make_url", "create_async_engine", "async_sessionmaker", "pytest"}
+
+    class ModuleBindingVisitor(ast.NodeVisitor):
+        def visit_FunctionDef(self, node):
+            return
+
+        def visit_AsyncFunctionDef(self, node):
+            return
+
+        def visit_ClassDef(self, node):
+            return
+
+        def visit_Lambda(self, node):
+            return
+
+        def visit_Name(self, node):
+            if node.id in protected and isinstance(node.ctx, (ast.Store, ast.Del)):
+                pytest.fail(f"Module control flow shadows security dependency: {node.id}")
+
+    visitor = ModuleBindingVisitor()
+    for statement in ast.parse(source).body:
+        visitor.visit(statement)
