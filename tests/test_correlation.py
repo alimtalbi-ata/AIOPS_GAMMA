@@ -291,3 +291,33 @@ def test_direct_correlation_rejects_noninteger_window(invalid_window):
 def test_direct_correlation_rejects_missing_tenant_identity():
     with pytest.raises(ValueError, match="tenant identity"):
         correlate([signal("a")], "")
+
+
+def test_conflicting_duplicate_with_different_ci_and_service_is_order_invariant():
+    original = signal("same", service="checkout", ci="CI-1", severity="major")
+    conflicting = signal("same", service="payments", ci="CI-2", severity="critical")
+    forward = correlate([original, conflicting], "tenant-1")
+    reverse = correlate([conflicting, original], "tenant-1")
+    assert forward == reverse
+    assert forward["source_events"] == 2
+    assert forward["deduplicated_events"] == 1
+    assert forward["conflicting_source_events"] == 1
+    assert sum(group["event_count"] for group in forward["groups"]) == 1
+    assert sum(group["conflicting_source_events"] for group in forward["groups"]) == 1
+    assert all(group["root_cause_state"] == "UNKNOWN" for group in forward["groups"])
+    assert forward["persisted"] is False
+    assert forward["live_remediation_authorized"] is False
+
+
+def test_direct_correlation_revalidates_mutated_evidence_reference_bounds():
+    item = signal("mutated")
+    item.evidence_refs = [f"evidence-{index}" for index in range(31)]
+    with pytest.raises(ValidationError):
+        correlate([item], "tenant-1")
+
+
+def test_direct_correlation_revalidates_mutated_evidence_reference_types():
+    item = signal("mutated")
+    item.evidence_refs = ["valid", 42]
+    with pytest.raises(ValidationError):
+        correlate([item], "tenant-1")
