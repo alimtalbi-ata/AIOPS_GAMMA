@@ -1838,3 +1838,11 @@
 - Tightened the three validation assertions to expect Pydantic `ValidationError` specifically (rather than broad `Exception`), so unrelated failures cannot satisfy these tests.
 - Exact commit `42524b2cb26a9f32909c495dfc7d239adbf44a66` has no GitHub Actions runs returned. No repository tests have been executed in this session.
 - UC03 remains preview-only. Persistent dedup/correlation is issue #4; upstream telemetry mapping/tenant isolation is issue #3; canonical actor→tenant→resource ACL is issue #2. PR #1 remains Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — UC04 topology impact input hardening
+- Hardened `app/reused/impact.py::estimate_impact`: reject booleans/non-numeric direct scores and booleans/non-integer path counts. This prevents Python's bool-as-int behavior from being accepted as a topology score or path count.
+- Added `tests/test_impact.py` covering invalid values, exact threshold boundaries (NONE/DEGRADED/OUTAGE), zero-path UNKNOWN and the invariant that estimates never authorize LIVE remediation.
+- Updated UC04 maturity wording: this is a path-count estimate only, not a canonical CMDB graph or blast-radius verification.
+- Commits: `328a0ba` implementation, `ef12a4c` tests, `8d6d81f` test cleanup, `c203a2e` catalog.
+- Tests **not executed**. CI workflows have not been shown running for these commits; ACL #2, observability #3 and persistent correlation #4 remain dependencies. PR #1 stays Draft HOLD / NO_GO.
