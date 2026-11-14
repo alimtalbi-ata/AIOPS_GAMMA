@@ -1967,3 +1967,9 @@
 - Added two synthetic regression tests for a 200-node DAG with exactly 1,000 distinct directed edges, in forward and reverse traversal. Both assert no false cycle, reachable count, consistent hop/path witness and nonauthority flags.
 - Test commit `3a873d4`. This complements the earlier 1,000 duplicate-edge test. No code or external system action. Tests **not executed**; require exact-HEAD compileall and `python -m pytest -q tests/test_topology_preview.py`.
 - CI #8 continues to fail before steps; independent ACL #2 blocks canonical reads. PR #1 Draft HOLD / NO_GO; no merge, deployment, real PostgreSQL or LIVE/remediation.
+
+
+### 2026-11-14 — UC04 strict bounds negative tests
+- Added parameterized forward/reverse tests for 201 nodes rejected, 1,001 duplicate edges rejected before deduplication, empty nodes rejected, and exactly 255-character selected ID accepted versus 256 rejected.
+- Test commit `f002221`. No application code change. Tests **not executed**; require exact-HEAD `python -m compileall -q app tests` and `python -m pytest -q tests/test_topology_preview.py`.
+- CI #8 still blocks proof of execution and ACL #2 still blocks canonical authorization. PR #1 Draft HOLD / NO_GO; no merge, deployment, real PostgreSQL or LIVE/remediation.
