@@ -1925,3 +1925,9 @@
 - Five regression tests cover unrelated vs reachable missing endpoints in forward/reverse traversals, including a missing upstream consumer. No claim of canonical completeness or authority is made.
 - Commits: `8a06d82` code, `29abb8c` tests, `db4d86a` catalog. Tests **not executed**; exact-HEAD compileall/pytest still needed. CI #8 and independent ACL #2 remain blocking.
 - PR #1 remains Draft HOLD / NO_GO. No merge, deployment, real PostgreSQL or LIVE/remediation.
+
+
+### 2026-11-14 — UC04 disconnected-cycle and permutation regressions
+- Added four pure synthetic tests to `tests/test_topology_preview.py`: disconnected cycles do not taint forward/reverse selected components; duplicate and permuted edges/nodes preserve results for reachable vs unrelated missing endpoints.
+- Test commit `580045c`. No production code changes; tests **not executed**. Require exact-HEAD `python -m compileall -q app tests` and `python -m pytest -q tests/test_topology_preview.py` with recorded results.
+- CI #8 and independent canonical actor→tenant→resource ACL #2 remain blockers. PR #1 stays Draft HOLD / NO_GO; no merge, deployment, real PostgreSQL or LIVE actions.
