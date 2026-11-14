@@ -120,3 +120,22 @@ def test_vite_preview_denies_api_namespace_using_same_middleware_as_dev():
     assert 'res.statusCode = 404;' in vite
     assert 'res.setHeader("Cache-Control", "no-store")' in vite
     assert 'preview: { host: "127.0.0.1" }' in vite
+
+
+def test_frontend_ci_smokes_preview_api_denial_over_real_http():
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    assert "Smoke Vite preview API denial and SPA availability" in workflow
+    assert "npm run preview" in workflow
+    assert "expected 404, got " in workflow
+    assert "missing no-store" in workflow
+    assert "['GET', 'POST']" in workflow
+    assert "'/api/v1/demo/correlation'" in workflow
+    assert "'/api/v1/demo/investigation'" in workflow
+
+
+def test_ui_image_smoke_does_not_require_api_dns_or_proxy():
+    workflow = (ROOT / ".github/workflows/deployment-contract.yml").read_text(encoding="utf-8")
+    ui_image = workflow.split("  ui-image:", 1)[1].split("\n  api-postgres-runtime:", 1)[0]
+    assert "--add-host api:127.0.0.1" not in ui_image
+    assert "The static UI has no API upstream" in ui_image
+    assert 'test "$status" = 404' in ui_image
