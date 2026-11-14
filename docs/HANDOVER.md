@@ -1764,3 +1764,9 @@
 - Added two tests for models produced by `model_copy(update=...)`, which can bypass assignment validation: non-boolean CI verification claim and invalid change type.
 - Expected behavior: `preview_itil_workflow` revalidates both nested CI and change model before returning a synthetic projection. No canonical verification or change approval is implied.
 - Tests **not executed**. CI issue #8 and independent actor→tenant→resource ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — model_copy verified-CI identifier regressions
+- Added three parametrized tests for `ObservedCI.model_copy(update=...)` asserting caller-declared verification with `None`, empty, or whitespace-only CMDB identifier.
+- The synthetic ITIL preview must revalidate the nested CI and raise `ValidationError`; no canonical CMDB lookup or authorization is claimed.
+- Tests **not executed**. CI issue #8 and independent actor→tenant→resource ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
