@@ -1646,3 +1646,10 @@
 - Construction-time deep JSON tests now assert `ValidationError` without relying on the message of the first rejecting layer: Pydantic may enforce its own recursion limit before the explicit 64-level validator.
 - Post-mutation normalization tests still assert the explicit `ValueError("JSON nesting exceeds 64 levels")` from the pre-serialization guard.
 - Tests **not executed**; CI issue #8 and canonical ACL issue #2 remain unresolved. PR #1 stays Draft HOLD / NO_GO; no LIVE or canonical access.
+
+
+### 2026-11-14 — ITIL synthetic projection boundary revalidation
+- `preview_itil_workflow` now rejects wrong incident/problem/change object types and revalidates their complete mutable Pydantic graphs before constructing advisory projections.
+- Added `tests/test_itil_mutable_boundary.py` with mutated incident urgency, nested CI timestamp/identifier, problem references, change risk, wrong input types and unverified CI non-authorization.
+- Caller-provided `verified_against_cmdb` is **not independent canonical CMDB verification**; the projection does not establish actor→tenant→resource ACL or authorize ITSM/LIVE operations.
+- Tests **not executed**. CI issue #8 and canonical ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
