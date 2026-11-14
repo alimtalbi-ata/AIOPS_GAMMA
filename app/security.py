@@ -50,7 +50,11 @@ def verify_gateway_assertion(token: str, *, method: str, path: str, now: int | N
     if not isinstance(token, str) or len(token) > 8192:
         raise HTTPException(status_code=401, detail="Invalid gateway principal assertion")
     secret = settings.gateway_assertion_secret
-    if not secret or len(secret.encode("utf-8")) < 32:
+    try:
+        secret_bytes = secret.encode("utf-8") if isinstance(secret, str) else b""
+    except UnicodeError as exc:
+        raise HTTPException(status_code=503, detail="Gateway assertion verification not configured") from exc
+    if len(secret_bytes) < 32:
         raise HTTPException(status_code=503, detail="Gateway assertion verification not configured")
     if not settings.gateway_assertion_issuer or not settings.gateway_assertion_audience:
         raise HTTPException(status_code=503, detail="Gateway assertion policy not configured")
@@ -62,7 +66,7 @@ def verify_gateway_assertion(token: str, *, method: str, path: str, now: int | N
         encoded, signature = token.split(".")
         supplied_signature = _b64url_decode(signature)
         expected_signature = hmac.new(
-            secret.encode("utf-8"), encoded.encode("ascii"), hashlib.sha256
+            secret_bytes, encoded.encode("ascii"), hashlib.sha256
         ).digest()
         if not hmac.compare_digest(supplied_signature, expected_signature):
             raise ValueError("signature mismatch")
