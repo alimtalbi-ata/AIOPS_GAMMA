@@ -1821,3 +1821,10 @@
 - Linked the catalog from `README.md` and `docs/ROADMAP.md`; roadmap explicitly requires technical work to trace to product use cases.
 - Catalog distinguishes synthetic demos, feature-flagged APIs, non-authoritative previews and undelivered target capabilities. It does not claim new runtime functionality.
 - ITIL boundary tests remain unexecuted. CI issue #8 (jobs failing before steps) and independent canonical ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — UC03 correlation boundary regressions
+- Added three tests to `tests/test_correlation.py`: conflicting duplicate source identity with different service/CI bindings remains permutation-invariant; mutated evidence list over the 30-item bound is rejected at the direct `correlate` boundary; mutated evidence list containing a non-string is rejected.
+- These are regression specifications for the existing deterministic, read-only preview; no persistent clustering, canonical CMDB impact or ITSM writes were added.
+- Exact commit `c319f14d3acf99d5ed1eaac8108908387c4bec1d` currently has no GitHub Actions runs returned. Tests have **not** been executed locally or in CI.
+- UC03 durable correlation and ITSM reconciliation remain tracked in issue #4; upstream observability/tenant qualification #3 and canonical ACL #2 remain dependencies. PR #1 stays Draft HOLD / NO_GO.
