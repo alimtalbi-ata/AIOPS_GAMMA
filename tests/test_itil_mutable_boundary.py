@@ -510,3 +510,28 @@ def test_model_copy_injected_problem_approval_cannot_escape_preview():
     assert "known_error_approved" not in result["problem_management"]
     assert result["authoritative"] is False
     assert result["execution"]["live_remediation_authorized"] is False
+
+
+def test_problem_same_tenant_unrelated_incident_rejected():
+    item = incident()
+    problem = ProblemAssessment(
+        tenant_id=TENANT, related_incident_ids=["DEMO-INC-OTHER"],
+        suspected_root_cause="Unverified synthetic hypothesis",
+    )
+    with pytest.raises(ValueError, match="Problem tenant or incident reference mismatch"):
+        preview_itil_workflow(item, problem=problem)
+
+
+def test_change_same_tenant_wrong_source_incident_rejected():
+    item = incident()
+    item.affected_cis[0].verified_against_cmdb = True
+    change = ChangeProposal(
+        tenant_id=TENANT, source_incident_id="DEMO-INC-OTHER",
+        target_ci_id="CI-DEMO-1", runbook_id="demo", runbook_version="v1",
+        impact_summary="Synthetic only", risk="unknown",
+        implementation_plan_ref="demo-implement",
+        rollback_plan_ref="demo-rollback",
+        verification_plan_ref="demo-verify", evidence_refs=["DEMO-EVIDENCE-1"],
+    )
+    with pytest.raises(ValueError, match="Change tenant or incident reference mismatch"):
+        preview_itil_workflow(item, change=change)
