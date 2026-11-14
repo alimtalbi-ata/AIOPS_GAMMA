@@ -56,7 +56,8 @@ python -m pytest -q \
   tests/test_synthetic_runbook_hitl_usecase.py \
   tests/test_synthetic_journey_negative_gates.py \
   tests/test_evidence_normalization.py \
-  tests/test_itil_mutable_boundary.py
+  tests/test_itil_mutable_boundary.py \
+  tests/test_topology_preview.py
 ```
 
 These pure synthetic tests are not substitutes for gateway ACL, staging,
