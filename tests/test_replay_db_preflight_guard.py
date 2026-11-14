@@ -865,6 +865,23 @@ def test_replay_db_security_dependencies_not_shadowed_in_nested_module_control_f
         def visit_Lambda(self, node):
             return
 
+        def visit_Import(self, node):
+            for alias in node.names:
+                bound = alias.asname or alias.name.split(".")[0]
+                if bound in protected:
+                    pytest.fail(f"Module import shadows security dependency: {bound}")
+
+        def visit_ImportFrom(self, node):
+            for alias in node.names:
+                bound = alias.asname or alias.name
+                if bound in protected:
+                    pytest.fail(f"Module import shadows security dependency: {bound}")
+
+        def visit_ExceptHandler(self, node):
+            if node.name in protected:
+                pytest.fail(f"Module exception target shadows security dependency: {node.name}")
+            self.generic_visit(node)
+
         def visit_Name(self, node):
             if node.id in protected and isinstance(node.ctx, (ast.Store, ast.Del)):
                 pytest.fail(f"Module control flow shadows security dependency: {node.id}")
