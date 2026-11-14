@@ -71,8 +71,8 @@ def test_timeline_order_is_deterministic():
 @pytest.mark.parametrize("field,value", [
     ("incident_id", "  "),
     ("service_name", " checkout"),
-    ("rca_summary", "\\n"),
-    ("impact_summary", "unknown\\n"),
+    ("rca_summary", "\n"),
+    ("impact_summary", "unknown\n"),
 ])
 def test_invalid_incident_fields_rejected(field, value):
     from pydantic import ValidationError
@@ -83,7 +83,7 @@ def test_invalid_incident_fields_rejected(field, value):
 def test_untrusted_follow_up_text_rejected():
     from pydantic import ValidationError
     with pytest.raises(ValidationError):
-        request(follow_up_candidates=["Restart service\\nwithout review"])
+        request(follow_up_candidates=["Restart service\nwithout review"])
 
 
 def test_post_validation_mutation_does_not_bypass_boundary():
