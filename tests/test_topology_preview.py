@@ -255,3 +255,12 @@ def test_reverse_traversal_cycle_is_unknown():
     assert result["cycle_detected"] is True
     assert result["topology_state"] == "UNKNOWN"
     assert result["persisted"] is False
+
+
+def test_dependency_path_dictionary_is_materialized_for_empty_graph():
+    result = preview("service", ["service"], [])
+    assert result["dependency_paths"] == {}
+    assert result["dependency_hops"] == {}
+    assert result["direct_dependency_ids"] == []
+    assert result["indirect_dependency_ids"] == []
+    assert result["topology_state"] == "CALLER_SUPPLIED_PREVIEW"
