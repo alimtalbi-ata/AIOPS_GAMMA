@@ -145,3 +145,33 @@ def test_dependency_hops_exclude_unrelated_nodes_and_service_cycle():
     assert result["cycle_detected"] is True
     assert result["topology_state"] == "UNKNOWN"
     assert result["live_remediation_authorized"] is False
+
+
+def test_dependency_paths_provide_a_deterministic_shortest_witness():
+    result = preview("service", ["service", "a", "b", "db"], [
+        ("service", "b"), ("b", "db"), ("service", "a"), ("a", "db"),
+    ])
+    assert result["dependency_paths"] == {
+        "a": ["service", "a"],
+        "b": ["service", "b"],
+        "db": ["service", "a", "db"],
+    }
+    assert result["dependency_hops"]["db"] == len(result["dependency_paths"]["db"]) - 1
+    assert result["canonical_cmdb_verified"] is False
+
+
+def test_direct_path_wins_over_longer_path():
+    result = preview("service", ["service", "a", "db"], [
+        ("service", "a"), ("a", "db"), ("service", "db"),
+    ])
+    assert result["dependency_paths"]["db"] == ["service", "db"]
+    assert result["dependency_hops"]["db"] == 1
+
+
+def test_cycle_path_witness_does_not_imply_verified_topology():
+    result = preview("service", ["service", "a"], [
+        ("service", "a"), ("a", "service"),
+    ])
+    assert result["dependency_paths"] == {"a": ["service", "a"]}
+    assert result["topology_state"] == "UNKNOWN"
+    assert result["authoritative"] is False
