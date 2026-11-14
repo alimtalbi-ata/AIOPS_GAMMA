@@ -31,7 +31,7 @@ def reject_unqualified_tenant_scope(value: object) -> None:
             if len(item) + visited + len(pending) > 4096:
                 raise ValueError("tenant-scope scan bound exceeded")
             for key, child in item.items():
-                if not isinstance(key, str):
+                if not isinstance(key, str) or len(key) > 255:
                     raise ValueError("invalid tenant-scope key")
                 normalized = re.sub(
                     r"[^a-z0-9]", "", unicodedata.normalize("NFKC", key).casefold()
