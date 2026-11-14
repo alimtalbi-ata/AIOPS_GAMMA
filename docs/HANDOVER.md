@@ -1740,3 +1740,9 @@
 - Added four parametrized ITIL regression cases for invalid post-construction `ChangeProposal.change_type` values (`preapproved`, `STANDARD`, `None`, `1`), passed via the explicit `change=change` argument.
 - Expected behavior: Pydantic validation rejects mutated values before emitting any synthetic preview; no ITSM change authority is inferred.
 - Tests **not executed**. CI issue #8 and canonical actor→tenant→resource ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — Nested ITSM reference mutation regressions
+- Added two ITIL boundary tests: a mutated GLPI external identifier with invalid whitespace in an incident, and an unrecognized ITSM system in a nested change reference.
+- Both are expected to raise Pydantic `ValidationError` during synthetic preview revalidation; the change test uses the explicit `change=change` argument.
+- Tests **not executed**. CI issue #8 and independent actor→tenant→resource ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO; no LIVE, merge or deployment.
