@@ -1476,3 +1476,9 @@
 - Uses the existing pure `app/reused/policy.py` evaluator. No Temporal worker, signed one-use HITL receipt, independent execution gate or runbook execution has been implemented.
 - Tried obtaining a local repository checkout for isolated pytest execution; network DNS could not resolve github.com in the local runner. **No tests were run or passed**; no CI qualification claimed.
 - PR #1 Draft **HOLD / NO_GO**, no merge, LIVE, PostgreSQL or deployment.
+
+
+### 2026-11-14 — Negative cross-boundary synthetic AI SRE journey
+- Added `tests/test_synthetic_journey_negative_gates.py` with independent tenant-denial checks at correlation/evidence, synthetic CMDB impact, RCA and ITSM preview boundaries, plus missing-evidence/unknown-impact policy fail-closed behavior.
+- The tests do **not** establish authenticated actor→tenant→resource ACL, real CMDB reads, source verification, HITL receipts or executable recovery.
+- **Not executed**; no green pytest/CI claim. PR #1 remains Draft **HOLD / NO_GO**; no merge, LIVE, PostgreSQL or deployment.
