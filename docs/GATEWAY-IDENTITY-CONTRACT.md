@@ -34,13 +34,13 @@ Before deployment, the gateway/IdP owner must provide and approve:
 2. A written guarantee that the gateway authenticates the actor, resolves actor→tenant membership from an authoritative server-side source, strips inbound client-supplied identity headers, and only then signs `tenant_access=true`.
 3. Actor subject format and lifecycle; allowed actor types and service-account membership semantics.
 4. HMAC key generation, secret-manager/Kubernetes Secret delivery, rotation overlap, revocation and incident response. Never put key material in Git, Helm values, logs or frontend configuration.
-5. Exact gateway Kubernetes namespace and pod labels, plus service port and any mTLS identity, so the API NetworkPolicy can restrict ingress to that workload. Current API ingress policy has no `from` peer selector and is therefore not gateway-restricted by this chart.
+5. Exact gateway Kubernetes namespace labels and pod labels, plus service port and any mTLS identity. The chart now defaults API ingress to an explicit deny-all policy; it permits API ingress only when both non-empty gateway namespace and pod label selectors are supplied. Those selectors remain intentionally empty until approved by the platform owner.
 6. Replay policy for `jti`: current service verifies short TTL and request binding but does not persist/consume assertion IDs. Gateway must use one-time assertions and the owner must decide whether server-side replay cache is required for the threat model.
 
 ## Deployment blockers
 
 - Helm now exposes explicit issuer, audience and TTL values and can optionally mount the HMAC assertion key from a Kubernetes Secret. The Secret reference is omitted while `api.gatewayAssertionSecret` is empty; in that default state the service verifier remains unconfigured and fails closed. Configure a real Secret only after gateway-owner approval.
-- No trusted gateway namespace/pod selector is configured in the chart.
+- Trusted gateway namespace/pod selectors are intentionally empty. API ingress therefore remains deny-all until the platform owner supplies the exact approved selectors.
 - No live gateway/IdP contract, key rotation, mTLS, network bypass test or two-principal actor→tenant test has been evidenced.
 - Existing signed-assertion unit tests prove verifier behavior against synthetic HMAC tokens only. They do not prove the gateway issued the token after checking a real membership directory.
 
