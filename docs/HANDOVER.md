@@ -1671,3 +1671,9 @@
 - Synthetic change enablement projection now explicitly returns `target_ci_binding_source="caller_supplied_preview"` for a change and `target_ci_canonical_verified=False` in all cases.
 - Two regression cases distinguish a caller-asserted target CI binding from independent CMDB verification and cover absence of a change.
 - No independent ACL, change approval, ITSM write or LIVE execution is inferred. Tests **not executed**; CI issue #8 and canonical ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — ITIL projection nonauthority contract
+- `preview_itil_workflow` now explicitly returns `data_source="caller_supplied_preview"`, `authoritative=False`, and `persisted=False`.
+- Two parametrized regression cases confirm nonauthority, no persistence, no canonical CMDB verification, no ITSM mutation and no LIVE permission regardless of caller-declared CI verification.
+- Tests **not executed**. CI issue #8 and canonical actor→tenant→resource ACL issue #2 remain blockers. PR #1 remains Draft HOLD / NO_GO.
