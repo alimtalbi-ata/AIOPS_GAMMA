@@ -1368,3 +1368,10 @@
 - Re-fetched the committed frontend, workflow, Compose, Nginx and test sources and evaluated 43 simple literal-membership assertions from the static frontend tests against the source strings in an isolated JavaScript inspection: 43/43 matched. This is a limited source inspection, **not** an execution of Python/pytest or the full 16 tests.
 - Exact test HEAD `200a811505cba47b540c3039e8b49d1f5012c2b9`: Actions `43610024137` (Python checks) and `43610024151` (Deployment contract) each failed before steps; all 9 jobs individually inspected with `steps: 0`. No runner commands executed.
 - **HOLD / NO_GO**, PR #1 Draft; no merge, PostgreSQL, LIVE or deployment.
+
+
+### 2026-11-14 — Reconcile route-auth inventory with intentional public synthetic demos
+- Identified a latent test failure in `tests/test_http_route_auth_coverage_guard.py`: its exact expected route inventory and public allowlist omitted the two intentional `GET /api/v1/demo/{correlation,investigation}` endpoints already registered in `app/main.py`. It would fail the exact-inventory assertion and incorrectly require an internal principal for these deliberately public synthetic-only handlers.
+- Updated the public allowlist to exactly health/live and these two synthetic demo GET routes, added both to `EXPECTED_ROUTES`, and renamed the test to `test_all_non_public_http_routes_require_internal_principal`. The independent stricter guard `tests/test_route_security_static.py` already requires both public handlers to invoke only reviewed synthetic helpers; all other routes still require internal principal.
+- Re-fetched GitHub source and compared 21 declared route method/path pairs with the 21 expected entries: exact match, with precisely three allowlisted public GET endpoints. This is a JS source inspection, not pytest.
+- **HOLD / NO_GO**, PR #1 remains Draft; CI runner/bootstrap qualification still outstanding. No merge, LIVE, PostgreSQL or deployment.
