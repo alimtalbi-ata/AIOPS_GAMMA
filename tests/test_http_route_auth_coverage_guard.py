@@ -9,10 +9,18 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 MAIN = ROOT / "app/main.py"
-PUBLIC_ROUTES = {("GET", "/api/v1/health/live")}
+# Only these routes are intentionally unauthenticated. Independent AST
+# guards constrain public demo handlers to reviewed synthetic helpers.
+PUBLIC_ROUTES = {
+    ("GET", "/api/v1/health/live"),
+    ("GET", "/api/v1/demo/correlation"),
+    ("GET", "/api/v1/demo/investigation"),
+}
 HTTP_METHODS = {"get", "post", "put", "patch", "delete"}
 EXPECTED_ROUTES = {
     ("GET", "/api/v1/health/live"),
+    ("GET", "/api/v1/demo/correlation"),
+    ("GET", "/api/v1/demo/investigation"),
     ("POST", "/api/v1/observability/logs/search"),
     ("POST", "/api/v1/observability/metrics/query"),
     ("POST", "/api/v1/integrations/opensearch/alerts"),
@@ -36,7 +44,7 @@ EXPECTED_ROUTES = {
 
 
 class InternalRouteDependencyGuard(unittest.TestCase):
-    def test_all_non_health_http_routes_require_internal_principal(self):
+    def test_all_non_public_http_routes_require_internal_principal(self):
         tree = ast.parse(MAIN.read_text(encoding="utf-8"))
         found = set()
         for node in tree.body:
@@ -93,7 +101,11 @@ class InternalRouteDependencyGuard(unittest.TestCase):
                          "HTTP route inventory changed; review ACL and update allowlist")
 
     def test_public_route_allowlist_is_narrow(self):
-        self.assertEqual(PUBLIC_ROUTES, {("GET", "/api/v1/health/live")})
+        self.assertEqual(PUBLIC_ROUTES, {
+            ("GET", "/api/v1/health/live"),
+            ("GET", "/api/v1/demo/correlation"),
+            ("GET", "/api/v1/demo/investigation"),
+        })
 
 
 if __name__ == "__main__":
