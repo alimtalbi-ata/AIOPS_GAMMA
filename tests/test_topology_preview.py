@@ -264,3 +264,35 @@ def test_dependency_path_dictionary_is_materialized_for_empty_graph():
     assert result["direct_dependency_ids"] == []
     assert result["indirect_dependency_ids"] == []
     assert result["topology_state"] == "CALLER_SUPPLIED_PREVIEW"
+
+
+def test_maximum_bounded_chain_is_iterative_and_paths_are_consistent():
+    nodes = [f"ci-{index:03d}" for index in range(200)]
+    edges = list(zip(nodes, nodes[1:]))
+    result = preview(nodes[0], nodes, edges)
+    assert result["dependency_count"] == 199
+    assert result["dependency_hops"][nodes[-1]] == 199
+    assert result["dependency_paths"][nodes[-1]] == nodes
+    assert result["direct_dependency_ids"] == [nodes[1]]
+    assert len(result["indirect_dependency_ids"]) == 198
+    assert result["topology_state"] == "CALLER_SUPPLIED_PREVIEW"
+    assert result["live_remediation_authorized"] is False
+
+
+def test_reverse_maximum_bounded_chain_is_iterative():
+    nodes = [f"ci-{index:03d}" for index in range(200)]
+    edges = list(zip(nodes, nodes[1:]))
+    result = preview_upstream_dependents(nodes[-1], nodes, edges)
+    assert result["possible_dependent_count"] == 199
+    assert result["dependent_hops"][nodes[0]] == 199
+    assert result["dependent_paths"][nodes[0]] == list(reversed(nodes))
+    assert result["authoritative"] is False
+
+
+def test_dense_duplicate_edges_remain_bounded_and_deterministic():
+    nodes = ["service", "app"]
+    edges = [("service", "app")] * 1000
+    result = preview("service", nodes, edges)
+    assert result["dependency_count"] == 1
+    assert result["dependency_paths"] == {"app": ["service", "app"]}
+    assert result["topology_state"] == "CALLER_SUPPLIED_PREVIEW"
