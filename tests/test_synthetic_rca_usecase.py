@@ -70,3 +70,29 @@ def test_synthetic_rca_supported_label_still_does_not_grant_authority():
     assert result["supported_hypotheses"] == 1
     assert result["citations_source_verified"] is False
     assert result["live_execution_authorized"] is False
+
+
+def test_mutated_rca_reference_is_rejected_at_evaluation_boundary():
+    req = request()
+    req.hypotheses[0].supporting_refs = ["missing-trace"]
+    with pytest.raises(ValidationError, match="Unresolvable evidence reference"):
+        evaluate_investigation(req, TENANT)
+
+
+def test_mutated_rca_tenant_is_rejected_at_evaluation_boundary():
+    req = request()
+    req.tenant_id = OTHER
+    with pytest.raises(PermissionError, match="Cross-tenant"):
+        evaluate_investigation(req, TENANT)
+
+
+def test_mutated_rca_timestamp_is_rejected_at_evaluation_boundary():
+    req = request()
+    req.evidence[0].observed_at = datetime(2026, 11, 14, 12)
+    with pytest.raises(ValidationError, match="Evidence timestamp must include timezone"):
+        evaluate_investigation(req, TENANT)
+
+
+def test_invalid_rca_authority_type_is_rejected():
+    with pytest.raises(ValueError, match="authorized tenant"):
+        evaluate_investigation(request(), str(TENANT))
