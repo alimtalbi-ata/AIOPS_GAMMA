@@ -1899,3 +1899,9 @@
 - Added regressions in `tests/test_topology_preview.py` for direction, transitive consumer paths, unknown endpoints, malformed edges and cycles. Updated UC04 catalog.
 - Commits: `51dadf7` code, `79618e6` tests, `f4badea` catalog. Tests **not executed**; CI #8 and actor→tenant→resource ACL #2 still block qualification.
 - PR #1 remains Draft HOLD / NO_GO. No merge, deployment, real database or LIVE/remediation access.
+
+
+### 2026-11-14 — CI status rechecked at UC04 reverse-dependency HEAD
+- At `1eafd9ab0722d39d3db87aec3dccd4759f0548a7`, Python checks run `43629797277` and Deployment contract run `43629797288` completed failure. Python `test` job `132553648125` and deployment `compose` job `132553648255` had `steps: []`; job listings reported no logs URL. No evidence that pytest or Compose ran.
+- Updated `docs/CI-QUALIFICATION-BLOCKER.md` with exact run/job IDs and administrator action; no blind rerun, no code or test execution. Include `tests/test_topology_preview.py` in future authorized pure-Python qualification.
+- CI #8 and independent ACL #2 remain blockers. PR #1 remains Draft HOLD / NO_GO.
