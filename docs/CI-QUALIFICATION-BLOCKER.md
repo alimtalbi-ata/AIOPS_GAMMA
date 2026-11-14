@@ -94,3 +94,19 @@ The jobs' failed status alone does **not** prove that tests or database commands
 **Operator evidence needed:** capture the exact GitHub run-summary or runner-allocation error for these run IDs; confirm Actions permissions, billing/usage and runner availability. Do not rerun blindly. Once fixed, qualify the exact reviewed SHA with recorded per-step logs and test counts, using disposable infrastructure only. Canonical ACL issue #2 is an independent blocker.
 
 **PR #1 remains Draft — HOLD / NO_GO.**
+
+
+## Current HEAD CI observation — 2026-11-14
+
+Reviewed commit `f7bf8913ea21403658762c5e18325cedc9841a63`:
+
+| Workflow | Run | Result |
+| --- | --- | --- |
+| Python checks | [43622717249](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43622717249) | completed / failure |
+| Deployment contract (static + runtime smoke) | [43622717214](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43622717214) | completed / failure |
+
+The Python `test` job (`132531736563`) and Deployment `compose` job (`132531736441`) both returned `steps: []` from the job-step endpoint. The workflow job listings also provided no logs URL for the listed jobs. **No fresh log-download attempt was made**, and the earlier `404 BlobNotFound` result must not be projected onto these runs.
+
+These observations do not demonstrate execution of pytest, compose, PostgreSQL, or any application check. Administrator must inspect the GitHub run summary / runner allocation and Actions billing or permissions, then obtain real step logs for the reviewed SHA. Do not rerun blindly. Independent canonical ACL issue #2 still blocks release.
+
+**Decision unchanged: PR #1 Draft — HOLD / NO_GO; no merge, deploy, LIVE or remediation.**
