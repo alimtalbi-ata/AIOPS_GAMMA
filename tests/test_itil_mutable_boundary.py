@@ -158,3 +158,29 @@ def test_unverified_ci_explicitly_lacks_canonical_confirmation():
     assert cmdb["verified_cis"] == 0
     assert cmdb["canonical_cmdb_verified"] is False
     assert cmdb["ci_verification_source"] == "caller_supplied_preview"
+
+
+def test_change_target_binding_is_not_independent_cmdb_authorization():
+    item = incident()
+    item.affected_cis[0].verified_against_cmdb = True
+    change = ChangeProposal(
+        tenant_id=TENANT, source_incident_id="DEMO-INC-1",
+        target_ci_id="CI-DEMO-1", runbook_id="demo", runbook_version="v1",
+        impact_summary="Synthetic only", risk="unknown",
+        implementation_plan_ref="demo-implement",
+        rollback_plan_ref="demo-rollback",
+        verification_plan_ref="demo-verify", evidence_refs=["demo-evidence"],
+    )
+    result = preview_itil_workflow(item, change=change)
+    assert result["change_enablement"]["status"] == "DRAFT_AWAITING_ITSM_CHANGE_AUTHORITY"
+    assert result["change_enablement"]["target_ci_binding_source"] == "caller_supplied_preview"
+    assert result["change_enablement"]["target_ci_canonical_verified"] is False
+    assert result["change_enablement"]["authorization_state"] == "NOT_ASSESSED_BY_CHANGE_AUTHORITY"
+    assert result["execution"]["live_remediation_authorized"] is False
+    assert result["execution"]["itsm_mutations_performed"] is False
+
+
+def test_absent_change_has_no_target_binding_claim():
+    result = preview_itil_workflow(incident())
+    assert result["change_enablement"]["target_ci_binding_source"] is None
+    assert result["change_enablement"]["target_ci_canonical_verified"] is False
