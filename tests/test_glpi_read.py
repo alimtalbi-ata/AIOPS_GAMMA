@@ -315,6 +315,7 @@ def test_glpi_http_response_never_caches_denied_ticket(monkeypatch):
     monkeypatch.setattr(glpi_read.httpx, "AsyncClient", no_network)
     principal = Principal(tenant_id=tenant, subject="synthetic-actor",
                           actor_type="user", assertion_id="synthetic", expires_at=1)
+    previous_override = app.dependency_overrides.get(internal_principal)
     app.dependency_overrides[internal_principal] = lambda: principal
     try:
         with TestClient(app) as client:
@@ -323,4 +324,7 @@ def test_glpi_http_response_never_caches_denied_ticket(monkeypatch):
                 assert response.status_code == expected
                 assert response.headers["cache-control"] == "no-store"
     finally:
-        app.dependency_overrides.pop(internal_principal, None)
+        if previous_override is None:
+            app.dependency_overrides.pop(internal_principal, None)
+        else:
+            app.dependency_overrides[internal_principal] = previous_override
