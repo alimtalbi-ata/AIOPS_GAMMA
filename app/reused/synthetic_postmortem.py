@@ -6,7 +6,7 @@ and unverified RCA remain explicit unknowns. Never writes an ITSM record.
 from datetime import datetime, timezone
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator, field_validator
 
 
 class TimelineEvent(BaseModel):
@@ -15,6 +15,14 @@ class TimelineEvent(BaseModel):
     occurred_at: datetime
     summary: str = Field(min_length=1, max_length=500)
     evidence_ref: str | None = Field(default=None, min_length=1, max_length=128)
+
+    @field_validator("event_id", "summary", "evidence_ref")
+    @classmethod
+    def nonblank_event_fields(cls, value):
+        if value is not None and (not value.strip() or value != value.strip()
+                                  or any(ord(char) < 32 or ord(char) == 127 for char in value)):
+            raise ValueError("Invalid timeline event field")
+        return value
 
     @model_validator(mode="after")
     def require_timezone(self):
@@ -33,10 +41,31 @@ class PostmortemDraftRequest(BaseModel):
     impact_summary: str | None = Field(default=None, min_length=1, max_length=1000)
     follow_up_candidates: list[str] = Field(default_factory=list, max_length=30)
 
+    @field_validator("incident_id", "service_name", "rca_summary", "impact_summary")
+    @classmethod
+    def nonblank_incident_fields(cls, value):
+        if value is not None and (not value.strip() or value != value.strip()
+                                  or any(ord(char) < 32 or ord(char) == 127 for char in value)):
+            raise ValueError("Invalid postmortem field")
+        return value
+
+    @field_validator("follow_up_candidates")
+    @classmethod
+    def validate_follow_ups(cls, values):
+        if any(not isinstance(value, str) or not value.strip() or
+               value != value.strip() or len(value) > 500 or
+               any(ord(char) < 32 or ord(char) == 127 for char in value)
+               for value in values):
+            raise ValueError("Invalid follow-up candidate")
+        return values
+
 
 def draft_postmortem(req: PostmortemDraftRequest, authorized_tenant: UUID) -> dict:
     if req.tenant_id != authorized_tenant:
         raise PermissionError("Cross-tenant postmortem rejected")
+    # Mutable Pydantic models may be changed after validation. Revalidate at
+    # the preview boundary before interpreting any caller-provided fields.
+    req = PostmortemDraftRequest.model_validate(req.model_dump())
     if len({e.event_id for e in req.timeline}) != len(req.timeline):
         raise ValueError("Duplicate timeline event identifier")
     events = sorted(req.timeline, key=lambda e: (e.occurred_at.astimezone(timezone.utc), e.event_id))
