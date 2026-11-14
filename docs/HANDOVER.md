@@ -1517,3 +1517,10 @@
 - Added three negative regression tests for post-validation tenant mutation, invalid authority type and invalid request type.
 - On latest observed HEAD `4ccc7724650b538cfc52a960ecc9b05a96ea895b`, Python checks run `43615348969` still reported failures; no test pass can be inferred from the job list. Issue #8 remains the CI blocker.
 - New regression tests have **not** been executed. No canonical ACL integration or LIVE effect. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — UC10 SRE incident-duration provenance
+- Added explicit UNKNOWN incident metrics to synthetic postmortem output: time to detect, acknowledge, mitigate and resolve are all `null` until canonical timestamp provenance is independently verified.
+- Added three parametrized tests: empty timeline, one alert, and apparent detection/resolution events. Caller-supplied event labels/timestamps never create authoritative SRE KPIs or close an incident.
+- Latest checked Python workflow run `43615593851` failed; `test` job `132509817688` reported **zero recorded steps**. No assertion that tests executed or passed. Issue #8 remains open.
+- PR #1 remains Draft HOLD / NO_GO; no merge, real PostgreSQL, LIVE or deployment.
