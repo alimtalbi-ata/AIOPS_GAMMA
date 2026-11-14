@@ -82,6 +82,15 @@ def preview_itil_workflow(
     change: ChangeProposal | None = None,
 ) -> dict:
     """Create a non-authorizing workflow projection with explicit ownership."""
+    if (not isinstance(incident, IncidentAssessment)
+            or (problem is not None and not isinstance(problem, ProblemAssessment))
+            or (change is not None and not isinstance(change, ChangeProposal))):
+        raise ValueError("Invalid ITIL preview structure")
+    # Caller-supplied models can be mutated or constructed with model_copy(update=...).
+    # Validate all nested structures before inspecting identifiers or CI bindings.
+    incident = IncidentAssessment.model_validate(incident.model_dump())
+    problem = ProblemAssessment.model_validate(problem.model_dump()) if problem is not None else None
+    change = ChangeProposal.model_validate(change.model_dump()) if change is not None else None
     tenant = incident.tenant_id
     if not incident.incident_id.strip() or any(ord(char) < 32 or ord(char) == 127 for char in incident.incident_id):
         raise ValueError("Invalid incident identifier")
