@@ -139,3 +139,22 @@ def test_invalid_problem_structure_rejected(invalid):
 def test_invalid_change_structure_rejected(invalid):
     with pytest.raises(ValueError, match="Invalid ITIL preview structure"):
         preview_itil_workflow(incident(), change=invalid)
+
+
+def test_caller_claimed_verified_ci_is_not_canonical_verification():
+    item = incident()
+    item.affected_cis[0].verified_against_cmdb = True
+    result = preview_itil_workflow(item)
+    cmdb = result["service_configuration_management"]
+    assert cmdb["verified_cis"] == 1  # Only the caller's asserted binding.
+    assert cmdb["cmdb_is_authoritative"] is True  # External source of truth.
+    assert cmdb["canonical_cmdb_verified"] is False
+    assert cmdb["ci_verification_source"] == "caller_supplied_preview"
+    assert result["execution"]["live_remediation_authorized"] is False
+
+
+def test_unverified_ci_explicitly_lacks_canonical_confirmation():
+    cmdb = preview_itil_workflow(incident())["service_configuration_management"]
+    assert cmdb["verified_cis"] == 0
+    assert cmdb["canonical_cmdb_verified"] is False
+    assert cmdb["ci_verification_source"] == "caller_supplied_preview"
