@@ -287,3 +287,20 @@ def test_gateway_assertion_helm_wiring_is_optional_and_fail_closed():
     assert 'gatewayAssertionSecret: ""' in values, "HMAC Secret must remain unconfigured by default"
     assert 'settings.gateway_assertion_secret' in security
     assert 'Gateway assertion verification not configured' in security
+
+
+def test_api_network_policy_denies_ingress_until_gateway_peer_selectors_exist():
+    """API ingress is deny-all by default and gateway-only when selectors are set."""
+    root = Path(__file__).resolve().parents[1]
+    values = (root / "deploy/helm/gamma/values.yaml").read_text(encoding="utf-8")
+    policy = (root / "deploy/helm/gamma/templates/networkpolicy.yaml").read_text(
+        encoding="utf-8"
+    )
+    assert "gatewayNamespaceLabels: {}" in values
+    assert "gatewayPodLabels: {}" in values
+    assert "and (gt (len .Values.api.gatewayNamespaceLabels) 0)" in policy
+    assert "(gt (len .Values.api.gatewayPodLabels) 0)" in policy
+    assert "namespaceSelector:" in policy
+    assert "podSelector:" in policy
+    assert "ingress: []" in policy
+    assert "deny all API ingress until the gateway" in policy
