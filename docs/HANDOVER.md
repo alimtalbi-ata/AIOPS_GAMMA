@@ -1776,3 +1776,9 @@
 - At reviewed SHA `f7bf8913ea21403658762c5e18325cedc9841a63`, Python checks run `43622717249` and Deployment contract run `43622717214` both failed.
 - Python `test` job `132531736563` and Deployment `compose` job `132531736441` returned `steps: []`; job listings had no logs URL. No fresh log download was attempted and no test execution is proven.
 - See `docs/CI-QUALIFICATION-BLOCKER.md` for run links and administrator actions. Issue #8 remains open; issue #2 independently blocks canonical reads. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — Complete synthetic ITIL preview remains nonauthorizing
+- Added a full incident→problem→change synthetic test with caller-declared CI verification, evidence and GLPI reference strings.
+- The test asserts preview provenance, no persistence, no canonical CMDB confirmation, no assessed change authority, and execution forbidden even with all three projections present.
+- Tests **not executed**. CI issue #8 remains unqualified (recent jobs returned empty steps); independent canonical ACL issue #2 remains a release blocker. PR #1 stays Draft HOLD / NO_GO.
