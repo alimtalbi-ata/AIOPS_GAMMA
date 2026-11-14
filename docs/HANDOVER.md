@@ -1426,3 +1426,9 @@
 - Extended the exact AST public liveness contract mutation test to reject added FastAPI decorator options, an extra unknown decorator, and changing `async def live` into `def live`, in addition to the four existing handler/body mutations.
 - Corrected newline expansion in the added-decorator mutation so the generated candidate contains a real second decorator line. Re-fetched the committed test source to verify the intended literal replacement. No pytest execution claimed.
 - **HOLD / NO_GO**: PR #1 Draft; CI runner/bootstrap remains blocked before steps, no merge, LIVE, PostgreSQL or deployment.
+
+
+### 2026-11-14 — Propagate route auth failures to mutation assertions
+- Fixed `tests/test_http_route_auth_coverage_guard.py`: `unittest.subTest` previously intercepted `AssertionError` for missing `Depends(internal_principal)`, preventing direct `assertRaisesRegex` mutation assertions from observing it. The guard now raises directly with the HTTP method/path in its diagnostic.
+- Extended dependency mutation coverage to replace the reviewed principal dependency with `Depends(get_session)` or `None`, alongside modified `Depends` keyword options. Source checks only; these tests are **not claimed executed** because CI jobs still fail before steps.
+- PR #1 Draft, **HOLD / NO_GO**; no merge, LIVE, PostgreSQL or deployment.
