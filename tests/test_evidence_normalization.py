@@ -268,7 +268,7 @@ def test_mutated_excessive_nesting_rejected_before_model_dump(field):
 
 
 @pytest.mark.parametrize("field", ["tenant_id", "incident_id", "source", "external_id", "claim"])
-@pytest.mark.parametrize("bad_value", [" padded ", "bad\\ud800value"])
+@pytest.mark.parametrize("bad_value", [" padded ", "bad\ud800value"])
 def test_evidence_identity_rejects_noncanonical_unicode(field, bad_value):
     payload = evidence().model_dump()
     payload[field] = bad_value
@@ -278,7 +278,7 @@ def test_evidence_identity_rejects_noncanonical_unicode(field, bad_value):
 
 @pytest.mark.parametrize("field", ["payload", "provenance"])
 def test_evidence_json_rejects_unpaired_surrogate_values_and_keys(field):
-    for value in [{"proof": "bad\\ud800value"}, {"bad\\ud800key": "value"}]:
+    for value in [{"proof": "bad\ud800value"}, {"bad\ud800key": "value"}]:
         payload = evidence().model_dump()
         payload[field] = value
         with pytest.raises(ValidationError, match="surrogate"):
@@ -288,13 +288,13 @@ def test_evidence_json_rejects_unpaired_surrogate_values_and_keys(field):
 @pytest.mark.parametrize("field", ["payload", "provenance"])
 def test_evidence_direct_normalize_rejects_mutated_surrogate(field):
     item = evidence()
-    setattr(item, field, {"proof": "bad\\ud800value"})
+    setattr(item, field, {"proof": "bad\ud800value"})
     with pytest.raises(ValueError, match="surrogate"):
         normalize([item], now=NOW)
 
 
 @pytest.mark.parametrize("field", ["tenant_id", "incident_id", "source", "external_id", "claim"])
-@pytest.mark.parametrize("control", ["\\x00", "\\x1f", "\\x7f"])
+@pytest.mark.parametrize("control", ["\x00", "\x1f", "\x7f"])
 def test_evidence_identity_rejects_embedded_control_characters(field, control):
     payload = evidence().model_dump()
     payload[field] = "safe" + control + "suffix"
@@ -304,6 +304,6 @@ def test_evidence_identity_rejects_embedded_control_characters(field, control):
 
 def test_direct_normalization_rejects_mutated_control_character_identity():
     item = evidence()
-    item.external_id = "evt\\x00forged"
+    item.external_id = "evt\x00forged"
     with pytest.raises(ValidationError, match="canonical printable"):
         normalize([item], now=NOW)
