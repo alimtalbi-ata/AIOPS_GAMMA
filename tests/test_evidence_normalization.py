@@ -190,7 +190,7 @@ def test_mixed_json_object_keys_rejected_before_deterministic_hashing(field):
 def test_mutated_mixed_json_object_keys_rejected_at_normalization_boundary(field):
     item = evidence()
     getattr(item, field)[2] = "invalid-key"
-    with pytest.raises(ValidationError, match="JSON object keys"):
+    with pytest.raises(ValueError, match="JSON object keys"):
         normalize([item], now=NOW)
 
 
@@ -211,7 +211,7 @@ def test_nested_non_string_json_keys_rejected_before_hashing(field):
 def test_mutated_nested_non_string_json_keys_rejected_at_boundary(field):
     item = evidence()
     getattr(item, field)["nested"] = [{"1": "valid", 1: "ambiguous"}]
-    with pytest.raises(ValidationError, match="JSON object keys"):
+    with pytest.raises(ValueError, match="JSON object keys"):
         normalize([item], now=NOW)
 
 
