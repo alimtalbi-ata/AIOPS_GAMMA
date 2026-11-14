@@ -1634,3 +1634,9 @@
 - `normalize` now preflights payload/provenance nesting, string keys and cycles before `EvidenceInput.model_dump()`, preventing mutated recursive objects from reaching Pydantic serialization unchecked.
 - Four parametrized cases cover post-construction cyclic and excessive-depth payload/provenance. Construction-cycle test now accepts Pydantic's own early recursion validation error without asserting a specific message.
 - New tests **not executed**; CI issue #8 and canonical actor→tenant→resource ACL issue #2 remain blockers. Synthetic-only; no canonical reads, persistence, ITSM mutation or LIVE action. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — UC03 preflight error contract test alignment
+- Corrected two post-mutation mixed/nested JSON key regression tests to expect `ValueError` from `normalize`'s pre-serialization guard, rather than `ValidationError` from Pydantic model construction.
+- Invalid keys remain rejected; no relaxation of input checks.
+- Tests **not executed**. CI issue #8 and canonical ACL issue #2 remain blockers; PR #1 Draft HOLD / NO_GO.
