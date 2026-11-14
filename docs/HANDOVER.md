@@ -1659,3 +1659,9 @@
 - Added nine parametrized/single negative cases in `tests/test_itil_mutable_boundary.py`: post-construction problem/change tenant mismatch, change target lacking a caller-declared verified CI binding, and invalid problem/change input structures.
 - The change target check is only an in-memory projection guard; it does **not** independently establish CMDB truth or actor→tenant→resource authorization.
 - Tests **not executed**. CI issue #8 and canonical ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
+
+
+### 2026-11-14 — ITIL caller-declared CI provenance made explicit
+- The synthetic ITIL service-configuration projection now returns `canonical_cmdb_verified=False` and `ci_verification_source="caller_supplied_preview"`, even when a caller asserts `verified_against_cmdb=True`.
+- Two regression tests distinguish caller-declared verification counts from independent canonical proof; no changes to change approval, LIVE execution or ITSM mutations.
+- Tests **not executed**. CI issue #8 and independent canonical actor→tenant→resource ACL issue #2 remain blockers. PR #1 stays Draft HOLD / NO_GO.
