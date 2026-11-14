@@ -125,6 +125,12 @@ def test_public_demo_routes_only_call_reviewed_synthetic_helpers():
         if path not in expected_helpers:
             continue
         assert method == "GET"
+        # Public synthetic endpoints must not acquire user-supplied arguments,
+        # injected dependencies, or extra decorators without review.
+        assert not (node.args.posonlyargs or node.args.args or node.args.kwonlyargs)
+        assert node.args.vararg is None and node.args.kwarg is None
+        assert not node.args.defaults and not node.args.kw_defaults
+        assert len(node.decorator_list) == 1
         helper = expected_helpers[path]
         assert len(node.body) == 3, f"Public demo body changed: {path}"
         assert isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Constant)
