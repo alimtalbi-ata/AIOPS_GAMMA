@@ -418,3 +418,38 @@ def test_reverse_preview_rejects_nonlist_edge_container_before_reversal():
 def test_reverse_preview_rejects_unknown_selected_ci():
     with pytest.raises(ValueError):
         preview_upstream_dependents("missing", ["db"], [])
+
+
+def test_reverse_diamond_selects_deterministic_shortest_witness():
+    nodes = ["db", "app-a", "app-b", "service"]
+    edges = [
+        ("service", "app-b"), ("app-b", "db"),
+        ("service", "app-a"), ("app-a", "db"),
+    ]
+    first = preview_upstream_dependents("db", nodes, edges)
+    second = preview_upstream_dependents(
+        "db", list(reversed(nodes)), list(reversed(edges)) + [edges[0]],
+    )
+    assert first == second
+    assert first["possible_dependent_ids"] == ["app-a", "app-b", "service"]
+    assert first["dependent_hops"] == {"app-a": 1, "app-b": 1, "service": 2}
+    assert first["dependent_paths"]["service"] == ["db", "app-a", "service"]
+    assert first["authoritative"] is False
+
+
+def test_reverse_direct_consumer_wins_over_longer_witness():
+    result = preview_upstream_dependents("db", ["db", "app", "service"], [
+        ("service", "db"), ("service", "app"), ("app", "db"),
+    ])
+    assert result["dependent_hops"]["service"] == 1
+    assert result["dependent_paths"]["service"] == ["db", "service"]
+    assert result["topology_state"] == "CALLER_SUPPLIED_PREVIEW"
+
+
+def test_reverse_self_loop_is_unknown_without_self_dependent():
+    result = preview_upstream_dependents("db", ["db"], [("db", "db")])
+    assert result["possible_dependent_ids"] == []
+    assert result["dependent_paths"] == {}
+    assert result["cycle_detected"] is True
+    assert result["topology_state"] == "UNKNOWN"
+    assert result["live_remediation_authorized"] is False
