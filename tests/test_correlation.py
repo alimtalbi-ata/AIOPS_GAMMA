@@ -387,3 +387,9 @@ def test_correlation_evidence_references_are_deduplicated_across_events():
     second = signal("b").model_copy(update={"evidence_refs": ["a", "m"]})
     result = correlate([first, second], "tenant-1")
     assert result["groups"][0]["evidence_refs"] == ["a", "m", "z"]
+
+
+def test_same_service_different_symptoms_never_merge():
+    result = correlate([signal("a", symptom="timeout"), signal("b", symptom="cpu")], "tenant-1")
+    assert len(result["groups"]) == 2
+    assert {g["symptom_key"] for g in result["groups"]} == {"timeout", "cpu"}
