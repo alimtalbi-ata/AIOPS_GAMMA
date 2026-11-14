@@ -117,3 +117,23 @@ def test_invalid_authorized_tenant_type_is_rejected():
 def test_invalid_request_type_is_rejected():
     with pytest.raises(ValueError, match="postmortem request"):
         draft_postmortem({"tenant_id": str(TENANT)}, TENANT)
+
+
+@pytest.mark.parametrize("timeline", [
+    [],
+    [TimelineEvent(event_id="alert", occurred_at=NOW, summary="Alert fired")],
+    [
+        TimelineEvent(event_id="detected", occurred_at=NOW - timedelta(minutes=5),
+                      summary="Detected"),
+        TimelineEvent(event_id="resolved", occurred_at=NOW, summary="Resolved"),
+    ],
+])
+def test_unverified_timeline_never_infers_sre_duration_metrics(timeline):
+    draft = draft_postmortem(request(timeline=timeline), TENANT)
+    metrics = draft["incident_metrics"]
+    assert metrics["state"] == "UNKNOWN_UNTIL_CANONICAL_TIMESTAMPS_VERIFIED"
+    assert metrics["time_to_detect_seconds"] is None
+    assert metrics["time_to_acknowledge_seconds"] is None
+    assert metrics["time_to_mitigate_seconds"] is None
+    assert metrics["time_to_resolve_seconds"] is None
+    assert draft["incident_closed"] is False
