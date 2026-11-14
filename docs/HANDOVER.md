@@ -1420,3 +1420,9 @@
 - Added an exact AST contract in `tests/test_route_security_static.py` for the intentionally unauthenticated `GET /api/v1/health/live` handler: one matching handler, exact reviewed decorator, no parameters, and only `return {"status": "ok"}`. This prevents unreviewed tenant/DB/network access or additional data from entering the public health surface.
 - Added source-only mutation cases for injected request input, extra tenant data, awaited work, and additional side-effect statements. Re-fetched `app/main.py`: its liveness handler matches the expected source and is registered once.
 - The tests are **defined, not executed**; CI runner/bootstrap still fails before any step. PR #1 Draft, **HOLD / NO_GO**, no merge, LIVE, PostgreSQL or deployment.
+
+
+### 2026-11-14 — Extend public liveness mutation coverage
+- Extended the exact AST public liveness contract mutation test to reject added FastAPI decorator options, an extra unknown decorator, and changing `async def live` into `def live`, in addition to the four existing handler/body mutations.
+- Corrected newline expansion in the added-decorator mutation so the generated candidate contains a real second decorator line. Re-fetched the committed test source to verify the intended literal replacement. No pytest execution claimed.
+- **HOLD / NO_GO**: PR #1 Draft; CI runner/bootstrap remains blocked before steps, no merge, LIVE, PostgreSQL or deployment.
