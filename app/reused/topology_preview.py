@@ -100,3 +100,33 @@ def preview_service_dependencies(
         "persisted": False,
         "live_remediation_authorized": False,
     }
+
+
+def preview_upstream_dependents(
+    failed_ci_id: str, nodes: list[str], edges: list[tuple[str, str]]
+) -> dict:
+    """Preview consumers reachable upstream of a caller-supplied failing CI.
+
+    Input edges point from consumer to dependency. Reversing them finds
+    possible affected consumers, not verified services or actual blast radius.
+    """
+    # Validate through the shared bounded graph boundary before reversing.
+    # In particular, invalid edges must never be silently discarded.
+    preview_service_dependencies(failed_ci_id, nodes, edges)
+    reversed_edges = [(target, source) for source, target in edges]
+    result = preview_service_dependencies(failed_ci_id, nodes, reversed_edges)
+    return {
+        "failed_ci_id": failed_ci_id,
+        "possible_dependent_ids": result["dependency_ids"],
+        "possible_dependent_count": result["dependency_count"],
+        "dependent_hops": result["dependency_hops"],
+        "dependent_paths": result["dependency_paths"],
+        "topology_state": result["topology_state"],
+        "cycle_detected": result["cycle_detected"],
+        "unresolved_edge_detected": result["unresolved_edge_detected"],
+        "data_source": result["data_source"],
+        "canonical_cmdb_verified": False,
+        "authoritative": False,
+        "persisted": False,
+        "live_remediation_authorized": False,
+    }
