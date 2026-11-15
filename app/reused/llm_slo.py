@@ -1,14 +1,15 @@
 """Read-only LLM SLO evaluation on caller-supplied samples (UC07).
 
 This preview cannot establish production SLO compliance: telemetry is not
-authenticated, time-windowed, or independently verified.
+authenticated or independently verified; optional caller-declared windows are not attested.
 """
 from __future__ import annotations
 
 import math
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.reused.llm_kpi import LLMKPIRequest
 
@@ -17,6 +18,30 @@ class LLMSLOPreviewRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     kpis: LLMKPIRequest
+    window_start: datetime | None = None
+    window_end: datetime | None = None
+
+    @model_validator(mode="after")
+    def validate_declared_window(self):
+        if (self.window_start is None) != (self.window_end is None):
+            raise ValueError("Both SLO window bounds are required")
+        if self.window_start is None:
+            return self
+        start, end = self.window_start, self.window_end
+        if (start.tzinfo is None or start.utcoffset() is None
+                or end.tzinfo is None or end.utcoffset() is None):
+            raise ValueError("SLO window bounds must be timezone-aware")
+        if not start < end or end - start > timedelta(hours=24):
+            raise ValueError("SLO window must be positive and at most 24 hours")
+        if end > datetime.now(timezone.utc) + timedelta(minutes=5):
+            raise ValueError("SLO window cannot end in the future")
+        for observation in self.kpis.observations:
+            if observation.observed_at is None:
+                raise ValueError("All SLO observations require timestamps for a declared window")
+            if not start <= observation.observed_at < end:
+                raise ValueError("SLO observation falls outside the declared window")
+        return self
+
     min_samples: int = Field(default=30, ge=1, le=1000)
     min_latency_coverage: float = Field(default=0.95, gt=0, le=1, allow_inf_nan=False)
     min_success_rate_pct: float = Field(default=99.0, ge=0, le=100, allow_inf_nan=False)
@@ -170,7 +195,11 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
             "tps": {"measured": len(throughputs), "missing": count - len(throughputs), "total": count},
             "estimated_cost_usd": {"measured": len(costs), "missing": count - len(costs), "total": count},
         },
-        "sample_window_state": "UNVERIFIED",
+        "sample_window_state": ("CALLER_DECLARED_UNVERIFIED" if request.window_start is not None else "UNVERIFIED"),
+        "declared_window": (
+            {"start": request.window_start.isoformat(), "end": request.window_end.isoformat(), "end_exclusive": True}
+            if request.window_start is not None else None
+        ),
         "sample_provenance_state": "UNVERIFIED",
         "checks": {
             "sample_count": {"value": count, "minimum": request.min_samples, "passed": sample_ok},
