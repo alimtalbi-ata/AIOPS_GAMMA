@@ -60,6 +60,10 @@ def validate_opensearch_transport() -> None:
         or port == 0
     ):
         raise ValueError("Invalid OpenSearch endpoint")
+    if settings.opensearch_url != settings.opensearch_url.strip():
+        raise ValueError("Invalid OpenSearch endpoint")
+    if bool(settings.opensearch_username) != bool(settings.opensearch_password):
+        raise ValueError("OpenSearch username and password must be configured together")
     local = host in ("localhost", "127.0.0.1", "::1")
     if url.scheme != "https" and (not local or settings.opensearch_username or settings.opensearch_password):
         raise ValueError("OpenSearch requires TLS for remote endpoints and credentials")
