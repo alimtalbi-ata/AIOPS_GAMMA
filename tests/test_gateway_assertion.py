@@ -338,3 +338,12 @@ def test_signed_incident_grants_accept_nfc_resource(monkeypatch):
     principal = verify_gateway_assertion(token, method="POST",
         path="/api/v1/observability/metrics/query", now=1030)
     assert principal.evidence_incident_grants == ("caf\u00e9",)
+
+
+@pytest.mark.parametrize("resource", ["inc\u0085name", "inc\u009fname"])
+def test_signed_incident_grants_reject_c1_controls(monkeypatch, resource):
+    token = _token(monkeypatch, evidence_incident_grants=[resource])
+    with pytest.raises(HTTPException) as exc:
+        verify_gateway_assertion(token, method="POST",
+            path="/api/v1/observability/metrics/query", now=1030)
+    assert exc.value.status_code == 401
