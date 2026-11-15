@@ -142,3 +142,14 @@ def test_incident_resource_path_rejects_ambiguous_acl_identifiers():
             validate_incident_resource_id(invalid)
         assert exc.value.status_code == 422
     assert validate_incident_resource_id("inc-1") == "inc-1"
+
+
+def test_incident_path_requires_nfc_normalization():
+    import pytest
+    from fastapi import HTTPException
+    from app.main import validate_incident_resource_id
+
+    with pytest.raises(HTTPException) as exc:
+        validate_incident_resource_id("cafe\u0301")
+    assert exc.value.status_code == 422
+    assert validate_incident_resource_id("caf\u00e9") == "caf\u00e9"
