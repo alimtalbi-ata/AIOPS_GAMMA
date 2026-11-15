@@ -54,8 +54,8 @@ class CorrelationSignal(BaseModel):
                    for ch in self.ci_id)
         ):
             raise ValueError("ci_id must be canonical printable text")
-        if self.observed_at.tzinfo is None:
-            raise ValueError("observed_at must have a timezone")
+        if self.observed_at.tzinfo is None or self.observed_at.utcoffset() is None:
+            raise ValueError("observed_at must have a timezone with a valid UTC offset")
         return self
 
 
