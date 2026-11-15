@@ -440,3 +440,16 @@ def test_finite_individual_measurements_cannot_overflow_slo_aggregates(field):
     req = make_request(tenant, observations, **options)
     with pytest.raises(ValueError, match="aggregation overflow"):
         evaluate_llm_slo_preview(req, tenant)
+
+
+def test_extreme_finite_p95_does_not_overflow_slo_response():
+    tenant = uuid4()
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 1e308, "ttft_ms": 1e308},
+        {"status": "ok", "latency_ms": 1e308, "ttft_ms": 1e308},
+    ], max_ttft_p95_ms=200)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "BREACH_PREVIEW"
+    assert result["checks"]["latency_p95_ms"]["value"] == 1e308
+    assert result["checks"]["ttft_p95_ms"]["value"] == 1e308
+    assert result["observed_breaches"] == ["latency_p95_ms", "ttft_p95_ms"]
