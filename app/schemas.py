@@ -42,6 +42,17 @@ class AlertPayload(BaseModel):
         default_factory=list, max_length=50
     )
 
+    @field_validator("external_event_id", "source", "service_name")
+    @classmethod
+    def canonical_alert_identity(cls, value: str) -> str:
+        # These values become inbox deduplication keys and outbox aggregate IDs.
+        if value != value.strip() or any(
+            ord(ch) < 32 or ord(ch) == 127 or 0xD800 <= ord(ch) <= 0xDFFF
+            for ch in value
+        ):
+            raise ValueError("alert identity fields must be canonical printable text")
+        return value
+
     @field_validator("evidence_refs")
     @classmethod
     def canonical_alert_evidence_refs(cls, values: list[str]) -> list[str]:
