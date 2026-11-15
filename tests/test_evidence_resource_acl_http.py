@@ -263,3 +263,37 @@ def test_unsigned_incident_grant_header_cannot_authorize_evidence(client, method
         })
     assert response.status_code == 403, response.text
     assert calls == []
+
+
+@pytest.mark.parametrize("method", ["GET", "POST"])
+@pytest.mark.parametrize("auth_case", ["missing_assertion", "wrong_service_key", "tampered_assertion"])
+def test_evidence_authentication_fail_closed_before_db(client, method, auth_case):
+    test_client, calls = client
+    path = "/api/v1/incidents/inc-1/evidence"
+    token = _token(method, path, ["inc-1"])
+    headers = {
+        "X-Internal-API-Key": "service-secret",
+        "X-Gateway-Principal": token,
+    }
+    if auth_case == "missing_assertion":
+        headers.pop("X-Gateway-Principal")
+    elif auth_case == "wrong_service_key":
+        headers["X-Internal-API-Key"] = "wrong-service-key"
+    else:
+        encoded, signature = token.split(".")
+        headers["X-Gateway-Principal"] = encoded + "." + (
+            ("A" if signature[0] != "A" else "B") + signature[1:]
+        )
+    if method == "GET":
+        response = test_client.get(path, headers=headers)
+    else:
+        response = test_client.post(path, headers=headers, json={
+            "investigation_id": str(uuid4()),
+            "source_type": "logs",
+            "source_ref": "otel:trace-1",
+            "summary": "Synthetic evidence",
+            "observed_at": "2026-11-15T12:00:00Z",
+        })
+    assert response.status_code == 401, response.text
+    assert response.headers["cache-control"] == "no-store"
+    assert calls == []
