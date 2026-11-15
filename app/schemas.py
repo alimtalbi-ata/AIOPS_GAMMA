@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class TimeWindow(BaseModel):
@@ -50,6 +50,22 @@ class BindingIn(BaseModel):
 class EvidenceIn(BaseModel):
     investigation_id: UUID
     source_type: Literal["logs", "metrics", "traces", "change"]
-    source_ref: str = Field(min_length=1)
-    summary: str | None = None
+    source_ref: str = Field(min_length=1, max_length=512)
+    summary: str | None = Field(default=None, max_length=4096)
     observed_at: datetime
+
+    @field_validator("source_ref")
+    @classmethod
+    def canonical_source_reference(cls, value: str) -> str:
+        if value != value.strip() or any(
+            ord(ch) < 32 or ord(ch) == 127 or 0xD800 <= ord(ch) <= 0xDFFF
+            for ch in value
+        ):
+            raise ValueError("source_ref must be canonical printable text")
+        return value
+
+    @model_validator(mode="after")
+    def valid_evidence_timestamp(self):
+        if self.observed_at.tzinfo is None or self.observed_at.utcoffset() is None:
+            raise ValueError("observed_at requires a valid UTC offset")
+        return self
