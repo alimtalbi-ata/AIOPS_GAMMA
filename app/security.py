@@ -135,6 +135,7 @@ def verify_gateway_assertion(token: str, *, method: str, path: str, now: int | N
                 not isinstance(grant, str)
                 or not 1 <= len(grant) <= 255
                 or grant != grant.strip()
+                or unicodedata.normalize("NFC", grant) != grant
                 or grant == "*"
                 or "\\" in grant
                 or "/" in grant or "?" in grant or "#" in grant
