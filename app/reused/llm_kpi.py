@@ -7,6 +7,7 @@ This is not a live ingestion connector or a monitoring authorization service.
 from __future__ import annotations
 
 import math
+import re
 from typing import Literal
 from uuid import UUID
 
@@ -43,10 +44,19 @@ class LLMKPIRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     tenant_id: UUID
-    model_id: str = Field(min_length=1, max_length=128, pattern=r"\A[a-zA-Z0-9][a-zA-Z0-9_./:-]*\Z")
+    model_id: str = Field(min_length=1, max_length=128)
     observations: list[LLMObservation] = Field(min_length=1, max_length=1000)
     sentinel_anomalies_total: int | None = Field(default=None, ge=0)
     sentinel_events_processed_total: int | None = Field(default=None, ge=0)
+
+    @field_validator("model_id")
+    @classmethod
+    def canonical_model_id(cls, value: str) -> str:
+        # Python fullmatch is independent of Pydantic's Rust regex engine
+        # and cannot accept a trailing newline or invisible format control.
+        if re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_./:-]*", value) is None:
+            raise ValueError("Non-canonical model identity")
+        return value
 
     @model_validator(mode="after")
     def validate_sentinel(self):
