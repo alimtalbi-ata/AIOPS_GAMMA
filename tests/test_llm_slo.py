@@ -477,3 +477,43 @@ def test_slo_still_rejects_cross_tenant_after_kpi_decoupling():
     ])
     with pytest.raises(ValueError, match="Cross-tenant"):
         evaluate_llm_slo_preview(req, uuid4())
+
+
+@pytest.mark.parametrize("metric,field,threshold", [
+    ("latency_p95_ms", "latency_ms", {}),
+    ("ttft_p95_ms", "ttft_ms", {"max_ttft_p95_ms": 200}),
+    ("mean_tps", "tps", {"min_throughput_tps": 40}),
+    ("mean_cost_usd", "estimated_cost_usd", {"max_mean_cost_usd": 0.02}),
+])
+def test_partial_metric_does_not_report_unverified_breach(metric, field, threshold):
+    tenant = uuid4()
+    first = {"status": "ok", "latency_ms": 100}
+    second = {"status": "ok", "latency_ms": 120}
+    if field == "latency_ms":
+        first[field] = 500
+        second.pop("latency_ms")
+    elif field == "ttft_ms":
+        first["latency_ms"] = 500
+        first[field] = 400
+    elif field == "tps":
+        first[field] = 1
+    else:
+        first[field] = 10
+    req = make_request(tenant, [first, second], **threshold)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "INSUFFICIENT_DATA"
+    assert result["checks"][metric]["passed"] is None
+    assert metric not in result["observed_breaches"]
+
+
+def test_complete_metric_breach_is_reported_despite_other_incomplete_metrics():
+    tenant = uuid4()
+    req = make_request(tenant, [
+        {"status": "error", "latency_ms": 500, "ttft_ms": 400},
+        {"status": "ok", "latency_ms": 120},
+    ], max_ttft_p95_ms=200)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "INSUFFICIENT_DATA"
+    assert result["checks"]["latency_p95_ms"]["passed"] is False
+    assert result["checks"]["ttft_p95_ms"]["passed"] is None
+    assert result["observed_breaches"] == ["success_rate_pct", "latency_p95_ms"]
