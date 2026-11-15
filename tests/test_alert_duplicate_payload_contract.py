@@ -175,3 +175,65 @@ async def test_concurrent_duplicate_insert_uses_rollback_and_rechecks_payload(mo
     assert session.lookups == 2
     assert session.rollbacks == 1
     assert session.outbox_writes == 0
+
+
+@pytest.mark.asyncio
+async def test_new_alert_creates_tenant_scoped_inbox_and_outbox_in_one_commit(monkeypatch):
+    """The successful path must preserve tenant, event type and identical payload."""
+    from datetime import datetime, timezone
+    from app.main import alerts
+    from app.models import InboxEvent, OutboxEvent
+    from app.schemas import AlertPayload
+    from app.security import Principal
+    from app.settings import settings
+
+    monkeypatch.setattr(settings, "enable_alert_ingestion", True)
+    tenant = uuid4()
+    payload = AlertPayload(
+        external_event_id="evt-new", source="opensearch", service_name="checkout",
+        severity="critical", status="firing",
+        observed_at=datetime(2026, 11, 15, tzinfo=timezone.utc),
+        evidence_refs=["otel:trace-1"],
+    )
+
+    class Session:
+        def __init__(self):
+            self.rows = []
+            self.flushes = 0
+            self.commits = 0
+
+        async def scalar(self, statement):
+            return None
+
+        def add(self, row):
+            self.rows.append(row)
+
+        async def flush(self):
+            self.flushes += 1
+            for row in self.rows:
+                if isinstance(row, InboxEvent):
+                    row.id = uuid4()
+
+        async def commit(self):
+            self.commits += 1
+
+    session = Session()
+    principal = Principal(
+        tenant_id=tenant, subject="user:test", actor_type="user",
+        assertion_id="assertion-test-123", expires_at=2000000000,
+    )
+    result = await alerts(payload, principal, session)
+    assert result["duplicate"] is False
+    assert session.flushes == 1
+    assert session.commits == 1
+    assert len(session.rows) == 2
+    inbox, outbox = session.rows
+    assert isinstance(inbox, InboxEvent)
+    assert isinstance(outbox, OutboxEvent)
+    assert result["id"] == str(inbox.id)
+    assert inbox.tenant_id == outbox.tenant_id == tenant
+    assert inbox.external_event_id == "evt-new"
+    assert inbox.source == "opensearch"
+    assert outbox.event_type == "observability.alert.firing"
+    assert outbox.aggregate_id == "checkout"
+    assert inbox.payload == outbox.payload == payload.model_dump(mode="json")
