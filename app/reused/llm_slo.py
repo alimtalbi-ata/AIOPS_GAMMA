@@ -36,7 +36,8 @@ class LLMSLOPreviewRequest(BaseModel):
         if (self.window_start is None) != (self.window_end is None):
             raise ValueError("Both SLO window bounds are required")
         if self.window_start is None:
-            if (self.max_quarter_error_rate_pct is not None or self.min_occupied_quarters > 0
+            if ((self.max_quarter_error_rate_pct is not None or self.max_quarter_degraded_rate_pct is not None)
+                    or self.min_occupied_quarters > 0
                     or self.max_window_gap_ratio < 1 or self.min_window_span_coverage != 0.5):
                 raise ValueError("Window-specific SLO thresholds require a declared window")
             return self
@@ -59,6 +60,7 @@ class LLMSLOPreviewRequest(BaseModel):
     max_window_gap_ratio: float = Field(default=1.0, gt=0, le=1, allow_inf_nan=False)
     min_occupied_quarters: int = Field(default=0, ge=0, le=4, strict=True)
     max_quarter_error_rate_pct: float | None = Field(default=None, ge=0, le=100, allow_inf_nan=False)
+    max_quarter_degraded_rate_pct: float | None = Field(default=None, ge=0, le=100, allow_inf_nan=False)
     min_samples: int = Field(default=30, ge=1, le=1000)
     min_latency_coverage: float = Field(default=0.95, gt=0, le=1, allow_inf_nan=False)
     min_success_rate_pct: float = Field(default=99.0, ge=0, le=100, allow_inf_nan=False)
@@ -86,6 +88,7 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
     quarter_sample_counts = None
     quarter_status_counts = None
     quarter_error_rate_pct = None
+    quarter_degraded_rate_pct = None
     if request.window_start is not None:
         observed_times = [row.observed_at for row in observations]
         distinct_sample_timestamps = len(set(observed_times))
@@ -99,6 +102,10 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
         occupied_quarters = sum(value > 0 for value in quarter_sample_counts)
         quarter_error_rate_pct = [
             (100 * statuses["error"] / total if total else None)
+            for statuses, total in zip(quarter_status_counts, quarter_sample_counts)
+        ]
+        quarter_degraded_rate_pct = [
+            (100 * statuses["degraded"] / total if total else None)
             for statuses, total in zip(quarter_status_counts, quarter_sample_counts)
         ]
         # Include both window edges: endpoint-only samples cannot prove
@@ -200,6 +207,11 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
             and any(rate is not None and rate > request.max_quarter_error_rate_pct
                     for rate in quarter_error_rate_pct)):
         observed_breaches.append("quarter_error_rate_pct")
+    if (quarter_degraded_rate_pct is not None
+            and request.max_quarter_degraded_rate_pct is not None
+            and any(rate is not None and rate > request.max_quarter_degraded_rate_pct
+                    for rate in quarter_degraded_rate_pct)):
+        observed_breaches.append("quarter_degraded_rate_pct")
     if ttft_ok is False:
         observed_breaches.append("ttft_p95_ms")
     if throughput_ok is False:
@@ -274,6 +286,8 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
         "quarter_sample_counts": quarter_sample_counts,
         "quarter_status_counts": quarter_status_counts,
         "quarter_error_rate_pct": quarter_error_rate_pct,
+        "quarter_degraded_rate_pct": quarter_degraded_rate_pct,
+        "max_quarter_degraded_rate_pct": request.max_quarter_degraded_rate_pct if quarter_degraded_rate_pct is not None else None,
         "max_quarter_error_rate_pct": request.max_quarter_error_rate_pct if quarter_error_rate_pct is not None else None,
         "occupied_quarters": occupied_quarters,
         "min_occupied_quarters": request.min_occupied_quarters if occupied_quarters is not None else None,
