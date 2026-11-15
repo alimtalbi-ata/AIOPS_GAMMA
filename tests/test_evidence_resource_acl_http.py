@@ -407,3 +407,50 @@ def test_authorized_evidence_write_uses_signed_tenant_and_exact_incident(client)
     assert len(captured) == 1 and commits == [True]
     assert str(captured[0].tenant_id) == claims["tenant_id"]
     assert captured[0].incident_id == "inc-1"
+
+
+@pytest.mark.parametrize("method", ["GET", "POST"])
+def test_authorized_evidence_response_is_never_cacheable(client, method):
+    """Tenant evidence must not be cached even when the grant is valid."""
+    test_client, _ = client
+    path = "/api/v1/incidents/inc-1/evidence"
+    token = _token(method, path, ["inc-1"])
+
+    class Rows:
+        def all(self):
+            return []
+
+    class Session:
+        async def scalars(self, statement):
+            return Rows()
+
+        def add(self, obj):
+            pass
+
+        async def commit(self):
+            pass
+
+    async def db():
+        yield Session()
+
+    app.dependency_overrides[get_session] = db
+    try:
+        headers = {
+            "X-Internal-API-Key": "service-secret",
+            "X-Gateway-Principal": token,
+        }
+        if method == "GET":
+            response = test_client.get(path, headers=headers)
+            assert response.status_code == 200, response.text
+        else:
+            response = test_client.post(path, headers=headers, json={
+                "investigation_id": str(uuid4()),
+                "source_type": "logs",
+                "source_ref": "otel:trace-1",
+                "summary": "Synthetic evidence",
+                "observed_at": "2026-11-15T12:00:00Z",
+            })
+            assert response.status_code == 201, response.text
+        assert response.headers["cache-control"] == "no-store"
+    finally:
+        app.dependency_overrides.pop(get_session, None)
