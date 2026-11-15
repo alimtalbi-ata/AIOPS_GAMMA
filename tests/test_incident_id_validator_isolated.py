@@ -43,3 +43,20 @@ def test_invalid_incident_ids_fail_closed(value):
     with pytest.raises(HTTPException) as error:
         _validator()(value)
     assert error.value.status_code == 422
+
+
+@pytest.mark.parametrize("value", [
+    "incident:prod:42", "tenant.incident_01", "incident-\u03b1", "x" * 254,
+])
+def test_additional_canonical_ids_remain_accepted(value):
+    assert _validator()(value) == value
+
+
+@pytest.mark.parametrize("value", [
+    "\tincident", "incident\n", "incident\r", "incident\u009f",
+    "incident\u2060", "incident\\path", "incident/path",
+])
+def test_additional_control_and_separator_ids_are_rejected(value):
+    with pytest.raises(HTTPException) as error:
+        _validator()(value)
+    assert error.value.status_code == 422
