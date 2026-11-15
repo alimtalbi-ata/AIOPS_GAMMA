@@ -1,11 +1,12 @@
 """Read-only correlation/evidence join. Never infers canonical incident identity."""
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from app.reused.correlation import CorrelationPreview, correlate
 from app.reused.evidence import EvidenceInput, normalize, _require_string_json_keys
 from datetime import datetime, timezone
 
 
 class CorrelationEvidencePreview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     correlation: CorrelationPreview
     evidence: list[EvidenceInput] = Field(default_factory=list, max_length=500)
     max_age_seconds: int = Field(default=3600, ge=1, le=86400)
