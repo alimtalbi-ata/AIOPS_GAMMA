@@ -172,7 +172,7 @@ def test_http_postgres_two_tenants_write_read_and_denied_write_is_atomic(databas
             )
             assert denied.status_code == 403, denied.text
             assert denied.headers["cache-control"] == "no-store"
-            assert asyncio.run(persisted_count()) == 2
+            assert await persisted_count() == 2
             # A valid grant cannot be transplanted to another HTTP path.
             mismatched = await client.get(
                 path, headers=_headers(
