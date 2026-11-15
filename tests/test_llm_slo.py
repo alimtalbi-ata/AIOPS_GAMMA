@@ -336,3 +336,56 @@ def test_disabled_throughput_slo_does_not_require_tps():
 def test_invalid_throughput_threshold_rejected(invalid):
     with pytest.raises(ValidationError):
         make_request(uuid4(), [{"status": "ok"}], min_throughput_tps=invalid)
+
+
+def test_optional_mean_cost_budget_passes_with_complete_costs():
+    tenant = uuid4()
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 100, "estimated_cost_usd": 0.01},
+        {"status": "ok", "latency_ms": 120, "estimated_cost_usd": 0.03},
+    ], max_mean_cost_usd=0.02)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "PASS_PREVIEW"
+    assert result["cost_complete"] is True
+    assert result["checks"]["mean_cost_usd"]["passed"] is True
+
+
+def test_optional_mean_cost_budget_breach_uses_unrounded_mean():
+    tenant = uuid4()
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 100, "estimated_cost_usd": 0.010001},
+        {"status": "ok", "latency_ms": 120, "estimated_cost_usd": 0.010003},
+    ], max_mean_cost_usd=0.010001)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "BREACH_PREVIEW"
+    assert result["observed_breaches"] == ["mean_cost_usd"]
+
+
+def test_optional_mean_cost_budget_requires_every_sample():
+    tenant = uuid4()
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 100, "estimated_cost_usd": 0.001},
+        {"status": "ok", "latency_ms": 120},
+    ], max_mean_cost_usd=0.02)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "INSUFFICIENT_DATA"
+    assert result["insufficient_data_reasons"] == ["cost_measurements_incomplete"]
+    assert result["cost_complete"] is False
+
+
+def test_disabled_mean_cost_budget_does_not_require_costs():
+    tenant = uuid4()
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 100},
+        {"status": "ok", "latency_ms": 120},
+    ])
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "PASS_PREVIEW"
+    assert result["cost_complete"] is None
+    assert result["checks"]["mean_cost_usd"]["enabled"] is False
+
+
+@pytest.mark.parametrize("invalid", [-1, float("nan"), float("inf")])
+def test_invalid_cost_budget_rejected(invalid):
+    with pytest.raises(ValidationError):
+        make_request(uuid4(), [{"status": "ok"}], max_mean_cost_usd=invalid)
