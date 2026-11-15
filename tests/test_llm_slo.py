@@ -424,3 +424,19 @@ def test_disabled_mean_cost_budget_does_not_require_costs():
 def test_invalid_cost_budget_rejected(invalid):
     with pytest.raises(ValidationError):
         make_request(uuid4(), [{"status": "ok"}], max_mean_cost_usd=invalid)
+
+
+@pytest.mark.parametrize("field", ["tps", "estimated_cost_usd"])
+def test_finite_individual_measurements_cannot_overflow_slo_aggregates(field):
+    tenant = uuid4()
+    observations = [
+        {"status": "ok", "latency_ms": 100, field: 1e308},
+        {"status": "ok", "latency_ms": 120, field: 1e308},
+    ]
+    options = (
+        {"min_throughput_tps": 40} if field == "tps"
+        else {"max_mean_cost_usd": 0.02}
+    )
+    req = make_request(tenant, observations, **options)
+    with pytest.raises(ValueError, match="aggregation overflow"):
+        evaluate_llm_slo_preview(req, tenant)
