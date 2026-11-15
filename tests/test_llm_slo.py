@@ -958,3 +958,58 @@ def test_legacy_slo_does_not_invent_temporal_status_breakdown():
         {"status": "error", "latency_ms": 120},
     ]), tenant)
     assert result["quarter_status_counts"] is None
+
+
+def test_quarter_error_spike_breaches_despite_acceptable_global_success():
+    tenant = uuid4()
+    end = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(minutes=1)
+    start = end - timedelta(hours=1)
+    observations = [
+        {"status": "error", "latency_ms": 100,
+         "observed_at": start + timedelta(minutes=1)}
+    ] + [
+        {"status": "ok", "latency_ms": 100,
+         "observed_at": start + timedelta(minutes=15 + index)}
+        for index in range(19)
+    ]
+    req = make_request(tenant, observations, window_start=start, window_end=end,
+                       min_success_rate_pct=90, max_quarter_error_rate_pct=50)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["checks"]["success_rate_pct"]["passed"] is True
+    assert result["state"] == "BREACH_PREVIEW"
+    assert "quarter_error_rate_pct" in result["observed_breaches"]
+    assert result["quarter_error_rate_pct"] == [100.0, 0.0, 0.0, None]
+    assert result["authoritative"] is False
+
+
+def test_empty_quarters_have_unknown_not_zero_error_rate():
+    tenant = uuid4()
+    end = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(minutes=1)
+    start = end - timedelta(hours=1)
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 100, "observed_at": start},
+        {"status": "ok", "latency_ms": 100,
+         "observed_at": end - timedelta(seconds=1)},
+    ], window_start=start, window_end=end, max_quarter_error_rate_pct=0)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["quarter_error_rate_pct"] == [0.0, None, None, 0.0]
+    assert "quarter_error_rate_pct" not in result["observed_breaches"]
+
+
+@pytest.mark.parametrize("invalid", [-1, 101, float("nan"), float("inf")])
+def test_quarter_error_rate_threshold_rejects_invalid_values(invalid):
+    with pytest.raises(ValidationError):
+        make_request(uuid4(), [
+            {"status": "ok", "latency_ms": 100},
+            {"status": "ok", "latency_ms": 120},
+        ], max_quarter_error_rate_pct=invalid)
+
+
+def test_unwindowed_slo_does_not_invent_quarter_error_rates():
+    tenant = uuid4()
+    result = evaluate_llm_slo_preview(make_request(tenant, [
+        {"status": "ok", "latency_ms": 100},
+        {"status": "ok", "latency_ms": 120},
+    ], max_quarter_error_rate_pct=20), tenant)
+    assert result["quarter_error_rate_pct"] is None
+    assert result["max_quarter_error_rate_pct"] is None
