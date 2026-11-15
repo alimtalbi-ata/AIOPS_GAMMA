@@ -165,15 +165,26 @@ def test_signed_incident_grant_is_bound_to_http_method_and_path(
     assert calls == []
 
 
+@pytest.mark.parametrize("method", ["GET", "POST"])
 @pytest.mark.parametrize("incident_id", ["*", "inc\u200bname", "cafe\u0301", "inc\u0085name"])
-def test_invalid_incident_id_rejected_before_db_access(client, incident_id):
+def test_invalid_incident_id_rejected_before_db_access(client, incident_id, method):
     from urllib.parse import quote
 
     test_client, calls = client
     path = "/api/v1/incidents/" + quote(incident_id, safe="") + "/evidence"
-    response = test_client.get(path, headers={
+    headers = {
         "X-Internal-API-Key": "service-secret",
-        "X-Gateway-Principal": _token("GET", "/api/v1/incidents/" + incident_id + "/evidence", []),
-    })
+        "X-Gateway-Principal": _token(method, "/api/v1/incidents/" + incident_id + "/evidence", []),
+    }
+    if method == "GET":
+        response = test_client.get(path, headers=headers)
+    else:
+        response = test_client.post(path, headers=headers, json={
+            "investigation_id": str(uuid4()),
+            "source_type": "logs",
+            "source_ref": "otel:trace-1",
+            "summary": "Synthetic evidence",
+            "observed_at": "2026-11-15T12:00:00Z",
+        })
     assert response.status_code == 422, response.text
     assert calls == []
