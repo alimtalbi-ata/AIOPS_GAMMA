@@ -194,3 +194,42 @@ async def test_request_mutation_during_backend_call_cannot_change_response_scope
     with pytest.raises(ValueError, match="tenant or service scope"):
         await search_logs(TENANT, req)
     assert closed == [True]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("tenant,service,timestamp,accepted", [
+    (TENANT, "checkout", "2026-11-10T11:57:00Z", True),
+    ("22222222-2222-4222-8222-222222222222", "checkout", "2026-11-10T11:57:00Z", False),
+    (TENANT, "billing", "2026-11-10T11:57:00Z", False),
+    (TENANT, "checkout", "2026-11-10T10:57:00Z", False),
+    (TENANT, "checkout", None, False),
+])
+async def test_real_adapter_validates_nonempty_backend_hits(monkeypatch, tenant, service, timestamp, accepted):
+    """Exercise the actual adapter boundary rather than only its validation helper."""
+    from app.settings import settings
+
+    monkeypatch.setattr(settings, "max_query_hours", 24)
+    closed = []
+
+    class FakeClient:
+        async def search(self, **kwargs):
+            return {"hits": {"hits": [{"_source": {
+                "tenant": {"id": tenant},
+                "resource": {"attributes": {"service.name": service}},
+                "@timestamp": timestamp,
+            }}]}}
+
+        async def close(self):
+            closed.append(True)
+
+    module = ModuleType("opensearchpy")
+    module.AsyncOpenSearch = lambda **kwargs: FakeClient()
+    monkeypatch.setitem(sys.modules, "opensearchpy", module)
+
+    if accepted:
+        response = await search_logs(TENANT, request())
+        assert len(response["hits"]["hits"]) == 1
+    else:
+        with pytest.raises(ValueError, match="OpenSearch hit"):
+            await search_logs(TENANT, request())
+    assert closed == [True]
