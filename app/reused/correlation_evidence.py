@@ -79,6 +79,7 @@ def preview(request: CorrelationEvidencePreview, tenant_id: str, *, now: datetim
         group["evidence_state"] = "UNKNOWN" if (
             len(covered_events) != len(event_ids) or len(incident_ids) > 1
             or group["conflicting_source_events"] > 0
+            or group["resolution_state"] == "UNKNOWN"
             or any(e["state"] == "UNKNOWN" for e in linked)
         ) else "UNVERIFIED"
     # Complete means both directions are covered, not merely that every
