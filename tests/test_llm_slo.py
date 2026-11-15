@@ -1,4 +1,5 @@
 """UC07: advisory LLM SLO preview, no production qualification."""
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
@@ -536,3 +537,70 @@ def test_slo_response_exposes_all_measurement_denominators_and_unverified_origin
     assert result["sample_provenance_state"] == "UNVERIFIED"
     assert result["authoritative"] is False
     assert result["live_remediation_authorized"] is False
+
+
+def test_declared_window_is_bounded_and_still_not_authoritative():
+    tenant = uuid4()
+    end = datetime.now(timezone.utc) - timedelta(minutes=1)
+    start = end - timedelta(hours=1)
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 100, "observed_at": start},
+        {"status": "ok", "latency_ms": 120,
+         "observed_at": end - timedelta(seconds=1)},
+    ], window_start=start, window_end=end)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "PASS_PREVIEW"
+    assert result["sample_window_state"] == "CALLER_DECLARED_UNVERIFIED"
+    assert result["declared_window"]["end_exclusive"] is True
+    assert result["sample_provenance_state"] == "UNVERIFIED"
+    assert result["authoritative"] is False
+    assert result["live_remediation_authorized"] is False
+
+
+@pytest.mark.parametrize("offset_seconds", [-1, 3600])
+def test_declared_window_rejects_off_window_observations(offset_seconds):
+    tenant = uuid4()
+    end = datetime.now(timezone.utc) - timedelta(minutes=1)
+    start = end - timedelta(hours=1)
+    with pytest.raises(ValidationError, match="outside the declared window"):
+        make_request(tenant, [
+            {"status": "ok", "latency_ms": 100,
+             "observed_at": start + timedelta(seconds=offset_seconds)},
+            {"status": "ok", "latency_ms": 120, "observed_at": start},
+        ], window_start=start, window_end=end)
+
+
+def test_declared_window_requires_all_observation_timestamps():
+    tenant = uuid4()
+    end = datetime.now(timezone.utc) - timedelta(minutes=1)
+    with pytest.raises(ValidationError, match="require timestamps"):
+        make_request(tenant, [
+            {"status": "ok", "latency_ms": 100},
+            {"status": "ok", "latency_ms": 120, "observed_at": end - timedelta(minutes=2)},
+        ], window_start=end - timedelta(hours=1), window_end=end)
+
+
+def test_declared_window_rejects_partial_naive_future_or_oversized_bounds():
+    tenant = uuid4()
+    now = datetime.now(timezone.utc)
+    rows = [{"status": "ok", "latency_ms": 100}] * 2
+    cases = [
+        {"window_start": now - timedelta(hours=1)},
+        {"window_start": now.replace(tzinfo=None) - timedelta(hours=1),
+         "window_end": now},
+        {"window_start": now - timedelta(hours=25), "window_end": now},
+        {"window_start": now, "window_end": now},
+        {"window_start": now, "window_end": now + timedelta(hours=1)},
+    ]
+    for options in cases:
+        with pytest.raises(ValidationError):
+            make_request(tenant, rows, **options)
+
+
+def test_observation_timestamp_rejects_naive_datetime():
+    tenant = uuid4()
+    with pytest.raises(ValidationError, match="timezone"):
+        make_request(tenant, [
+            {"status": "ok", "latency_ms": 100, "observed_at": datetime(2026, 1, 1)},
+            {"status": "ok", "latency_ms": 120},
+        ])
