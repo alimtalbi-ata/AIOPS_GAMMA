@@ -239,3 +239,27 @@ def test_nfc_incident_grant_reaches_database_boundary(client, method):
                 "observed_at": "2026-11-15T12:00:00Z",
             })
     assert calls == (["scalars"] if method == "GET" else ["add"])
+
+
+@pytest.mark.parametrize("method", ["GET", "POST"])
+def test_unsigned_incident_grant_header_cannot_authorize_evidence(client, method):
+    """Only grants inside the verified gateway assertion are authoritative."""
+    test_client, calls = client
+    path = "/api/v1/incidents/inc-1/evidence"
+    headers = {
+        "X-Internal-API-Key": "service-secret",
+        "X-Gateway-Principal": _token(method, path, []),
+        "X-Evidence-Incident-Grants": "inc-1",
+    }
+    if method == "GET":
+        response = test_client.get(path, headers=headers)
+    else:
+        response = test_client.post(path, headers=headers, json={
+            "investigation_id": str(uuid4()),
+            "source_type": "logs",
+            "source_ref": "otel:trace-1",
+            "summary": "Synthetic evidence",
+            "observed_at": "2026-11-15T12:00:00Z",
+        })
+    assert response.status_code == 403, response.text
+    assert calls == []
