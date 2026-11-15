@@ -693,3 +693,36 @@ def test_indexed_join_keeps_multiple_incident_claims_for_one_event():
     assert len(result["groups"][0]["evidence"]) == 2
     assert result["groups"][0]["evidence_state"] == "UNKNOWN"
     assert result["evidence_join_consistent"] is False
+
+
+@pytest.mark.parametrize("injected", [
+    {"actor_id": "administrator"},
+    {"verified": True},
+    {"integrity": "VERIFIED"},
+    {"live_remediation_authorized": True},
+    {"tenant_access": ["other-tenant"]},
+])
+def test_evidence_input_rejects_forged_authority_fields(injected):
+    payload = request().evidence[0].model_dump()
+    payload.update(injected)
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        EvidenceInput.model_validate(payload)
+
+
+@pytest.mark.parametrize("injected", [
+    {"tenant_id": "other-tenant"},
+    {"incident_id": "canonical-incident"},
+    {"live_remediation_authorized": True},
+])
+def test_join_preview_rejects_forged_scope_fields(injected):
+    payload = request().model_dump()
+    payload.update(injected)
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        CorrelationEvidencePreview.model_validate(payload)
+
+
+def test_join_preview_rejects_nested_forged_evidence_authority():
+    payload = request().model_dump()
+    payload["evidence"][0]["integrity"] = "VERIFIED"
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        CorrelationEvidencePreview.model_validate(payload)
