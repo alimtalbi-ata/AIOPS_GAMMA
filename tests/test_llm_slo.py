@@ -9,13 +9,16 @@ from app.reused.llm_slo import LLMSLOPreviewRequest, evaluate_llm_slo_preview
 
 
 def make_request(tenant, observations, **options):
+    thresholds = dict(
+        min_samples=2, min_latency_coverage=1,
+        min_success_rate_pct=90, max_latency_p95_ms=200,
+    )
+    thresholds.update(options)
     return LLMSLOPreviewRequest(
         kpis=LLMKPIRequest(
             tenant_id=tenant, model_id="model/test", observations=observations
         ),
-        min_samples=2, min_latency_coverage=1,
-        min_success_rate_pct=90, max_latency_p95_ms=200,
-        **options,
+        **thresholds,
     )
 
 
