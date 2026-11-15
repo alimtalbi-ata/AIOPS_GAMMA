@@ -15,7 +15,7 @@ from ipaddress import ip_address
 from uuid import UUID, uuid4
 
 import pytest
-from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete, func, select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
@@ -128,8 +128,8 @@ def test_http_postgres_two_tenants_write_read_and_denied_write_is_atomic(databas
             return await session.scalar(select(func.count()).select_from(Evidence))
 
     app.dependency_overrides[get_session] = session_override
-    try:
-        with TestClient(app) as client:
+    async def exercise():
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
             for tenant, other, marker in (
                 (tenant_a, tenant_b, "tenant-a"), (tenant_b, tenant_a, "tenant-b")
             ):
@@ -138,7 +138,7 @@ def test_http_postgres_two_tenants_write_read_and_denied_write_is_atomic(databas
                     "source_ref": "ci-e2e-" + marker,
                     "observed_at": datetime.now(timezone.utc).isoformat(),
                 }
-                response = client.post(
+                response = await client.post(
                     path,
                     headers=_headers("POST", path, tenant, [incident], forged_tenant=other),
                     json=payload,
@@ -146,23 +146,23 @@ def test_http_postgres_two_tenants_write_read_and_denied_write_is_atomic(databas
                 assert response.status_code == 201, response.text
                 assert response.headers["cache-control"] == "no-store"
                 written_ids.append(response.json()["id"])
-            assert asyncio.run(persisted_count()) == 2
+            assert await persisted_count() == 2
             for tenant, other, expected in (
                 (tenant_a, tenant_b, "ci-e2e-tenant-a"),
                 (tenant_b, tenant_a, "ci-e2e-tenant-b"),
             ):
-                response = client.get(
+                response = await client.get(
                     path, headers=_headers("GET", path, tenant, [incident], forged_tenant=other)
                 )
                 assert response.status_code == 200, response.text
                 assert response.headers["cache-control"] == "no-store"
                 assert [r["source_ref"] for r in response.json()] == [expected]
-            denied_read = client.get(
+            denied_read = await client.get(
                 path, headers=_headers("GET", path, tenant_a, [], forged_tenant=tenant_b)
             )
             assert denied_read.status_code == 403, denied_read.text
             assert denied_read.headers["cache-control"] == "no-store"
-            denied = client.post(
+            denied = await client.post(
                 path, headers=_headers("POST", path, tenant_b, [], forged_tenant=tenant_a),
                 json={
                     "investigation_id": str(uuid4()), "source_type": "logs",
@@ -174,12 +174,14 @@ def test_http_postgres_two_tenants_write_read_and_denied_write_is_atomic(databas
             assert denied.headers["cache-control"] == "no-store"
             assert asyncio.run(persisted_count()) == 2
             # A valid grant cannot be transplanted to another HTTP path.
-            mismatched = client.get(
+            mismatched = await client.get(
                 path, headers=_headers(
                     "GET", "/api/v1/incidents/other/evidence",
                     tenant_a, [incident], forged_tenant=tenant_b,
                 )
             )
             assert mismatched.status_code == 401, mismatched.text
+    try:
+        asyncio.run(exercise())
     finally:
         app.dependency_overrides.pop(get_session, None)
