@@ -163,6 +163,12 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
             (event["source"], event["external_event_id"]) in conflicting_identities
             for event in group["source_events"]
         )
+        # A conflicting source identity can have multiple severity values.
+        # The deterministic representative is only a display choice, not
+        # authoritative evidence of the incident's actual severity.
+        group["severity_state"] = (
+            "UNKNOWN" if group["conflicting_source_events"] else "UNVERIFIED"
+        )
         # A mixed firing/resolved group is not proof of recovery. Surface
         # ambiguity rather than promoting a derived incident lifecycle state.
         statuses = {event["status"] for event in group["source_events"]}
