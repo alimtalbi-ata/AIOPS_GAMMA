@@ -43,7 +43,7 @@ class LLMKPIRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     tenant_id: UUID
-    model_id: str = Field(min_length=1, max_length=128, pattern=r"^[a-zA-Z0-9][a-zA-Z0-9_./:-]*$")
+    model_id: str = Field(min_length=1, max_length=128, pattern=r"\\A[a-zA-Z0-9][a-zA-Z0-9_./:-]*\\z")
     observations: list[LLMObservation] = Field(min_length=1, max_length=1000)
     sentinel_anomalies_total: int | None = Field(default=None, ge=0)
     sentinel_events_processed_total: int | None = Field(default=None, ge=0)
