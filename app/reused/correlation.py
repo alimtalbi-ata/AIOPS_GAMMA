@@ -10,10 +10,11 @@ from hashlib import sha256
 import json
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class CorrelationSignal(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     source: str = Field(min_length=1, max_length=80)
     external_event_id: str = Field(min_length=1, max_length=255)
     service_name: str = Field(min_length=1, max_length=255)
@@ -60,6 +61,7 @@ class CorrelationSignal(BaseModel):
 
 
 class CorrelationPreview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     signals: list[CorrelationSignal] = Field(min_length=1, max_length=500)
     window_seconds: int = Field(default=300, ge=30, le=3600)
 
