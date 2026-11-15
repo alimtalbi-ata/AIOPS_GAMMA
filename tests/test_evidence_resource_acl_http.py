@@ -134,3 +134,32 @@ def test_signed_grant_for_other_tenant_cannot_be_reused(client, method):
         })
     assert response.status_code == 403, response.text
     assert calls == []
+
+
+@pytest.mark.parametrize("method,signed_method,signed_path", [
+    ("GET", "POST", "/api/v1/incidents/inc-1/evidence"),
+    ("POST", "GET", "/api/v1/incidents/inc-1/evidence"),
+    ("GET", "GET", "/api/v1/incidents/inc-2/evidence"),
+    ("POST", "POST", "/api/v1/incidents/inc-2/evidence"),
+])
+def test_signed_incident_grant_is_bound_to_http_method_and_path(
+    client, method, signed_method, signed_path
+):
+    test_client, calls = client
+    path = "/api/v1/incidents/inc-1/evidence"
+    headers = {
+        "X-Internal-API-Key": "service-secret",
+        "X-Gateway-Principal": _token(signed_method, signed_path, ["inc-1"]),
+    }
+    if method == "GET":
+        response = test_client.get(path, headers=headers)
+    else:
+        response = test_client.post(path, headers=headers, json={
+            "investigation_id": str(uuid4()),
+            "source_type": "logs",
+            "source_ref": "otel:trace-1",
+            "summary": "Synthetic evidence",
+            "observed_at": "2026-11-15T12:00:00Z",
+        })
+    assert response.status_code == 401, response.text
+    assert calls == []
