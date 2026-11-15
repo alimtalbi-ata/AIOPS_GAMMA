@@ -92,10 +92,12 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
     seen: dict[tuple[str, str], CorrelationSignal] = {}
     highest_severity_by_identity: dict[tuple[str, str], str] = {}
     firing_by_identity: dict[tuple[str, str], bool] = {}
+    evidence_refs_by_identity: dict[tuple[str, str], set[str]] = {}
     conflicting_identities: set[tuple[str, str]] = set()
     duplicates = 0
     for signal in signals:
         identity = (signal.source, signal.external_event_id)
+        evidence_refs_by_identity.setdefault(identity, set()).update(signal.evidence_refs)
         firing_by_identity[identity] = (
             firing_by_identity.get(identity, False) or signal.status == "firing"
         )
@@ -162,7 +164,10 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
             "external_event_id": signal.external_event_id,
             "status": signal.status,
         })
-        for ref in signal.evidence_refs:
+        # Keep every reference supplied by duplicate versions, not only
+        # those on the deterministic representative. References remain
+        # unverified and conflict state is tracked separately.
+        for ref in evidence_refs_by_identity[(signal.source, signal.external_event_id)]:
             if ref not in matching["_evidence_ref_set"]:
                 matching["_evidence_ref_set"].add(ref)
                 matching["evidence_refs"].append(ref)
