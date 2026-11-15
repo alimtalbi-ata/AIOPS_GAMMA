@@ -648,3 +648,17 @@ def test_mutated_evidence_surrogate_is_rejected_before_join_serialization():
     req.evidence[0].payload = {"value": "invalid\ud800value"}
     with pytest.raises(ValueError, match="surrogate"):
         preview(req, TENANT, now=NOW)
+
+
+@pytest.mark.parametrize("tenant", ["tenant\x00forged", "tenant\x7fforged", "tenant\ud800forged"])
+def test_join_rejects_noncanonical_direct_tenant_identity(tenant):
+    with pytest.raises(ValueError, match="request or tenant"):
+        preview(request(), tenant, now=NOW)
+
+
+@pytest.mark.parametrize("invalid_collection", [None, {"not": "a list"}, "invalid"])
+def test_join_rejects_mutated_nonlist_evidence_collection(invalid_collection):
+    req = request()
+    req.evidence = invalid_collection
+    with pytest.raises(ValueError, match="evidence collection"):
+        preview(req, TENANT, now=NOW)
