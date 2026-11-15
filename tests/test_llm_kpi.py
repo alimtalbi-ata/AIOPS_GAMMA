@@ -121,3 +121,37 @@ def test_kpi_route_success(monkeypatch):
                                         "X-Tenant-Id": str(tenant)})
     assert response.status_code == 200
     assert response.json()["data_source"] == "caller_supplied_preview"
+
+
+def test_degraded_rate_and_metric_coverage_are_explicit():
+    tenant = uuid4()
+    req = request(tenant, observations=[
+        {"status": "ok", "latency_ms": 100, "ttft_ms": 25, "tps": 10},
+        {"status": "degraded", "latency_ms": 300},
+        {"status": "error"},
+    ])
+    result = calculate_llm_kpis(req, tenant)
+    assert result["success_rate_pct"] == pytest.approx(33.333)
+    assert result["degraded_rate_pct"] == pytest.approx(33.333)
+    assert result["error_rate_pct"] == pytest.approx(33.333)
+    assert result["latency_coverage"] == pytest.approx(0.667)
+    assert result["ttft_coverage"] == pytest.approx(0.333)
+    assert result["throughput_coverage"] == pytest.approx(0.333)
+    assert result["authoritative"] is False
+    assert result["production_qualified"] is False
+
+
+def test_mutated_kpi_observation_rejected_at_calculation_boundary():
+    tenant = uuid4()
+    req = request(tenant)
+    req.observations[0].latency_ms = -1
+    with pytest.raises(ValidationError):
+        calculate_llm_kpis(req, tenant)
+
+
+def test_mutated_kpi_tenant_rejected_at_calculation_boundary():
+    tenant = uuid4()
+    req = request(tenant)
+    req.tenant_id = uuid4()
+    with pytest.raises(ValueError, match="Cross-tenant"):
+        calculate_llm_kpis(req, tenant)
