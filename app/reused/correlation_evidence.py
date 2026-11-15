@@ -54,10 +54,20 @@ def preview(request: CorrelationEvidencePreview, tenant_id: str, *, now: datetim
         for item in evidence_result["items"]
     )
     corr["unmatched_evidence"] = unmatched
+    # Index normalized evidence once, preserving its original order and every
+    # distinct incident claim for a source event. Avoid scanning all evidence
+    # for each correlated group (up to 500 groups x 500 evidence records).
+    evidence_by_event: dict[tuple[str, str], list[dict]] = {}
+    for item in evidence_result["items"]:
+        evidence_by_event.setdefault((item["source"], item["external_id"]), []).append(item)
+    evidence_order = {id(item): index for index, item in enumerate(evidence_result["items"])}
     for group in corr["groups"]:
         event_ids = {(e["source"], e["external_event_id"]) for e in group["source_events"]}
-        linked = [e for e in evidence_result["items"]
-                  if (e["source"], e["external_id"]) in event_ids]
+        # Retain normalized ordering even when events within a group differ.
+        linked = sorted(
+            (item for event_id in event_ids for item in evidence_by_event.get(event_id, [])),
+            key=lambda item: evidence_order[id(item)],
+        )
         covered_events = {(e["source"], e["external_id"]) for e in linked}
         group["evidence_covered_events"] = len(covered_events)
         group["evidence_missing_events"] = len(event_ids - covered_events)
