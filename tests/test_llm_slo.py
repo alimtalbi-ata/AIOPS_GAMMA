@@ -45,6 +45,7 @@ def test_slo_preview_breach():
     assert result["state"] == "BREACH_PREVIEW"
     assert result["checks"]["success_rate_pct"]["passed"] is False
     assert result["checks"]["latency_p95_ms"]["passed"] is False
+    assert result["observed_breaches"] == ["success_rate_pct", "latency_p95_ms"]
 
 
 def test_missing_latency_does_not_pass_slo():
@@ -75,3 +76,27 @@ def test_invalid_slo_threshold_is_rejected():
     tenant = uuid4()
     with pytest.raises(ValidationError):
         make_request(tenant, [{"status": "ok"}], min_samples=0)
+
+
+def test_insufficient_data_still_reports_observed_success_breach():
+    tenant = uuid4()
+    req = make_request(tenant, [
+        {"status": "error", "latency_ms": 100},
+        {"status": "error"},
+    ])
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "INSUFFICIENT_DATA"
+    assert result["observed_breaches"] == ["success_rate_pct"]
+    assert result["checks"]["latency_coverage"]["passed"] is False
+
+
+def test_missing_all_latency_is_unknown_not_latency_breach():
+    tenant = uuid4()
+    req = make_request(tenant, [
+        {"status": "ok"},
+        {"status": "ok"},
+    ])
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "INSUFFICIENT_DATA"
+    assert result["checks"]["latency_p95_ms"]["passed"] is None
+    assert result["observed_breaches"] == []
