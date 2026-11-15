@@ -42,6 +42,19 @@ class AlertPayload(BaseModel):
         default_factory=list, max_length=50
     )
 
+    @field_validator("evidence_refs")
+    @classmethod
+    def canonical_alert_evidence_refs(cls, values: list[str]) -> list[str]:
+        if any(
+            value != value.strip() or any(
+                ord(ch) < 32 or ord(ch) == 127 or 0xD800 <= ord(ch) <= 0xDFFF
+                for ch in value
+            )
+            for value in values
+        ):
+            raise ValueError("alert evidence references must be canonical printable text")
+        return values
+
     @field_validator("observed_at")
     @classmethod
     def aware_alert_timestamp(cls, value: datetime) -> datetime:
