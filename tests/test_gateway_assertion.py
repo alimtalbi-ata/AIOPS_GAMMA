@@ -249,3 +249,17 @@ def test_malformed_gateway_verifier_secret_fails_closed_as_configuration_error(m
         verify_gateway_assertion(token, method="POST",
             path="/api/v1/observability/metrics/query", now=1030)
     assert exc.value.status_code == 503
+
+
+@pytest.mark.parametrize("subject", [
+    "user\\u200b:123",  # zero-width space
+    "user\\u202e:123",  # right-to-left override
+    "user\\u2066:123",  # left-to-right isolate
+])
+def test_invisible_unicode_format_controls_in_signed_subject_denied(monkeypatch, subject):
+    with pytest.raises(HTTPException) as exc:
+        verify_gateway_assertion(
+            _token(monkeypatch, sub=subject),
+            method="POST", path="/api/v1/observability/metrics/query", now=1030,
+        )
+    assert exc.value.status_code == 401
