@@ -15,7 +15,9 @@ def preview(request: CorrelationEvidencePreview, tenant_id: str, *, now: datetim
     """Match only explicit source+external_event_id, never a fuzzy service name."""
     if (not isinstance(request, CorrelationEvidencePreview)
             or not isinstance(tenant_id, str) or not tenant_id.strip()
-            or tenant_id != tenant_id.strip()):
+            or tenant_id != tenant_id.strip()
+            or any(ord(ch) < 32 or ord(ch) == 127 or 0xD800 <= ord(ch) <= 0xDFFF
+                   for ch in tenant_id)):
         raise ValueError("Invalid correlation/evidence request or tenant")
     if (not isinstance(request.max_age_seconds, int)
             or isinstance(request.max_age_seconds, bool)):
@@ -23,6 +25,8 @@ def preview(request: CorrelationEvidencePreview, tenant_id: str, *, now: datetim
     if (now is not None and (not isinstance(now, datetime)
             or now.tzinfo is None or now.utcoffset() is None)):
         raise ValueError("now requires timezone")
+    if not isinstance(request.evidence, list) or len(request.evidence) > 500:
+        raise ValueError("Invalid correlation evidence collection")
     # Nested Pydantic inputs may be mutated after construction. Revalidate
     # evidence timestamps, payload bounds and correlation signals at the gate.
     # Guard mutated nested evidence before Pydantic serialization: a cyclic or
