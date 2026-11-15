@@ -721,3 +721,31 @@ def test_severity_only_conflict_does_not_falsely_downgrade_event_status():
     assert group["source_events"][0]["status_state"] == "UNVERIFIED"
     assert group["status"] == "firing"
     assert group["resolution_state"] == "UNKNOWN"
+
+
+def test_conflicting_duplicate_timestamp_preserves_earliest_and_latest_observation():
+    from datetime import timedelta
+    first = signal("same", at=NOW)
+    later = signal("same", at=NOW + timedelta(seconds=120))
+    forward = correlate([first, later], "tenant-1")
+    reverse = correlate([later, first], "tenant-1")
+    assert forward == reverse
+    group = forward["groups"][0]
+    assert group["first_observed_at"] == NOW.astimezone(timezone.utc).isoformat()
+    assert group["last_observed_at"] == (NOW + timedelta(seconds=120)).astimezone(timezone.utc).isoformat()
+    assert group["conflict_fields"] == ["observed_at"]
+    assert group["resolution_state"] == "UNKNOWN"
+    assert forward["live_remediation_authorized"] is False
+
+
+def test_conflicting_timestamp_uses_earliest_observation_for_group_window():
+    from datetime import timedelta
+    first = signal("same", at=NOW)
+    late_duplicate = signal("same", at=NOW + timedelta(seconds=600))
+    adjacent = signal("next", at=NOW + timedelta(seconds=120))
+    forward = correlate([late_duplicate, adjacent, first], "tenant-1", window_seconds=300)
+    reverse = correlate([first, adjacent, late_duplicate], "tenant-1", window_seconds=300)
+    assert forward == reverse
+    assert len(forward["groups"]) == 1
+    assert forward["groups"][0]["event_count"] == 2
+    assert forward["groups"][0]["last_observed_at"] == (NOW + timedelta(seconds=600)).astimezone(timezone.utc).isoformat()
