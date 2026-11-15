@@ -91,10 +91,14 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
     signals = [CorrelationSignal.model_validate(signal.model_dump()) for signal in signals]
     seen: dict[tuple[str, str], CorrelationSignal] = {}
     highest_severity_by_identity: dict[tuple[str, str], str] = {}
+    firing_by_identity: dict[tuple[str, str], bool] = {}
     conflicting_identities: set[tuple[str, str]] = set()
     duplicates = 0
     for signal in signals:
         identity = (signal.source, signal.external_event_id)
+        firing_by_identity[identity] = (
+            firing_by_identity.get(identity, False) or signal.status == "firing"
+        )
         previous_severity = highest_severity_by_identity.get(identity)
         if previous_severity is None or _SEVERITY[signal.severity] > _SEVERITY[previous_severity]:
             highest_severity_by_identity[identity] = signal.severity
@@ -149,7 +153,9 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
         observed_severity = highest_severity_by_identity[(signal.source, signal.external_event_id)]
         if _SEVERITY[observed_severity] > _SEVERITY[matching["severity"]]:
             matching["severity"] = observed_severity
-        if signal.status == "firing":
+        # A conflicting duplicate must never hide a reported firing state.
+        # This is conservative display only; resolution_state stays UNKNOWN.
+        if firing_by_identity[(signal.source, signal.external_event_id)]:
             matching["status"] = "firing"
         matching["source_events"].append({
             "source": signal.source,
