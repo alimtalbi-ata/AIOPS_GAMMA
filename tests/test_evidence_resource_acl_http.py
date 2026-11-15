@@ -14,12 +14,12 @@ from app.db import get_session
 from app.settings import settings
 
 
-def _token(method, path, grants):
+def _token(method, path, grants, tenant_id=None):
     now = int(time.time())
     claims = {
         "iss": "trusted-gateway", "aud": "gamma-api",
         "sub": "user:123", "actor_type": "user",
-        "tenant_id": str(uuid4()), "tenant_access": True,
+        "tenant_id": str(tenant_id or uuid4()), "tenant_access": True,
         "iat": now, "exp": now + 30, "jti": "evidence-acl-test-123456",
         "method": method, "path": path,
         "evidence_incident_grants": grants,
@@ -456,5 +456,81 @@ def test_authorized_evidence_response_is_never_cacheable(client, method):
             })
             assert response.status_code == 201, response.text
         assert response.headers["cache-control"] == "no-store"
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+
+
+def test_e2e_two_tenants_same_incident_never_cross_read(client):
+    """Signed gateway -> FastAPI -> SQLAlchemy scoped query -> response."""
+    from sqlalchemy.dialects import postgresql
+
+    test_client, _ = client
+    tenant_a, tenant_b = uuid4(), uuid4()
+    incident = "shared-incident"
+    path = f"/api/v1/incidents/{incident}/evidence"
+    evidence = []
+
+    class Rows:
+        def __init__(self, items):
+            self.items = items
+
+        def all(self):
+            return self.items
+
+    class TenantAwareSession:
+        def add(self, obj):
+            obj.id = uuid4()
+            evidence.append(obj)
+
+        async def commit(self):
+            return None
+
+        async def scalars(self, statement):
+            compiled = statement.compile(dialect=postgresql.dialect())
+            params = list(compiled.params.values())
+            assert "tenant_id" in str(compiled)
+            assert "incident_id" in str(compiled)
+            assert " AND " in str(compiled).upper()
+            assert 500 in params
+            tenant = next(value for value in params if str(value) in {str(tenant_a), str(tenant_b)})
+            incident_id = next(value for value in params if value == incident)
+            return Rows([item for item in evidence
+                         if item.tenant_id == tenant and item.incident_id == incident_id])
+
+    async def fake_db():
+        yield TenantAwareSession()
+
+    app.dependency_overrides[get_session] = fake_db
+    try:
+        for tenant, marker in ((tenant_a, "tenant-a"), (tenant_b, "tenant-b")):
+            response = test_client.post(path, headers={
+                "X-Internal-API-Key": "service-secret",
+                "X-Gateway-Principal": _token("POST", path, [incident], tenant),
+            }, json={
+                "investigation_id": str(uuid4()),
+                "source_type": "logs",
+                "source_ref": marker,
+                "summary": marker,
+                "observed_at": "2026-11-15T12:00:00Z",
+            })
+            assert response.status_code == 201, response.text
+            assert response.headers["cache-control"] == "no-store"
+
+        for tenant, expected in ((tenant_a, "tenant-a"), (tenant_b, "tenant-b")):
+            response = test_client.get(path, headers={
+                "X-Internal-API-Key": "service-secret",
+                "X-Gateway-Principal": _token("GET", path, [incident], tenant),
+                "X-Tenant-ID": str(tenant_b if tenant == tenant_a else tenant_a),
+            })
+            assert response.status_code == 200, response.text
+            assert response.headers["cache-control"] == "no-store"
+            assert [row["source_ref"] for row in response.json()] == [expected]
+
+        denied = test_client.get(path, headers={
+            "X-Internal-API-Key": "service-secret",
+            "X-Gateway-Principal": _token("GET", path, [], tenant_a),
+        })
+        assert denied.status_code == 403
+        assert denied.headers["cache-control"] == "no-store"
     finally:
         app.dependency_overrides.pop(get_session, None)
