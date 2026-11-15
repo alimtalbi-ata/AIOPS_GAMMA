@@ -769,3 +769,57 @@ def test_legacy_slo_does_not_claim_distinct_timestamp_coverage():
         {"status": "ok", "latency_ms": 120},
     ]), tenant)
     assert result["distinct_sample_timestamps"] is None
+
+
+def test_long_silent_interval_blocks_slo_pass_when_gap_limit_enabled():
+    tenant = uuid4()
+    end = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(minutes=1)
+    start = end - timedelta(hours=1)
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 100, "observed_at": start},
+        {"status": "ok", "latency_ms": 120,
+         "observed_at": end - timedelta(seconds=1)},
+    ], window_start=start, window_end=end, max_window_gap_ratio=0.5)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "INSUFFICIENT_DATA"
+    assert "window_sample_gap_above_maximum" in result["insufficient_data_reasons"]
+    assert result["max_observed_gap_ratio"] > 0.99
+    assert result["max_window_gap_ratio"] == 0.5
+    assert result["authoritative"] is False
+
+
+def test_evenly_spaced_samples_satisfy_configured_gap_limit():
+    tenant = uuid4()
+    end = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(minutes=1)
+    start = end - timedelta(hours=1)
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 100,
+         "observed_at": start + timedelta(minutes=15)},
+        {"status": "ok", "latency_ms": 120,
+         "observed_at": start + timedelta(minutes=30)},
+        {"status": "ok", "latency_ms": 140,
+         "observed_at": start + timedelta(minutes=45)},
+    ], window_start=start, window_end=end, max_window_gap_ratio=0.3)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "PASS_PREVIEW"
+    assert result["max_observed_gap_ratio"] == pytest.approx(0.25)
+    assert result["sample_provenance_state"] == "UNVERIFIED"
+
+
+@pytest.mark.parametrize("invalid", [0, -0.1, 1.1, float("nan"), float("inf")])
+def test_window_gap_threshold_rejects_invalid_values(invalid):
+    with pytest.raises(ValidationError):
+        make_request(uuid4(), [
+            {"status": "ok", "latency_ms": 100},
+            {"status": "ok", "latency_ms": 120},
+        ], max_window_gap_ratio=invalid)
+
+
+def test_legacy_preview_does_not_invent_silent_interval():
+    tenant = uuid4()
+    result = evaluate_llm_slo_preview(make_request(tenant, [
+        {"status": "ok", "latency_ms": 100},
+        {"status": "ok", "latency_ms": 120},
+    ]), tenant)
+    assert result["max_observed_gap_ratio"] is None
+    assert result["max_window_gap_ratio"] is None
