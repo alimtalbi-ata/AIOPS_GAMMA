@@ -1,4 +1,5 @@
 from datetime import timedelta
+from urllib.parse import urlsplit
 from uuid import UUID
 
 from app.schemas import LogSearchRequest
@@ -40,9 +41,36 @@ def make_log_query(tenant_id: str, req: LogSearchRequest) -> dict:
     }
 
 
+def validate_opensearch_transport() -> None:
+    """Fail closed on unsafe remote transport and credential-bearing URLs."""
+    try:
+        url = urlsplit(settings.opensearch_url)
+        host = url.hostname
+        port = url.port
+    except ValueError as exc:
+        raise ValueError("Invalid OpenSearch endpoint") from exc
+    if (
+        url.scheme not in ("http", "https")
+        or not host
+        or url.username is not None
+        or url.password is not None
+        or url.query
+        or url.fragment
+        or url.path not in ("", "/")
+        or port == 0
+    ):
+        raise ValueError("Invalid OpenSearch endpoint")
+    local = host in ("localhost", "127.0.0.1", "::1")
+    if url.scheme != "https" and (not local or settings.opensearch_username or settings.opensearch_password):
+        raise ValueError("OpenSearch requires TLS for remote endpoints and credentials")
+    if url.scheme == "https" and not settings.opensearch_verify_certs:
+        raise ValueError("OpenSearch TLS certificate verification is required")
+
+
 async def search_logs(tenant_id: str, req: LogSearchRequest) -> dict:
     # Validate tenant and build the bounded query before opening any client.
     query = make_log_query(tenant_id, req)
+    validate_opensearch_transport()
     # Lazy import allows local unit tests without connecting to OpenSearch.
     from opensearchpy import AsyncOpenSearch
 
