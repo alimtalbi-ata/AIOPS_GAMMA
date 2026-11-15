@@ -29,6 +29,7 @@ class Principal:
     assertion_id: str
     expires_at: int
     log_service_grants: tuple[str, ...] = ()
+    evidence_incident_grants: tuple[str, ...] = ()
 
 
 def _b64url_decode(value: str) -> bytes:
@@ -126,9 +127,26 @@ def verify_gateway_assertion(token: str, *, method: str, path: str, now: int | N
             or len(set(raw_grants)) != len(raw_grants)
         ):
             raise ValueError("invalid signed log service grants")
+        raw_incident_grants = claims.get("evidence_incident_grants", [])
+        if (
+            not isinstance(raw_incident_grants, list)
+            or len(raw_incident_grants) > 64
+            or any(
+                not isinstance(grant, str)
+                or not 1 <= len(grant) <= 255
+                or grant != grant.strip()
+                or any(ord(ch) < 32 or ord(ch) == 127
+                       or 0xD800 <= ord(ch) <= 0xDFFF
+                       for ch in grant)
+                for grant in raw_incident_grants
+            )
+            or len(set(raw_incident_grants)) != len(raw_incident_grants)
+        ):
+            raise ValueError("invalid signed evidence incident grants")
         return Principal(tenant_id=tenant, subject=subject, actor_type=actor_type,
                          assertion_id=assertion_id, expires_at=expires_at,
-                         log_service_grants=tuple(raw_grants))
+                         log_service_grants=tuple(raw_grants),
+                         evidence_incident_grants=tuple(raw_incident_grants))
     except HTTPException:
         raise
     except (ValueError, TypeError, KeyError, UnicodeError, binascii.Error, json.JSONDecodeError) as exc:
