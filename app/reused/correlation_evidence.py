@@ -16,6 +16,7 @@ def preview(request: CorrelationEvidencePreview, tenant_id: str, *, now: datetim
     if (not isinstance(request, CorrelationEvidencePreview)
             or not isinstance(tenant_id, str) or not tenant_id.strip()
             or tenant_id != tenant_id.strip()
+            or len(tenant_id) > 128
             or any(ord(ch) < 32 or ord(ch) == 127 or 0xD800 <= ord(ch) <= 0xDFFF
                    for ch in tenant_id)):
         raise ValueError("Invalid correlation/evidence request or tenant")
