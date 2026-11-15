@@ -160,6 +160,14 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
             (event["source"], event["external_event_id"]) in conflicting_identities
             for event in group["source_events"]
         )
+        # A mixed firing/resolved group is not proof of recovery. Surface
+        # ambiguity rather than promoting a derived incident lifecycle state.
+        statuses = {event["status"] for event in group["source_events"]}
+        group["resolution_state"] = (
+            "UNKNOWN" if group["conflicting_source_events"] or len(statuses) > 1
+            else "FIRING_UNVERIFIED" if statuses == {"firing"}
+            else "RESOLVED_UNVERIFIED"
+        )
         group["impact_state"] = "UNKNOWN_UNTIL_CMDB_VERIFIED"
         group["root_cause_state"] = "UNKNOWN"
         group["itsm_ticket_state"] = "NOT_CREATED"
