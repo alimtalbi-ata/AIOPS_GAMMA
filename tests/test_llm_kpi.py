@@ -265,3 +265,21 @@ def test_model_identity_accepts_namespaced_provider_and_version():
         request(tenant, model_id="provider/model-v2:2026.11"), tenant
     )
     assert result["model_id"] == "provider/model-v2:2026.11"
+
+
+def test_kpi_response_exposes_exact_missing_measurement_counts():
+    tenant = uuid4()
+    req = request(tenant, observations=[
+        {"status": "ok", "latency_ms": 100, "input_tokens": 10, "tps": 40},
+        {"status": "error", "ttft_ms": 20, "output_tokens": 5,
+         "estimated_cost_usd": 0.01},
+    ])
+    result = calculate_llm_kpis(req, tenant)
+    for metric in ("latency_ms", "ttft_ms", "tps", "estimated_cost_usd",
+                   "input_tokens", "output_tokens"):
+        assert result["measurement_coverage"][metric] == {
+            "measured": 1, "missing": 1, "total": 2
+        }
+    assert result["sample_window_state"] == "UNVERIFIED"
+    assert result["sample_provenance_state"] == "UNVERIFIED"
+    assert result["authoritative"] is False
