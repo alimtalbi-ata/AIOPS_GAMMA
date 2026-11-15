@@ -10,7 +10,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.reused.llm_kpi import LLMKPIRequest, calculate_llm_kpis
+from app.reused.llm_kpi import LLMKPIRequest
 
 
 class LLMSLOPreviewRequest(BaseModel):
@@ -30,7 +30,11 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
     if not isinstance(request, LLMSLOPreviewRequest):
         raise ValueError("Invalid SLO preview request")
     request = LLMSLOPreviewRequest.model_validate(request.model_dump())
-    kpis = calculate_llm_kpis(request.kpis, tenant)
+    # SLO decisions use their own unrounded metrics. Do not compute unrelated
+    # KPI totals: a finite mean cost can be valid even when the aggregate
+    # lifetime cost would overflow floating point.
+    if request.kpis.tenant_id != tenant:
+        raise ValueError("Cross-tenant KPI aggregation rejected")
     observations = request.kpis.observations
     count = len(observations)
     measured = [row.latency_ms for row in observations if row.latency_ms is not None]
