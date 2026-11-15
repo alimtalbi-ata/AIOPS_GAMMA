@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import math
 import re
+from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
@@ -24,12 +25,20 @@ class LLMObservation(BaseModel):
     tps: float | None = Field(default=None, ge=0)
     estimated_cost_usd: float | None = Field(default=None, ge=0)
     status: Literal["ok", "error", "degraded"]
+    observed_at: datetime | None = None
 
     @field_validator("latency_ms", "ttft_ms", "tps", "estimated_cost_usd")
     @classmethod
     def finite_values(cls, value: float | None) -> float | None:
         if value is not None and not math.isfinite(value):
             raise ValueError("Non-finite KPI value")
+        return value
+
+    @field_validator("observed_at")
+    @classmethod
+    def timezone_aware_observation(cls, value: datetime | None) -> datetime | None:
+        if value is not None and (value.tzinfo is None or value.utcoffset() is None):
+            raise ValueError("Observation timestamp must include a timezone")
         return value
 
     @model_validator(mode="after")
