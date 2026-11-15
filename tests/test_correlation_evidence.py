@@ -790,3 +790,23 @@ def test_distinct_source_severity_escalation_does_not_claim_verification():
     assert result["evidence_join_complete"] is True
     assert result["evidence_join_consistent"] is True
     assert result["live_remediation_authorized"] is False
+
+
+@pytest.mark.parametrize("field,alternative", [
+    ("service_name", "another-service"),
+    ("environment", "staging"),
+    ("ci_id", "ci-other"),
+    ("symptom_key", "another-symptom"),
+])
+def test_routing_conflict_never_certifies_evidence_consistency(field, alternative):
+    req = request()
+    original = req.correlation.signals[0]
+    req.correlation.signals.append(original.model_copy(update={field: alternative}))
+    result = preview(req, TENANT, now=NOW)
+    group = result["groups"][0]
+    assert group["grouping_identity_state"] == "UNKNOWN"
+    assert group["evidence_missing_events"] == 0
+    assert group["evidence_state"] == "UNKNOWN"
+    assert result["evidence_join_complete"] is True
+    assert result["evidence_join_consistent"] is False
+    assert result["live_remediation_authorized"] is False
