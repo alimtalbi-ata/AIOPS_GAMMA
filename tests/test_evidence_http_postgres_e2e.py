@@ -15,6 +15,7 @@ from ipaddress import ip_address
 from uuid import UUID, uuid4
 
 import pytest
+import httpx
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete, func, select, text
 from sqlalchemy.engine import make_url
@@ -24,7 +25,7 @@ from sqlalchemy.pool import NullPool
 
 from app.db import get_session
 from app.main import app
-from app.models import Evidence, ServiceBinding
+from app.models import Evidence, InboxEvent, OutboxEvent, ServiceBinding
 from app.settings import settings
 
 
@@ -64,7 +65,8 @@ def database(monkeypatch):
                     or not 160000 <= int(version) < 170000
                     or revision != "0002_gateway_replay"):
                 pytest.fail("Connected PostgreSQL identity or migration is not approved")
-            for table in (Evidence.__tablename__, ServiceBinding.__tablename__):
+            for table in (Evidence.__tablename__, ServiceBinding.__tablename__,
+                          InboxEvent.__tablename__, OutboxEvent.__tablename__):
                 if await conn.scalar(text("select to_regclass(:table)"), {"table": table}) is None:
                     pytest.fail(f"Missing migrated table: {table}")
                 if await conn.scalar(text(f"select count(*) from {table}")) != 0:
@@ -185,3 +187,109 @@ def test_http_postgres_two_tenants_write_read_and_denied_write_is_atomic(databas
         asyncio.run(exercise())
     finally:
         app.dependency_overrides.pop(get_session, None)
+
+
+def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
+    """Real PG HTTP ingestion, tenant deduplication and locally mocked delivery."""
+    from app import outbox_relay
+
+    factory, _ = database
+    monkeypatch.setattr(settings, "enable_alert_ingestion", True)
+    monkeypatch.setattr(outbox_relay, "get_session_factory", lambda: factory)
+    tenant_a, tenant_b = uuid4(), uuid4()
+    path = "/api/v1/integrations/opensearch/alerts"
+    payload = {
+        "external_event_id": "ci-alert-shared-key", "source": "opensearch",
+        "service_name": "checkout", "severity": "major", "status": "firing",
+        "observed_at": datetime.now(timezone.utc).isoformat(),
+        "evidence_refs": ["otel:trace-ci"],
+    }
+    received = []
+    created = []
+    published_ids = []
+
+    async def session_override():
+        async with factory() as session:
+            yield session
+
+    def receiver(request):
+        body = json.loads(request.content)
+        assert request.headers["x-event-id"] == body["event_id"]
+        assert request.headers["authorization"] == "Bearer ci-ephemeral-token"
+        assert body["tenant_id"] in (str(tenant_a), str(tenant_b))
+        assert body["event_type"] == "observability.alert.firing"
+        assert body["aggregate_id"] == "checkout"
+        received.append(body)
+        return httpx.Response(202)
+
+    async def rows():
+        async with factory() as session:
+            inbox = (await session.scalars(
+                select(InboxEvent).where(InboxEvent.tenant_id.in_((tenant_a, tenant_b)))
+            )).all()
+            outbox = (await session.scalars(
+                select(OutboxEvent).where(OutboxEvent.tenant_id.in_((tenant_a, tenant_b)))
+            )).all()
+            return inbox, outbox
+
+    async def exercise():
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as api:
+            for tenant, other in ((tenant_a, tenant_b), (tenant_b, tenant_a)):
+                first = await api.post(
+                    path, headers=_headers("POST", path, tenant, [], forged_tenant=other),
+                    json=payload,
+                )
+                assert first.status_code == 200, first.text
+                assert first.headers["cache-control"] == "no-store"
+                assert first.json()["duplicate"] is False
+                created.append(first.json()["id"])
+
+                retry = await api.post(
+                    path, headers=_headers("POST", path, tenant, [], forged_tenant=other),
+                    json=payload,
+                )
+                assert retry.status_code == 200, retry.text
+                assert retry.json() == {"id": first.json()["id"], "duplicate": True}
+                conflicting = await api.post(
+                    path, headers=_headers("POST", path, tenant, [], forged_tenant=other),
+                    json={**payload, "severity": "critical"},
+                )
+                assert conflicting.status_code == 409, conflicting.text
+                assert conflicting.headers["cache-control"] == "no-store"
+
+            inbox, outbox = await rows()
+            assert {str(row.id) for row in inbox} == set(created)
+            assert len(outbox) == len(inbox) == 2
+            assert {row.tenant_id for row in outbox} == {tenant_a, tenant_b}
+            assert all(row.published_at is None and row.attempts == 0 for row in outbox)
+            published_ids.extend(row.id for row in outbox)
+            async with httpx.AsyncClient(transport=httpx.MockTransport(receiver)) as downstream:
+                assert await outbox_relay.dispatch_once(
+                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
+                ) is True
+                assert await outbox_relay.dispatch_once(
+                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
+                ) is True
+                assert await outbox_relay.dispatch_once(
+                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
+                ) is False
+            assert len(received) == 2
+            assert {row["event_id"] for row in received} == {str(i) for i in published_ids}
+            _, final_outbox = await rows()
+            assert len(final_outbox) == 2
+            assert all(row.published_at is not None and row.attempts == 0 for row in final_outbox)
+    app.dependency_overrides[get_session] = session_override
+    try:
+        asyncio.run(exercise())
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+        async def cleanup():
+            async with factory() as session:
+                await session.execute(
+                    delete(OutboxEvent).where(OutboxEvent.id.in_(published_ids))
+                )
+                await session.execute(
+                    delete(InboxEvent).where(InboxEvent.id.in_([UUID(i) for i in created]))
+                )
+                await session.commit()
+        asyncio.run(cleanup())
