@@ -620,3 +620,31 @@ def test_preview_never_marks_complete_or_consistent_when_signal_conflict_exists(
     assert result["groups"][0]["evidence_state"] == "UNKNOWN"
     assert result["persisted"] is False
     assert result["live_remediation_authorized"] is False
+
+
+@pytest.mark.parametrize("field", ["payload", "provenance"])
+def test_mutated_cyclic_evidence_is_rejected_before_join_serialization(field):
+    req = request()
+    cyclic = {}
+    cyclic["self"] = cyclic
+    setattr(req.evidence[0], field, cyclic)
+    with pytest.raises(ValueError, match="Cyclic JSON container"):
+        preview(req, TENANT, now=NOW)
+
+
+@pytest.mark.parametrize("field", ["payload", "provenance"])
+def test_mutated_excessively_nested_evidence_is_rejected_before_join_serialization(field):
+    req = request()
+    nested = {"leaf": 1}
+    for _ in range(66):
+        nested = {"child": nested}
+    setattr(req.evidence[0], field, nested)
+    with pytest.raises(ValueError, match="JSON nesting exceeds"):
+        preview(req, TENANT, now=NOW)
+
+
+def test_mutated_evidence_surrogate_is_rejected_before_join_serialization():
+    req = request()
+    req.evidence[0].payload = {"value": "invalid\ud800value"}
+    with pytest.raises(ValueError, match="surrogate"):
+        preview(req, TENANT, now=NOW)
