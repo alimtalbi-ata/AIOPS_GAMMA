@@ -130,3 +130,15 @@ def test_persisted_evidence_routes_enforce_incident_grant_before_db_access():
         check = source.index("incident_id not in principal.evidence_incident_grants")
         first_db = source.index("session.add(") if name == "add_evidence" else source.index("session.scalars(")
         assert check < first_db, name
+
+
+def test_incident_resource_path_rejects_ambiguous_acl_identifiers():
+    import pytest
+    from fastapi import HTTPException
+    from app.main import validate_incident_resource_id
+
+    for invalid in ("*", "inc\\name", "inc\u200bname", "inc\u202ename", " inc", "inc "):
+        with pytest.raises(HTTPException) as exc:
+            validate_incident_resource_id(invalid)
+        assert exc.value.status_code == 422
+    assert validate_incident_resource_id("inc-1") == "inc-1"
