@@ -923,3 +923,38 @@ def test_unwindowed_slo_has_no_fabricated_quarter_histogram():
         {"status": "ok", "latency_ms": 120},
     ]), tenant)
     assert result["quarter_sample_counts"] is None
+
+
+def test_declared_window_breaks_down_status_by_quarter_without_inventing_data():
+    tenant = uuid4()
+    end = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(minutes=1)
+    start = end - timedelta(hours=1)
+    rows = [
+        ("ok", 1), ("error", 14), ("degraded", 15),
+        ("ok", 30), ("error", 45), ("error", 59),
+    ]
+    req = make_request(tenant, [
+        {"status": status, "latency_ms": 100,
+         "observed_at": start + timedelta(minutes=minute)}
+        for status, minute in rows
+    ], window_start=start, window_end=end)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["quarter_status_counts"] == [
+        {"ok": 1, "error": 1, "degraded": 0},
+        {"ok": 0, "error": 0, "degraded": 1},
+        {"ok": 1, "error": 0, "degraded": 0},
+        {"ok": 0, "error": 2, "degraded": 0},
+    ]
+    assert result["quarter_sample_counts"] == [2, 1, 1, 2]
+    for quarter, statuses in enumerate(result["quarter_status_counts"]):
+        assert sum(statuses.values()) == result["quarter_sample_counts"][quarter]
+    assert result["authoritative"] is False
+
+
+def test_legacy_slo_does_not_invent_temporal_status_breakdown():
+    tenant = uuid4()
+    result = evaluate_llm_slo_preview(make_request(tenant, [
+        {"status": "ok", "latency_ms": 100},
+        {"status": "error", "latency_ms": 120},
+    ]), tenant)
+    assert result["quarter_status_counts"] is None
