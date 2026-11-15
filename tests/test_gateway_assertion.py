@@ -252,9 +252,9 @@ def test_malformed_gateway_verifier_secret_fails_closed_as_configuration_error(m
 
 
 @pytest.mark.parametrize("subject", [
-    "user\\u200b:123",  # zero-width space
-    "user\\u202e:123",  # right-to-left override
-    "user\\u2066:123",  # left-to-right isolate
+    "user\u200b:123",  # zero-width space
+    "user\u202e:123",  # right-to-left override
+    "user\u2066:123",  # left-to-right isolate
 ])
 def test_invisible_unicode_format_controls_in_signed_subject_denied(monkeypatch, subject):
     with pytest.raises(HTTPException) as exc:
