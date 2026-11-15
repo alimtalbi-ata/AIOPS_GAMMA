@@ -574,3 +574,26 @@ def test_distinct_source_severities_are_aggregated_but_not_verified():
     assert group["severity"] == "critical"
     assert group["severity_state"] == "UNVERIFIED"
     assert group["conflicting_source_events"] == 0
+
+
+def test_conflicting_duplicate_never_hides_critical_severity():
+    lower = signal("same", severity="info")
+    higher = signal("same", severity="critical")
+    for ordered in ([lower, higher], [higher, lower]):
+        result = correlate(ordered, "tenant-1")
+        group = result["groups"][0]
+        assert group["severity"] == "critical"
+        assert group["severity_state"] == "UNKNOWN"
+        assert group["conflicting_source_events"] == 1
+        assert result["live_remediation_authorized"] is False
+
+
+def test_conflicting_duplicate_across_service_labels_keeps_conservative_severity():
+    original = signal("same", service="checkout", severity="info")
+    conflicting = signal("same", service="payments", severity="critical")
+    forward = correlate([original, conflicting], "tenant-1")
+    reverse = correlate([conflicting, original], "tenant-1")
+    assert forward == reverse
+    assert len(forward["groups"]) == 1
+    assert forward["groups"][0]["severity"] == "critical"
+    assert forward["groups"][0]["severity_state"] == "UNKNOWN"
