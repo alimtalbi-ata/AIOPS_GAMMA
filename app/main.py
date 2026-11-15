@@ -63,6 +63,13 @@ async def metrics(principal: Principal = Depends(internal_principal)):
     raise HTTPException(501, "Tenant-scoped PromQL builder not yet implemented")
 
 
+def alert_duplicate_response(previous: InboxEvent, payload: dict) -> dict:
+    """Idempotent retry is safe only when the deduplication key has identical content."""
+    if previous.payload != payload:
+        raise HTTPException(409, "Alert event identity already exists with different payload")
+    return alert_duplicate_response(previous, payload)
+
+
 @app.post("/api/v1/integrations/opensearch/alerts")
 async def alerts(
     req: AlertPayload, principal: Principal = Depends(internal_principal),
@@ -71,24 +78,25 @@ async def alerts(
     if not settings.enable_alert_ingestion:
         raise HTTPException(503, "Alert ingestion disabled")
     tenant = principal.tenant_id
+    payload = req.model_dump(mode="json")
     previous = await session.scalar(select(InboxEvent).where(
         InboxEvent.tenant_id == tenant,
         InboxEvent.source == req.source,
         InboxEvent.external_event_id == req.external_event_id,
     ))
     if previous:
-        return {"id": str(previous.id), "duplicate": True}
+        return alert_duplicate_response(previous, payload)
     event = InboxEvent(
         tenant_id=tenant, source=req.source,
         external_event_id=req.external_event_id,
-        payload=req.model_dump(mode="json"),
+        payload=payload,
     )
     try:
         session.add(event)
         await session.flush()
         session.add(OutboxEvent(
             tenant_id=tenant, event_type=f"observability.alert.{req.status}",
-            aggregate_id=req.service_name, payload=req.model_dump(mode="json")
+            aggregate_id=req.service_name, payload=payload
         ))
         await session.commit()
         return {"id": str(event.id), "duplicate": False}
@@ -100,7 +108,7 @@ async def alerts(
             InboxEvent.external_event_id == req.external_event_id,
         ))
         if previous:
-            return {"id": str(previous.id), "duplicate": True}
+            return alert_duplicate_response(previous, payload)
         raise
 
 
