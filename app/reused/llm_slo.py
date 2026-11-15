@@ -53,6 +53,7 @@ class LLMSLOPreviewRequest(BaseModel):
         return self
 
     min_window_span_coverage: float = Field(default=0.5, ge=0, le=1, allow_inf_nan=False)
+    max_window_gap_ratio: float = Field(default=1.0, gt=0, le=1, allow_inf_nan=False)
     min_samples: int = Field(default=30, ge=1, le=1000)
     min_latency_coverage: float = Field(default=0.95, gt=0, le=1, allow_inf_nan=False)
     min_success_rate_pct: float = Field(default=99.0, ge=0, le=100, allow_inf_nan=False)
@@ -75,9 +76,15 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
     count = len(observations)
     window_span_coverage = None
     distinct_sample_timestamps = None
+    max_observed_gap_ratio = None
     if request.window_start is not None:
         observed_times = [row.observed_at for row in observations]
         distinct_sample_timestamps = len(set(observed_times))
+        # Include both window edges: endpoint-only samples cannot prove
+        # continuous coverage across a long silent interval.
+        points = [request.window_start, *sorted(set(observed_times)), request.window_end]
+        largest_gap = max(right - left for left, right in zip(points, points[1:]))
+        max_observed_gap_ratio = largest_gap / (request.window_end - request.window_start)
         observed_span = max(observed_times) - min(observed_times)
         window_span_coverage = observed_span / (request.window_end - request.window_start)
         # Temporal spread is only a weak proxy for completeness; the source
@@ -179,6 +186,9 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
     insufficient_reasons = []
     if not sample_ok:
         insufficient_reasons.append("sample_count_below_minimum")
+    if (max_observed_gap_ratio is not None
+            and max_observed_gap_ratio > request.max_window_gap_ratio):
+        insufficient_reasons.append("window_sample_gap_above_maximum")
     if distinct_sample_timestamps is not None and distinct_sample_timestamps < 2:
         insufficient_reasons.append("window_distinct_timestamps_below_minimum")
     if (window_span_coverage is not None
@@ -232,6 +242,8 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
         ),
         "sample_provenance_state": "UNVERIFIED",
         "distinct_sample_timestamps": distinct_sample_timestamps,
+        "max_observed_gap_ratio": max_observed_gap_ratio,
+        "max_window_gap_ratio": request.max_window_gap_ratio if max_observed_gap_ratio is not None else None,
         "window_span_coverage": window_span_coverage,
         "min_window_span_coverage": request.min_window_span_coverage if window_span_coverage is not None else None,
         "checks": {
