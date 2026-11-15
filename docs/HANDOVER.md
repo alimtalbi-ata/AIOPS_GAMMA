@@ -2,6 +2,17 @@
 
 **Snapshot: 2026-11-12.** Read this first when taking over work, after a session interruption, or when changing developer/agent.
 
+## Current checkpoint — 2026-11-16 (latest E2E qualification work)
+
+- PR #1 on `feat/observability-foundation` remains **draft / HOLD / NO_GO**; not merged or deployed.
+- Latest qualification matrix commit: `f59ee659e9ebb2e4a0c75ac2b35dd7e073f0057d`.
+- Added `tests/test_evidence_http_postgres_e2e.py`: signed two-tenant evidence create/read, denied read/write with no persistence, request path binding; later extended to real PostgreSQL HTTP alert ingestion, per-tenant duplicate handling and conflict 409, inbox/outbox atomic writes, and mocked downstream relay delivery.
+- Updated historical `tests/test_resource_list_http_postgres.py` assertions to include explicit signed incident grants (`0dc0e0a`). Fixed asynchronous HTTP/DB test-loop composition (`9c85efc`, `8580ded`) and partial inbox/outbox cleanup scoped to ephemeral tenants (`36520bf`).
+- CI `tenant-evidence-postgres-e2e` provisions a disposable PostgreSQL 16 service and unprivileged role, runs Alembic to revision 0002 and both real PostgreSQL HTTP suites. The regular Python test job excludes opt-in database suites.
+- On exact HEAD `f59ee65`, Python checks run `43776119850` completed failure with all four jobs showing **zero recorded steps**, including the new tenant-E2E job. This is *not* an executed test failure. The deployment workflow also failed; operator must inspect Actions policy/entitlement and pre-run annotations. **Do not claim PostgreSQL E2E passed.**
+- ChatGPT laboratory lacks an available PostgreSQL server and `asyncpg`; no real PostgreSQL runtime execution attested. Independent IdP/gateway issuer and upstream ACL, OpenSearch DLS, retry/concurrency cases, frontend-BFF and production controls remain unqualified. No LIVE remediation or replay auth integration.
+- Next: get a GitHub-hosted runner to start, collect actual steps/logs, run the disposable PG16 suites, then address test failures. Continue with OpenSearch DLS and independent gateway/IdP authorization qualification; retain HOLD pending explicit security approval.
+
 ## Current checkpoint — 2026-11-14 (supersedes historical HEADs below)
 
 - Latest application/config/test HEAD: `5f03e52b473ec364f1bfc3fafa4a87fa43d5b9c6`; PR #1 remains open, draft, not merged.
