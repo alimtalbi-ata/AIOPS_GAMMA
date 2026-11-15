@@ -288,3 +288,28 @@ def test_malformed_signed_service_grants_fail_closed(monkeypatch, grants):
         verify_gateway_assertion(token, method="POST",
             path="/api/v1/observability/metrics/query", now=1030)
     assert exc.value.status_code == 401
+
+
+def test_evidence_incident_grants_default_deny(monkeypatch):
+    principal = verify_gateway_assertion(_token(monkeypatch), method="POST",
+        path="/api/v1/observability/metrics/query", now=1030)
+    assert principal.evidence_incident_grants == ()
+
+
+def test_evidence_incident_grants_preserve_exact_resource_ids(monkeypatch):
+    token = _token(monkeypatch, evidence_incident_grants=["inc-1", "inc-2"])
+    principal = verify_gateway_assertion(token, method="POST",
+        path="/api/v1/observability/metrics/query", now=1030)
+    assert principal.evidence_incident_grants == ("inc-1", "inc-2")
+
+
+@pytest.mark.parametrize("grants", [
+    "*", ["inc-1", "inc-1"], [" inc-1"], [""], [123],
+    [None], ["x" * 256], list(range(65)), ["inc-1\\nspoof"],
+])
+def test_malformed_evidence_incident_grants_fail_closed(monkeypatch, grants):
+    token = _token(monkeypatch, evidence_incident_grants=grants)
+    with pytest.raises(HTTPException) as exc:
+        verify_gateway_assertion(token, method="POST",
+            path="/api/v1/observability/metrics/query", now=1030)
+    assert exc.value.status_code == 401
