@@ -167,3 +167,26 @@ def test_mutated_slo_threshold_is_revalidated_before_computation():
     req.max_latency_p95_ms = float("nan")
     with pytest.raises(ValidationError):
         evaluate_llm_slo_preview(req, tenant)
+
+
+def test_configured_coverage_threshold_cannot_certify_biased_partial_p95():
+    tenant = uuid4()
+    observations = [{"status": "ok", "latency_ms": 100} for _ in range(19)]
+    observations.append({"status": "ok"})
+    req = make_request(tenant, observations, min_latency_coverage=0.90)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["checks"]["latency_coverage"]["passed"] is True
+    assert result["latency_complete"] is False
+    assert result["state"] == "INSUFFICIENT_DATA"
+    assert result["observed_breaches"] == []
+
+
+def test_complete_latency_samples_can_pass_when_configured_coverage_is_lower():
+    tenant = uuid4()
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 100},
+        {"status": "ok", "latency_ms": 150},
+    ], min_latency_coverage=0.5)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["latency_complete"] is True
+    assert result["state"] == "PASS_PREVIEW"
