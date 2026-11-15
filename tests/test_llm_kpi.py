@@ -229,7 +229,7 @@ def test_extreme_finite_latency_percentiles_remain_finite():
 
 
 @pytest.mark.parametrize("invalid_status", [
-    "ok\\n", "error\\n", "degraded\\n", "OK", "ok ", "unknown", "",
+    "ok\n", "error\n", "degraded\n", "OK", "ok ", "unknown", "",
 ])
 def test_llm_observation_status_requires_exact_enum(invalid_status):
     tenant = uuid4()
