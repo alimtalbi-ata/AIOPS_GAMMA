@@ -182,3 +182,34 @@ def test_complete_zero_token_usage_is_known_zero():
     assert result["total_output_tokens"] == 0
     assert result["input_token_coverage"] == 1
     assert result["output_token_coverage"] == 1
+
+
+def test_kpi_mean_of_extreme_finite_throughput_remains_finite():
+    tenant = uuid4()
+    req = request(tenant, observations=[
+        {"status": "ok", "latency_ms": 100, "tps": 1e308},
+        {"status": "ok", "latency_ms": 120, "tps": 1e308},
+    ])
+    result = calculate_llm_kpis(req, tenant)
+    assert result["mean_tps"] == 1e308
+
+
+def test_kpi_total_cost_overflow_fails_closed():
+    tenant = uuid4()
+    req = request(tenant, observations=[
+        {"status": "ok", "latency_ms": 100, "estimated_cost_usd": 1e308},
+        {"status": "ok", "latency_ms": 120, "estimated_cost_usd": 1e308},
+    ])
+    with pytest.raises(ValueError, match="aggregate overflow"):
+        calculate_llm_kpis(req, tenant)
+
+
+def test_kpi_mean_cost_does_not_masquerade_as_partial_total():
+    tenant = uuid4()
+    req = request(tenant, observations=[
+        {"status": "ok", "latency_ms": 100, "estimated_cost_usd": 0.01},
+        {"status": "ok", "latency_ms": 120},
+    ])
+    result = calculate_llm_kpis(req, tenant)
+    assert result["estimated_cost_usd"] is None
+    assert result["cost_coverage"] == 0.5
