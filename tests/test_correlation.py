@@ -597,3 +597,25 @@ def test_conflicting_duplicate_across_service_labels_keeps_conservative_severity
     assert len(forward["groups"]) == 1
     assert forward["groups"][0]["severity"] == "critical"
     assert forward["groups"][0]["severity_state"] == "UNKNOWN"
+
+
+def test_conflicting_duplicate_never_hides_reported_firing():
+    firing = signal("same", status="firing")
+    resolved = signal("same", status="resolved")
+    for ordered in ([firing, resolved], [resolved, firing]):
+        result = correlate(ordered, "tenant-1")
+        group = result["groups"][0]
+        assert group["status"] == "firing"
+        assert group["resolution_state"] == "UNKNOWN"
+        assert group["conflicting_source_events"] == 1
+        assert result["live_remediation_authorized"] is False
+
+
+def test_only_resolved_versions_keep_resolved_display():
+    first = signal("same", status="resolved", severity="minor")
+    second = signal("same", status="resolved", severity="critical")
+    result = correlate([first, second], "tenant-1")
+    group = result["groups"][0]
+    assert group["status"] == "resolved"
+    assert group["resolution_state"] == "UNKNOWN"
+    assert group["severity"] == "critical"
