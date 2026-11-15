@@ -79,6 +79,33 @@ def validate_opensearch_transport() -> None:
         raise ValueError("OpenSearch TLS certificate verification is required")
 
 
+def validate_log_search_response(result: dict, tenant_id: str, service_name: str, limit: int) -> dict:
+    """Never return a cross-tenant or cross-service document from an upstream read."""
+    if not isinstance(result, dict):
+        raise ValueError("Invalid OpenSearch response")
+    hits_container = result.get("hits")
+    if not isinstance(hits_container, dict) or not isinstance(hits_container.get("hits"), list):
+        raise ValueError("Invalid OpenSearch response")
+    hits = hits_container["hits"]
+    if len(hits) > limit:
+        raise ValueError("OpenSearch returned more hits than requested")
+    for hit in hits:
+        if not isinstance(hit, dict) or not isinstance(hit.get("_source"), dict):
+            raise ValueError("OpenSearch hit missing source")
+        source = hit["_source"]
+        tenant = source.get("tenant")
+        resource = source.get("resource")
+        attrs = resource.get("attributes") if isinstance(resource, dict) else None
+        if (
+            not isinstance(tenant, dict)
+            or tenant.get("id") != tenant_id
+            or not isinstance(attrs, dict)
+            or attrs.get("service.name") != service_name
+        ):
+            raise ValueError("OpenSearch hit violates tenant or service scope")
+    return result
+
+
 async def search_logs(tenant_id: str, req: LogSearchRequest) -> dict:
     # Validate tenant and build the bounded query before opening any client.
     query = make_log_query(tenant_id, req)
@@ -97,10 +124,11 @@ async def search_logs(tenant_id: str, req: LogSearchRequest) -> dict:
         ca_certs=settings.opensearch_ca_certs,
     )
     try:
-        return await client.search(
+        result = await client.search(
             index=settings.opensearch_logs_index,
             body=query,
             request_timeout=10,
         )
+        return validate_log_search_response(result, tenant_id, req.service_name, req.limit)
     finally:
         await client.close()
