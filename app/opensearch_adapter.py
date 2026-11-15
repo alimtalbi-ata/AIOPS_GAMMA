@@ -79,7 +79,7 @@ def validate_opensearch_transport() -> None:
         raise ValueError("OpenSearch TLS certificate verification is required")
 
 
-def validate_log_search_response(result: dict, tenant_id: str, service_name: str, limit: int, window=None) -> dict:
+def validate_log_search_response(result: dict, tenant_id: str, service_name: str, limit: int, window=None, severity=None) -> dict:
     """Never return a cross-tenant or cross-service document from an upstream read."""
     if not isinstance(result, dict):
         raise ValueError("Invalid OpenSearch response")
@@ -103,6 +103,9 @@ def validate_log_search_response(result: dict, tenant_id: str, service_name: str
             or attrs.get("service.name") != service_name
         ):
             raise ValueError("OpenSearch hit violates tenant or service scope")
+        if severity:
+            if source.get("severityText") not in severity:
+                raise ValueError("OpenSearch hit violates requested severity")
         if window is not None:
             timestamp = source.get("@timestamp")
             if not isinstance(timestamp, str):
@@ -143,6 +146,6 @@ async def search_logs(tenant_id: str, req: LogSearchRequest) -> dict:
             body=query,
             request_timeout=10,
         )
-        return validate_log_search_response(result, tenant_id, validated_req.service_name, validated_req.limit, validated_req.window)
+        return validate_log_search_response(result, tenant_id, validated_req.service_name, validated_req.limit, validated_req.window, validated_req.severity)
     finally:
         await client.close()
