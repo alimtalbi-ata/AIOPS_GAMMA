@@ -70,11 +70,13 @@ def database(monkeypatch):
                 if await conn.scalar(text(f"select count(*) from {table}")) != 0:
                     pytest.fail(f"Disposable table {table} must be empty before testing")
     async def clean():
-        async with factory() as session:
+        try:
             if written_ids:
-                await session.execute(delete(Evidence).where(Evidence.id.in_([UUID(row_id) for row_id in written_ids])))
-                await session.commit()
-        await engine.dispose()
+                async with factory() as session:
+                    await session.execute(delete(Evidence).where(Evidence.id.in_([UUID(row_id) for row_id in written_ids])))
+                    await session.commit()
+        finally:
+            await engine.dispose()
     monkeypatch.setattr(settings, "internal_api_key", "ci-service-key")
     monkeypatch.setattr(settings, "gateway_assertion_secret", "g" * 48)
     monkeypatch.setattr(settings, "gateway_assertion_issuer", "ci-independent-issuer")
