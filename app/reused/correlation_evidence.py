@@ -1,7 +1,7 @@
 """Read-only correlation/evidence join. Never infers canonical incident identity."""
 from pydantic import BaseModel, Field
 from app.reused.correlation import CorrelationPreview, correlate
-from app.reused.evidence import EvidenceInput, normalize
+from app.reused.evidence import EvidenceInput, normalize, _require_string_json_keys
 from datetime import datetime, timezone
 
 
@@ -25,6 +25,13 @@ def preview(request: CorrelationEvidencePreview, tenant_id: str, *, now: datetim
         raise ValueError("now requires timezone")
     # Nested Pydantic inputs may be mutated after construction. Revalidate
     # evidence timestamps, payload bounds and correlation signals at the gate.
+    # Guard mutated nested evidence before Pydantic serialization: a cyclic or
+    # excessively deep payload must fail with a bounded validation error.
+    for item in request.evidence:
+        if not isinstance(item, EvidenceInput):
+            raise ValueError("Invalid correlation evidence item")
+        _require_string_json_keys(item.payload)
+        _require_string_json_keys(item.provenance)
     request = CorrelationEvidencePreview.model_validate(request.model_dump())
     if any(e.tenant_id != tenant_id for e in request.evidence):
         raise PermissionError("Cross-tenant evidence rejected")
