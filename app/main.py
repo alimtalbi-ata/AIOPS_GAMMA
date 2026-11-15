@@ -298,8 +298,12 @@ from app.reused.llm_kpi import LLMKPIRequest, calculate_llm_kpis
 
 @app.post("/api/v1/observability/llm/kpis/preview")
 async def llm_kpi_preview(
-    req: LLMKPIRequest, principal: Principal = Depends(internal_principal),
+    req: LLMKPIRequest, response: Response,
+    principal: Principal = Depends(internal_principal),
 ):
+    # Per-tenant model telemetry and costs must never be cached by shared
+    # proxies or browsers, even when the samples are caller-supplied.
+    response.headers["Cache-Control"] = "no-store"
     try:
         return calculate_llm_kpis(req, principal.tenant_id)
     except ValueError as exc:
