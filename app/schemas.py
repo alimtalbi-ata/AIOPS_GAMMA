@@ -38,7 +38,16 @@ class AlertPayload(BaseModel):
     severity: Literal["critical", "major", "minor", "warning", "info"]
     status: Literal["firing", "resolved"]
     observed_at: datetime
-    evidence_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[Annotated[str, Field(min_length=1, max_length=512)]] = Field(
+        default_factory=list, max_length=50
+    )
+
+    @field_validator("observed_at")
+    @classmethod
+    def aware_alert_timestamp(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("alert observed_at requires a valid UTC offset")
+        return value
 
 
 class BindingIn(BaseModel):
