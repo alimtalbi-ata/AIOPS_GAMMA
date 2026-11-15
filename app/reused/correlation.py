@@ -90,10 +90,14 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
     # Protect direct callers against mutations after Pydantic construction.
     signals = [CorrelationSignal.model_validate(signal.model_dump()) for signal in signals]
     seen: dict[tuple[str, str], CorrelationSignal] = {}
+    highest_severity_by_identity: dict[tuple[str, str], str] = {}
     conflicting_identities: set[tuple[str, str]] = set()
     duplicates = 0
     for signal in signals:
         identity = (signal.source, signal.external_event_id)
+        previous_severity = highest_severity_by_identity.get(identity)
+        if previous_severity is None or _SEVERITY[signal.severity] > _SEVERITY[previous_severity]:
+            highest_severity_by_identity[identity] = signal.severity
         if identity in seen:
             duplicates += 1
             if seen[identity] != signal:
@@ -139,8 +143,12 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
             latest_group_by_key[key] = matching
         matching["_last"] = timestamp
         matching["last_observed_at"] = timestamp.isoformat()
-        if _SEVERITY[signal.severity] > _SEVERITY[matching["severity"]]:
-            matching["severity"] = signal.severity
+        # A duplicate may have a higher severity than the deterministic
+        # representative. Never understate the observed maximum, while
+        # keeping severity_state UNKNOWN for conflicting source identities.
+        observed_severity = highest_severity_by_identity[(signal.source, signal.external_event_id)]
+        if _SEVERITY[observed_severity] > _SEVERITY[matching["severity"]]:
+            matching["severity"] = observed_severity
         if signal.status == "firing":
             matching["status"] = "firing"
         matching["source_events"].append({
