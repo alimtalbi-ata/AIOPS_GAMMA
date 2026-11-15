@@ -427,7 +427,7 @@ def test_invalid_cost_budget_rejected(invalid):
 
 
 @pytest.mark.parametrize("field", ["tps", "estimated_cost_usd"])
-def test_finite_individual_measurements_cannot_overflow_slo_aggregates(field):
+def test_extreme_finite_measurements_keep_finite_mean_without_intermediate_overflow(field):
     tenant = uuid4()
     observations = [
         {"status": "ok", "latency_ms": 100, field: 1e308},
@@ -438,8 +438,10 @@ def test_finite_individual_measurements_cannot_overflow_slo_aggregates(field):
         else {"max_mean_cost_usd": 0.02}
     )
     req = make_request(tenant, observations, **options)
-    with pytest.raises(ValueError, match="aggregation overflow"):
-        evaluate_llm_slo_preview(req, tenant)
+    result = evaluate_llm_slo_preview(req, tenant)
+    metric = "mean_tps" if field == "tps" else "mean_cost_usd"
+    assert result["checks"][metric]["value"] == 1e308
+    assert result["state"] == ("PASS_PREVIEW" if field == "tps" else "BREACH_PREVIEW")
 
 
 def test_extreme_finite_p95_does_not_overflow_slo_response():
