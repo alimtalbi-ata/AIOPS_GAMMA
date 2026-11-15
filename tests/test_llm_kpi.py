@@ -226,3 +226,25 @@ def test_extreme_finite_latency_percentiles_remain_finite():
     assert result["latency_p95_ms"] == 1e308
     assert result["latency_p99_ms"] == 1e308
     assert result["ttft_p95_ms"] == 1e308
+
+
+@pytest.mark.parametrize("invalid_status", [
+    "ok\\n", "error\\n", "degraded\\n", "OK", "ok ", "unknown", "",
+])
+def test_llm_observation_status_requires_exact_enum(invalid_status):
+    tenant = uuid4()
+    with pytest.raises(ValidationError):
+        request(tenant, observations=[{"status": invalid_status, "latency_ms": 100}])
+
+
+def test_llm_status_counts_cover_all_samples_exactly():
+    tenant = uuid4()
+    req = request(tenant, observations=[
+        {"status": "ok", "latency_ms": 100},
+        {"status": "error", "latency_ms": 120},
+        {"status": "degraded", "latency_ms": 140},
+    ])
+    result = calculate_llm_kpis(req, tenant)
+    assert result["success_rate_pct"] == pytest.approx(100 / 3, abs=0.001)
+    assert result["error_rate_pct"] == pytest.approx(100 / 3, abs=0.001)
+    assert result["degraded_rate_pct"] == pytest.approx(100 / 3, abs=0.001)
