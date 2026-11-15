@@ -163,3 +163,17 @@ def test_signed_incident_grant_is_bound_to_http_method_and_path(
         })
     assert response.status_code == 401, response.text
     assert calls == []
+
+
+@pytest.mark.parametrize("incident_id", ["*", "inc\u200bname", "cafe\u0301", "inc\u0085name"])
+def test_invalid_incident_id_rejected_before_db_access(client, incident_id):
+    from urllib.parse import quote
+
+    test_client, calls = client
+    path = "/api/v1/incidents/" + quote(incident_id, safe="") + "/evidence"
+    response = test_client.get(path, headers={
+        "X-Internal-API-Key": "service-secret",
+        "X-Gateway-Principal": _token("GET", path, []),
+    })
+    assert response.status_code == 422, response.text
+    assert calls == []
