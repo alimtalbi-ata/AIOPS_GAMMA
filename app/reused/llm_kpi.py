@@ -46,8 +46,10 @@ class LLMKPIRequest(BaseModel):
     tenant_id: UUID
     model_id: str = Field(min_length=1, max_length=128)
     observations: list[LLMObservation] = Field(min_length=1, max_length=1000)
-    sentinel_anomalies_total: int | None = Field(default=None, ge=0)
-    sentinel_events_processed_total: int | None = Field(default=None, ge=0)
+    # Signed 64-bit counters are interoperable with PostgreSQL BIGINT and
+    # common telemetry exporters; reject unbounded integers at the API edge.
+    sentinel_anomalies_total: int | None = Field(default=None, ge=0, le=9223372036854775807, strict=True)
+    sentinel_events_processed_total: int | None = Field(default=None, ge=0, le=9223372036854775807, strict=True)
 
     @field_validator("model_id")
     @classmethod
