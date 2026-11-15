@@ -88,3 +88,25 @@ def test_denied_evidence_resource_never_queries_db(client, method, grants):
     assert response.status_code == 403, response.text
     assert response.headers["cache-control"] == "no-store"
     assert calls == []
+
+
+@pytest.mark.parametrize("method", ["GET", "POST"])
+def test_matching_signed_incident_grant_reaches_database_boundary(client, method):
+    test_client, calls = client
+    path = "/api/v1/incidents/inc-1/evidence"
+    headers = {
+        "X-Internal-API-Key": "service-secret",
+        "X-Gateway-Principal": _token(method, path, ["inc-1"]),
+    }
+    with pytest.raises(AssertionError, match="Evidence (read|write) must not be reached"):
+        if method == "GET":
+            test_client.get(path, headers=headers)
+        else:
+            test_client.post(path, headers=headers, json={
+                "investigation_id": str(uuid4()),
+                "source_type": "logs",
+                "source_ref": "otel:trace-1",
+                "summary": "Synthetic evidence",
+                "observed_at": "2026-11-15T12:00:00Z",
+            })
+    assert calls == (["scalars"] if method == "GET" else ["add"])
