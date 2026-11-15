@@ -40,3 +40,12 @@ def test_naive_alert_timestamp_rejected():
 
 def test_aware_alert_timestamp_accepted():
     assert alert().observed_at.utcoffset() is not None
+
+
+@pytest.mark.parametrize("refs", [
+    [" leading"], ["trailing "], ["line\nfeed"], ["null\x00byte"],
+    ["delete\x7fchar"],
+])
+def test_noncanonical_alert_evidence_references_rejected(refs):
+    with pytest.raises(ValidationError):
+        alert(evidence_refs=refs)
