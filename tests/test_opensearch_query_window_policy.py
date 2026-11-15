@@ -35,3 +35,34 @@ async def test_excessive_window_rejected_before_opening_opensearch_client(monkey
     monkeypatch.setattr(settings, "max_query_hours", 24)
     with pytest.raises(ValueError, match="window exceeds policy"):
         await search_logs(str(uuid4()), query(25))
+
+
+@pytest.mark.parametrize("invalid_policy", [0, -1])
+def test_invalid_configured_window_policy_fails_closed(monkeypatch, invalid_policy):
+    monkeypatch.setattr(settings, "max_query_hours", invalid_policy)
+    with pytest.raises(ValueError, match="policy must be positive"):
+        make_log_query(str(uuid4()), query(1))
+
+
+def test_mutated_time_window_cannot_bypass_adapter_validation(monkeypatch):
+    monkeypatch.setattr(settings, "max_query_hours", 24)
+    req = query(1)
+    req.window.end = req.window.start
+    with pytest.raises(ValueError, match="increasing timestamps"):
+        make_log_query(str(uuid4()), req)
+
+
+def test_mutated_query_limit_cannot_bypass_adapter_validation(monkeypatch):
+    monkeypatch.setattr(settings, "max_query_hours", 24)
+    req = query(1)
+    req.limit = 1000000
+    with pytest.raises(ValueError):
+        make_log_query(str(uuid4()), req)
+
+
+def test_mutated_service_name_cannot_bypass_adapter_validation(monkeypatch):
+    monkeypatch.setattr(settings, "max_query_hours", 24)
+    req = query(1)
+    req.service_name = "*"
+    with pytest.raises(ValueError):
+        make_log_query(str(uuid4()), req)
