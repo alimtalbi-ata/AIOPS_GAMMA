@@ -120,29 +120,64 @@ def test_p95_threshold_uses_unrounded_measurement():
     assert result["checks"]["latency_p95_ms"]["value"] > 100.0003
 
 
-def test_slo_route_requires_auth_and_prevents_caching(monkeypatch):
+def test_slo_route_requires_signed_gateway_principal_and_prevents_caching(monkeypatch):
+    import base64
+    import hashlib
+    import hmac
+    import json
+    import time
+
     from fastapi.testclient import TestClient
     from app.main import app
     from app.settings import settings
 
     monkeypatch.setattr(settings, "internal_api_key", "test-secret")
+    monkeypatch.setattr(settings, "gateway_assertion_secret", "s" * 48)
+    monkeypatch.setattr(settings, "gateway_assertion_issuer", "trusted-gateway")
+    monkeypatch.setattr(settings, "gateway_assertion_audience", "gamma-api")
+    monkeypatch.setattr(settings, "gateway_assertion_max_ttl_seconds", 60)
     tenant = uuid4()
     req = make_request(tenant, [
         {"status": "ok", "latency_ms": 100},
         {"status": "ok", "latency_ms": 150},
     ])
     path = "/api/v1/observability/llm/slo/preview"
+    issued = int(time.time())
+    claims = {
+        "iss": "trusted-gateway", "aud": "gamma-api",
+        "sub": "user:123", "actor_type": "user",
+        "tenant_id": str(tenant), "tenant_access": True,
+        "iat": issued, "exp": issued + 30, "jti": "slo-test-assertion",
+        "method": "POST", "path": path,
+    }
+    def b64(raw):
+        return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
+    encoded = b64(json.dumps(claims, separators=(",", ":")).encode())
+    signature = b64(hmac.new(b"s" * 48, encoded.encode(), hashlib.sha256).digest())
+    headers = {
+        "X-Internal-Api-Key": "test-secret",
+        "X-Gateway-Principal": encoded + "." + signature,
+    }
     with TestClient(app) as client:
         denied = client.post(path, json=req.model_dump(mode="json"))
-        allowed = client.post(
+        unsigned = client.post(
             path, json=req.model_dump(mode="json"),
             headers={"X-Internal-Api-Key": "test-secret",
                      "X-Tenant-Id": str(tenant)},
         )
+        allowed = client.post(path, json=req.model_dump(mode="json"), headers=headers)
+        forged = client.post(
+            path, json=req.model_dump(mode="json"),
+            headers={**headers, "X-Tenant-Id": str(uuid4())},
+        )
     assert denied.status_code == 401
+    assert unsigned.status_code == 401
     assert allowed.status_code == 200
     assert allowed.headers["cache-control"] == "no-store"
     assert allowed.json()["state"] == "PASS_PREVIEW"
+    # X-Tenant-ID cannot override the signed tenant identity.
+    assert forged.status_code == 200
+    assert forged.json()["tenant_id"] == str(tenant)
 
 
 @pytest.mark.parametrize("field,value", [
