@@ -1012,6 +1012,7 @@ def test_quarter_error_rate_threshold_rejects_invalid_values(invalid):
     {"min_occupied_quarters": 2},
     {"max_window_gap_ratio": 0.5},
     {"min_window_span_coverage": 0.8},
+    {"min_quarter_samples": 2},
 ])
 def test_window_specific_threshold_requires_declared_window(threshold):
     with pytest.raises(ValidationError, match="require a declared window"):
