@@ -213,3 +213,29 @@ def test_duplicate_security_headers_rejected_before_db(client, method, header_na
         })
     assert response.status_code == 401, response.text
     assert calls == []
+
+
+@pytest.mark.parametrize("method", ["GET", "POST"])
+def test_nfc_incident_grant_reaches_database_boundary(client, method):
+    from urllib.parse import quote
+
+    test_client, calls = client
+    incident_id = "caf\u00e9"
+    decoded_path = "/api/v1/incidents/" + incident_id + "/evidence"
+    encoded_path = "/api/v1/incidents/" + quote(incident_id, safe="") + "/evidence"
+    headers = {
+        "X-Internal-API-Key": "service-secret",
+        "X-Gateway-Principal": _token(method, decoded_path, [incident_id]),
+    }
+    with pytest.raises(AssertionError, match="Evidence (read|write) must not be reached"):
+        if method == "GET":
+            test_client.get(encoded_path, headers=headers)
+        else:
+            test_client.post(encoded_path, headers=headers, json={
+                "investigation_id": str(uuid4()),
+                "source_type": "logs",
+                "source_ref": "otel:trace-1",
+                "summary": "Synthetic evidence",
+                "observed_at": "2026-11-15T12:00:00Z",
+            })
+    assert calls == (["scalars"] if method == "GET" else ["add"])
