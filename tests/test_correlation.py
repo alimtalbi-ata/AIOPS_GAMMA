@@ -533,3 +533,20 @@ def test_conflicting_duplicate_status_forces_unknown_resolution():
     result = correlate(events, "tenant-1")
     assert result["conflicting_source_events"] == 1
     assert result["groups"][0]["resolution_state"] == "UNKNOWN"
+
+
+def test_large_overlapping_evidence_references_are_unique_sorted_and_private():
+    events = [
+        signal(str(i)).model_copy(update={
+            "evidence_refs": [f"trace-{j:02d}" for j in range(i % 10, i % 10 + 30)]
+        })
+        for i in range(500)
+    ]
+    result = correlate(events, "tenant-1")
+    group = result["groups"][0]
+    expected = sorted({ref for event in events for ref in event.evidence_refs})
+    assert group["event_count"] == 500
+    assert group["evidence_refs"] == expected
+    assert len(group["evidence_refs"]) == len(set(group["evidence_refs"]))
+    assert "_evidence_ref_set" not in group
+    assert result["live_remediation_authorized"] is False
