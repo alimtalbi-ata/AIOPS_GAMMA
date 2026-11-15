@@ -5,6 +5,7 @@ authenticated, time-windowed, or independently verified.
 """
 from __future__ import annotations
 
+import math
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -35,10 +36,14 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
     sample_ok = count >= request.min_samples
     coverage_ok = len(measured) / count >= request.min_latency_coverage
     success_ok = 100 * success / count >= request.min_success_rate_pct
-    latency_ok = (
-        kpis["latency_p95_ms"] is not None
-        and kpis["latency_p95_ms"] <= request.max_latency_p95_ms
-    )
+    ordered = sorted(measured)
+    if ordered:
+        rank = (len(ordered) - 1) * 0.95
+        lower, upper = math.floor(rank), math.ceil(rank)
+        raw_p95 = ordered[lower] + (ordered[upper] - ordered[lower]) * (rank - lower)
+    else:
+        raw_p95 = None
+    latency_ok = raw_p95 is not None and raw_p95 <= request.max_latency_p95_ms
     # A threshold breach can be shown as advisory even with incomplete
     # telemetry; a passing SLO requires adequate sample and metric coverage.
     if not sample_ok or not coverage_ok:
@@ -64,7 +69,7 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
                 "passed": success_ok,
             },
             "latency_p95_ms": {
-                "value": kpis["latency_p95_ms"],
+                "value": raw_p95,
                 "maximum": request.max_latency_p95_ms,
                 "passed": latency_ok,
             },
