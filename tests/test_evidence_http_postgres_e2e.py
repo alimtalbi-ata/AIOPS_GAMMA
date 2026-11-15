@@ -12,12 +12,13 @@ import os
 import time
 from datetime import datetime, timezone
 from ipaddress import ip_address
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, func, select, text
 from sqlalchemy.engine import make_url
+from sqlalchemy.exc import ArgumentError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -36,7 +37,7 @@ def _disposable_database_url():
     try:
         url = make_url(raw)
         _ = url.port
-    except (ValueError, TypeError) as exc:
+    except (ArgumentError, ValueError, TypeError) as exc:
         pytest.fail(f"Malformed database URL: {type(exc).__name__}")
     if (url.drivername != "postgresql+asyncpg" or url.query
             or url.host not in ("127.0.0.1", "localhost", "::1")
@@ -71,7 +72,7 @@ def database(monkeypatch):
     async def clean():
         async with factory() as session:
             if written_ids:
-                await session.execute(delete(Evidence).where(Evidence.id.in_(written_ids)))
+                await session.execute(delete(Evidence).where(Evidence.id.in_([UUID(row_id) for row_id in written_ids])))
                 await session.commit()
         await engine.dispose()
     monkeypatch.setattr(settings, "internal_api_key", "ci-service-key")
