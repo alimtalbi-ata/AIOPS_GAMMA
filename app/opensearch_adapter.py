@@ -108,7 +108,9 @@ def validate_log_search_response(result: dict, tenant_id: str, service_name: str
 
 async def search_logs(tenant_id: str, req: LogSearchRequest) -> dict:
     # Validate tenant and build the bounded query before opening any client.
-    query = make_log_query(tenant_id, req)
+    # Snapshot and revalidate once: query and response checks must use identical filters.
+    validated_req = LogSearchRequest.model_validate(req.model_dump())
+    query = make_log_query(tenant_id, validated_req)
     validate_opensearch_transport()
     # Lazy import allows local unit tests without connecting to OpenSearch.
     from opensearchpy import AsyncOpenSearch
@@ -129,6 +131,6 @@ async def search_logs(tenant_id: str, req: LogSearchRequest) -> dict:
             body=query,
             request_timeout=10,
         )
-        return validate_log_search_response(result, tenant_id, req.service_name, req.limit)
+        return validate_log_search_response(result, tenant_id, validated_req.service_name, validated_req.limit)
     finally:
         await client.close()
