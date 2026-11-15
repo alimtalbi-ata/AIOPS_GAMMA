@@ -123,6 +123,11 @@ def internal_principal(
     x_internal_api_key: str | None = Header(default=None),
     x_gateway_principal: str | None = Header(default=None),
 ) -> Principal:
+    # Reject ambiguous duplicate security headers before trusting FastAPI's
+    # single Header value. Proxies and ASGI servers can disagree on which wins.
+    for name in ("x-internal-api-key", "x-gateway-principal", "x-tenant-id", "x-actor-id"):
+        if len(request.headers.getlist(name)) > 1:
+            raise HTTPException(status_code=401, detail="Ambiguous identity headers")
     # The service key authenticates the calling workload only. It does NOT
     # authorize a tenant and cannot be used with a caller-selected X-Tenant-ID.
     if not settings.internal_api_key:
