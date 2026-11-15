@@ -662,3 +662,8 @@ def test_join_rejects_mutated_nonlist_evidence_collection(invalid_collection):
     req.evidence = invalid_collection
     with pytest.raises(ValueError, match="evidence collection"):
         preview(req, TENANT, now=NOW)
+
+
+def test_join_bounds_direct_tenant_identity_length():
+    with pytest.raises(ValueError, match="request or tenant"):
+        preview(request(), "t" * 129, now=NOW)
