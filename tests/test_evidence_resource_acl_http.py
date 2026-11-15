@@ -532,5 +532,18 @@ def test_e2e_two_tenants_same_incident_never_cross_read(client):
         })
         assert denied.status_code == 403
         assert denied.headers["cache-control"] == "no-store"
+        before = len(evidence)
+        rejected_write = test_client.post(path, headers={
+            "X-Internal-API-Key": "service-secret",
+            "X-Gateway-Principal": _token("POST", path, [], tenant_b),
+        }, json={
+            "investigation_id": str(uuid4()),
+            "source_type": "logs",
+            "source_ref": "forbidden-cross-tenant",
+            "observed_at": "2026-11-15T12:00:00Z",
+        })
+        assert rejected_write.status_code == 403
+        assert rejected_write.headers["cache-control"] == "no-store"
+        assert len(evidence) == before
     finally:
         app.dependency_overrides.pop(get_session, None)
