@@ -411,3 +411,20 @@ def test_direct_correlation_bounds_tenant_identity_length():
     assert len(correlate([signal("a")], "t" * 128)["groups"]) == 1
     with pytest.raises(ValueError, match="tenant identity"):
         correlate([signal("a")], "t" * 129)
+
+
+def test_timestamp_with_tzinfo_but_no_utc_offset_is_rejected():
+    from datetime import tzinfo
+
+    class UndefinedOffset(tzinfo):
+        def utcoffset(self, dt):
+            return None
+
+        def dst(self, dt):
+            return None
+
+        def tzname(self, dt):
+            return "undefined"
+
+    with pytest.raises(ValidationError, match="valid UTC offset"):
+        signal("a", at=datetime(2026, 11, 9, 10, 0, tzinfo=UndefinedOffset()))
