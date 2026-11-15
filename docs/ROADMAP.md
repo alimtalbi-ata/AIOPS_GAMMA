@@ -19,6 +19,20 @@
 **Règles de pilotage :** chaque issue livre tests positifs/négatifs, contrat API, propriétaire amont, preuve CI et décision GO/NO_GO. Aucune promesse de date sans estimation et responsable. Bloqueurs P0/P1 non résolus : **HOLD / NO_GO**, pas de merge, déploiement, données tenant réelles, écriture ITSM ou remédiation LIVE.
 
 
+### P0 — Procédure de déblocage CI et preuves exigées (2026-11-15)
+
+**Observation reproductible sur HEAD `7f098626b278d03ab6d174dfe18b158aeac8a2d3` :** [run 43729820161](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43729820161), jobs `test` (132859580796), `frontend` (132859581135) et `gateway-replay-postgres` (132859581352) : `conclusion=failure`, `runner_id=0`, `steps=[]`. La récupération des logs du job Python retourne 404 (blob absent). Aucun de ces jobs n'a prouvé un échec de pytest, du frontend ou de PostgreSQL. Cause d'infrastructure ou de politique **inconnue**.
+
+**Diagnostic à mener par l'administrateur GitHub, sans désactiver les protections :**
+1. Examiner la bannière d'erreur de l'exécution et les paramètres Actions du dépôt/compte ; consigner le message exact dans #8.
+2. Vérifier facturation/limites, politiques Actions et autorisation des runners hébergés, sans présumer du responsable.
+3. Vérifier un job minimal sur `ubuntu-latest` dans un contexte autorisé ; conserver le run et son premier log.
+4. Après déblocage, relancer la CI sur le **SHA exact** de la PR, puis les checks de contrat de déploiement.
+5. Exiger : `python -m pytest -q`, `npm run build`, replay PostgreSQL et validations Compose/Helm selon le contrat. Un résultat historique ou local ne remplace pas la CI du SHA courant.
+6. Si un test applicatif échoue **après** attribution d'un runner, créer un défaut ciblé avec stack trace et reproducer avant correction.
+
+**Politique :** tant que la CI ne démarre pas, aucune conclusion « tests passés », aucun merge, déploiement, accès tenant réel ni LIVE.
+
 Tracking: GitHub Issues in this repository. Every workstream requires acceptance tests, an explicit upstream owner, and a reviewable PR. **No dates or owners are promised until assigned.**
 
 | Stage | Outcome | Dependencies | Exit criteria |
