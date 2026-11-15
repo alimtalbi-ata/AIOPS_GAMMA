@@ -52,7 +52,10 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
     if raw_p95 is not None and not latency_ok:
         observed_breaches.append("latency_p95_ms")
     # A passing SLO requires adequate sample and metric coverage.
-    if not sample_ok or not coverage_ok:
+    # The selected sample may be biased when latency is missing. Even if the
+    # configured coverage minimum is met, a partial p95 cannot certify a pass.
+    latency_complete = len(measured) == count
+    if not sample_ok or not coverage_ok or not latency_complete:
         state = "INSUFFICIENT_DATA"
     elif success_ok and latency_ok:
         state = "PASS_PREVIEW"
@@ -63,6 +66,7 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
         "model_id": request.kpis.model_id,
         "state": state,
         "observed_breaches": observed_breaches,
+        "latency_complete": latency_complete,
         "checks": {
             "sample_count": {"value": count, "minimum": request.min_samples, "passed": sample_ok},
             "latency_coverage": {
