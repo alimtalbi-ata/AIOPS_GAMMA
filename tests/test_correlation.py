@@ -428,3 +428,30 @@ def test_timestamp_with_tzinfo_but_no_utc_offset_is_rejected():
 
     with pytest.raises(ValidationError, match="valid UTC offset"):
         signal("a", at=datetime(2026, 11, 9, 10, 0, tzinfo=UndefinedOffset()))
+
+
+def test_correlation_window_is_anchored_not_extended_by_event_chain():
+    # Every adjacent pair is within 5 minutes, but the full chain is not.
+    events = [
+        signal("chain-a", at=NOW),
+        signal("chain-b", at=NOW + timedelta(seconds=250)),
+        signal("chain-c", at=NOW + timedelta(seconds=500)),
+    ]
+    result = correlate(events, "tenant-1", window_seconds=300)
+    assert [group["event_count"] for group in result["groups"]] == [2, 1]
+    assert all(
+        datetime.fromisoformat(group["last_observed_at"])
+        - datetime.fromisoformat(group["first_observed_at"])
+        <= timedelta(seconds=300)
+        for group in result["groups"]
+    )
+
+
+def test_correlation_window_boundary_is_inclusive():
+    events = [
+        signal("boundary-a", at=NOW),
+        signal("boundary-b", at=NOW + timedelta(seconds=300)),
+        signal("boundary-c", at=NOW + timedelta(seconds=301)),
+    ]
+    result = correlate(events, "tenant-1", window_seconds=300)
+    assert [group["event_count"] for group in result["groups"]] == [2, 1]
