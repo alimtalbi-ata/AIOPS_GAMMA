@@ -162,6 +162,16 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
         "ttft_complete": ttft_complete if ttft_enabled else None,
         "throughput_complete": throughput_complete if throughput_enabled else None,
         "cost_complete": cost_complete if cost_enabled else None,
+        # Explicit denominators prevent UI consumers from mistaking a partial
+        # metric for a measurement of every model request.
+        "measurement_coverage": {
+            "latency_ms": {"measured": len(measured), "missing": count - len(measured), "total": count},
+            "ttft_ms": {"measured": len(ttfts), "missing": count - len(ttfts), "total": count},
+            "tps": {"measured": len(throughputs), "missing": count - len(throughputs), "total": count},
+            "estimated_cost_usd": {"measured": len(costs), "missing": count - len(costs), "total": count},
+        },
+        "sample_window_state": "UNVERIFIED",
+        "sample_provenance_state": "UNVERIFIED",
         "checks": {
             "sample_count": {"value": count, "minimum": request.min_samples, "passed": sample_ok},
             "latency_coverage": {
