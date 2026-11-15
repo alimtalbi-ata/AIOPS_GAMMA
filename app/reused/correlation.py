@@ -222,6 +222,14 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
                 (event["source"], event["external_event_id"]), ()
             )
         })
+        # A duplicate with contradictory routing dimensions must not be
+        # presented as a verified service/CI/symptom attribution. The chosen
+        # representative is deterministic but not authoritative.
+        routing_fields = {"environment", "service_name", "ci_id", "symptom_key"}
+        group["grouping_identity_state"] = (
+            "UNKNOWN" if routing_fields.intersection(group["conflict_fields"])
+            else "UNVERIFIED"
+        )
         # A conflicting source identity can have multiple severity values.
         # The deterministic representative is only a display choice, not
         # authoritative evidence of the incident's actual severity.
