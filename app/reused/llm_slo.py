@@ -55,6 +55,7 @@ class LLMSLOPreviewRequest(BaseModel):
     min_window_span_coverage: float = Field(default=0.5, ge=0, le=1, allow_inf_nan=False)
     max_window_gap_ratio: float = Field(default=1.0, gt=0, le=1, allow_inf_nan=False)
     min_occupied_quarters: int = Field(default=0, ge=0, le=4, strict=True)
+    max_quarter_error_rate_pct: float | None = Field(default=None, ge=0, le=100, allow_inf_nan=False)
     min_samples: int = Field(default=30, ge=1, le=1000)
     min_latency_coverage: float = Field(default=0.95, gt=0, le=1, allow_inf_nan=False)
     min_success_rate_pct: float = Field(default=99.0, ge=0, le=100, allow_inf_nan=False)
@@ -81,6 +82,7 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
     occupied_quarters = None
     quarter_sample_counts = None
     quarter_status_counts = None
+    quarter_error_rate_pct = None
     if request.window_start is not None:
         observed_times = [row.observed_at for row in observations]
         distinct_sample_timestamps = len(set(observed_times))
@@ -92,6 +94,10 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
             quarter_sample_counts[quarter] += 1
             quarter_status_counts[quarter][observation.status] += 1
         occupied_quarters = sum(value > 0 for value in quarter_sample_counts)
+        quarter_error_rate_pct = [
+            (100 * statuses["error"] / total if total else None)
+            for statuses, total in zip(quarter_status_counts, quarter_sample_counts)
+        ]
         # Include both window edges: endpoint-only samples cannot prove
         # continuous coverage across a long silent interval.
         points = [request.window_start, *sorted(set(observed_times)), request.window_end]
@@ -186,6 +192,11 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
         observed_breaches.append("success_rate_pct")
     if latency_ok is False:
         observed_breaches.append("latency_p95_ms")
+    if (quarter_error_rate_pct is not None
+            and request.max_quarter_error_rate_pct is not None
+            and any(rate is not None and rate > request.max_quarter_error_rate_pct
+                    for rate in quarter_error_rate_pct)):
+        observed_breaches.append("quarter_error_rate_pct")
     if ttft_ok is False:
         observed_breaches.append("ttft_p95_ms")
     if throughput_ok is False:
@@ -221,7 +232,7 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
         insufficient_reasons.append("cost_measurements_incomplete")
     if insufficient_reasons:
         state = "INSUFFICIENT_DATA"
-    elif (success_ok and latency_ok
+    elif (not observed_breaches and success_ok and latency_ok
           and (not ttft_enabled or ttft_ok)
           and (not throughput_enabled or throughput_ok)
           and (not cost_enabled or cost_ok)):
@@ -259,6 +270,8 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
         "distinct_sample_timestamps": distinct_sample_timestamps,
         "quarter_sample_counts": quarter_sample_counts,
         "quarter_status_counts": quarter_status_counts,
+        "quarter_error_rate_pct": quarter_error_rate_pct,
+        "max_quarter_error_rate_pct": request.max_quarter_error_rate_pct if quarter_error_rate_pct is not None else None,
         "occupied_quarters": occupied_quarters,
         "min_occupied_quarters": request.min_occupied_quarters if occupied_quarters is not None else None,
         "max_observed_gap_ratio": max_observed_gap_ratio,
