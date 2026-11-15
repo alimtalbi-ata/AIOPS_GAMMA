@@ -109,3 +109,69 @@ async def test_exact_duplicate_alert_never_creates_another_outbox_event(monkeypa
     assert await alerts(payload, principal, Session()) == {
         "id": str(event_id), "duplicate": True,
     }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("conflict", [False, True])
+async def test_concurrent_duplicate_insert_uses_rollback_and_rechecks_payload(monkeypatch, conflict):
+    """Simulate a unique-key race: the competing transaction wins at flush."""
+    from datetime import datetime, timezone
+    from sqlalchemy.exc import IntegrityError
+    from app.main import alerts
+    from app.schemas import AlertPayload
+    from app.security import Principal
+    from app.settings import settings
+
+    monkeypatch.setattr(settings, "enable_alert_ingestion", True)
+    payload = AlertPayload(
+        external_event_id="evt-race", source="opensearch", service_name="checkout",
+        severity="major", status="firing",
+        observed_at=datetime(2026, 11, 15, tzinfo=timezone.utc),
+    )
+    winner_id = uuid4()
+
+    class RacingSession:
+        def __init__(self):
+            self.lookups = 0
+            self.rollbacks = 0
+            self.outbox_writes = 0
+
+        async def scalar(self, statement):
+            self.lookups += 1
+            if self.lookups == 1:
+                return None
+            winner_payload = payload.model_dump(mode="json")
+            if conflict:
+                winner_payload["severity"] = "critical"
+            return SimpleNamespace(id=winner_id, payload=winner_payload)
+
+        def add(self, row):
+            from app.models import OutboxEvent
+            if isinstance(row, OutboxEvent):
+                self.outbox_writes += 1
+
+        async def flush(self):
+            raise IntegrityError("INSERT INTO integration_inbox", {}, Exception("unique violation"))
+
+        async def rollback(self):
+            self.rollbacks += 1
+
+        async def commit(self):
+            raise AssertionError("failed flush must not commit")
+
+    session = RacingSession()
+    principal = Principal(
+        tenant_id=uuid4(), subject="user:test", actor_type="user",
+        assertion_id="assertion-test-123", expires_at=2000000000,
+    )
+    if conflict:
+        with pytest.raises(HTTPException) as exc:
+            await alerts(payload, principal, session)
+        assert exc.value.status_code == 409
+    else:
+        assert await alerts(payload, principal, session) == {
+            "id": str(winner_id), "duplicate": True,
+        }
+    assert session.lookups == 2
+    assert session.rollbacks == 1
+    assert session.outbox_writes == 0
