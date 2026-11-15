@@ -284,3 +284,55 @@ def test_invalid_ttft_slo_threshold_rejected():
     for invalid in (0, -1, float("nan"), float("inf")):
         with pytest.raises(ValidationError):
             make_request(tenant, [{"status": "ok"}], max_ttft_p95_ms=invalid)
+
+
+def test_optional_throughput_slo_passes_with_complete_measurements():
+    tenant = uuid4()
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 120, "tps": 30},
+        {"status": "ok", "latency_ms": 140, "tps": 50},
+    ], min_throughput_tps=40)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "PASS_PREVIEW"
+    assert result["throughput_complete"] is True
+    assert result["checks"]["mean_tps"]["passed"] is True
+
+
+def test_optional_throughput_slo_reports_breach():
+    tenant = uuid4()
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 120, "tps": 20},
+        {"status": "ok", "latency_ms": 140, "tps": 30},
+    ], min_throughput_tps=40)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "BREACH_PREVIEW"
+    assert result["observed_breaches"] == ["mean_tps"]
+
+
+def test_missing_throughput_cannot_certify_optional_slo():
+    tenant = uuid4()
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 120, "tps": 60},
+        {"status": "ok", "latency_ms": 140},
+    ], min_throughput_tps=40)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "INSUFFICIENT_DATA"
+    assert result["insufficient_data_reasons"] == ["throughput_measurements_incomplete"]
+
+
+def test_disabled_throughput_slo_does_not_require_tps():
+    tenant = uuid4()
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 120},
+        {"status": "ok", "latency_ms": 140},
+    ])
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "PASS_PREVIEW"
+    assert result["throughput_complete"] is None
+    assert result["checks"]["mean_tps"]["enabled"] is False
+
+
+@pytest.mark.parametrize("invalid", [0, -1, float("nan"), float("inf")])
+def test_invalid_throughput_threshold_rejected(invalid):
+    with pytest.raises(ValidationError):
+        make_request(uuid4(), [{"status": "ok"}], min_throughput_tps=invalid)
