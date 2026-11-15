@@ -749,3 +749,32 @@ def test_conflicting_timestamp_uses_earliest_observation_for_group_window():
     assert len(forward["groups"]) == 1
     assert forward["groups"][0]["event_count"] == 2
     assert forward["groups"][0]["last_observed_at"] == (NOW + timedelta(seconds=600)).astimezone(timezone.utc).isoformat()
+
+
+@pytest.mark.parametrize("field,alternative", [
+    ("service_name", "other-service"),
+    ("environment", "staging"),
+    ("ci_id", "ci-other"),
+    ("symptom_key", "other-symptom"),
+])
+def test_conflicting_routing_dimensions_are_not_trusted(field, alternative):
+    original = signal("same")
+    changed = original.model_copy(update={field: alternative})
+    forward = correlate([original, changed], "tenant-1")
+    reverse = correlate([changed, original], "tenant-1")
+    assert forward == reverse
+    group = forward["groups"][0]
+    assert group["grouping_identity_state"] == "UNKNOWN"
+    assert field in group["conflict_fields"]
+    assert group["severity_state"] == "UNVERIFIED"
+    assert group["resolution_state"] == "UNKNOWN"
+    assert forward["live_remediation_authorized"] is False
+
+
+def test_evidence_only_conflict_does_not_invalidate_grouping_identity():
+    original = signal("same")
+    changed = original.model_copy(update={"evidence_refs": ["other-evidence"]})
+    result = correlate([original, changed], "tenant-1")
+    group = result["groups"][0]
+    assert group["conflict_fields"] == ["evidence_refs"]
+    assert group["grouping_identity_state"] == "UNVERIFIED"
