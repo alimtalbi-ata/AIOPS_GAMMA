@@ -132,11 +132,21 @@ async def list_bindings(
             for row in rows]
 
 
+def validate_incident_resource_id(incident_id: str) -> str:
+    """Reject noncanonical resource identifiers before any evidence database access."""
+    if (not 1 <= len(incident_id) <= 255 or incident_id != incident_id.strip()
+            or any(ord(ch) < 32 or ord(ch) == 127
+                   or 0xD800 <= ord(ch) <= 0xDFFF for ch in incident_id)):
+        raise HTTPException(422, "Invalid incident resource identifier")
+    return incident_id
+
+
 @app.post("/api/v1/incidents/{incident_id}/evidence", status_code=201)
 async def add_evidence(
     incident_id: str, req: EvidenceIn, principal: Principal = Depends(internal_principal),
     session: AsyncSession = Depends(get_session),
 ):
+    validate_incident_resource_id(incident_id)
     obj = Evidence(
         tenant_id=principal.tenant_id, incident_id=incident_id, **req.model_dump()
     )
@@ -150,6 +160,7 @@ async def list_evidence(
     incident_id: str, principal: Principal = Depends(internal_principal),
     session: AsyncSession = Depends(get_session),
 ):
+    validate_incident_resource_id(incident_id)
     rows = (await session.scalars(
         select(Evidence).where(Evidence.tenant_id == principal.tenant_id,
                                Evidence.incident_id == incident_id).limit(500)
