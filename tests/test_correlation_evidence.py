@@ -810,3 +810,9 @@ def test_routing_conflict_never_certifies_evidence_consistency(field, alternativ
     assert result["evidence_join_complete"] is True
     assert result["evidence_join_consistent"] is False
     assert result["live_remediation_authorized"] is False
+
+
+@pytest.mark.parametrize("invisible", ["\u200b", "\u200d", "\u2060"])
+def test_evidence_join_rejects_invisible_tenant_controls(invisible):
+    with pytest.raises(ValueError, match="tenant"):
+        preview(request(), TENANT + invisible, now=NOW)
