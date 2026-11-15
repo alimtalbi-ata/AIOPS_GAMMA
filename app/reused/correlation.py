@@ -8,6 +8,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 import json
+import unicodedata
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -30,7 +31,7 @@ class CorrelationSignal(BaseModel):
     @classmethod
     def validate_identity(cls, value: str) -> str:
         if value != value.strip() or any(
-            ord(ch) < 32 or ord(ch) == 127 or 0xD800 <= ord(ch) <= 0xDFFF
+            ord(ch) < 32 or ord(ch) == 127 or 0xD800 <= ord(ch) <= 0xDFFF or unicodedata.category(ch) == "Cf"
             for ch in value
         ):
             raise ValueError("identity fields must be canonical printable text")
@@ -42,7 +43,7 @@ class CorrelationSignal(BaseModel):
         # Bounded, printable references only: never propagate arbitrary upstream
         # text or control characters as evidence identifiers in a preview.
         if any(not ref or len(ref) > 256 or ref != ref.strip()
-               or any(ord(ch) < 32 or ord(ch) == 127 or 0xD800 <= ord(ch) <= 0xDFFF
+               or any(ord(ch) < 32 or ord(ch) == 127 or 0xD800 <= ord(ch) <= 0xDFFF or unicodedata.category(ch) == "Cf"
                       for ch in ref) for ref in refs):
             raise ValueError("invalid correlation evidence reference")
         return refs
@@ -51,7 +52,7 @@ class CorrelationSignal(BaseModel):
     def validate_time(self):
         if self.ci_id is not None and (
             self.ci_id != self.ci_id.strip()
-            or any(ord(ch) < 32 or ord(ch) == 127 or 0xD800 <= ord(ch) <= 0xDFFF
+            or any(ord(ch) < 32 or ord(ch) == 127 or 0xD800 <= ord(ch) <= 0xDFFF or unicodedata.category(ch) == "Cf"
                    for ch in self.ci_id)
         ):
             raise ValueError("ci_id must be canonical printable text")
@@ -82,7 +83,7 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
     if (not isinstance(tenant_id, str) or not tenant_id.strip()
             or tenant_id != tenant_id.strip()
             or len(tenant_id) > 128
-            or any(ord(ch) < 32 or ord(ch) == 127 or 0xD800 <= ord(ch) <= 0xDFFF
+            or any(ord(ch) < 32 or ord(ch) == 127 or 0xD800 <= ord(ch) <= 0xDFFF or unicodedata.category(ch) == "Cf"
                    for ch in tenant_id)):
         raise ValueError("Invalid correlation tenant identity")
     if any(not isinstance(signal, CorrelationSignal) for signal in signals):
