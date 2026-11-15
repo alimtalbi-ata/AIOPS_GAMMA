@@ -80,14 +80,17 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
     max_observed_gap_ratio = None
     occupied_quarters = None
     quarter_sample_counts = None
+    quarter_status_counts = None
     if request.window_start is not None:
         observed_times = [row.observed_at for row in observations]
         distinct_sample_timestamps = len(set(observed_times))
         duration = request.window_end - request.window_start
         quarter_sample_counts = [0, 0, 0, 0]
-        for instant in observed_times:
-            quarter = min(3, int(4 * ((instant - request.window_start) / duration)))
+        quarter_status_counts = [{"ok": 0, "error": 0, "degraded": 0} for _ in range(4)]
+        for observation in observations:
+            quarter = min(3, int(4 * ((observation.observed_at - request.window_start) / duration)))
             quarter_sample_counts[quarter] += 1
+            quarter_status_counts[quarter][observation.status] += 1
         occupied_quarters = sum(value > 0 for value in quarter_sample_counts)
         # Include both window edges: endpoint-only samples cannot prove
         # continuous coverage across a long silent interval.
@@ -255,6 +258,7 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
         "sample_provenance_state": "UNVERIFIED",
         "distinct_sample_timestamps": distinct_sample_timestamps,
         "quarter_sample_counts": quarter_sample_counts,
+        "quarter_status_counts": quarter_status_counts,
         "occupied_quarters": occupied_quarters,
         "min_occupied_quarters": request.min_occupied_quarters if occupied_quarters is not None else None,
         "max_observed_gap_ratio": max_observed_gap_ratio,
