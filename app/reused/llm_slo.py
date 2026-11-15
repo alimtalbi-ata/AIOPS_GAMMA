@@ -22,6 +22,7 @@ class LLMSLOPreviewRequest(BaseModel):
     min_success_rate_pct: float = Field(default=99.0, ge=0, le=100, allow_inf_nan=False)
     max_latency_p95_ms: float = Field(default=2000.0, gt=0, le=3600000, allow_inf_nan=False)
     max_ttft_p95_ms: float | None = Field(default=None, gt=0, le=3600000, allow_inf_nan=False)
+    min_throughput_tps: float | None = Field(default=None, gt=0, le=1000000, allow_inf_nan=False)
 
 
 def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dict:
@@ -61,6 +62,14 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
         and ttft_enabled
         and raw_ttft_p95 <= request.max_ttft_p95_ms
     ) if ttft_enabled else None
+    throughput_enabled = request.min_throughput_tps is not None
+    throughputs = [row.tps for row in observations if row.tps is not None]
+    throughput_complete = len(throughputs) == count
+    raw_mean_tps = sum(throughputs) / len(throughputs) if throughputs else None
+    throughput_ok = (
+        raw_mean_tps is not None
+        and raw_mean_tps >= request.min_throughput_tps
+    ) if throughput_enabled else None
     # Report measured breaches even when the overall assessment is
     # insufficient; never mistake missing latency measurements for a pass.
     observed_breaches = []
@@ -70,6 +79,8 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
         observed_breaches.append("latency_p95_ms")
     if ttft_enabled and raw_ttft_p95 is not None and not ttft_ok:
         observed_breaches.append("ttft_p95_ms")
+    if throughput_enabled and raw_mean_tps is not None and not throughput_ok:
+        observed_breaches.append("mean_tps")
     # A passing SLO requires adequate sample and metric coverage.
     # The selected sample may be biased when latency is missing. Even if the
     # configured coverage minimum is met, a partial p95 cannot certify a pass.
@@ -83,9 +94,13 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
         insufficient_reasons.append("latency_measurements_incomplete")
     if ttft_enabled and not ttft_complete:
         insufficient_reasons.append("ttft_measurements_incomplete")
+    if throughput_enabled and not throughput_complete:
+        insufficient_reasons.append("throughput_measurements_incomplete")
     if insufficient_reasons:
         state = "INSUFFICIENT_DATA"
-    elif success_ok and latency_ok and (not ttft_enabled or ttft_ok):
+    elif (success_ok and latency_ok
+          and (not ttft_enabled or ttft_ok)
+          and (not throughput_enabled or throughput_ok)):
         state = "PASS_PREVIEW"
     else:
         state = "BREACH_PREVIEW"
@@ -97,6 +112,7 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
         "insufficient_data_reasons": insufficient_reasons,
         "latency_complete": latency_complete,
         "ttft_complete": ttft_complete if ttft_enabled else None,
+        "throughput_complete": throughput_complete if throughput_enabled else None,
         "checks": {
             "sample_count": {"value": count, "minimum": request.min_samples, "passed": sample_ok},
             "latency_coverage": {
@@ -119,6 +135,12 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
                 "maximum": request.max_ttft_p95_ms,
                 "passed": ttft_ok,
                 "enabled": ttft_enabled,
+            },
+            "mean_tps": {
+                "value": raw_mean_tps if throughput_enabled else None,
+                "minimum": request.min_throughput_tps,
+                "passed": throughput_ok,
+                "enabled": throughput_enabled,
             },
         },
         "data_source": "caller_supplied_preview",
