@@ -7,6 +7,7 @@ This is not a live ingestion connector or a monitoring authorization service.
 from __future__ import annotations
 
 import math
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -21,7 +22,7 @@ class LLMObservation(BaseModel):
     input_tokens: int | None = Field(default=None, ge=0)
     tps: float | None = Field(default=None, ge=0)
     estimated_cost_usd: float | None = Field(default=None, ge=0)
-    status: str = Field(pattern=r"^(ok|error|degraded)$")
+    status: Literal["ok", "error", "degraded"]
 
     @field_validator("latency_ms", "ttft_ms", "tps", "estimated_cost_usd")
     @classmethod
