@@ -643,3 +643,37 @@ def test_declared_window_accepts_explicit_iso8601_offset_strings():
     result = evaluate_llm_slo_preview(req, tenant)
     assert result["state"] == "PASS_PREVIEW"
     assert result["sample_window_state"] == "CALLER_DECLARED_UNVERIFIED"
+
+
+def test_declared_window_exposes_actual_sample_span_without_attestation():
+    tenant = uuid4()
+    end = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(minutes=1)
+    start = end - timedelta(hours=1)
+    first = start + timedelta(minutes=20)
+    last = start + timedelta(minutes=40)
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 100, "observed_at": last},
+        {"status": "ok", "latency_ms": 120, "observed_at": first},
+    ], window_start=start, window_end=end)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["declared_window"] == {
+        "start": start.isoformat(),
+        "end": end.isoformat(),
+        "end_exclusive": True,
+        "duration_seconds": 3600,
+        "sample_count": 2,
+        "first_observed_at": first.isoformat(),
+        "last_observed_at": last.isoformat(),
+    }
+    assert result["sample_window_state"] == "CALLER_DECLARED_UNVERIFIED"
+    assert result["authoritative"] is False
+
+
+def test_legacy_slo_without_window_has_no_fabricated_sample_span():
+    tenant = uuid4()
+    result = evaluate_llm_slo_preview(make_request(tenant, [
+        {"status": "ok", "latency_ms": 100},
+        {"status": "ok", "latency_ms": 120},
+    ]), tenant)
+    assert result["declared_window"] is None
+    assert result["sample_window_state"] == "UNVERIFIED"
