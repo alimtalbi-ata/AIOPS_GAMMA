@@ -144,6 +144,16 @@ def calculate_llm_kpis(request: LLMKPIRequest, authorized_tenant: UUID) -> dict:
         "output_token_coverage": round(len(output_token_values) / total, 3),
         "estimated_cost_usd": round(_finite_sum(costs), 6) if len(costs) == total else None,
         "cost_coverage": round(len(costs) / total, 3),
+        "measurement_coverage": {
+            "latency_ms": {"measured": len(latencies), "missing": total - len(latencies), "total": total},
+            "ttft_ms": {"measured": len(ttfts), "missing": total - len(ttfts), "total": total},
+            "tps": {"measured": len(throughputs), "missing": total - len(throughputs), "total": total},
+            "estimated_cost_usd": {"measured": len(costs), "missing": total - len(costs), "total": total},
+            "input_tokens": {"measured": len(input_token_values), "missing": total - len(input_token_values), "total": total},
+            "output_tokens": {"measured": len(output_token_values), "missing": total - len(output_token_values), "total": total},
+        },
+        "sample_window_state": "UNVERIFIED",
+        "sample_provenance_state": "UNVERIFIED",
         "sentinel_anomaly_rate_pct": (
             round(100 * anomalies / processed, 3)
             if anomalies is not None and processed is not None and processed > 0 else None
