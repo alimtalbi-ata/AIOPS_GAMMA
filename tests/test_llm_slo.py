@@ -100,3 +100,46 @@ def test_missing_all_latency_is_unknown_not_latency_breach():
     assert result["state"] == "INSUFFICIENT_DATA"
     assert result["checks"]["latency_p95_ms"]["passed"] is None
     assert result["observed_breaches"] == []
+
+
+def test_zero_latency_coverage_requirement_is_rejected():
+    tenant = uuid4()
+    with pytest.raises(ValidationError):
+        make_request(tenant, [{"status": "ok"}], min_latency_coverage=0)
+
+
+def test_p95_threshold_uses_unrounded_measurement():
+    tenant = uuid4()
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 100.0001},
+        {"status": "ok", "latency_ms": 100.0004},
+    ], max_latency_p95_ms=100.0003)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "BREACH_PREVIEW"
+    assert result["observed_breaches"] == ["latency_p95_ms"]
+    assert result["checks"]["latency_p95_ms"]["value"] > 100.0003
+
+
+def test_slo_route_requires_auth_and_prevents_caching(monkeypatch):
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.settings import settings
+
+    monkeypatch.setattr(settings, "internal_api_key", "test-secret")
+    tenant = uuid4()
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 100},
+        {"status": "ok", "latency_ms": 150},
+    ])
+    path = "/api/v1/observability/llm/slo/preview"
+    with TestClient(app) as client:
+        denied = client.post(path, json=req.model_dump(mode="json"))
+        allowed = client.post(
+            path, json=req.model_dump(mode="json"),
+            headers={"X-Internal-Api-Key": "test-secret",
+                     "X-Tenant-Id": str(tenant)},
+        )
+    assert denied.status_code == 401
+    assert allowed.status_code == 200
+    assert allowed.headers["cache-control"] == "no-store"
+    assert allowed.json()["state"] == "PASS_PREVIEW"
