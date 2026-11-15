@@ -93,6 +93,7 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
     highest_severity_by_identity: dict[tuple[str, str], str] = {}
     firing_by_identity: dict[tuple[str, str], bool] = {}
     evidence_refs_by_identity: dict[tuple[str, str], set[str]] = {}
+    observed_at_by_identity: dict[tuple[str, str], list[datetime]] = {}
     conflicting_identities: set[tuple[str, str]] = set()
     conflict_fields_by_identity: dict[tuple[str, str], set[str]] = {}
     # Keep one baseline for each source event; compare every version against
@@ -102,6 +103,9 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
     for signal in signals:
         identity = (signal.source, signal.external_event_id)
         evidence_refs_by_identity.setdefault(identity, set()).update(signal.evidence_refs)
+        observed_at_by_identity.setdefault(identity, []).append(
+            signal.observed_at.astimezone(timezone.utc)
+        )
         firing_by_identity[identity] = (
             firing_by_identity.get(identity, False) or signal.status == "firing"
         )
@@ -127,13 +131,21 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
         seen[identity] = signal
         first_by_identity[identity] = signal
     unique = list(seen.values())
-    unique.sort(key=lambda s: (s.observed_at.astimezone(timezone.utc), s.source, s.external_event_id))
+    unique.sort(key=lambda s: (
+        min(observed_at_by_identity[(s.source, s.external_event_id)]),
+        s.source, s.external_event_id,
+    ))
     groups: list[dict] = []
     # Indexed by the complete grouping key. A single pass over sorted signals
     # avoids repeatedly scanning all previous groups for every incoming event.
     latest_group_by_key: dict[tuple, dict] = {}
     for signal in unique:
-        timestamp = signal.observed_at.astimezone(timezone.utc)
+        identity = (signal.source, signal.external_event_id)
+        # A duplicate's representative timestamp can be arbitrary relative
+        # to the earliest observation. Use the earliest UTC timestamp for
+        # grouping, retaining the latest observation as the group end.
+        timestamp = min(observed_at_by_identity[identity])
+        last_timestamp = max(observed_at_by_identity[identity])
         # A CI identifier alone cannot authorize or justify a cross-service join.
         # Always retain service identity, even when CI metadata is supplied.
         key = (signal.environment, signal.service_name, signal.ci_id, signal.symptom_key)
@@ -159,8 +171,9 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
             }
             groups.append(matching)
             latest_group_by_key[key] = matching
-        matching["_last"] = timestamp
-        matching["last_observed_at"] = timestamp.isoformat()
+        if last_timestamp > matching["_last"]:
+            matching["_last"] = last_timestamp
+        matching["last_observed_at"] = matching["_last"].isoformat()
         # A duplicate may have a higher severity than the deterministic
         # representative. Never understate the observed maximum, while
         # keeping severity_state UNKNOWN for conflicting source identities.
