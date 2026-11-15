@@ -165,3 +165,14 @@ def test_incident_path_rejects_url_delimiters_and_length_bounds():
             validate_incident_resource_id(invalid)
         assert exc.value.status_code == 422
     assert validate_incident_resource_id("x" * 255) == "x" * 255
+
+
+def test_incident_path_rejects_c1_control_characters():
+    import pytest
+    from fastapi import HTTPException
+    from app.main import validate_incident_resource_id
+
+    for invalid in ("inc\u0085name", "inc\u009fname"):
+        with pytest.raises(HTTPException) as exc:
+            validate_incident_resource_id(invalid)
+        assert exc.value.status_code == 422
