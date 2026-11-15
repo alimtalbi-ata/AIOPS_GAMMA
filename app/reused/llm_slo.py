@@ -44,8 +44,14 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
     else:
         raw_p95 = None
     latency_ok = raw_p95 is not None and raw_p95 <= request.max_latency_p95_ms
-    # A threshold breach can be shown as advisory even with incomplete
-    # telemetry; a passing SLO requires adequate sample and metric coverage.
+    # Report measured breaches even when the overall assessment is
+    # insufficient; never mistake missing latency measurements for a pass.
+    observed_breaches = []
+    if not success_ok:
+        observed_breaches.append("success_rate_pct")
+    if raw_p95 is not None and not latency_ok:
+        observed_breaches.append("latency_p95_ms")
+    # A passing SLO requires adequate sample and metric coverage.
     if not sample_ok or not coverage_ok:
         state = "INSUFFICIENT_DATA"
     elif success_ok and latency_ok:
@@ -56,6 +62,7 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
         "tenant_id": str(tenant),
         "model_id": request.kpis.model_id,
         "state": state,
+        "observed_breaches": observed_breaches,
         "checks": {
             "sample_count": {"value": count, "minimum": request.min_samples, "passed": sample_ok},
             "latency_coverage": {
@@ -71,7 +78,7 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
             "latency_p95_ms": {
                 "value": raw_p95,
                 "maximum": request.max_latency_p95_ms,
-                "passed": latency_ok,
+                "passed": latency_ok if raw_p95 is not None else None,
             },
         },
         "data_source": "caller_supplied_preview",
