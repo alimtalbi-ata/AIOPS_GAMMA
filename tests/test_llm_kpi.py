@@ -310,3 +310,30 @@ def test_sentinel_counter_quality_state(anomalies, processed, expected_state):
     else:
         assert result["sentinel_anomaly_rate_pct"] == 0
         assert result["authoritative"] is False
+
+
+def test_tiny_nonzero_sentinel_rate_preserves_exact_fraction():
+    tenant = uuid4()
+    result = calculate_llm_kpis(request(
+        tenant,
+        sentinel_anomalies_total=1,
+        sentinel_events_processed_total=1_000_000,
+    ), tenant)
+    assert result["sentinel_anomaly_rate_pct"] == 0
+    assert result["sentinel_anomaly_rate_ratio"] == {
+        "numerator": 1, "denominator": 1_000_000,
+    }
+    assert result["sentinel_counter_state"] == "CALLER_SUPPLIED_UNVERIFIED"
+
+
+@pytest.mark.parametrize("anomalies,processed", [
+    (None, None), (1, None), (None, 10), (0, 0),
+])
+def test_unknown_sentinel_rate_never_exposes_false_fraction(anomalies, processed):
+    tenant = uuid4()
+    result = calculate_llm_kpis(request(
+        tenant,
+        sentinel_anomalies_total=anomalies,
+        sentinel_events_processed_total=processed,
+    ), tenant)
+    assert result["sentinel_anomaly_rate_ratio"] is None
