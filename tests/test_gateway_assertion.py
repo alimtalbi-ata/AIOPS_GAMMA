@@ -326,7 +326,7 @@ def test_signed_incident_grants_reject_url_delimiters(monkeypatch, resource):
 
 
 def test_signed_incident_grants_reject_non_nfc_alias(monkeypatch):
-    token = _token(monkeypatch, evidence_incident_grants=["cafe\\u0301"])
+    token = _token(monkeypatch, evidence_incident_grants=["cafe\u0301"])
     with pytest.raises(HTTPException) as exc:
         verify_gateway_assertion(token, method="POST",
             path="/api/v1/observability/metrics/query", now=1030)
@@ -334,7 +334,7 @@ def test_signed_incident_grants_reject_non_nfc_alias(monkeypatch):
 
 
 def test_signed_incident_grants_accept_nfc_resource(monkeypatch):
-    token = _token(monkeypatch, evidence_incident_grants=["caf\\u00e9"])
+    token = _token(monkeypatch, evidence_incident_grants=["caf\u00e9"])
     principal = verify_gateway_assertion(token, method="POST",
         path="/api/v1/observability/metrics/query", now=1030)
-    assert principal.evidence_incident_grants == ("caf\\u00e9",)
+    assert principal.evidence_incident_grants == ("caf\u00e9",)
