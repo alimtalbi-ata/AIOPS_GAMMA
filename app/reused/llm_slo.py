@@ -66,7 +66,17 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
     throughput_enabled = request.min_throughput_tps is not None
     throughputs = [row.tps for row in observations if row.tps is not None]
     throughput_complete = len(throughputs) == count
-    raw_mean_tps = sum(throughputs) / len(throughputs) if throughputs else None
+    # Summing individually finite measurements can still overflow to infinity.
+    # A preview must fail closed rather than emit non-JSON numeric values.
+    if throughputs:
+        try:
+            raw_mean_tps = math.fsum(throughputs) / len(throughputs)
+        except OverflowError as exc:
+            raise ValueError("Throughput aggregation overflow") from exc
+        if not math.isfinite(raw_mean_tps):
+            raise ValueError("Non-finite throughput aggregate")
+    else:
+        raw_mean_tps = None
     throughput_ok = (
         raw_mean_tps is not None
         and raw_mean_tps >= request.min_throughput_tps
@@ -74,7 +84,15 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
     cost_enabled = request.max_mean_cost_usd is not None
     costs = [row.estimated_cost_usd for row in observations if row.estimated_cost_usd is not None]
     cost_complete = len(costs) == count
-    raw_mean_cost = sum(costs) / len(costs) if costs else None
+    if costs:
+        try:
+            raw_mean_cost = math.fsum(costs) / len(costs)
+        except OverflowError as exc:
+            raise ValueError("Cost aggregation overflow") from exc
+        if not math.isfinite(raw_mean_cost):
+            raise ValueError("Non-finite cost aggregate")
+    else:
+        raw_mean_cost = None
     cost_ok = (
         raw_mean_cost is not None
         and raw_mean_cost <= request.max_mean_cost_usd
