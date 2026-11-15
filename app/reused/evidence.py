@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 import json
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 def _require_string_json_keys(value: object) -> None:
@@ -43,6 +43,7 @@ def _require_string_json_keys(value: object) -> None:
 
 
 class EvidenceInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     tenant_id: str = Field(min_length=1, max_length=128)
     incident_id: str = Field(min_length=1, max_length=255)
     source: str = Field(min_length=1, max_length=100)
