@@ -34,6 +34,18 @@ class LLMObservation(BaseModel):
             raise ValueError("Non-finite KPI value")
         return value
 
+    @field_validator("observed_at", mode="before")
+    @classmethod
+    def reject_numeric_observation_timestamp(cls, value):
+        # Numeric Unix epochs and numeric strings have ambiguous units and
+        # can silently select the wrong SLO window.
+        if value is not None and not isinstance(value, (datetime, str)):
+            raise ValueError("Observation timestamp must be ISO-8601 or datetime")
+        if isinstance(value, str) and (not value or value.strip() != value
+                                       or value.lstrip("+-").replace(".", "", 1).isdigit()):
+            raise ValueError("Observation timestamp must be ISO-8601")
+        return value
+
     @field_validator("observed_at")
     @classmethod
     def timezone_aware_observation(cls, value: datetime | None) -> datetime | None:
