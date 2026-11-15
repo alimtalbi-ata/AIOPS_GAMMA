@@ -110,3 +110,27 @@ def test_matching_signed_incident_grant_reaches_database_boundary(client, method
                 "observed_at": "2026-11-15T12:00:00Z",
             })
     assert calls == (["scalars"] if method == "GET" else ["add"])
+
+
+@pytest.mark.parametrize("method", ["GET", "POST"])
+def test_signed_grant_for_other_tenant_cannot_be_reused(client, method):
+    """The signed tenant is bound to the request; a forged tenant header has no authority."""
+    test_client, calls = client
+    path = "/api/v1/incidents/inc-1/evidence"
+    headers = {
+        "X-Internal-API-Key": "service-secret",
+        "X-Gateway-Principal": _token(method, path, []),
+        "X-Tenant-ID": str(uuid4()),
+    }
+    if method == "GET":
+        response = test_client.get(path, headers=headers)
+    else:
+        response = test_client.post(path, headers=headers, json={
+            "investigation_id": str(uuid4()),
+            "source_type": "logs",
+            "source_ref": "otel:trace-1",
+            "summary": "Synthetic evidence",
+            "observed_at": "2026-11-15T12:00:00Z",
+        })
+    assert response.status_code == 403, response.text
+    assert calls == []
