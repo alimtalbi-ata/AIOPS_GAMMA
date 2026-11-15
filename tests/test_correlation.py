@@ -619,3 +619,25 @@ def test_only_resolved_versions_keep_resolved_display():
     assert group["status"] == "resolved"
     assert group["resolution_state"] == "UNKNOWN"
     assert group["severity"] == "critical"
+
+
+def test_conflicting_duplicate_retains_all_evidence_references():
+    first = signal("same").model_copy(update={"evidence_refs": ["trace-a", "shared"]})
+    second = signal("same").model_copy(update={"evidence_refs": ["trace-b", "shared"]})
+    forward = correlate([first, second], "tenant-1")
+    reverse = correlate([second, first], "tenant-1")
+    assert forward == reverse
+    group = forward["groups"][0]
+    assert group["evidence_refs"] == ["shared", "trace-a", "trace-b"]
+    assert group["conflicting_source_events"] == 1
+    assert group["severity_state"] == "UNKNOWN"
+    assert group["resolution_state"] == "UNKNOWN"
+    assert forward["live_remediation_authorized"] is False
+
+
+def test_identical_duplicate_references_remain_unique():
+    first = signal("same").model_copy(update={"evidence_refs": ["trace-a", "trace-b"]})
+    result = correlate([first, first.model_copy(deep=True)], "tenant-1")
+    assert result["groups"][0]["evidence_refs"] == ["trace-a", "trace-b"]
+    assert result["conflicting_source_events"] == 0
+    assert result["deduplicated_events"] == 1
