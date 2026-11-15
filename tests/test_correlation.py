@@ -784,7 +784,7 @@ def test_evidence_only_conflict_does_not_invalidate_grouping_identity():
     "source", "external_event_id", "service_name",
     "environment", "symptom_key", "ci_id",
 ])
-@pytest.mark.parametrize("invisible", ["\\u200b", "\\u200d", "\\u2060"])
+@pytest.mark.parametrize("invisible", ["\u200b", "\u200d", "\u2060"])
 def test_correlation_identity_rejects_invisible_unicode_format_controls(field, invisible):
     original = signal("safe")
     with pytest.raises(ValidationError):
@@ -794,7 +794,7 @@ def test_correlation_identity_rejects_invisible_unicode_format_controls(field, i
         })
 
 
-@pytest.mark.parametrize("invisible", ["\\u200b", "\\u200d", "\\u2060"])
+@pytest.mark.parametrize("invisible", ["\u200b", "\u200d", "\u2060"])
 def test_correlation_evidence_refs_reject_invisible_unicode_format_controls(invisible):
     original = signal("safe")
     with pytest.raises(ValidationError):
@@ -806,11 +806,11 @@ def test_correlation_evidence_refs_reject_invisible_unicode_format_controls(invi
 
 def test_mutated_invisible_identity_is_rejected_at_correlation_boundary():
     original = signal("safe")
-    original.service_name = "checkout\\u200b"
+    original.service_name = "checkout\u200b"
     with pytest.raises(ValidationError):
         correlate([original], "tenant-1")
 
 
 def test_invisible_tenant_identity_rejected():
     with pytest.raises(ValueError, match="tenant"):
-        correlate([signal("safe")], "tenant\\u200b")
+        correlate([signal("safe")], "tenant\u200b")
