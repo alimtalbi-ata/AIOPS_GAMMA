@@ -173,7 +173,7 @@ def test_invalid_incident_id_rejected_before_db_access(client, incident_id):
     path = "/api/v1/incidents/" + quote(incident_id, safe="") + "/evidence"
     response = test_client.get(path, headers={
         "X-Internal-API-Key": "service-secret",
-        "X-Gateway-Principal": _token("GET", path, []),
+        "X-Gateway-Principal": _token("GET", "/api/v1/incidents/" + incident_id + "/evidence", []),
     })
     assert response.status_code == 422, response.text
     assert calls == []
