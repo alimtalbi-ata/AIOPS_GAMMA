@@ -177,6 +177,13 @@ def calculate_llm_kpis(request: LLMKPIRequest, authorized_tenant: UUID) -> dict:
             "anomalies_present": anomalies is not None,
             "events_processed_present": processed is not None,
         },
+        # Exact numerator/denominator prevent a tiny nonzero anomaly rate
+        # from being mistaken for zero after display rounding.
+        "sentinel_anomaly_rate_ratio": (
+            {"numerator": anomalies, "denominator": processed}
+            if anomalies is not None and processed is not None and processed > 0
+            else None
+        ),
         "sentinel_anomalies_total": anomalies,
         "sentinel_events_processed_total": processed,
         "data_source": "caller_supplied_preview",
