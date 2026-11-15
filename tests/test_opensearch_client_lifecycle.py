@@ -164,3 +164,33 @@ async def test_backend_receives_all_mandatory_scoping_filters(monkeypatch):
     assert {"terms": {"severityText": ["ERROR"]}} in filters
     assert observed["body"]["track_total_hits"] is False
     assert observed["closed"] is True
+
+
+@pytest.mark.asyncio
+async def test_request_mutation_during_backend_call_cannot_change_response_scope(monkeypatch):
+    """The query and returned hits must be checked against the same request snapshot."""
+    from app.settings import settings
+
+    monkeypatch.setattr(settings, "max_query_hours", 24)
+    req = request()
+    closed = []
+
+    class FakeClient:
+        async def search(self, **kwargs):
+            req.service_name = "billing"
+            return {"hits": {"hits": [{
+                "_source": {
+                    "tenant": {"id": TENANT},
+                    "resource": {"attributes": {"service.name": "billing"}},
+                },
+            }]}}
+
+        async def close(self):
+            closed.append(True)
+
+    module = ModuleType("opensearchpy")
+    module.AsyncOpenSearch = lambda **kwargs: FakeClient()
+    monkeypatch.setitem(sys.modules, "opensearchpy", module)
+    with pytest.raises(ValueError, match="tenant or service scope"):
+        await search_logs(TENANT, req)
+    assert closed == [True]
