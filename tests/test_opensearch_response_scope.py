@@ -103,3 +103,24 @@ def test_requested_severity_is_verified_against_returned_hit(severity, allowed):
 
 def test_severity_is_optional_when_no_filter_was_requested():
     assert validate_log_search_response(result([hit()]), TENANT, "checkout", 10, severity=[])
+
+
+def test_single_oversized_hit_rejected_despite_hit_count_limit():
+    document = hit()
+    document["_source"]["body"] = "x" * 1_048_576
+    with pytest.raises(ValueError, match="size policy"):
+        validate_log_search_response(result([document]), TENANT, "checkout", 500)
+
+
+def test_small_response_stays_compatible():
+    document = hit()
+    document["_source"]["body"] = "ordinary log"
+    response = result([document])
+    assert validate_log_search_response(response, TENANT, "checkout", 1) is response
+
+
+def test_non_json_serializable_backend_response_is_rejected():
+    document = hit()
+    document["_source"]["body"] = object()
+    with pytest.raises(ValueError, match="encoding"):
+        validate_log_search_response(result([document]), TENANT, "checkout", 1)
