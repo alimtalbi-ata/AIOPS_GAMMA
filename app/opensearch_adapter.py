@@ -130,6 +130,24 @@ def validate_log_search_response(result: dict, tenant_id: str, service_name: str
     return result
 
 
+def project_log_search_response(result: dict) -> dict:
+    """Expose only explicitly reviewed metadata; never relay arbitrary log payloads."""
+    projected = []
+    for hit in result["hits"]["hits"]:
+        source = hit["_source"]
+        item = {
+            "@timestamp": source["@timestamp"],
+            "tenant": {"id": source["tenant"]["id"]},
+            "resource": {"attributes": {
+                "service.name": source["resource"]["attributes"]["service.name"],
+            }},
+        }
+        if isinstance(source.get("severityText"), str):
+            item["severityText"] = source["severityText"]
+        projected.append({"_source": item})
+    return {"hits": {"hits": projected}}
+
+
 async def search_logs(tenant_id: str, req: LogSearchRequest) -> dict:
     # Validate tenant and build the bounded query before opening any client.
     # Snapshot and revalidate once: query and response checks must use identical filters.
@@ -155,6 +173,7 @@ async def search_logs(tenant_id: str, req: LogSearchRequest) -> dict:
             body=query,
             request_timeout=10,
         )
-        return validate_log_search_response(result, tenant_id, validated_req.service_name, validated_req.limit, validated_req.window, validated_req.severity)
+        validated = validate_log_search_response(result, tenant_id, validated_req.service_name, validated_req.limit, validated_req.window, validated_req.severity)
+        return project_log_search_response(validated)
     finally:
         await client.close()
