@@ -63,7 +63,13 @@ def _percentile(values: list[float], percentile: float) -> float | None:
     rank = (len(ordered) - 1) * percentile
     low = math.floor(rank)
     high = math.ceil(rank)
-    return round(ordered[low] + (ordered[high] - ordered[low]) * (rank - low), 3)
+    # Convex interpolation avoids overflow in (high - low) for finite values
+    # and never returns a non-JSON infinity for an extreme sample.
+    fraction = rank - low
+    result = ordered[low] * (1.0 - fraction) + ordered[high] * fraction
+    if not math.isfinite(result):
+        raise ValueError("Non-finite LLM KPI percentile")
+    return round(result, 3)
 
 
 def _finite_sum(values: list[float]) -> float:
