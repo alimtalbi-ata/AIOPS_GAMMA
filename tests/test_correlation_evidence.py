@@ -754,3 +754,38 @@ def test_uniform_resolved_alerts_remain_unverified_not_canonical_recovery():
     assert result["groups"][0]["resolution_state"] == "RESOLVED_UNVERIFIED"
     assert result["groups"][0]["evidence_state"] == "UNVERIFIED"
     assert result["live_remediation_authorized"] is False
+
+
+def test_conflicting_severity_with_complete_evidence_is_not_consistent():
+    req = request()
+    req.correlation.signals.append(req.correlation.signals[0].model_copy(
+        update={"severity": "critical"}
+    ))
+    result = preview(req, TENANT, now=NOW)
+    group = result["groups"][0]
+    assert group["severity_state"] == "UNKNOWN"
+    assert group["resolution_state"] == "UNKNOWN"
+    assert group["evidence_covered_events"] == 1
+    assert result["evidence_join_complete"] is True
+    assert group["evidence_state"] == "UNKNOWN"
+    assert result["evidence_join_consistent"] is False
+    assert result["live_remediation_authorized"] is False
+
+
+def test_distinct_source_severity_escalation_does_not_claim_verification():
+    req = request()
+    req.correlation.signals.append(req.correlation.signals[0].model_copy(
+        update={"source": "prometheus", "external_event_id": "evt-2",
+                "severity": "critical"}
+    ))
+    req.evidence.append(req.evidence[0].model_copy(
+        update={"source": "prometheus", "external_id": "evt-2"}
+    ))
+    result = preview(req, TENANT, now=NOW)
+    group = result["groups"][0]
+    assert group["severity"] == "critical"
+    assert group["severity_state"] == "UNVERIFIED"
+    assert group["evidence_state"] == "UNVERIFIED"
+    assert result["evidence_join_complete"] is True
+    assert result["evidence_join_consistent"] is True
+    assert result["live_remediation_authorized"] is False
