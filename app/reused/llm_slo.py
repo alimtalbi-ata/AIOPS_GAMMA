@@ -43,6 +43,9 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
     sample_ok = count >= request.min_samples
     coverage_ok = len(measured) / count >= request.min_latency_coverage
     success_ok = 100 * success / count >= request.min_success_rate_pct
+    # A missing latency measurement must not conceal an observed breach, but
+    # incomplete optional metrics cannot produce a definitive PASS or BREACH.
+    # Keep metric-level check results tri-state until coverage is complete.
     ordered = sorted(measured)
     if ordered:
         rank = (len(ordered) - 1) * 0.95
@@ -53,7 +56,11 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
             raise ValueError("Non-finite latency p95")
     else:
         raw_p95 = None
-    latency_ok = raw_p95 is not None and raw_p95 <= request.max_latency_p95_ms
+    latency_complete = len(measured) == count
+    latency_ok = (
+        raw_p95 <= request.max_latency_p95_ms
+        if latency_complete and raw_p95 is not None else None
+    )
     ttfts = sorted(row.ttft_ms for row in observations if row.ttft_ms is not None)
     if ttfts:
         ttft_rank = (len(ttfts) - 1) * 0.95
@@ -70,9 +77,8 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
     ttft_enabled = request.max_ttft_p95_ms is not None
     ttft_complete = len(ttfts) == count
     ttft_ok = (
-        raw_ttft_p95 is not None
-        and ttft_enabled
-        and raw_ttft_p95 <= request.max_ttft_p95_ms
+        raw_ttft_p95 <= request.max_ttft_p95_ms
+        if ttft_complete and raw_ttft_p95 is not None else None
     ) if ttft_enabled else None
     throughput_enabled = request.min_throughput_tps is not None
     throughputs = [row.tps for row in observations if row.tps is not None]
@@ -89,8 +95,8 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
     else:
         raw_mean_tps = None
     throughput_ok = (
-        raw_mean_tps is not None
-        and raw_mean_tps >= request.min_throughput_tps
+        raw_mean_tps >= request.min_throughput_tps
+        if throughput_complete and raw_mean_tps is not None else None
     ) if throughput_enabled else None
     cost_enabled = request.max_mean_cost_usd is not None
     costs = [row.estimated_cost_usd for row in observations if row.estimated_cost_usd is not None]
@@ -105,26 +111,25 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
     else:
         raw_mean_cost = None
     cost_ok = (
-        raw_mean_cost is not None
-        and raw_mean_cost <= request.max_mean_cost_usd
+        raw_mean_cost <= request.max_mean_cost_usd
+        if cost_complete and raw_mean_cost is not None else None
     ) if cost_enabled else None
     # Report measured breaches even when the overall assessment is
     # insufficient; never mistake missing latency measurements for a pass.
     observed_breaches = []
     if not success_ok:
         observed_breaches.append("success_rate_pct")
-    if raw_p95 is not None and not latency_ok:
+    if latency_ok is False:
         observed_breaches.append("latency_p95_ms")
-    if ttft_enabled and raw_ttft_p95 is not None and not ttft_ok:
+    if ttft_ok is False:
         observed_breaches.append("ttft_p95_ms")
-    if throughput_enabled and raw_mean_tps is not None and not throughput_ok:
+    if throughput_ok is False:
         observed_breaches.append("mean_tps")
-    if cost_enabled and raw_mean_cost is not None and not cost_ok:
+    if cost_ok is False:
         observed_breaches.append("mean_cost_usd")
     # A passing SLO requires adequate sample and metric coverage.
     # The selected sample may be biased when latency is missing. Even if the
     # configured coverage minimum is met, a partial p95 cannot certify a pass.
-    latency_complete = len(measured) == count
     insufficient_reasons = []
     if not sample_ok:
         insufficient_reasons.append("sample_count_below_minimum")
@@ -172,7 +177,7 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
             "latency_p95_ms": {
                 "value": raw_p95,
                 "maximum": request.max_latency_p95_ms,
-                "passed": latency_ok if raw_p95 is not None else None,
+                "passed": latency_ok,
             },
             "ttft_p95_ms": {
                 "value": raw_ttft_p95 if ttft_enabled else None,
