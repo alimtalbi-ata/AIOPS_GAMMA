@@ -31,4 +31,4 @@ The `severityText` field is mandatory only when a severity filter was requested.
 
 ## Scope and limitations
 
-The adapter currently returns raw OpenSearch hits after validation. A production-ready API still requires explicit output-field minimization/redaction and a bounded response-size policy. No LIVE remediation, merge, deployment, or adapter activation is authorized by this document.
+The adapter now enforces a 1 MiB upstream JSON response budget and projects only reviewed metadata (`@timestamp`, `tenant.id`, `resource.attributes.service.name`, and optional `severityText`) into API responses. Raw log bodies, arbitrary attributes, OpenSearch index IDs and highlights are not returned. This is intentional until an independently reviewed redaction policy and resource-level authorization are available. The size check happens after the backend response is received, so it is not a streaming memory bound. No LIVE remediation, merge, deployment, or adapter activation is authorized by this document.
