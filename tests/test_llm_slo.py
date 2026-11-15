@@ -1008,6 +1008,7 @@ def test_quarter_error_rate_threshold_rejects_invalid_values(invalid):
 @pytest.mark.parametrize("threshold", [
     {"max_quarter_error_rate_pct": 20},
     {"max_quarter_degraded_rate_pct": 20},
+    {"max_quarter_unhealthy_rate_pct": 20},
     {"min_occupied_quarters": 2},
     {"max_window_gap_ratio": 0.5},
     {"min_window_span_coverage": 0.8},
@@ -1070,3 +1071,52 @@ def test_legacy_slo_does_not_invent_quarter_degraded_rates():
     ]), tenant)
     assert result["quarter_degraded_rate_pct"] is None
     assert result["max_quarter_degraded_rate_pct"] is None
+
+
+def test_combined_unhealthy_spike_breaches_when_individual_rates_pass():
+    tenant = uuid4()
+    end = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(minutes=1)
+    start = end - timedelta(hours=1)
+    statuses = ["error"] * 3 + ["degraded"] * 3 + ["ok"] * 4
+    observations = [
+        {"status": status, "latency_ms": 100,
+         "observed_at": start + timedelta(minutes=index)}
+        for index, status in enumerate(statuses)
+    ] + [
+        {"status": "ok", "latency_ms": 100,
+         "observed_at": start + timedelta(minutes=20 + index)}
+        for index in range(20)
+    ]
+    req = make_request(
+        tenant, observations, window_start=start, window_end=end,
+        min_success_rate_pct=0, max_quarter_error_rate_pct=50,
+        max_quarter_degraded_rate_pct=50, max_quarter_unhealthy_rate_pct=50,
+    )
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["quarter_error_rate_pct"][0] == 30
+    assert result["quarter_degraded_rate_pct"][0] == 30
+    assert result["quarter_unhealthy_rate_pct"][0] == 60
+    assert result["state"] == "BREACH_PREVIEW"
+    assert "quarter_unhealthy_rate_pct" in result["observed_breaches"]
+    assert "quarter_error_rate_pct" not in result["observed_breaches"]
+    assert "quarter_degraded_rate_pct" not in result["observed_breaches"]
+    assert result["authoritative"] is False
+
+
+@pytest.mark.parametrize("invalid", [-1, 101, float("nan"), float("inf")])
+def test_quarter_unhealthy_threshold_rejects_invalid_values(invalid):
+    with pytest.raises(ValidationError):
+        make_request(uuid4(), [
+            {"status": "ok", "latency_ms": 100},
+            {"status": "ok", "latency_ms": 120},
+        ], max_quarter_unhealthy_rate_pct=invalid)
+
+
+def test_unwindowed_slo_does_not_invent_unhealthy_rate():
+    tenant = uuid4()
+    result = evaluate_llm_slo_preview(make_request(tenant, [
+        {"status": "ok", "latency_ms": 100},
+        {"status": "ok", "latency_ms": 120},
+    ]), tenant)
+    assert result["quarter_unhealthy_rate_pct"] is None
+    assert result["max_quarter_unhealthy_rate_pct"] is None
