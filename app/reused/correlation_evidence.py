@@ -3,6 +3,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.reused.correlation import CorrelationPreview, correlate
 from app.reused.evidence import EvidenceInput, normalize, _require_string_json_keys
 from datetime import datetime, timezone
+import unicodedata
 
 
 class CorrelationEvidencePreview(BaseModel):
@@ -19,7 +20,7 @@ def preview(request: CorrelationEvidencePreview, tenant_id: str, *, now: datetim
             or tenant_id != tenant_id.strip()
             or len(tenant_id) > 128
             or any(ord(ch) < 32 or ord(ch) == 127 or 0xD800 <= ord(ch) <= 0xDFFF
-                   for ch in tenant_id)):
+                   or unicodedata.category(ch) == "Cf" for ch in tenant_id)):
         raise ValueError("Invalid correlation/evidence request or tenant")
     if (not isinstance(request.max_age_seconds, int)
             or isinstance(request.max_age_seconds, bool)):
