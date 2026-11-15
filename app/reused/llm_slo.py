@@ -9,7 +9,7 @@ import math
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.reused.llm_kpi import LLMKPIRequest
 
@@ -20,6 +20,16 @@ class LLMSLOPreviewRequest(BaseModel):
     kpis: LLMKPIRequest
     window_start: datetime | None = None
     window_end: datetime | None = None
+
+    @field_validator("window_start", "window_end", mode="before")
+    @classmethod
+    def reject_ambiguous_window_timestamp(cls, value):
+        if value is not None and not isinstance(value, (datetime, str)):
+            raise ValueError("SLO window timestamp must be ISO-8601 or datetime")
+        if isinstance(value, str) and (not value or value.strip() != value
+                                       or value.lstrip("+-").replace(".", "", 1).isdigit()):
+            raise ValueError("SLO window timestamp must be ISO-8601")
+        return value
 
     @model_validator(mode="after")
     def validate_declared_window(self):
