@@ -190,3 +190,42 @@ def test_complete_latency_samples_can_pass_when_configured_coverage_is_lower():
     result = evaluate_llm_slo_preview(req, tenant)
     assert result["latency_complete"] is True
     assert result["state"] == "PASS_PREVIEW"
+
+
+def test_insufficient_data_reasons_are_specific_and_stable():
+    tenant = uuid4()
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 100},
+        {"status": "ok"},
+    ], min_samples=3)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "INSUFFICIENT_DATA"
+    assert result["insufficient_data_reasons"] == [
+        "sample_count_below_minimum",
+        "latency_coverage_below_minimum",
+        "latency_measurements_incomplete",
+    ]
+
+
+def test_coverage_threshold_met_but_missing_measurement_is_explained():
+    tenant = uuid4()
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 100},
+        {"status": "ok"},
+    ], min_latency_coverage=0.5)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "INSUFFICIENT_DATA"
+    assert result["insufficient_data_reasons"] == [
+        "latency_measurements_incomplete",
+    ]
+
+
+def test_complete_pass_has_no_insufficient_data_reasons():
+    tenant = uuid4()
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 100},
+        {"status": "ok", "latency_ms": 120},
+    ])
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "PASS_PREVIEW"
+    assert result["insufficient_data_reasons"] == []
