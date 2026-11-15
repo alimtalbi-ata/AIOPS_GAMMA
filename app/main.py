@@ -146,9 +146,12 @@ async def list_bindings(
 
 def validate_incident_resource_id(incident_id: str) -> str:
     """Reject noncanonical resource identifiers before any evidence database access."""
+    import unicodedata
     if (not 1 <= len(incident_id) <= 255 or incident_id != incident_id.strip()
             or any(ord(ch) < 32 or ord(ch) == 127
-                   or 0xD800 <= ord(ch) <= 0xDFFF for ch in incident_id)):
+                   or 0xD800 <= ord(ch) <= 0xDFFF
+                   or unicodedata.category(ch) == "Cf" for ch in incident_id)
+            or "\\" in incident_id or incident_id == "*"):
         raise HTTPException(422, "Invalid incident resource identifier")
     return incident_id
 
