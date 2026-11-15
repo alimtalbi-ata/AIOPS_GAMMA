@@ -52,6 +52,7 @@ class LLMSLOPreviewRequest(BaseModel):
                 raise ValueError("SLO observation falls outside the declared window")
         return self
 
+    min_window_span_coverage: float = Field(default=0.5, ge=0, le=1, allow_inf_nan=False)
     min_samples: int = Field(default=30, ge=1, le=1000)
     min_latency_coverage: float = Field(default=0.95, gt=0, le=1, allow_inf_nan=False)
     min_success_rate_pct: float = Field(default=99.0, ge=0, le=100, allow_inf_nan=False)
@@ -72,6 +73,14 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
         raise ValueError("Cross-tenant KPI aggregation rejected")
     observations = request.kpis.observations
     count = len(observations)
+    window_span_coverage = None
+    if request.window_start is not None:
+        observed_times = [row.observed_at for row in observations]
+        observed_span = max(observed_times) - min(observed_times)
+        window_span_coverage = observed_span / (request.window_end - request.window_start)
+        # Temporal spread is only a weak proxy for completeness; the source
+        # remains caller-supplied and unverified even when this check passes.
+
     measured = [row.latency_ms for row in observations if row.latency_ms is not None]
     success = sum(row.status == "ok" for row in observations)
     # Compare unrounded values: rounding must never turn a breach into a pass.
@@ -168,6 +177,9 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
     insufficient_reasons = []
     if not sample_ok:
         insufficient_reasons.append("sample_count_below_minimum")
+    if (window_span_coverage is not None
+            and window_span_coverage < request.min_window_span_coverage):
+        insufficient_reasons.append("window_sample_span_below_minimum")
     if not coverage_ok:
         insufficient_reasons.append("latency_coverage_below_minimum")
     if not latency_complete:
@@ -215,6 +227,8 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
             if request.window_start is not None else None
         ),
         "sample_provenance_state": "UNVERIFIED",
+        "window_span_coverage": window_span_coverage,
+        "min_window_span_coverage": request.min_window_span_coverage if window_span_coverage is not None else None,
         "checks": {
             "sample_count": {"value": count, "minimum": request.min_samples, "passed": sample_ok},
             "latency_coverage": {
