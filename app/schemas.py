@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class TimeWindow(BaseModel):
@@ -32,6 +32,8 @@ class LogSearchRequest(BaseModel):
 
 
 class AlertPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     external_event_id: str = Field(min_length=1, max_length=255)
     source: str = Field(default="opensearch", min_length=1, max_length=100)
     service_name: str = Field(min_length=1, max_length=255)
@@ -75,6 +77,8 @@ class AlertPayload(BaseModel):
 
 
 class BindingIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     cmdb_service_id: UUID
     otel_service_name: str = Field(min_length=1, max_length=255)
     environment: str = Field(default="production", min_length=1, max_length=100)
@@ -91,6 +95,8 @@ class BindingIn(BaseModel):
 
 
 class EvidenceIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     investigation_id: UUID
     source_type: Literal["logs", "metrics", "traces", "change"]
     source_ref: str = Field(min_length=1, max_length=512)
