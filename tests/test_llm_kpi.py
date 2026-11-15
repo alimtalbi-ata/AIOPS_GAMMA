@@ -156,3 +156,29 @@ def test_mutated_kpi_tenant_rejected_at_calculation_boundary():
     req.tenant_id = uuid4()
     with pytest.raises(ValueError, match="Cross-tenant"):
         calculate_llm_kpis(req, tenant)
+
+
+def test_partial_token_samples_do_not_masquerade_as_total_usage():
+    tenant = uuid4()
+    result = calculate_llm_kpis(request(tenant, observations=[
+        {"status": "ok", "input_tokens": 120, "output_tokens": 40},
+        {"status": "error", "input_tokens": 30},
+        {"status": "degraded"},
+    ]), tenant)
+    assert result["total_input_tokens"] is None
+    assert result["total_output_tokens"] is None
+    assert result["input_token_coverage"] == pytest.approx(0.667)
+    assert result["output_token_coverage"] == pytest.approx(0.333)
+    assert result["authoritative"] is False
+
+
+def test_complete_zero_token_usage_is_known_zero():
+    tenant = uuid4()
+    result = calculate_llm_kpis(request(tenant, observations=[
+        {"status": "ok", "input_tokens": 0, "output_tokens": 0},
+        {"status": "error", "input_tokens": 0, "output_tokens": 0},
+    ]), tenant)
+    assert result["total_input_tokens"] == 0
+    assert result["total_output_tokens"] == 0
+    assert result["input_token_coverage"] == 1
+    assert result["output_token_coverage"] == 1
