@@ -123,3 +123,44 @@ async def test_backend_receives_configured_index_and_security_options(monkeypatc
     assert observed["search"]["index"] == "staging-logs-*"
     assert observed["search"]["body"]["size"] == 3
     assert observed["closed"] is True
+
+
+@pytest.mark.asyncio
+async def test_mutated_query_is_rejected_before_client_import_or_network(monkeypatch):
+    from app.settings import settings
+
+    monkeypatch.setattr(settings, "max_query_hours", 24)
+    req = request()
+    req.limit = 1000000
+    # This intentionally fails before the lazy opensearchpy import.
+    with pytest.raises(ValueError):
+        await search_logs(TENANT, req)
+
+
+@pytest.mark.asyncio
+async def test_backend_receives_all_mandatory_scoping_filters(monkeypatch):
+    from app.settings import settings
+
+    monkeypatch.setattr(settings, "max_query_hours", 24)
+    observed = {}
+
+    class FakeClient:
+        async def search(self, **kwargs):
+            observed.update(kwargs)
+            return {"hits": {"hits": []}}
+
+        async def close(self):
+            observed["closed"] = True
+
+    module = ModuleType("opensearchpy")
+    module.AsyncOpenSearch = lambda **kwargs: FakeClient()
+    monkeypatch.setitem(sys.modules, "opensearchpy", module)
+    req = request()
+    req.severity = ["ERROR"]
+    await search_logs(TENANT, req)
+    filters = observed["body"]["query"]["bool"]["filter"]
+    assert {"term": {"tenant.id": TENANT}} in filters
+    assert {"term": {"resource.attributes.service.name": "checkout"}} in filters
+    assert {"terms": {"severityText": ["ERROR"]}} in filters
+    assert observed["body"]["track_total_hits"] is False
+    assert observed["closed"] is True
