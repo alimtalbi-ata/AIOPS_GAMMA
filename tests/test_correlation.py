@@ -481,3 +481,30 @@ def test_correlation_preview_rejects_forged_tenant_and_live_flags():
 def test_correlation_preview_accepts_explicit_valid_schema():
     preview = CorrelationPreview(signals=[signal("valid")], window_seconds=300)
     assert preview.signals[0].external_event_id == "valid"
+
+
+def test_interleaved_group_keys_preserve_time_boundaries_and_order():
+    events = [
+        signal("a1", service="checkout", at=NOW),
+        signal("b1", service="billing", at=NOW + timedelta(seconds=1)),
+        signal("a2", service="checkout", at=NOW + timedelta(seconds=250)),
+        signal("b2", service="billing", at=NOW + timedelta(seconds=251)),
+        signal("a3", service="checkout", at=NOW + timedelta(seconds=500)),
+        signal("b3", service="billing", at=NOW + timedelta(seconds=501)),
+    ]
+    result = correlate(events, "tenant-1", window_seconds=300)
+    assert [(g["service_name"], g["event_count"]) for g in result["groups"]] == [
+        ("checkout", 2), ("billing", 2), ("checkout", 1), ("billing", 1),
+    ]
+
+
+def test_maximum_bounded_distinct_keys_do_not_merge():
+    events = [
+        signal(str(i), service=f"service-{i}", at=NOW + timedelta(seconds=i))
+        for i in range(500)
+    ]
+    result = correlate(events, "tenant-1")
+    assert len(result["groups"]) == 500
+    assert result["source_events"] == 500
+    assert all(g["event_count"] == 1 for g in result["groups"])
+    assert len({g["group_id"] for g in result["groups"]}) == 500
