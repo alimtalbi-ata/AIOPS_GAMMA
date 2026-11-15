@@ -726,3 +726,31 @@ def test_join_preview_rejects_nested_forged_evidence_authority():
     payload["evidence"][0]["integrity"] = "VERIFIED"
     with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
         CorrelationEvidencePreview.model_validate(payload)
+
+
+def test_mixed_firing_resolved_events_downgrade_fully_covered_evidence():
+    req = request()
+    req.correlation.signals.append(req.correlation.signals[0].model_copy(
+        update={"external_event_id": "evt-2", "status": "resolved"}
+    ))
+    req.evidence.append(req.evidence[0].model_copy(
+        update={"external_id": "evt-2"}
+    ))
+    result = preview(req, TENANT, now=NOW)
+    group = result["groups"][0]
+    assert group["resolution_state"] == "UNKNOWN"
+    assert group["evidence_covered_events"] == 2
+    assert group["evidence_missing_events"] == 0
+    assert group["evidence_state"] == "UNKNOWN"
+    assert result["evidence_join_complete"] is True
+    assert result["evidence_join_consistent"] is False
+    assert result["live_remediation_authorized"] is False
+
+
+def test_uniform_resolved_alerts_remain_unverified_not_canonical_recovery():
+    req = request()
+    req.correlation.signals[0].status = "resolved"
+    result = preview(req, TENANT, now=NOW)
+    assert result["groups"][0]["resolution_state"] == "RESOLVED_UNVERIFIED"
+    assert result["groups"][0]["evidence_state"] == "UNVERIFIED"
+    assert result["live_remediation_authorized"] is False
