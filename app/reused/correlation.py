@@ -133,6 +133,7 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
                 "last_observed_at": timestamp.isoformat(),
                 "source_events": [],
                 "evidence_refs": [],
+                "_evidence_ref_set": set(),
             }
             groups.append(matching)
             latest_group_by_key[key] = matching
@@ -148,12 +149,14 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
             "status": signal.status,
         })
         for ref in signal.evidence_refs:
-            if ref not in matching["evidence_refs"]:
+            if ref not in matching["_evidence_ref_set"]:
+                matching["_evidence_ref_set"].add(ref)
                 matching["evidence_refs"].append(ref)
     for group in groups:
         group.pop("_key")
         group.pop("_first")
         group.pop("_last")
+        group.pop("_evidence_ref_set")
         group["evidence_refs"].sort()
         group["event_count"] = len(group["source_events"])
         group["conflicting_source_events"] = sum(
