@@ -1007,6 +1007,7 @@ def test_quarter_error_rate_threshold_rejects_invalid_values(invalid):
 
 @pytest.mark.parametrize("threshold", [
     {"max_quarter_error_rate_pct": 20},
+    {"max_quarter_degraded_rate_pct": 20},
     {"min_occupied_quarters": 2},
     {"max_window_gap_ratio": 0.5},
     {"min_window_span_coverage": 0.8},
@@ -1027,3 +1028,45 @@ def test_unwindowed_slo_without_temporal_gates_has_no_fabricated_rates():
     ]), tenant)
     assert result["quarter_error_rate_pct"] is None
     assert result["max_quarter_error_rate_pct"] is None
+
+
+def test_quarter_degraded_spike_is_independent_of_error_rate():
+    tenant = uuid4()
+    end = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(minutes=1)
+    start = end - timedelta(hours=1)
+    observations = [
+        {"status": "degraded", "latency_ms": 100,
+         "observed_at": start + timedelta(minutes=1)}
+    ] + [
+        {"status": "ok", "latency_ms": 100,
+         "observed_at": start + timedelta(minutes=15 + index)}
+        for index in range(19)
+    ]
+    req = make_request(tenant, observations, window_start=start, window_end=end,
+                       min_success_rate_pct=90, max_quarter_degraded_rate_pct=50)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "BREACH_PREVIEW"
+    assert result["quarter_degraded_rate_pct"] == [100.0, 0.0, 0.0, None]
+    assert result["quarter_error_rate_pct"] == [0.0, 0.0, 0.0, None]
+    assert "quarter_degraded_rate_pct" in result["observed_breaches"]
+    assert "quarter_error_rate_pct" not in result["observed_breaches"]
+    assert result["authoritative"] is False
+
+
+@pytest.mark.parametrize("invalid", [-1, 101, float("nan"), float("inf")])
+def test_quarter_degraded_threshold_rejects_invalid_values(invalid):
+    with pytest.raises(ValidationError):
+        make_request(uuid4(), [
+            {"status": "ok", "latency_ms": 100},
+            {"status": "ok", "latency_ms": 120},
+        ], max_quarter_degraded_rate_pct=invalid)
+
+
+def test_legacy_slo_does_not_invent_quarter_degraded_rates():
+    tenant = uuid4()
+    result = evaluate_llm_slo_preview(make_request(tenant, [
+        {"status": "ok", "latency_ms": 100},
+        {"status": "ok", "latency_ms": 120},
+    ]), tenant)
+    assert result["quarter_degraded_rate_pct"] is None
+    assert result["max_quarter_degraded_rate_pct"] is None
