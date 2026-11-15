@@ -188,3 +188,28 @@ def test_invalid_incident_id_rejected_before_db_access(client, incident_id, meth
         })
     assert response.status_code == 422, response.text
     assert calls == []
+
+
+@pytest.mark.parametrize("method", ["GET", "POST"])
+@pytest.mark.parametrize("header_name", ["X-Internal-API-Key", "X-Gateway-Principal"])
+def test_duplicate_security_headers_rejected_before_db(client, method, header_name):
+    test_client, calls = client
+    path = "/api/v1/incidents/inc-1/evidence"
+    token = _token(method, path, ["inc-1"])
+    headers = [
+        ("X-Internal-API-Key", "service-secret"),
+        ("X-Gateway-Principal", token),
+    ]
+    headers.append((header_name, "attacker-value"))
+    if method == "GET":
+        response = test_client.get(path, headers=headers)
+    else:
+        response = test_client.post(path, headers=headers, json={
+            "investigation_id": str(uuid4()),
+            "source_type": "logs",
+            "source_ref": "otel:trace-1",
+            "summary": "Synthetic evidence",
+            "observed_at": "2026-11-15T12:00:00Z",
+        })
+    assert response.status_code == 401, response.text
+    assert calls == []
