@@ -79,6 +79,16 @@ class BindingIn(BaseModel):
     otel_service_name: str = Field(min_length=1, max_length=255)
     environment: str = Field(default="production", min_length=1, max_length=100)
 
+    @field_validator("otel_service_name", "environment")
+    @classmethod
+    def canonical_binding_identity(cls, value: str) -> str:
+        if value != value.strip() or any(
+            ord(ch) < 32 or ord(ch) == 127 or 0xD800 <= ord(ch) <= 0xDFFF
+            for ch in value
+        ):
+            raise ValueError("service binding identity must be canonical printable text")
+        return value
+
 
 class EvidenceIn(BaseModel):
     investigation_id: UUID
