@@ -135,6 +135,8 @@ def verify_gateway_assertion(token: str, *, method: str, path: str, now: int | N
                 not isinstance(grant, str)
                 or not 1 <= len(grant) <= 255
                 or grant != grant.strip()
+                or grant == "*"
+                or any(unicodedata.category(ch) == "Cf" for ch in grant)
                 or any(ord(ch) < 32 or ord(ch) == 127
                        or 0xD800 <= ord(ch) <= 0xDFFF
                        for ch in grant)
