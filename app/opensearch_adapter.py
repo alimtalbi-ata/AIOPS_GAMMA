@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import json
 import re
 from urllib.parse import urlsplit
 from uuid import UUID
@@ -83,6 +84,14 @@ def validate_log_search_response(result: dict, tenant_id: str, service_name: str
     """Never return a cross-tenant or cross-service document from an upstream read."""
     if not isinstance(result, dict):
         raise ValueError("Invalid OpenSearch response")
+    # Cap serialized upstream data before returning it to callers. The cap is
+    # independent of the requested hit count (a single hit may be enormous).
+    try:
+        encoded = json.dumps(result, ensure_ascii=False, allow_nan=False).encode("utf-8")
+    except (TypeError, ValueError, UnicodeError, RecursionError) as exc:
+        raise ValueError("Invalid OpenSearch response encoding") from exc
+    if len(encoded) > 1_048_576:
+        raise ValueError("OpenSearch response exceeds size policy")
     hits_container = result.get("hits")
     if not isinstance(hits_container, dict) or not isinstance(hits_container.get("hits"), list):
         raise ValueError("Invalid OpenSearch response")
