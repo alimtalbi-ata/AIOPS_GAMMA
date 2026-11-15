@@ -306,7 +306,7 @@ def test_evidence_incident_grants_preserve_exact_resource_ids(monkeypatch):
 @pytest.mark.parametrize("grants", [
     "*", ["inc-1", "inc-1"], [" inc-1"], [""], [123],
     [None], ["x" * 256], list(range(65)), ["inc-1\\nspoof"],
-    ["inc-1\\u200b"], ["inc-1\\u202e"],
+    ["inc-1\u200b"], ["inc-1\u202e"],
 ])
 def test_malformed_evidence_incident_grants_fail_closed(monkeypatch, grants):
     token = _token(monkeypatch, evidence_incident_grants=grants)
