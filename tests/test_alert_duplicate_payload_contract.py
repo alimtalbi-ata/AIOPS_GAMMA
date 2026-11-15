@@ -237,3 +237,50 @@ async def test_new_alert_creates_tenant_scoped_inbox_and_outbox_in_one_commit(mo
     assert outbox.event_type == "observability.alert.firing"
     assert outbox.aggregate_id == "checkout"
     assert inbox.payload == outbox.payload == payload.model_dump(mode="json")
+
+
+@pytest.mark.asyncio
+async def test_duplicate_lookup_is_scoped_to_authenticated_tenant_and_source(monkeypatch):
+    """A duplicate lookup must never select an event from a different tenant."""
+    from datetime import datetime, timezone
+    from sqlalchemy.sql import operators
+    from app.main import alerts
+    from app.models import InboxEvent
+    from app.schemas import AlertPayload
+    from app.security import Principal
+    from app.settings import settings
+
+    monkeypatch.setattr(settings, "enable_alert_ingestion", True)
+    tenant = uuid4()
+    payload = AlertPayload(
+        external_event_id="evt-tenant", source="opensearch", service_name="checkout",
+        severity="major", status="firing",
+        observed_at=datetime(2026, 11, 15, tzinfo=timezone.utc),
+    )
+    event_id = uuid4()
+
+    class Session:
+        async def scalar(self, statement):
+            assert statement.column_descriptions[0]["entity"] is InboxEvent
+            predicates = list(statement.whereclause.clauses)
+            filters = {}
+            for predicate in predicates:
+                assert predicate.operator is operators.eq
+                filters[predicate.left.key] = predicate.right.value
+            assert filters == {
+                "tenant_id": tenant,
+                "source": "opensearch",
+                "external_event_id": "evt-tenant",
+            }
+            return SimpleNamespace(id=event_id, payload=payload.model_dump(mode="json"))
+
+        def add(self, row):
+            raise AssertionError("existing event must not trigger a write")
+
+    principal = Principal(
+        tenant_id=tenant, subject="user:test", actor_type="user",
+        assertion_id="assertion-test-123", expires_at=2000000000,
+    )
+    assert await alerts(payload, principal, Session()) == {
+        "id": str(event_id), "duplicate": True,
+    }
