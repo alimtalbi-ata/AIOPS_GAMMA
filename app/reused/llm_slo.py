@@ -39,7 +39,8 @@ class LLMSLOPreviewRequest(BaseModel):
             if ((self.max_quarter_error_rate_pct is not None or self.max_quarter_degraded_rate_pct is not None
                         or self.max_quarter_unhealthy_rate_pct is not None)
                     or self.min_occupied_quarters > 0
-                    or self.max_window_gap_ratio < 1 or self.min_window_span_coverage != 0.5):
+                    or self.max_window_gap_ratio < 1 or self.min_window_span_coverage != 0.5
+                    or self.min_quarter_samples != 1):
                 raise ValueError("Window-specific SLO thresholds require a declared window")
             return self
         start, end = self.window_start, self.window_end
