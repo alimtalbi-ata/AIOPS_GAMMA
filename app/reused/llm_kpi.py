@@ -168,6 +168,15 @@ def calculate_llm_kpis(request: LLMKPIRequest, authorized_tenant: UUID) -> dict:
             round(100 * anomalies / processed, 3)
             if anomalies is not None and processed is not None and processed > 0 else None
         ),
+        "sentinel_counter_state": (
+            "MISSING" if anomalies is None or processed is None
+            else "ZERO_DENOMINATOR" if processed == 0
+            else "CALLER_SUPPLIED_UNVERIFIED"
+        ),
+        "sentinel_counter_coverage": {
+            "anomalies_present": anomalies is not None,
+            "events_processed_present": processed is not None,
+        },
         "sentinel_anomalies_total": anomalies,
         "sentinel_events_processed_total": processed,
         "data_source": "caller_supplied_preview",
