@@ -297,3 +297,27 @@ def test_evidence_authentication_fail_closed_before_db(client, method, auth_case
     assert response.status_code == 401, response.text
     assert response.headers["cache-control"] == "no-store"
     assert calls == []
+
+
+@pytest.mark.parametrize("method", ["GET", "POST"])
+@pytest.mark.parametrize("bad_grant", ["*", "inc/1", "cafe\u0301", "inc\u0085name"])
+def test_invalid_signed_incident_grants_fail_before_db(client, method, bad_grant):
+    test_client, calls = client
+    path = "/api/v1/incidents/inc-1/evidence"
+    headers = {
+        "X-Internal-API-Key": "service-secret",
+        "X-Gateway-Principal": _token(method, path, [bad_grant]),
+    }
+    if method == "GET":
+        response = test_client.get(path, headers=headers)
+    else:
+        response = test_client.post(path, headers=headers, json={
+            "investigation_id": str(uuid4()),
+            "source_type": "logs",
+            "source_ref": "otel:trace-1",
+            "summary": "Synthetic evidence",
+            "observed_at": "2026-11-15T12:00:00Z",
+        })
+    assert response.status_code == 401, response.text
+    assert response.headers["cache-control"] == "no-store"
+    assert calls == []
