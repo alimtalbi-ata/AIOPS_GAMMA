@@ -19,8 +19,8 @@ class LLMObservation(BaseModel):
 
     latency_ms: float | None = Field(default=None, ge=0)
     ttft_ms: float | None = Field(default=None, ge=0)
-    output_tokens: int | None = Field(default=None, ge=0)
-    input_tokens: int | None = Field(default=None, ge=0)
+    output_tokens: int | None = Field(default=None, ge=0, le=9223372036854775807, strict=True)
+    input_tokens: int | None = Field(default=None, ge=0, le=9223372036854775807, strict=True)
     tps: float | None = Field(default=None, ge=0)
     estimated_cost_usd: float | None = Field(default=None, ge=0)
     status: Literal["ok", "error", "degraded"]
@@ -150,6 +150,8 @@ def calculate_llm_kpis(request: LLMKPIRequest, authorized_tenant: UUID) -> dict:
         "ttft_p95_ms": _percentile(ttfts, 0.95),
         "mean_tps": _mean(throughputs),
         # A partial sum must not masquerade as total model usage.
+        # Aggregate only complete token coverage; Python's arbitrary-precision
+        # integer sum preserves exact counts without floating-point rounding.
         "total_input_tokens": sum(input_token_values) if len(input_token_values) == total else None,
         "total_output_tokens": sum(output_token_values) if len(output_token_values) == total else None,
         "input_token_coverage": round(len(input_token_values) / total, 3),
