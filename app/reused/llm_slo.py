@@ -43,7 +43,10 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
     if ordered:
         rank = (len(ordered) - 1) * 0.95
         lower, upper = math.floor(rank), math.ceil(rank)
-        raw_p95 = ordered[lower] + (ordered[upper] - ordered[lower]) * (rank - lower)
+        fraction = rank - lower
+        raw_p95 = ordered[lower] * (1.0 - fraction) + ordered[upper] * fraction
+        if not math.isfinite(raw_p95):
+            raise ValueError("Non-finite latency p95")
     else:
         raw_p95 = None
     latency_ok = raw_p95 is not None and raw_p95 <= request.max_latency_p95_ms
@@ -51,9 +54,13 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
     if ttfts:
         ttft_rank = (len(ttfts) - 1) * 0.95
         ttft_lower, ttft_upper = math.floor(ttft_rank), math.ceil(ttft_rank)
-        raw_ttft_p95 = ttfts[ttft_lower] + (
-            ttfts[ttft_upper] - ttfts[ttft_lower]
-        ) * (ttft_rank - ttft_lower)
+        fraction = ttft_rank - ttft_lower
+        raw_ttft_p95 = (
+            ttfts[ttft_lower] * (1.0 - fraction)
+            + ttfts[ttft_upper] * fraction
+        )
+        if not math.isfinite(raw_ttft_p95):
+            raise ValueError("Non-finite TTFT p95")
     else:
         raw_ttft_p95 = None
     ttft_enabled = request.max_ttft_p95_ms is not None
