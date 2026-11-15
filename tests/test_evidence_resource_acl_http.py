@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.database import get_session
+from app.db import get_session
 from app.settings import settings
 
 
