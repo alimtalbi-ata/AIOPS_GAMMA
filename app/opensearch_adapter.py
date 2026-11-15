@@ -1,3 +1,4 @@
+from datetime import timedelta
 from uuid import UUID
 
 from app.schemas import LogSearchRequest
@@ -15,6 +16,9 @@ def make_log_query(tenant_id: str, req: LogSearchRequest) -> dict:
         raise ValueError("Valid tenant UUID required for OpenSearch query") from exc
     if tenant_id != canonical_tenant:
         raise ValueError("Canonical tenant UUID required for OpenSearch query")
+    # Direct adapter callers must not bypass the HTTP endpoint's query-window policy.
+    if req.window.end - req.window.start > timedelta(hours=settings.max_query_hours):
+        raise ValueError("OpenSearch query window exceeds policy")
     filters = [
         {"term": {"tenant.id": tenant_id}},
         {"term": {"resource.attributes.service.name": req.service_name}},
