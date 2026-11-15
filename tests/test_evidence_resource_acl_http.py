@@ -365,6 +365,10 @@ def test_authorized_evidence_read_filters_by_signed_tenant_and_incident(client):
     assert "tenant_id" in sql and "incident_id" in sql
     assert expected_tenant in {str(value) for value in params.values()}
     assert "inc-1" in params.values()
+    assert "tenant_id =" in sql and "incident_id =" in sql
+    assert " AND " in sql.upper()
+    assert "LIMIT" in sql.upper()
+    assert 500 in params.values()
 
 
 def test_authorized_evidence_write_uses_signed_tenant_and_exact_incident(client):
