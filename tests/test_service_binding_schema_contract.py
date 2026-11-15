@@ -38,3 +38,9 @@ def test_valid_binding_preserves_identity():
     result = binding()
     assert result.otel_service_name == "checkout.api"
     assert result.environment == "production"
+
+
+@pytest.mark.parametrize("unexpected", ["tenant_id", "actor_id", "admin_override"])
+def test_unexpected_identity_and_authorization_fields_rejected(unexpected):
+    with pytest.raises(ValidationError):
+        binding(**{unexpected: "forged"})
