@@ -49,3 +49,19 @@ def test_aware_alert_timestamp_accepted():
 def test_noncanonical_alert_evidence_references_rejected(refs):
     with pytest.raises(ValidationError):
         alert(evidence_refs=refs)
+
+
+@pytest.mark.parametrize("field", ["external_event_id", "source", "service_name"])
+@pytest.mark.parametrize("bad_value", [" leading", "trailing ", "line\nfeed", "null\x00byte", "del\x7f"])
+def test_noncanonical_alert_deduplication_and_aggregate_keys_rejected(field, bad_value):
+    with pytest.raises(ValidationError):
+        alert(**{field: bad_value})
+
+
+@pytest.mark.parametrize("field,max_size", [
+    ("external_event_id", 255), ("source", 100), ("service_name", 255),
+])
+def test_alert_identity_field_length_boundaries(field, max_size):
+    assert getattr(alert(**{field: "x" * max_size}), field) == "x" * max_size
+    with pytest.raises(ValidationError):
+        alert(**{field: "x" * (max_size + 1)})
