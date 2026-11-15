@@ -49,6 +49,10 @@ async def logs(req: LogSearchRequest, response: Response, principal: Principal =
     response.headers["Cache-Control"] = "no-store"
     if not settings.enable_opensearch:
         raise HTTPException(503, "OpenSearch adapter disabled", headers={"Cache-Control": "no-store"})
+    # Tenant membership alone does not authorize access to every service.
+    # Grants must be attested by the gateway in the signed assertion.
+    if req.service_name not in principal.log_service_grants:
+        raise HTTPException(403, "Service log access denied", headers={"Cache-Control": "no-store"})
     if req.window.end - req.window.start > timedelta(hours=settings.max_query_hours):
         raise HTTPException(422, "Time window exceeds policy", headers={"Cache-Control": "no-store"})
     try:
