@@ -673,3 +673,27 @@ def test_conflicting_service_identity_is_reported_without_cross_service_join():
     assert result["groups"][0]["conflict_fields"] == ["service_name"]
     assert result["groups"][0]["conflicting_source_events"] == 1
     assert result["groups"][0]["resolution_state"] == "UNKNOWN"
+
+
+def test_source_event_projection_never_hides_firing_duplicate():
+    firing = signal("same", status="firing")
+    resolved = signal("same", status="resolved")
+    for variants in ([firing, resolved], [resolved, firing]):
+        result = correlate(variants, "tenant-1")
+        group = result["groups"][0]
+        assert group["source_events"] == [{
+            "source": "otel",
+            "external_event_id": "same",
+            "status": "firing",
+            "status_state": "UNKNOWN",
+        }]
+        assert group["status"] == "firing"
+        assert group["resolution_state"] == "UNKNOWN"
+        assert result["live_remediation_authorized"] is False
+
+
+def test_source_event_projection_distinguishes_nonconflicting_status():
+    result = correlate([signal("same", status="resolved")], "tenant-1")
+    assert result["groups"][0]["source_events"][0]["status"] == "resolved"
+    assert result["groups"][0]["source_events"][0]["status_state"] == "UNVERIFIED"
+    assert result["groups"][0]["resolution_state"] == "RESOLVED_UNVERIFIED"
