@@ -314,3 +314,12 @@ def test_malformed_evidence_incident_grants_fail_closed(monkeypatch, grants):
         verify_gateway_assertion(token, method="POST",
             path="/api/v1/observability/metrics/query", now=1030)
     assert exc.value.status_code == 401
+
+
+@pytest.mark.parametrize("resource", ["inc/1", "inc?1", "inc#1"])
+def test_signed_incident_grants_reject_url_delimiters(monkeypatch, resource):
+    token = _token(monkeypatch, evidence_incident_grants=[resource])
+    with pytest.raises(HTTPException) as exc:
+        verify_gateway_assertion(token, method="POST",
+            path="/api/v1/observability/metrics/query", now=1030)
+    assert exc.value.status_code == 401
