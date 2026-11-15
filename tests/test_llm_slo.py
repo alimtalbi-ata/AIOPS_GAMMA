@@ -604,3 +604,42 @@ def test_observation_timestamp_rejects_naive_datetime():
             {"status": "ok", "latency_ms": 100, "observed_at": datetime(2026, 1, 1)},
             {"status": "ok", "latency_ms": 120},
         ])
+
+
+@pytest.mark.parametrize("invalid_timestamp", [
+    1760000000, 1760000000000, "1760000000", " 2026-01-01T00:00:00Z ",
+])
+def test_observation_rejects_ambiguous_epoch_and_padded_timestamps(invalid_timestamp):
+    with pytest.raises(ValidationError):
+        make_request(uuid4(), [
+            {"status": "ok", "latency_ms": 100, "observed_at": invalid_timestamp},
+            {"status": "ok", "latency_ms": 120},
+        ])
+
+
+@pytest.mark.parametrize("invalid_bound", [
+    1760000000, 1760000000000, "1760000000", " 2026-01-01T00:00:00Z ",
+])
+def test_declared_window_rejects_ambiguous_boundaries(invalid_bound):
+    tenant = uuid4()
+    now = datetime.now(timezone.utc)
+    with pytest.raises(ValidationError):
+        make_request(tenant, [
+            {"status": "ok", "latency_ms": 100},
+            {"status": "ok", "latency_ms": 120},
+        ], window_start=invalid_bound, window_end=now)
+
+
+def test_declared_window_accepts_explicit_iso8601_offset_strings():
+    tenant = uuid4()
+    end = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(minutes=1)
+    start = end - timedelta(minutes=10)
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 100,
+         "observed_at": start.isoformat()},
+        {"status": "ok", "latency_ms": 120,
+         "observed_at": (end - timedelta(seconds=1)).isoformat()},
+    ], window_start=start.isoformat(), window_end=end.isoformat())
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "PASS_PREVIEW"
+    assert result["sample_window_state"] == "CALLER_DECLARED_UNVERIFIED"
