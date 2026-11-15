@@ -667,3 +667,29 @@ def test_join_rejects_mutated_nonlist_evidence_collection(invalid_collection):
 def test_join_bounds_direct_tenant_identity_length():
     with pytest.raises(ValueError, match="request or tenant"):
         preview(request(), "t" * 129, now=NOW)
+
+
+def test_indexed_join_preserves_normalized_evidence_order_across_events():
+    req = request()
+    req.correlation.signals.append(req.correlation.signals[0].model_copy(
+        update={"external_event_id": "evt-2"}
+    ))
+    req.evidence.append(req.evidence[0].model_copy(
+        update={"external_id": "evt-2", "claim": "second event"}
+    ))
+    result = preview(req, TENANT, now=NOW)
+    group = result["groups"][0]
+    assert {item["external_id"] for item in group["evidence"]} == {"evt-1", "evt-2"}
+    assert group["evidence_covered_events"] == 2
+    assert group["evidence_missing_events"] == 0
+
+
+def test_indexed_join_keeps_multiple_incident_claims_for_one_event():
+    req = request()
+    req.evidence.append(req.evidence[0].model_copy(
+        update={"incident_id": "inc-2"}
+    ))
+    result = preview(req, TENANT, now=NOW)
+    assert len(result["groups"][0]["evidence"]) == 2
+    assert result["groups"][0]["evidence_state"] == "UNKNOWN"
+    assert result["evidence_join_consistent"] is False
