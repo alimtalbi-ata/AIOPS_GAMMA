@@ -42,10 +42,21 @@ def client(monkeypatch):
     monkeypatch.setattr(settings, "gateway_assertion_max_ttl_seconds", 60)
     calls = []
 
+    class ForbiddenSession:
+        def add(self, *args, **kwargs):
+            calls.append("add")
+            raise AssertionError("Evidence write must not be reached")
+
+        async def commit(self):
+            calls.append("commit")
+            raise AssertionError("Evidence commit must not be reached")
+
+        async def scalars(self, *args, **kwargs):
+            calls.append("scalars")
+            raise AssertionError("Evidence read must not be reached")
+
     async def forbidden_db():
-        calls.append("db")
-        raise AssertionError("DB dependency must not be entered")
-        yield
+        yield ForbiddenSession()
 
     app.dependency_overrides[get_session] = forbidden_db
     try:
