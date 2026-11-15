@@ -145,6 +145,7 @@ def _signed_headers(path: str, tenant: UUID, *, forged_tenant: UUID) -> dict[str
         "actor_type": "user", "tenant_id": str(tenant), "tenant_access": True,
         "iat": now, "exp": now + 30, "jti": "pg-isolation-" + uuid4().hex,
         "method": "GET", "path": path,
+        "evidence_incident_grants": [INCIDENT] if path == f"/api/v1/incidents/{INCIDENT}/evidence" else [],
     }
     encoded = base64.urlsafe_b64encode(
         json.dumps(claims, separators=(",", ":")).encode()
