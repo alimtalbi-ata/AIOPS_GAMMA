@@ -111,3 +111,24 @@ async def test_glpi_oversize_rejected(monkeypatch):
     with pytest.raises(HTTPException) as e:
         await glpi_read.read_glpi_incident(TENANT, 7)
     assert e.value.status_code == 502
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("resource", ["core", "evidence", "twin"])
+async def test_all_canonical_resources_remain_on_acl_hold_even_when_feature_enabled(monkeypatch, resource):
+    canonical(monkeypatch)
+    requests = stub(monkeypatch, content=b'{"tenant_id":"12345678-1234-4234-8234-123456789abc","items":[]}')
+    with pytest.raises(HTTPException) as exc:
+        await upstream.fetch_canonical(resource, TENANT)
+    assert exc.value.status_code == 503
+    assert not requests, "Unqualified upstream reads must never touch the network"
+
+
+@pytest.mark.asyncio
+async def test_glpi_remains_on_resource_acl_hold_even_with_valid_entity_and_ticket(monkeypatch):
+    glpi(monkeypatch)
+    requests = stub(monkeypatch, content=b'{"id":7,"entities_id":3,"type":1}')
+    with pytest.raises(HTTPException) as exc:
+        await glpi_read.read_glpi_incident(TENANT, 7)
+    assert exc.value.status_code == 503
+    assert not requests, "Unqualified GLPI reads must never touch the network"
