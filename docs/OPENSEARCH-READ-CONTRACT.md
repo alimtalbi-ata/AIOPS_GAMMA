@@ -32,3 +32,10 @@ The `severityText` field is mandatory only when a severity filter was requested.
 ## Scope and limitations
 
 The adapter requests only reviewed metadata through an OpenSearch `_source.includes` filter, enforces a 1 MiB upstream JSON response budget, and projects only reviewed metadata (`@timestamp`, `tenant.id`, `resource.attributes.service.name`, and optional `severityText`) into API responses. Raw log bodies, arbitrary attributes, OpenSearch index IDs and highlights are not returned. This is intentional until an independently reviewed redaction policy and resource-level authorization are available. The size check happens after the backend response is received, so it is not a streaming memory bound. No LIVE remediation, merge, deployment, or adapter activation is authorized by this document.
+
+
+## Signed resource authorization (P1)
+
+The gateway assertion may include `"log_service_grants": ["checkout", "billing-api"]`. The gateway MUST derive this list from an independently verified actor→tenant→service ACL, not from caller-controlled request fields. The assertion remains short-lived, request-bound and HMAC-signed. Missing grants mean **deny**, not wildcard access; malformed, duplicate, wildcard or oversized grants invalidate the assertion. The log search endpoint checks exact service membership before opening any OpenSearch client and returns HTTP 403 for a missing grant.
+
+This is an application-level authorization gate. Production qualification still requires gateway-side ACL integration, tests for revocation and cross-tenant denial, cluster-side tenant isolation, and a review of which actors may request grants. The API flag remains disabled by default.
