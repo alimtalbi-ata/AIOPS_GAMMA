@@ -10,6 +10,7 @@ import binascii
 import hashlib
 import hmac
 import json
+import re
 import time
 import unicodedata
 from dataclasses import dataclass
@@ -27,6 +28,7 @@ class Principal:
     actor_type: str
     assertion_id: str
     expires_at: int
+    log_service_grants: tuple[str, ...] = ()
 
 
 def _b64url_decode(value: str) -> bytes:
@@ -110,8 +112,23 @@ def verify_gateway_assertion(token: str, *, method: str, path: str, now: int | N
         tenant = UUID(tenant_raw if isinstance(tenant_raw, str) else "")
         if tenant.int == 0 or tenant_raw != str(tenant):
             raise ValueError("invalid tenant")
+        # Optional signed, request-bound resource grants. Absence means no access,
+        # never all services. Gateway must derive grants from its own ACL store.
+        raw_grants = claims.get("log_service_grants", [])
+        if (
+            not isinstance(raw_grants, list)
+            or len(raw_grants) > 32
+            or any(
+                not isinstance(grant, str)
+                or not re.fullmatch(r"[a-zA-Z0-9_.-]{1,255}", grant)
+                for grant in raw_grants
+            )
+            or len(set(raw_grants)) != len(raw_grants)
+        ):
+            raise ValueError("invalid signed log service grants")
         return Principal(tenant_id=tenant, subject=subject, actor_type=actor_type,
-                         assertion_id=assertion_id, expires_at=expires_at)
+                         assertion_id=assertion_id, expires_at=expires_at,
+                         log_service_grants=tuple(raw_grants))
     except HTTPException:
         raise
     except (ValueError, TypeError, KeyError, UnicodeError, binascii.Error, json.JSONDecodeError) as exc:
