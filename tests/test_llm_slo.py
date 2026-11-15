@@ -823,3 +823,58 @@ def test_legacy_preview_does_not_invent_silent_interval():
     ]), tenant)
     assert result["max_observed_gap_ratio"] is None
     assert result["max_window_gap_ratio"] is None
+
+
+def test_declared_window_quarter_distribution_can_block_sparse_pass():
+    tenant = uuid4()
+    end = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(minutes=1)
+    start = end - timedelta(hours=1)
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 100,
+         "observed_at": start + timedelta(minutes=1)},
+        {"status": "ok", "latency_ms": 120,
+         "observed_at": start + timedelta(minutes=59)},
+    ], window_start=start, window_end=end, min_occupied_quarters=3)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "INSUFFICIENT_DATA"
+    assert result["occupied_quarters"] == 2
+    assert "window_occupied_quarters_below_minimum" in result["insufficient_data_reasons"]
+    assert result["authoritative"] is False
+
+
+def test_declared_window_quarter_boundaries_count_once():
+    tenant = uuid4()
+    end = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(minutes=1)
+    start = end - timedelta(hours=1)
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 100, "observed_at": start},
+        {"status": "ok", "latency_ms": 110,
+         "observed_at": start + timedelta(minutes=15)},
+        {"status": "ok", "latency_ms": 120,
+         "observed_at": start + timedelta(minutes=30)},
+        {"status": "ok", "latency_ms": 130,
+         "observed_at": start + timedelta(minutes=45)},
+    ], window_start=start, window_end=end, min_occupied_quarters=4)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["occupied_quarters"] == 4
+    assert result["state"] == "PASS_PREVIEW"
+    assert result["sample_provenance_state"] == "UNVERIFIED"
+
+
+@pytest.mark.parametrize("invalid", [-1, 5, 1.5, True, "2"])
+def test_occupied_quarter_threshold_rejects_invalid_values(invalid):
+    with pytest.raises(ValidationError):
+        make_request(uuid4(), [
+            {"status": "ok", "latency_ms": 100},
+            {"status": "ok", "latency_ms": 120},
+        ], min_occupied_quarters=invalid)
+
+
+def test_legacy_preview_has_no_invented_quarter_coverage():
+    tenant = uuid4()
+    result = evaluate_llm_slo_preview(make_request(tenant, [
+        {"status": "ok", "latency_ms": 100},
+        {"status": "ok", "latency_ms": 120},
+    ]), tenant)
+    assert result["occupied_quarters"] is None
+    assert result["min_occupied_quarters"] is None
