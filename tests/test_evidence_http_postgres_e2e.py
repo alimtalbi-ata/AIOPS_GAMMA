@@ -157,6 +157,11 @@ def test_http_postgres_two_tenants_write_read_and_denied_write_is_atomic(databas
                 assert response.status_code == 200, response.text
                 assert response.headers["cache-control"] == "no-store"
                 assert [r["source_ref"] for r in response.json()] == [expected]
+            denied_read = client.get(
+                path, headers=_headers("GET", path, tenant_a, [], forged_tenant=tenant_b)
+            )
+            assert denied_read.status_code == 403, denied_read.text
+            assert denied_read.headers["cache-control"] == "no-store"
             denied = client.post(
                 path, headers=_headers("POST", path, tenant_b, [], forged_tenant=tenant_a),
                 json={
