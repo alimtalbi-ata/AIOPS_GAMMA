@@ -36,6 +36,13 @@ def make_log_query(tenant_id: str, req: LogSearchRequest) -> dict:
     if req.severity:
         filters.append({"terms": {"severityText": req.severity}})
     return {
+        # Minimize sensitive data transferred from the cluster, not just the API output.
+        "_source": {"includes": [
+            "tenant.id",
+            "resource.attributes.service.name",
+            "@timestamp",
+            "severityText",
+        ]},
         "size": req.limit,
         "sort": [{"@timestamp": {"order": "desc"}}],
         "query": {"bool": {"filter": filters}},
