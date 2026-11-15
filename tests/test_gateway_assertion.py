@@ -263,3 +263,28 @@ def test_invisible_unicode_format_controls_in_signed_subject_denied(monkeypatch,
             method="POST", path="/api/v1/observability/metrics/query", now=1030,
         )
     assert exc.value.status_code == 401
+
+
+def test_signed_service_grants_default_to_deny(monkeypatch):
+    principal = verify_gateway_assertion(_token(monkeypatch), method="POST",
+        path="/api/v1/observability/metrics/query", now=1030)
+    assert principal.log_service_grants == ()
+
+
+def test_signed_service_grants_preserved_as_exact_names(monkeypatch):
+    token = _token(monkeypatch, log_service_grants=["checkout", "billing-api"])
+    principal = verify_gateway_assertion(token, method="POST",
+        path="/api/v1/observability/metrics/query", now=1030)
+    assert principal.log_service_grants == ("checkout", "billing-api")
+
+
+@pytest.mark.parametrize("grants", [
+    "*", ["*"], ["checkout", "checkout"], [" checkout"], [""],
+    ["checkout", 12], [None], ["x" * 256], list(range(33)),
+])
+def test_malformed_signed_service_grants_fail_closed(monkeypatch, grants):
+    token = _token(monkeypatch, log_service_grants=grants)
+    with pytest.raises(HTTPException) as exc:
+        verify_gateway_assertion(token, method="POST",
+            path="/api/v1/observability/metrics/query", now=1030)
+    assert exc.value.status_code == 401
