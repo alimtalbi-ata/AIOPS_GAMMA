@@ -1120,3 +1120,49 @@ def test_unwindowed_slo_does_not_invent_unhealthy_rate():
     ]), tenant)
     assert result["quarter_unhealthy_rate_pct"] is None
     assert result["max_quarter_unhealthy_rate_pct"] is None
+
+
+def test_quarter_rate_with_too_few_samples_is_insufficient_not_certified_breach():
+    tenant = uuid4()
+    end = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(minutes=1)
+    start = end - timedelta(hours=1)
+    req = make_request(tenant, [
+        {"status": "error", "latency_ms": 100,
+         "observed_at": start + timedelta(minutes=1)},
+        {"status": "ok", "latency_ms": 100,
+         "observed_at": start + timedelta(minutes=30)},
+        {"status": "ok", "latency_ms": 100,
+         "observed_at": start + timedelta(minutes=45)},
+    ], window_start=start, window_end=end,
+        min_success_rate_pct=0, max_quarter_error_rate_pct=50,
+        min_quarter_samples=2)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "INSUFFICIENT_DATA"
+    assert "quarter_rate_sample_count_below_minimum" in result["insufficient_data_reasons"]
+    assert "quarter_error_rate_pct" in result["observed_breaches"]
+    assert result["quarter_rate_qualified"] == [False, False, False, False]
+    assert result["min_quarter_samples"] == 2
+    assert result["authoritative"] is False
+
+
+def test_quarter_rate_minimum_does_not_block_when_no_quarter_gate_enabled():
+    tenant = uuid4()
+    end = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(minutes=1)
+    start = end - timedelta(hours=1)
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 100, "observed_at": start},
+        {"status": "ok", "latency_ms": 100,
+         "observed_at": end - timedelta(seconds=1)},
+    ], window_start=start, window_end=end, min_quarter_samples=5)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "PASS_PREVIEW"
+    assert result["quarter_rate_qualified"] == [False, False, False, False]
+
+
+@pytest.mark.parametrize("invalid", [0, -1, 1001, 1.5, True, "2"])
+def test_quarter_sample_minimum_requires_bounded_integer(invalid):
+    with pytest.raises(ValidationError):
+        make_request(uuid4(), [
+            {"status": "ok", "latency_ms": 100},
+            {"status": "ok", "latency_ms": 120},
+        ], min_quarter_samples=invalid)
