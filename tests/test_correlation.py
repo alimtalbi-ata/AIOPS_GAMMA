@@ -508,3 +508,28 @@ def test_maximum_bounded_distinct_keys_do_not_merge():
     assert result["source_events"] == 500
     assert all(g["event_count"] == 1 for g in result["groups"])
     assert len({g["group_id"] for g in result["groups"]}) == 500
+
+
+@pytest.mark.parametrize("statuses,expected", [
+    (["firing"], "FIRING_UNVERIFIED"),
+    (["resolved"], "RESOLVED_UNVERIFIED"),
+    (["firing", "resolved"], "UNKNOWN"),
+    (["resolved", "firing"], "UNKNOWN"),
+])
+def test_resolution_state_never_claims_canonical_incident_recovery(statuses, expected):
+    events = [signal(str(i), status=status) for i, status in enumerate(statuses)]
+    result = correlate(events, "tenant-1")
+    group = result["groups"][0]
+    assert group["resolution_state"] == expected
+    assert group["itsm_ticket_state"] == "NOT_CREATED"
+    assert result["live_remediation_authorized"] is False
+
+
+def test_conflicting_duplicate_status_forces_unknown_resolution():
+    events = [
+        signal("same", status="firing"),
+        signal("same", status="resolved"),
+    ]
+    result = correlate(events, "tenant-1")
+    assert result["conflicting_source_events"] == 1
+    assert result["groups"][0]["resolution_state"] == "UNKNOWN"
