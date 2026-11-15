@@ -550,3 +550,27 @@ def test_large_overlapping_evidence_references_are_unique_sorted_and_private():
     assert len(group["evidence_refs"]) == len(set(group["evidence_refs"]))
     assert "_evidence_ref_set" not in group
     assert result["live_remediation_authorized"] is False
+
+
+def test_conflicting_duplicate_severity_is_unknown_regardless_of_representative():
+    major = signal("same", severity="major")
+    critical = signal("same", severity="critical")
+    forward = correlate([major, critical], "tenant-1")
+    reverse = correlate([critical, major], "tenant-1")
+    assert forward == reverse
+    group = forward["groups"][0]
+    assert group["conflicting_source_events"] == 1
+    assert group["severity_state"] == "UNKNOWN"
+    assert group["root_cause_state"] == "UNKNOWN"
+    assert forward["live_remediation_authorized"] is False
+
+
+def test_distinct_source_severities_are_aggregated_but_not_verified():
+    result = correlate([
+        signal("otel-a", severity="major", source="otel"),
+        signal("prom-a", severity="critical", source="prometheus"),
+    ], "tenant-1")
+    group = result["groups"][0]
+    assert group["severity"] == "critical"
+    assert group["severity_state"] == "UNVERIFIED"
+    assert group["conflicting_source_events"] == 0
