@@ -18,7 +18,7 @@ class LLMSLOPreviewRequest(BaseModel):
 
     kpis: LLMKPIRequest
     min_samples: int = Field(default=30, ge=1, le=1000)
-    min_latency_coverage: float = Field(default=0.95, ge=0, le=1)
+    min_latency_coverage: float = Field(default=0.95, gt=0, le=1)
     min_success_rate_pct: float = Field(default=99.0, ge=0, le=100)
     max_latency_p95_ms: float = Field(default=2000.0, gt=0, le=3600000)
 
