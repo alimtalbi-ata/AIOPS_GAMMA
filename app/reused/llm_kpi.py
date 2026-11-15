@@ -66,8 +66,29 @@ def _percentile(values: list[float], percentile: float) -> float | None:
     return round(ordered[low] + (ordered[high] - ordered[low]) * (rank - low), 3)
 
 
+def _finite_sum(values: list[float]) -> float:
+    """Never emit infinity when individually finite observations overflow."""
+    try:
+        total = math.fsum(values)
+    except OverflowError as exc:
+        raise ValueError("LLM KPI aggregate overflow") from exc
+    if not math.isfinite(total):
+        raise ValueError("Non-finite LLM KPI aggregate")
+    return total
+
+
 def _mean(values: list[float]) -> float | None:
-    return round(sum(values) / len(values), 3) if values else None
+    if not values:
+        return None
+    # Scale first so large finite observations with a finite mean do not
+    # overflow in the intermediate sum.
+    try:
+        mean = math.fsum(value / len(values) for value in values)
+    except OverflowError as exc:
+        raise ValueError("LLM KPI mean overflow") from exc
+    if not math.isfinite(mean):
+        raise ValueError("Non-finite LLM KPI mean")
+    return round(mean, 3)
 
 
 def calculate_llm_kpis(request: LLMKPIRequest, authorized_tenant: UUID) -> dict:
@@ -114,7 +135,7 @@ def calculate_llm_kpis(request: LLMKPIRequest, authorized_tenant: UUID) -> dict:
         "total_output_tokens": sum(output_token_values) if len(output_token_values) == total else None,
         "input_token_coverage": round(len(input_token_values) / total, 3),
         "output_token_coverage": round(len(output_token_values) / total, 3),
-        "estimated_cost_usd": round(sum(costs), 6) if len(costs) == total else None,
+        "estimated_cost_usd": round(_finite_sum(costs), 6) if len(costs) == total else None,
         "cost_coverage": round(len(costs) / total, 3),
         "sentinel_anomaly_rate_pct": (
             round(100 * anomalies / processed, 3)
