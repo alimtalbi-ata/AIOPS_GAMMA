@@ -94,6 +94,10 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
     firing_by_identity: dict[tuple[str, str], bool] = {}
     evidence_refs_by_identity: dict[tuple[str, str], set[str]] = {}
     conflicting_identities: set[tuple[str, str]] = set()
+    conflict_fields_by_identity: dict[tuple[str, str], set[str]] = {}
+    # Keep one baseline for each source event; compare every version against
+    # it so conflict diagnostics do not depend on arrival order.
+    first_by_identity: dict[tuple[str, str], CorrelationSignal] = {}
     duplicates = 0
     for signal in signals:
         identity = (signal.source, signal.external_event_id)
@@ -106,14 +110,22 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
             highest_severity_by_identity[identity] = signal.severity
         if identity in seen:
             duplicates += 1
-            if seen[identity] != signal:
+            baseline = first_by_identity[identity]
+            differing = {
+                name for name in CorrelationSignal.model_fields
+                if getattr(baseline, name) != getattr(signal, name)
+            }
+            if differing:
                 conflicting_identities.add(identity)
+                conflict_fields_by_identity.setdefault(identity, set()).update(differing)
+            if seen[identity] != signal:
                 # Deterministic representative: never let input order choose
                 # the displayed severity, status or grouping attributes.
                 if signal.model_dump_json() < seen[identity].model_dump_json():
                     seen[identity] = signal
             continue
         seen[identity] = signal
+        first_by_identity[identity] = signal
     unique = list(seen.values())
     unique.sort(key=lambda s: (s.observed_at.astimezone(timezone.utc), s.source, s.external_event_id))
     groups: list[dict] = []
@@ -182,6 +194,15 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
             (event["source"], event["external_event_id"]) in conflicting_identities
             for event in group["source_events"]
         )
+        # Field names only: never copy conflicting payload values or promote
+        # an untrusted duplicate to an authoritative incident identity.
+        group["conflict_fields"] = sorted({
+            field
+            for event in group["source_events"]
+            for field in conflict_fields_by_identity.get(
+                (event["source"], event["external_event_id"]), ()
+            )
+        })
         # A conflicting source identity can have multiple severity values.
         # The deterministic representative is only a display choice, not
         # authoritative evidence of the incident's actual severity.
