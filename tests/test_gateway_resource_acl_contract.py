@@ -118,3 +118,15 @@ def test_service_binding_natural_key_is_tenant_scoped():
         for arg in call.args
     ]
     assert args == ["tenant_id", "cmdb_service_id", "otel_service_name", "environment"]
+
+
+def test_persisted_evidence_routes_enforce_incident_grant_before_db_access():
+    routes = _routes()
+    for name in ("add_evidence", "list_evidence"):
+        source = _source(routes[name])
+        assert "validate_incident_resource_id(incident_id)" in source
+        assert "incident_id not in principal.evidence_incident_grants" in source
+        assert 'HTTPException(403, "Incident evidence access denied"' in source
+        check = source.index("incident_id not in principal.evidence_incident_grants")
+        first_db = source.index("session.add(") if name == "add_evidence" else source.index("session.scalars(")
+        assert check < first_db, name
