@@ -65,3 +65,9 @@ def test_alert_identity_field_length_boundaries(field, max_size):
     assert getattr(alert(**{field: "x" * max_size}), field) == "x" * max_size
     with pytest.raises(ValidationError):
         alert(**{field: "x" * (max_size + 1)})
+
+
+@pytest.mark.parametrize("unexpected", ["tenant_id", "actor_id", "admin_override"])
+def test_unexpected_identity_and_authorization_fields_rejected(unexpected):
+    with pytest.raises(ValidationError):
+        alert(**{unexpected: "forged"})
