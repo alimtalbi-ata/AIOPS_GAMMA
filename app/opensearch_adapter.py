@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 import re
 from urllib.parse import urlsplit
 from uuid import UUID
@@ -79,7 +79,7 @@ def validate_opensearch_transport() -> None:
         raise ValueError("OpenSearch TLS certificate verification is required")
 
 
-def validate_log_search_response(result: dict, tenant_id: str, service_name: str, limit: int) -> dict:
+def validate_log_search_response(result: dict, tenant_id: str, service_name: str, limit: int, window=None) -> dict:
     """Never return a cross-tenant or cross-service document from an upstream read."""
     if not isinstance(result, dict):
         raise ValueError("Invalid OpenSearch response")
@@ -103,6 +103,18 @@ def validate_log_search_response(result: dict, tenant_id: str, service_name: str
             or attrs.get("service.name") != service_name
         ):
             raise ValueError("OpenSearch hit violates tenant or service scope")
+        if window is not None:
+            timestamp = source.get("@timestamp")
+            if not isinstance(timestamp, str):
+                raise ValueError("OpenSearch hit missing timestamp")
+            try:
+                observed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise ValueError("OpenSearch hit has invalid timestamp") from exc
+            if observed.tzinfo is None or observed.utcoffset() is None:
+                raise ValueError("OpenSearch hit has unzoned timestamp")
+            if not window.start.astimezone(timezone.utc) <= observed.astimezone(timezone.utc) <= window.end.astimezone(timezone.utc):
+                raise ValueError("OpenSearch hit violates requested time window")
     return result
 
 
@@ -131,6 +143,6 @@ async def search_logs(tenant_id: str, req: LogSearchRequest) -> dict:
             body=query,
             request_timeout=10,
         )
-        return validate_log_search_response(result, tenant_id, validated_req.service_name, validated_req.limit)
+        return validate_log_search_response(result, tenant_id, validated_req.service_name, validated_req.limit, validated_req.window)
     finally:
         await client.close()
