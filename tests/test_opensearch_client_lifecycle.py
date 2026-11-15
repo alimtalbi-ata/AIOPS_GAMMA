@@ -233,3 +233,35 @@ async def test_real_adapter_validates_nonempty_backend_hits(monkeypatch, tenant,
         with pytest.raises(ValueError, match="OpenSearch hit"):
             await search_logs(TENANT, request())
     assert closed == [True]
+
+
+@pytest.mark.asyncio
+async def test_severity_filter_enforced_at_actual_adapter_boundary(monkeypatch):
+    from app.settings import settings
+
+    monkeypatch.setattr(settings, "max_query_hours", 24)
+    closed = []
+    observed = {}
+
+    class FakeClient:
+        async def search(self, **kwargs):
+            observed.update(kwargs)
+            return {"hits": {"hits": [{"_source": {
+                "tenant": {"id": TENANT},
+                "resource": {"attributes": {"service.name": "checkout"}},
+                "@timestamp": "2026-11-10T11:57:00Z",
+                "severityText": "WARN",
+            }}]}}
+
+        async def close(self):
+            closed.append(True)
+
+    module = ModuleType("opensearchpy")
+    module.AsyncOpenSearch = lambda **kwargs: FakeClient()
+    monkeypatch.setitem(sys.modules, "opensearchpy", module)
+    req = request()
+    req.severity = ["ERROR"]
+    with pytest.raises(ValueError, match="requested severity"):
+        await search_logs(TENANT, req)
+    assert {"terms": {"severityText": ["ERROR"]}} in observed["body"]["query"]["bool"]["filter"]
+    assert closed == [True]
