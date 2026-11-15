@@ -310,6 +310,22 @@ async def llm_kpi_preview(
         raise HTTPException(422, str(exc)) from exc
 
 
+# Read-only SLO evaluation on caller-supplied model samples.
+from app.reused.llm_slo import LLMSLOPreviewRequest, evaluate_llm_slo_preview
+
+
+@app.post("/api/v1/observability/llm/slo/preview")
+async def llm_slo_preview(
+    req: LLMSLOPreviewRequest, response: Response,
+    principal: Principal = Depends(internal_principal),
+):
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        return evaluate_llm_slo_preview(req, principal.tenant_id)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
 # Typed evidence-linked investigation preview. No agent or tool execution.
 from app.reused.investigation import InvestigationPreview, evaluate_investigation
 
