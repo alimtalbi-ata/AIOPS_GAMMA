@@ -161,17 +161,17 @@ def test_distinct_sources_with_same_external_id_are_not_deduplicated():
     assert result["groups"][0]["event_count"] == 2
     assert result["conflicting_source_events"] == 0
 
-def test_window_uses_rolling_adjacent_event_gap_not_total_group_span():
+def test_window_is_anchored_to_first_event_not_rolling_gap():
     events = [
         signal("a", at=NOW),
         signal("b", at=NOW + timedelta(seconds=250)),
         signal("c", at=NOW + timedelta(seconds=500)),
     ]
     result = correlate(events, "tenant-1", window_seconds=300)
-    assert len(result["groups"]) == 1
-    assert result["groups"][0]["event_count"] == 3
+    assert len(result["groups"]) == 2
+    assert [group["event_count"] for group in result["groups"]] == [2, 1]
     assert result["groups"][0]["first_observed_at"] == NOW.isoformat()
-    assert result["groups"][0]["last_observed_at"] == (NOW + timedelta(seconds=500)).isoformat()
+    assert result["groups"][0]["last_observed_at"] == (NOW + timedelta(seconds=250)).isoformat()
 
 
 def test_gap_beyond_window_starts_new_group_even_after_valid_chain():
@@ -212,16 +212,17 @@ def test_conflicting_duplicate_representative_is_stable_across_input_order():
     assert first["persisted"] is False
     assert first["live_remediation_authorized"] is False
 
-def test_ci_identity_groups_services_only_when_same_ci_is_explicit():
+def test_shared_ci_does_not_override_service_boundary():
     events = [
         signal("a", service="checkout", ci="CI-42"),
         signal("b", service="payments", ci="CI-42"),
         signal("c", service="checkout", ci="CI-43"),
     ]
     result = correlate(events, "tenant-1")
-    assert len(result["groups"]) == 2
-    by_ci = {group["ci_id"]: group["event_count"] for group in result["groups"]}
-    assert by_ci == {"CI-42": 2, "CI-43": 1}
+    assert len(result["groups"]) == 3
+    assert {(g["service_name"], g["ci_id"]) for g in result["groups"]} == {
+        ("checkout", "CI-42"), ("payments", "CI-42"), ("checkout", "CI-43"),
+    }
 
 
 def test_environment_and_symptom_are_hard_group_boundaries():
