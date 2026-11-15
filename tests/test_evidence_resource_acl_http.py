@@ -113,8 +113,8 @@ def test_matching_signed_incident_grant_reaches_database_boundary(client, method
 
 
 @pytest.mark.parametrize("method", ["GET", "POST"])
-def test_signed_grant_for_other_tenant_cannot_be_reused(client, method):
-    """The signed tenant is bound to the request; a forged tenant header has no authority."""
+def test_untrusted_tenant_header_does_not_create_missing_incident_grant(client, method):
+    """An untrusted tenant header cannot create a missing signed incident grant."""
     test_client, calls = client
     path = "/api/v1/incidents/inc-1/evidence"
     headers = {
