@@ -143,3 +143,27 @@ def test_slo_route_requires_auth_and_prevents_caching(monkeypatch):
     assert allowed.status_code == 200
     assert allowed.headers["cache-control"] == "no-store"
     assert allowed.json()["state"] == "PASS_PREVIEW"
+
+
+@pytest.mark.parametrize("field,value", [
+    ("min_latency_coverage", float("nan")),
+    ("min_latency_coverage", float("inf")),
+    ("min_success_rate_pct", float("nan")),
+    ("min_success_rate_pct", float("-inf")),
+    ("max_latency_p95_ms", float("nan")),
+    ("max_latency_p95_ms", float("inf")),
+])
+def test_nonfinite_slo_thresholds_rejected(field, value):
+    with pytest.raises(ValidationError):
+        make_request(uuid4(), [{"status": "ok"}], **{field: value})
+
+
+def test_mutated_slo_threshold_is_revalidated_before_computation():
+    tenant = uuid4()
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 100},
+        {"status": "ok", "latency_ms": 120},
+    ])
+    req.max_latency_p95_ms = float("nan")
+    with pytest.raises(ValidationError):
+        evaluate_llm_slo_preview(req, tenant)
