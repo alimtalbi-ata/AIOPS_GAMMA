@@ -337,3 +337,34 @@ def test_unknown_sentinel_rate_never_exposes_false_fraction(anomalies, processed
         sentinel_events_processed_total=processed,
     ), tenant)
     assert result["sentinel_anomaly_rate_ratio"] is None
+
+
+@pytest.mark.parametrize("field", [
+    "sentinel_anomalies_total", "sentinel_events_processed_total",
+])
+@pytest.mark.parametrize("invalid", [
+    -1, 9223372036854775808, 1.0, True, "1",
+])
+def test_sentinel_counters_require_bounded_exact_integers(field, invalid):
+    tenant = uuid4()
+    overrides = {
+        "sentinel_anomalies_total": None,
+        "sentinel_events_processed_total": None,
+        field: invalid,
+    }
+    with pytest.raises(ValidationError):
+        request(tenant, **overrides)
+
+
+def test_sentinel_counter_accepts_signed_bigint_maximum():
+    tenant = uuid4()
+    limit = 9223372036854775807
+    result = calculate_llm_kpis(request(
+        tenant,
+        sentinel_anomalies_total=limit,
+        sentinel_events_processed_total=limit,
+    ), tenant)
+    assert result["sentinel_anomaly_rate_ratio"] == {
+        "numerator": limit, "denominator": limit,
+    }
+    assert result["sentinel_anomaly_rate_pct"] == 100
