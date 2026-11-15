@@ -1,0 +1,76 @@
+"""Read-only LLM SLO evaluation on caller-supplied samples (UC07).
+
+This preview cannot establish production SLO compliance: telemetry is not
+authenticated, time-windowed, or independently verified.
+"""
+from __future__ import annotations
+
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.reused.llm_kpi import LLMKPIRequest, calculate_llm_kpis
+
+
+class LLMSLOPreviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kpis: LLMKPIRequest
+    min_samples: int = Field(default=30, ge=1, le=1000)
+    min_latency_coverage: float = Field(default=0.95, ge=0, le=1)
+    min_success_rate_pct: float = Field(default=99.0, ge=0, le=100)
+    max_latency_p95_ms: float = Field(default=2000.0, gt=0, le=3600000)
+
+
+def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dict:
+    if not isinstance(request, LLMSLOPreviewRequest):
+        raise ValueError("Invalid SLO preview request")
+    request = LLMSLOPreviewRequest.model_validate(request.model_dump())
+    kpis = calculate_llm_kpis(request.kpis, tenant)
+    observations = request.kpis.observations
+    count = len(observations)
+    measured = [row.latency_ms for row in observations if row.latency_ms is not None]
+    success = sum(row.status == "ok" for row in observations)
+    # Compare unrounded values: rounding must never turn a breach into a pass.
+    sample_ok = count >= request.min_samples
+    coverage_ok = len(measured) / count >= request.min_latency_coverage
+    success_ok = 100 * success / count >= request.min_success_rate_pct
+    latency_ok = (
+        kpis["latency_p95_ms"] is not None
+        and kpis["latency_p95_ms"] <= request.max_latency_p95_ms
+    )
+    # A threshold breach can be shown as advisory even with incomplete
+    # telemetry; a passing SLO requires adequate sample and metric coverage.
+    if not sample_ok or not coverage_ok:
+        state = "INSUFFICIENT_DATA"
+    elif success_ok and latency_ok:
+        state = "PASS_PREVIEW"
+    else:
+        state = "BREACH_PREVIEW"
+    return {
+        "tenant_id": str(tenant),
+        "model_id": request.kpis.model_id,
+        "state": state,
+        "checks": {
+            "sample_count": {"value": count, "minimum": request.min_samples, "passed": sample_ok},
+            "latency_coverage": {
+                "value": len(measured) / count,
+                "minimum": request.min_latency_coverage,
+                "passed": coverage_ok,
+            },
+            "success_rate_pct": {
+                "value": 100 * success / count,
+                "minimum": request.min_success_rate_pct,
+                "passed": success_ok,
+            },
+            "latency_p95_ms": {
+                "value": kpis["latency_p95_ms"],
+                "maximum": request.max_latency_p95_ms,
+                "passed": latency_ok,
+            },
+        },
+        "data_source": "caller_supplied_preview",
+        "authoritative": False,
+        "production_qualified": False,
+        "live_remediation_authorized": False,
+    }
