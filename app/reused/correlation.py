@@ -113,12 +113,12 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
         matching = next((
             g for g in reversed(groups)
             if g["_key"] == key
-            and timestamp - g["_last"] <= timedelta(seconds=window_seconds)
+            and timestamp - g["_first"] <= timedelta(seconds=window_seconds)
         ), None)
         if matching is None:
             stable_key = json.dumps((tenant_id, *key, timestamp.isoformat()), ensure_ascii=False, separators=(",", ":"))
             matching = {
-                "_key": key, "_last": timestamp,
+                "_key": key, "_first": timestamp, "_last": timestamp,
                 "group_id": "grp-" + sha256(stable_key.encode()).hexdigest()[:20],
                 "service_name": signal.service_name,
                 "environment": signal.environment,
@@ -148,6 +148,7 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
                 matching["evidence_refs"].append(ref)
     for group in groups:
         group.pop("_key")
+        group.pop("_first")
         group.pop("_last")
         group["evidence_refs"].sort()
         group["event_count"] = len(group["source_events"])
