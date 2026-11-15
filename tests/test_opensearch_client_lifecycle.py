@@ -306,3 +306,35 @@ async def test_adapter_never_returns_unreviewed_log_payload_fields(monkeypatch):
         "severityText": "ERROR",
     }}]}}
     assert closed == [True]
+
+
+@pytest.mark.asyncio
+async def test_upstream_source_filter_prevents_fetching_raw_log_payload(monkeypatch):
+    """The backend request itself must minimize sensitive source data."""
+    from app.settings import settings
+
+    monkeypatch.setattr(settings, "max_query_hours", 24)
+    observed = {}
+    closed = []
+
+    class FakeClient:
+        async def search(self, **kwargs):
+            observed.update(kwargs)
+            return {"hits": {"hits": []}}
+
+        async def close(self):
+            closed.append(True)
+
+    module = ModuleType("opensearchpy")
+    module.AsyncOpenSearch = lambda **kwargs: FakeClient()
+    monkeypatch.setitem(sys.modules, "opensearchpy", module)
+
+    assert await search_logs(TENANT, request()) == {"hits": {"hits": []}}
+    assert observed["body"]["_source"] == {"includes": [
+        "tenant.id",
+        "resource.attributes.service.name",
+        "@timestamp",
+        "severityText",
+    ]}
+    assert "body" not in observed["body"]["_source"]["includes"]
+    assert closed == [True]
