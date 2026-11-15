@@ -181,3 +181,31 @@ def test_http_signed_unpaired_surrogate_subject_rejected(bad_subject):
             'X-Gateway-Principal': token,
         })
     assert response.status_code == 401
+
+
+@pytest.mark.parametrize("duplicate_name", [
+    "X-Internal-API-Key", "X-Gateway-Principal", "X-Tenant-ID", "X-Actor-ID",
+])
+def test_duplicate_identity_headers_are_rejected_before_principal_selection(duplicate_name):
+    token = signed()
+    headers = [
+        ("X-Internal-API-Key", "service-secret"),
+        ("X-Gateway-Principal", token),
+    ]
+    headers.extend([(duplicate_name, "forged-one"), (duplicate_name, "forged-two")])
+    with TestClient(app) as client:
+        response = client.post("/api/v1/probe", headers=headers)
+    assert response.status_code == 401
+
+
+def test_single_untrusted_tenant_header_does_not_override_signed_tenant():
+    tenant = uuid4()
+    token = signed(overrides={"tenant_id": str(tenant)})
+    with TestClient(app) as client:
+        response = client.post("/api/v1/probe", headers={
+            "X-Internal-API-Key": "service-secret",
+            "X-Gateway-Principal": token,
+            "X-Tenant-ID": str(uuid4()),
+        })
+    assert response.status_code == 200
+    assert response.json()["tenant"] == str(tenant)
