@@ -630,7 +630,8 @@ def test_conflicting_duplicate_retains_all_evidence_references():
     group = forward["groups"][0]
     assert group["evidence_refs"] == ["shared", "trace-a", "trace-b"]
     assert group["conflicting_source_events"] == 1
-    assert group["severity_state"] == "UNKNOWN"
+    assert group["conflict_fields"] == ["evidence_refs"]
+    assert group["severity_state"] == "UNVERIFIED"
     assert group["resolution_state"] == "UNKNOWN"
     assert forward["live_remediation_authorized"] is False
 
@@ -697,3 +698,26 @@ def test_source_event_projection_distinguishes_nonconflicting_status():
     assert result["groups"][0]["source_events"][0]["status"] == "resolved"
     assert result["groups"][0]["source_events"][0]["status_state"] == "UNVERIFIED"
     assert result["groups"][0]["resolution_state"] == "RESOLVED_UNVERIFIED"
+
+
+def test_evidence_reference_conflict_does_not_falsely_downgrade_status_or_severity():
+    original = signal("same", severity="major", status="resolved")
+    changed = original.model_copy(update={"evidence_refs": ["different-trace"]})
+    result = correlate([original, changed], "tenant-1")
+    group = result["groups"][0]
+    assert group["conflict_fields"] == ["evidence_refs"]
+    assert group["severity_state"] == "UNVERIFIED"
+    assert group["source_events"][0]["status_state"] == "UNVERIFIED"
+    assert group["resolution_state"] == "UNKNOWN"
+    assert group["evidence_refs"] == ["different-trace", "trace-abc"]
+
+
+def test_severity_only_conflict_does_not_falsely_downgrade_event_status():
+    original = signal("same", severity="major", status="firing")
+    changed = original.model_copy(update={"severity": "critical"})
+    result = correlate([original, changed], "tenant-1")
+    group = result["groups"][0]
+    assert group["severity_state"] == "UNKNOWN"
+    assert group["source_events"][0]["status_state"] == "UNVERIFIED"
+    assert group["status"] == "firing"
+    assert group["resolution_state"] == "UNKNOWN"
