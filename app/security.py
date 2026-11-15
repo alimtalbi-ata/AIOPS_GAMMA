@@ -11,6 +11,7 @@ import hashlib
 import hmac
 import json
 import time
+import unicodedata
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -95,7 +96,8 @@ def verify_gateway_assertion(token: str, *, method: str, path: str, now: int | N
         actor_type = claims.get("actor_type")
         assertion_id = claims.get("jti")
         if (not isinstance(subject, str) or not subject.strip() or subject != subject.strip() or len(subject) > 256
-                or any(ord(ch) < 32 or ord(ch) == 127 or 0xD800 <= ord(ch) <= 0xDFFF for ch in subject)):
+                or any(ord(ch) < 32 or ord(ch) == 127 or 0xD800 <= ord(ch) <= 0xDFFF
+                       or unicodedata.category(ch) == "Cf" for ch in subject)):
             raise ValueError("invalid subject")
         if not isinstance(actor_type, str) or actor_type not in ("user", "service"):
             raise ValueError("invalid actor type")
