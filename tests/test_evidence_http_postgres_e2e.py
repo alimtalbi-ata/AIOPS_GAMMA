@@ -284,12 +284,15 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
     finally:
         app.dependency_overrides.pop(get_session, None)
         async def cleanup():
+            # Preflight required empty tables. Unique tenants are allocated only
+            # for this test, so cleanup also covers partially successful writes
+            # whose HTTP response never returned an ID.
             async with factory() as session:
                 await session.execute(
-                    delete(OutboxEvent).where(OutboxEvent.id.in_(published_ids))
+                    delete(OutboxEvent).where(OutboxEvent.tenant_id.in_((tenant_a, tenant_b)))
                 )
                 await session.execute(
-                    delete(InboxEvent).where(InboxEvent.id.in_([UUID(i) for i in created]))
+                    delete(InboxEvent).where(InboxEvent.tenant_id.in_((tenant_a, tenant_b)))
                 )
                 await session.commit()
         asyncio.run(cleanup())
