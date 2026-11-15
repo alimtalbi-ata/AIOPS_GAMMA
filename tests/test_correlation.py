@@ -455,3 +455,28 @@ def test_correlation_window_boundary_is_inclusive():
     ]
     result = correlate(events, "tenant-1", window_seconds=300)
     assert [group["event_count"] for group in result["groups"]] == [2, 1]
+
+
+@pytest.mark.parametrize("injected_field", [
+    {"tenant_id": "other-tenant"},
+    {"actor_id": "admin"},
+    {"incident_id": "canonical-incident"},
+    {"live_remediation_authorized": True},
+])
+def test_signal_rejects_forged_scope_or_authority_fields(injected_field):
+    payload = signal("untrusted").model_dump()
+    payload.update(injected_field)
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        CorrelationSignal.model_validate(payload)
+
+
+def test_correlation_preview_rejects_forged_tenant_and_live_flags():
+    payload = {"signals": [signal("event").model_dump()],
+               "tenant_id": "other-tenant", "live_remediation_authorized": True}
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        CorrelationPreview.model_validate(payload)
+
+
+def test_correlation_preview_accepts_explicit_valid_schema():
+    preview = CorrelationPreview(signals=[signal("valid")], window_seconds=300)
+    assert preview.signals[0].external_event_id == "valid"
