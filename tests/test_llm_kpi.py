@@ -283,3 +283,30 @@ def test_kpi_response_exposes_exact_missing_measurement_counts():
     assert result["sample_window_state"] == "UNVERIFIED"
     assert result["sample_provenance_state"] == "UNVERIFIED"
     assert result["authoritative"] is False
+
+
+@pytest.mark.parametrize("anomalies,processed,expected_state", [
+    (None, None, "MISSING"),
+    (2, None, "MISSING"),
+    (None, 20, "MISSING"),
+    (0, 0, "ZERO_DENOMINATOR"),
+    (0, 20, "CALLER_SUPPLIED_UNVERIFIED"),
+])
+def test_sentinel_counter_quality_state(anomalies, processed, expected_state):
+    tenant = uuid4()
+    req = request(
+        tenant,
+        sentinel_anomalies_total=anomalies,
+        sentinel_events_processed_total=processed,
+    )
+    result = calculate_llm_kpis(req, tenant)
+    assert result["sentinel_counter_state"] == expected_state
+    assert result["sentinel_counter_coverage"] == {
+        "anomalies_present": anomalies is not None,
+        "events_processed_present": processed is not None,
+    }
+    if expected_state != "CALLER_SUPPLIED_UNVERIFIED":
+        assert result["sentinel_anomaly_rate_pct"] is None
+    else:
+        assert result["sentinel_anomaly_rate_pct"] == 0
+        assert result["authoritative"] is False
