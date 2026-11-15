@@ -405,3 +405,9 @@ def test_distinct_ci_identifiers_never_merge_even_with_same_service():
     result = correlate([signal("a", ci="CI-A"), signal("b", ci="CI-B")], "tenant-1")
     assert len(result["groups"]) == 2
     assert {g["ci_id"] for g in result["groups"]} == {"CI-A", "CI-B"}
+
+
+def test_direct_correlation_bounds_tenant_identity_length():
+    assert len(correlate([signal("a")], "t" * 128)["groups"]) == 1
+    with pytest.raises(ValueError, match="tenant identity"):
+        correlate([signal("a")], "t" * 129)
