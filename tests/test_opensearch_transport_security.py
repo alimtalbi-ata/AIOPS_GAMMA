@@ -77,3 +77,27 @@ def test_noncanonical_endpoint_whitespace_rejected(monkeypatch, endpoint):
     monkeypatch.setattr(settings, "opensearch_verify_certs", True)
     with pytest.raises(ValueError, match="Invalid OpenSearch endpoint"):
         validate_opensearch_transport()
+
+
+@pytest.mark.parametrize("index", [
+    "*", "_all", "logs-*,other-*", "logs-*,-secret-*",
+    ".internal-*", "logs-**", "logs-?", "logs-*\\n", "",
+])
+def test_unbounded_or_ambiguous_index_configuration_rejected(monkeypatch, index):
+    monkeypatch.setattr(settings, "opensearch_url", "https://search.internal:9200")
+    monkeypatch.setattr(settings, "opensearch_username", "")
+    monkeypatch.setattr(settings, "opensearch_password", "")
+    monkeypatch.setattr(settings, "opensearch_verify_certs", True)
+    monkeypatch.setattr(settings, "opensearch_logs_index", index)
+    with pytest.raises(ValueError, match="logs index"):
+        validate_opensearch_transport()
+
+
+@pytest.mark.parametrize("index", ["aiops-logs-v1-*", "aiops-logs-v1-2026.11"])
+def test_bounded_index_configuration_allowed(monkeypatch, index):
+    monkeypatch.setattr(settings, "opensearch_url", "https://search.internal:9200")
+    monkeypatch.setattr(settings, "opensearch_username", "")
+    monkeypatch.setattr(settings, "opensearch_password", "")
+    monkeypatch.setattr(settings, "opensearch_verify_certs", True)
+    monkeypatch.setattr(settings, "opensearch_logs_index", index)
+    validate_opensearch_transport()
