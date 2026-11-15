@@ -213,3 +213,16 @@ def test_kpi_mean_cost_does_not_masquerade_as_partial_total():
     result = calculate_llm_kpis(req, tenant)
     assert result["estimated_cost_usd"] is None
     assert result["cost_coverage"] == 0.5
+
+
+def test_extreme_finite_latency_percentiles_remain_finite():
+    tenant = uuid4()
+    req = request(tenant, observations=[
+        {"status": "ok", "latency_ms": 1e308, "ttft_ms": 1e308},
+        {"status": "ok", "latency_ms": 1e308, "ttft_ms": 1e308},
+    ])
+    result = calculate_llm_kpis(req, tenant)
+    assert result["latency_p50_ms"] == 1e308
+    assert result["latency_p95_ms"] == 1e308
+    assert result["latency_p99_ms"] == 1e308
+    assert result["ttft_p95_ms"] == 1e308
