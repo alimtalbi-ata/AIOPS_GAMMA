@@ -878,3 +878,48 @@ def test_legacy_preview_has_no_invented_quarter_coverage():
     ]), tenant)
     assert result["occupied_quarters"] is None
     assert result["min_occupied_quarters"] is None
+
+
+def test_declared_window_exposes_exact_quarter_sample_histogram():
+    tenant = uuid4()
+    end = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(minutes=1)
+    start = end - timedelta(hours=1)
+    offsets = [0, 1, 14, 15, 29, 30, 45, 59]
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 100,
+         "observed_at": start + timedelta(minutes=minute)}
+        for minute in offsets
+    ], window_start=start, window_end=end, min_occupied_quarters=4)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["quarter_sample_counts"] == [3, 2, 1, 2]
+    assert sum(result["quarter_sample_counts"]) == result["declared_window"]["sample_count"]
+    assert result["occupied_quarters"] == 4
+    assert result["state"] == "PASS_PREVIEW"
+    assert result["authoritative"] is False
+
+
+def test_declared_window_counts_duplicate_timestamps_as_separate_samples():
+    tenant = uuid4()
+    end = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(minutes=1)
+    start = end - timedelta(hours=1)
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 100,
+         "observed_at": start + timedelta(minutes=5)},
+        {"status": "ok", "latency_ms": 120,
+         "observed_at": start + timedelta(minutes=5)},
+        {"status": "ok", "latency_ms": 130,
+         "observed_at": start + timedelta(minutes=50)},
+    ], window_start=start, window_end=end)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["quarter_sample_counts"] == [2, 0, 0, 1]
+    assert result["distinct_sample_timestamps"] == 2
+    assert result["occupied_quarters"] == 2
+
+
+def test_unwindowed_slo_has_no_fabricated_quarter_histogram():
+    tenant = uuid4()
+    result = evaluate_llm_slo_preview(make_request(tenant, [
+        {"status": "ok", "latency_ms": 100},
+        {"status": "ok", "latency_ms": 120},
+    ]), tenant)
+    assert result["quarter_sample_counts"] is None
