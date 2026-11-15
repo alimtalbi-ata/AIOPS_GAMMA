@@ -54,6 +54,7 @@ class LLMSLOPreviewRequest(BaseModel):
 
     min_window_span_coverage: float = Field(default=0.5, ge=0, le=1, allow_inf_nan=False)
     max_window_gap_ratio: float = Field(default=1.0, gt=0, le=1, allow_inf_nan=False)
+    min_occupied_quarters: int = Field(default=0, ge=0, le=4, strict=True)
     min_samples: int = Field(default=30, ge=1, le=1000)
     min_latency_coverage: float = Field(default=0.95, gt=0, le=1, allow_inf_nan=False)
     min_success_rate_pct: float = Field(default=99.0, ge=0, le=100, allow_inf_nan=False)
@@ -77,9 +78,15 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
     window_span_coverage = None
     distinct_sample_timestamps = None
     max_observed_gap_ratio = None
+    occupied_quarters = None
     if request.window_start is not None:
         observed_times = [row.observed_at for row in observations]
         distinct_sample_timestamps = len(set(observed_times))
+        duration = request.window_end - request.window_start
+        occupied_quarters = len({
+            min(3, int(4 * ((instant - request.window_start) / duration)))
+            for instant in observed_times
+        })
         # Include both window edges: endpoint-only samples cannot prove
         # continuous coverage across a long silent interval.
         points = [request.window_start, *sorted(set(observed_times)), request.window_end]
@@ -186,6 +193,9 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
     insufficient_reasons = []
     if not sample_ok:
         insufficient_reasons.append("sample_count_below_minimum")
+    if (occupied_quarters is not None
+            and occupied_quarters < request.min_occupied_quarters):
+        insufficient_reasons.append("window_occupied_quarters_below_minimum")
     if (max_observed_gap_ratio is not None
             and max_observed_gap_ratio > request.max_window_gap_ratio):
         insufficient_reasons.append("window_sample_gap_above_maximum")
@@ -242,6 +252,8 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
         ),
         "sample_provenance_state": "UNVERIFIED",
         "distinct_sample_timestamps": distinct_sample_timestamps,
+        "occupied_quarters": occupied_quarters,
+        "min_occupied_quarters": request.min_occupied_quarters if occupied_quarters is not None else None,
         "max_observed_gap_ratio": max_observed_gap_ratio,
         "max_window_gap_ratio": request.max_window_gap_ratio if max_observed_gap_ratio is not None else None,
         "window_span_coverage": window_span_coverage,
