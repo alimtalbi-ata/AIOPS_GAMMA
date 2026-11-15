@@ -229,3 +229,58 @@ def test_complete_pass_has_no_insufficient_data_reasons():
     result = evaluate_llm_slo_preview(req, tenant)
     assert result["state"] == "PASS_PREVIEW"
     assert result["insufficient_data_reasons"] == []
+
+
+def test_optional_ttft_slo_passes_with_complete_measurements():
+    tenant = uuid4()
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 120, "ttft_ms": 30},
+        {"status": "ok", "latency_ms": 140, "ttft_ms": 50},
+    ], max_ttft_p95_ms=60)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "PASS_PREVIEW"
+    assert result["ttft_complete"] is True
+    assert result["checks"]["ttft_p95_ms"]["enabled"] is True
+    assert result["checks"]["ttft_p95_ms"]["passed"] is True
+
+
+def test_optional_ttft_slo_reports_breach():
+    tenant = uuid4()
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 120, "ttft_ms": 30},
+        {"status": "ok", "latency_ms": 140, "ttft_ms": 100},
+    ], max_ttft_p95_ms=60)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "BREACH_PREVIEW"
+    assert result["observed_breaches"] == ["ttft_p95_ms"]
+
+
+def test_optional_ttft_slo_cannot_pass_with_missing_ttft():
+    tenant = uuid4()
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 120, "ttft_ms": 30},
+        {"status": "ok", "latency_ms": 140},
+    ], max_ttft_p95_ms=60)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "INSUFFICIENT_DATA"
+    assert result["ttft_complete"] is False
+    assert result["insufficient_data_reasons"] == ["ttft_measurements_incomplete"]
+
+
+def test_ttft_slo_disabled_does_not_require_ttft_measurements():
+    tenant = uuid4()
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 120},
+        {"status": "ok", "latency_ms": 140},
+    ])
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "PASS_PREVIEW"
+    assert result["ttft_complete"] is None
+    assert result["checks"]["ttft_p95_ms"]["enabled"] is False
+
+
+def test_invalid_ttft_slo_threshold_rejected():
+    tenant = uuid4()
+    for invalid in (0, -1, float("nan"), float("inf")):
+        with pytest.raises(ValidationError):
+            make_request(tenant, [{"status": "ok"}], max_ttft_p95_ms=invalid)
