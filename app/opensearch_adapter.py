@@ -1,4 +1,5 @@
 from datetime import timedelta
+import re
 from urllib.parse import urlsplit
 from uuid import UUID
 
@@ -60,6 +61,13 @@ def validate_opensearch_transport() -> None:
         or port == 0
     ):
         raise ValueError("Invalid OpenSearch endpoint")
+    # Prevent misconfiguration from turning a tenant-scoped read into an
+    # all-index or multi-index search. Wildcards are suffix-only on a fixed prefix.
+    index = settings.opensearch_logs_index
+    if not isinstance(index, str) or not re.fullmatch(r"[a-z0-9][a-z0-9_.-]{2,127}\\*?", index):
+        raise ValueError("OpenSearch logs index must be a bounded explicit prefix")
+    if index in ("_all", "*") or index.startswith((".", "_")):
+        raise ValueError("OpenSearch logs index must be a bounded explicit prefix")
     if settings.opensearch_url != settings.opensearch_url.strip():
         raise ValueError("Invalid OpenSearch endpoint")
     if bool(settings.opensearch_username) != bool(settings.opensearch_password):
