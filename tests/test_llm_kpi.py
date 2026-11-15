@@ -368,3 +368,27 @@ def test_sentinel_counter_accepts_signed_bigint_maximum():
         "numerator": limit, "denominator": limit,
     }
     assert result["sentinel_anomaly_rate_pct"] == 100
+
+
+@pytest.mark.parametrize("field", ["input_tokens", "output_tokens"])
+@pytest.mark.parametrize("invalid", [
+    -1, 9223372036854775808, 1.0, True, "1",
+])
+def test_llm_token_counters_require_exact_bounded_integers(field, invalid):
+    tenant = uuid4()
+    with pytest.raises(ValidationError):
+        request(tenant, observations=[{"status": "ok", field: invalid}])
+
+
+def test_llm_token_aggregate_preserves_exact_large_integer_totals():
+    tenant = uuid4()
+    limit = 9223372036854775807
+    result = calculate_llm_kpis(request(tenant, observations=[
+        {"status": "ok", "input_tokens": limit, "output_tokens": limit},
+        {"status": "ok", "input_tokens": limit, "output_tokens": limit},
+    ]), tenant)
+    assert result["total_input_tokens"] == 2 * limit
+    assert result["total_output_tokens"] == 2 * limit
+    assert result["input_token_coverage"] == 1
+    assert result["output_token_coverage"] == 1
+    assert result["authoritative"] is False
