@@ -265,3 +265,44 @@ async def test_severity_filter_enforced_at_actual_adapter_boundary(monkeypatch):
         await search_logs(TENANT, req)
     assert {"terms": {"severityText": ["ERROR"]}} in observed["body"]["query"]["bool"]["filter"]
     assert closed == [True]
+
+
+@pytest.mark.asyncio
+async def test_adapter_never_returns_unreviewed_log_payload_fields(monkeypatch):
+    from app.settings import settings
+
+    monkeypatch.setattr(settings, "max_query_hours", 24)
+    closed = []
+
+    class FakeClient:
+        async def search(self, **kwargs):
+            return {"hits": {"hits": [{
+                "_id": "sensitive-document-id",
+                "_index": "internal-index",
+                "_source": {
+                    "tenant": {"id": TENANT, "internal_secret": "private"},
+                    "resource": {"attributes": {
+                        "service.name": "checkout", "auth.token": "private",
+                    }},
+                    "@timestamp": "2026-11-10T11:57:00Z",
+                    "severityText": "ERROR",
+                    "body": "Authorization: Bearer sensitive",
+                    "user.email": "private@example.invalid",
+                },
+                "highlight": {"body": ["secret"]},
+            }]}, "_shards": {"failed": 0}}
+
+        async def close(self):
+            closed.append(True)
+
+    module = ModuleType("opensearchpy")
+    module.AsyncOpenSearch = lambda **kwargs: FakeClient()
+    monkeypatch.setitem(sys.modules, "opensearchpy", module)
+    response = await search_logs(TENANT, request())
+    assert response == {"hits": {"hits": [{"_source": {
+        "tenant": {"id": TENANT},
+        "resource": {"attributes": {"service.name": "checkout"}},
+        "@timestamp": "2026-11-10T11:57:00Z",
+        "severityText": "ERROR",
+    }}]}}
+    assert closed == [True]
