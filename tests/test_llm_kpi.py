@@ -248,3 +248,20 @@ def test_llm_status_counts_cover_all_samples_exactly():
     assert result["success_rate_pct"] == pytest.approx(100 / 3, abs=0.001)
     assert result["error_rate_pct"] == pytest.approx(100 / 3, abs=0.001)
     assert result["degraded_rate_pct"] == pytest.approx(100 / 3, abs=0.001)
+
+
+@pytest.mark.parametrize("invalid_model", [
+    "provider/model\n", "provider/model\r\n", "provider/model ",
+    " provider/model", "provider/model\u200b", "provider//model\n",
+])
+def test_model_identity_rejects_trailing_newlines_and_invisible_characters(invalid_model):
+    with pytest.raises(ValidationError):
+        request(uuid4(), model_id=invalid_model)
+
+
+def test_model_identity_accepts_namespaced_provider_and_version():
+    tenant = uuid4()
+    result = calculate_llm_kpis(
+        request(tenant, model_id="provider/model-v2:2026.11"), tenant
+    )
+    assert result["model_id"] == "provider/model-v2:2026.11"
