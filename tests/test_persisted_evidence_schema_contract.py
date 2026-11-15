@@ -40,3 +40,9 @@ def test_oversized_evidence_summary_rejected():
 def test_naive_persisted_evidence_timestamp_rejected():
     with pytest.raises(ValidationError):
         evidence(observed_at=datetime(2026, 11, 15, 12))
+
+
+@pytest.mark.parametrize("unexpected", ["tenant_id", "actor_id", "admin_override"])
+def test_unexpected_identity_and_authorization_fields_rejected(unexpected):
+    with pytest.raises(ValidationError):
+        evidence(**{unexpected: "forged"})
