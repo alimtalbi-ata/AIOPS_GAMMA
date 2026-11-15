@@ -1005,11 +1005,24 @@ def test_quarter_error_rate_threshold_rejects_invalid_values(invalid):
         ], max_quarter_error_rate_pct=invalid)
 
 
-def test_unwindowed_slo_does_not_invent_quarter_error_rates():
+@pytest.mark.parametrize("threshold", [
+    {"max_quarter_error_rate_pct": 20},
+    {"min_occupied_quarters": 2},
+    {"max_window_gap_ratio": 0.5},
+])
+def test_window_specific_threshold_requires_declared_window(threshold):
+    with pytest.raises(ValidationError, match="require a declared window"):
+        make_request(uuid4(), [
+            {"status": "ok", "latency_ms": 100},
+            {"status": "ok", "latency_ms": 120},
+        ], **threshold)
+
+
+def test_unwindowed_slo_without_temporal_gates_has_no_fabricated_rates():
     tenant = uuid4()
     result = evaluate_llm_slo_preview(make_request(tenant, [
         {"status": "ok", "latency_ms": 100},
         {"status": "ok", "latency_ms": 120},
-    ], max_quarter_error_rate_pct=20), tenant)
+    ]), tenant)
     assert result["quarter_error_rate_pct"] is None
     assert result["max_quarter_error_rate_pct"] is None
