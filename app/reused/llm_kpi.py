@@ -71,6 +71,12 @@ def _mean(values: list[float]) -> float | None:
 
 
 def calculate_llm_kpis(request: LLMKPIRequest, authorized_tenant: UUID) -> dict:
+    # Revalidate mutable Pydantic models at the computation boundary. This
+    # also prevents callers from injecting forged tenant or KPI fields after
+    # initial parsing.
+    if not isinstance(request, LLMKPIRequest):
+        raise ValueError("Invalid KPI request")
+    request = LLMKPIRequest.model_validate(request.model_dump())
     if request.tenant_id != authorized_tenant:
         raise ValueError("Cross-tenant KPI aggregation rejected")
 
@@ -81,6 +87,7 @@ def calculate_llm_kpis(request: LLMKPIRequest, authorized_tenant: UUID) -> dict:
     costs = [x.estimated_cost_usd for x in rows if x.estimated_cost_usd is not None]
     failures = sum(x.status == "error" for x in rows)
     successful = sum(x.status == "ok" for x in rows)
+    degraded = sum(x.status == "degraded" for x in rows)
     total = len(rows)
     anomalies = request.sentinel_anomalies_total
     processed = request.sentinel_events_processed_total
@@ -91,6 +98,10 @@ def calculate_llm_kpis(request: LLMKPIRequest, authorized_tenant: UUID) -> dict:
         "sample_count": total,
         "success_rate_pct": round(100 * successful / total, 3),
         "error_rate_pct": round(100 * failures / total, 3),
+        "degraded_rate_pct": round(100 * degraded / total, 3),
+        "latency_coverage": round(len(latencies) / total, 3),
+        "ttft_coverage": round(len(ttfts) / total, 3),
+        "throughput_coverage": round(len(throughputs) / total, 3),
         "latency_p50_ms": _percentile(latencies, 0.5),
         "latency_p95_ms": _percentile(latencies, 0.95),
         "latency_p99_ms": _percentile(latencies, 0.99),
