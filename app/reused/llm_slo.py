@@ -207,7 +207,11 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
         },
         "sample_window_state": ("CALLER_DECLARED_UNVERIFIED" if request.window_start is not None else "UNVERIFIED"),
         "declared_window": (
-            {"start": request.window_start.isoformat(), "end": request.window_end.isoformat(), "end_exclusive": True}
+            {"start": request.window_start.isoformat(), "end": request.window_end.isoformat(), "end_exclusive": True,
+             "duration_seconds": (request.window_end - request.window_start).total_seconds(),
+             "sample_count": count,
+             "first_observed_at": min(row.observed_at for row in observations).isoformat(),
+             "last_observed_at": max(row.observed_at for row in observations).isoformat()}
             if request.window_start is not None else None
         ),
         "sample_provenance_state": "UNVERIFIED",
