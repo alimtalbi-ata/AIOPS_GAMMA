@@ -517,3 +517,22 @@ def test_complete_metric_breach_is_reported_despite_other_incomplete_metrics():
     assert result["checks"]["latency_p95_ms"]["passed"] is False
     assert result["checks"]["ttft_p95_ms"]["passed"] is None
     assert result["observed_breaches"] == ["success_rate_pct", "latency_p95_ms"]
+
+
+def test_slo_response_exposes_all_measurement_denominators_and_unverified_origin():
+    tenant = uuid4()
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 100, "ttft_ms": 20, "tps": 50},
+        {"status": "ok", "latency_ms": 120, "estimated_cost_usd": 0.01},
+    ])
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["measurement_coverage"] == {
+        "latency_ms": {"measured": 2, "missing": 0, "total": 2},
+        "ttft_ms": {"measured": 1, "missing": 1, "total": 2},
+        "tps": {"measured": 1, "missing": 1, "total": 2},
+        "estimated_cost_usd": {"measured": 1, "missing": 1, "total": 2},
+    }
+    assert result["sample_window_state"] == "UNVERIFIED"
+    assert result["sample_provenance_state"] == "UNVERIFIED"
+    assert result["authoritative"] is False
+    assert result["live_remediation_authorized"] is False
