@@ -74,8 +74,10 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
     observations = request.kpis.observations
     count = len(observations)
     window_span_coverage = None
+    distinct_sample_timestamps = None
     if request.window_start is not None:
         observed_times = [row.observed_at for row in observations]
+        distinct_sample_timestamps = len(set(observed_times))
         observed_span = max(observed_times) - min(observed_times)
         window_span_coverage = observed_span / (request.window_end - request.window_start)
         # Temporal spread is only a weak proxy for completeness; the source
@@ -177,6 +179,8 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
     insufficient_reasons = []
     if not sample_ok:
         insufficient_reasons.append("sample_count_below_minimum")
+    if distinct_sample_timestamps is not None and distinct_sample_timestamps < 2:
+        insufficient_reasons.append("window_distinct_timestamps_below_minimum")
     if (window_span_coverage is not None
             and window_span_coverage < request.min_window_span_coverage):
         insufficient_reasons.append("window_sample_span_below_minimum")
@@ -227,6 +231,7 @@ def evaluate_llm_slo_preview(request: LLMSLOPreviewRequest, tenant: UUID) -> dic
             if request.window_start is not None else None
         ),
         "sample_provenance_state": "UNVERIFIED",
+        "distinct_sample_timestamps": distinct_sample_timestamps,
         "window_span_coverage": window_span_coverage,
         "min_window_span_coverage": request.min_window_span_coverage if window_span_coverage is not None else None,
         "checks": {
