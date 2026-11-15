@@ -1,5 +1,24 @@
 # AIOPS_GAMMA — executable roadmap
 
+## PRD v1 — Ordre de livraison et traçabilité (2026-11-15)
+
+**Document produit de référence :** PRD AIOPS GAMMA v1 (UC01–UC10, FR/SEC/NFR). Ce plan rend les dépendances explicites. La présence de code ou d'une preview ne signifie pas qualification staging ou production.
+
+**Ordre obligatoire :** P0 CI reproductible (#8, #7) → P1 identité gateway et ACL acteur→tenant→ressource (#2) → P2 observabilité fiable et KPI LLM (#3, #10) → P3 corrélation persistante, CMDB et ITSM (#4) → P4 RCA en shadow mode (#5) → P5 runbooks/Policy/HITL (#6) → P6 exécution qualifiée (#6). Aucun passage en LIVE sur cette PR.
+
+| Livraison | PRD | Contrat de sortie mesurable | Dépendance |
+| --- | --- | --- | --- |
+| P0 socle | UC01, SEC-001–005, NFR-008 | CI verte sur SHA exact, build frontend, tests Python et déploiement statique ; DEMO ≠ REAL | #8 / #7 |
+| P1 trusted reads | UC03–05, FR-020–024, FR-030–033, SEC-001–005 | ACL négatives inter-tenant et par ressource, upstream read-only fail-closed, staging GLPI | #2 |
+| P2 télémétrie/KPI | UC01, UC07, FR-001–004, FR-060–064 | Logs/traces/métriques sourcés, TLS/DLS, freshness/coverage, KPI tenant/modèle, historique | #3 / #10 |
+| P3 incident operations | UC02, UC04, UC05, FR-010–014, FR-040–044 | Dédup concurrente/replay, CI vérifiées, idempotence et réconciliation ITSM staging | #4 |
+| P4 investigation IA | UC03, UC06, FR-050–055 | Shadow read-only, citations et contradictions, UNKNOWN, benchmark adjudiqué, tests prompt injection | #5 |
+| P5 safe planning | UC08, FR-070–074 | Runbooks approuvés, Policy indépendante, HITL anti-replay, dry-run sans écriture | #6 |
+| P6 controlled execution | UC09–10, FR-080–084, FR-090–093 | Fencing, rollback, SLI post-action, audit, postmortem revu, autorisation distincte | #6 |
+
+**Règles de pilotage :** chaque issue livre tests positifs/négatifs, contrat API, propriétaire amont, preuve CI et décision GO/NO_GO. Aucune promesse de date sans estimation et responsable. Bloqueurs P0/P1 non résolus : **HOLD / NO_GO**, pas de merge, déploiement, données tenant réelles, écriture ITSM ou remédiation LIVE.
+
+
 Tracking: GitHub Issues in this repository. Every workstream requires acceptance tests, an explicit upstream owner, and a reviewable PR. **No dates or owners are promised until assigned.**
 
 | Stage | Outcome | Dependencies | Exit criteria |
