@@ -19,6 +19,8 @@ Statut : **HOLD / NO_GO**. Cette matrice décrit les preuves requises, pas une c
 - `8348a91` : test HTTP+PostgreSQL de création/lecture tenant-isolées, refus d'écriture et chemin signé, sur base explicitement jetable.
 - `d9585f0` : CI PostgreSQL 16 avec rôle non-superutilisateur, migration et exécution des deux modules d'intégration ; non exécutée dans ce laboratoire.
 - `9bc0f2a`, `b0cac16` : robustesse des DSN et du nettoyage des preuves de test.
+- `04d7d4a` : refus de lecture sans grant ajouté au scénario PostgreSQL.
+- `93e7071` : CI scindée entre tests indépendants de PostgreSQL et E2E sur base jetable ; les skips E2E sont rapportés, pas validés comme passes.
 - **Preuve d'exécution** : aucune réussite PG/CI attestée sur ces commits. Les résultats du laboratoire précédent concernent des tests isolés/simulés ; ils ne remplacent pas une qualification de bout en bout.
 - **Limite architecturale importante** : le frontend est une démonstration synthétique qui bloque volontairement `/api` ; le parcours frontend → BFF réel n'est pas développé/qualifié. La sécurité ne doit pas être affaiblie pour produire artificiellement un test vert.
 
