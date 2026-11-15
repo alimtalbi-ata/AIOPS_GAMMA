@@ -120,6 +120,7 @@ def test_kpi_route_success(monkeypatch):
                                headers={"X-Internal-Api-Key": "test-secret",
                                         "X-Tenant-Id": str(tenant)})
     assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
     assert response.json()["data_source"] == "caller_supplied_preview"
 
 
