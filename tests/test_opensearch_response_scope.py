@@ -124,3 +124,24 @@ def test_non_json_serializable_backend_response_is_rejected():
     document["_source"]["body"] = object()
     with pytest.raises(ValueError, match="encoding"):
         validate_log_search_response(result([document]), TENANT, "checkout", 1)
+
+
+@pytest.mark.parametrize("status", [
+    {"timed_out": True},
+    {"timed_out": "false"},
+    {"_shards": {"failed": 1}},
+    {"_shards": {"failed": True}},
+    {"_shards": {"failed": "0"}},
+    {"_shards": {}},
+])
+def test_partial_or_untrustworthy_search_status_rejected(status):
+    response = result([hit()])
+    response.update(status)
+    with pytest.raises(ValueError, match="OpenSearch"):
+        validate_log_search_response(response, TENANT, "checkout", 10)
+
+
+def test_complete_shard_status_accepted():
+    response = result([hit()])
+    response.update({"timed_out": False, "_shards": {"total": 2, "successful": 2, "failed": 0}})
+    assert validate_log_search_response(response, TENANT, "checkout", 10) is response
