@@ -99,6 +99,20 @@ def validate_log_search_response(result: dict, tenant_id: str, service_name: str
         raise ValueError("Invalid OpenSearch response encoding") from exc
     if len(encoded) > 1_048_576:
         raise ValueError("OpenSearch response exceeds size policy")
+    # OpenSearch may return HTTP 200 with partial shard failures or a timeout.
+    # Such a response cannot be treated as a complete investigation result.
+    if result.get("timed_out") is True:
+        raise ValueError("OpenSearch search timed out")
+    if "timed_out" in result and result["timed_out"] is not False:
+        raise ValueError("Invalid OpenSearch timeout status")
+    shards = result.get("_shards")
+    if shards is not None:
+        if (
+            not isinstance(shards, dict)
+            or type(shards.get("failed")) is not int
+            or shards["failed"] != 0
+        ):
+            raise ValueError("OpenSearch search has shard failures")
     hits_container = result.get("hits")
     if not isinstance(hits_container, dict) or not isinstance(hits_container.get("hits"), list):
         raise ValueError("Invalid OpenSearch response")
