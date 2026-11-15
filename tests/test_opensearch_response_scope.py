@@ -83,3 +83,23 @@ def test_out_of_window_or_unverifiable_timestamp_rejected(timestamp):
     document["_source"]["@timestamp"] = timestamp
     with pytest.raises(ValueError, match="OpenSearch hit"):
         validate_log_search_response(result([document]), TENANT, "checkout", 10, window)
+
+
+@pytest.mark.parametrize("severity,allowed", [
+    ("ERROR", True),
+    ("WARN", False),
+    (None, False),
+    (["ERROR"], False),
+])
+def test_requested_severity_is_verified_against_returned_hit(severity, allowed):
+    document = hit()
+    document["_source"]["severityText"] = severity
+    if allowed:
+        assert validate_log_search_response(result([document]), TENANT, "checkout", 10, severity=["ERROR"])
+    else:
+        with pytest.raises(ValueError, match="requested severity"):
+            validate_log_search_response(result([document]), TENANT, "checkout", 10, severity=["ERROR"])
+
+
+def test_severity_is_optional_when_no_filter_was_requested():
+    assert validate_log_search_response(result([hit()]), TENANT, "checkout", 10, severity=[])
