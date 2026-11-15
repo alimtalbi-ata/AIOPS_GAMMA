@@ -85,6 +85,8 @@ def calculate_llm_kpis(request: LLMKPIRequest, authorized_tenant: UUID) -> dict:
     ttfts = [x.ttft_ms for x in rows if x.ttft_ms is not None]
     throughputs = [x.tps for x in rows if x.tps is not None]
     costs = [x.estimated_cost_usd for x in rows if x.estimated_cost_usd is not None]
+    input_token_values = [x.input_tokens for x in rows if x.input_tokens is not None]
+    output_token_values = [x.output_tokens for x in rows if x.output_tokens is not None]
     failures = sum(x.status == "error" for x in rows)
     successful = sum(x.status == "ok" for x in rows)
     degraded = sum(x.status == "degraded" for x in rows)
@@ -107,10 +109,11 @@ def calculate_llm_kpis(request: LLMKPIRequest, authorized_tenant: UUID) -> dict:
         "latency_p99_ms": _percentile(latencies, 0.99),
         "ttft_p95_ms": _percentile(ttfts, 0.95),
         "mean_tps": _mean(throughputs),
-        "total_input_tokens": sum(x.input_tokens for x in rows if x.input_tokens is not None)
-        if any(x.input_tokens is not None for x in rows) else None,
-        "total_output_tokens": sum(x.output_tokens for x in rows if x.output_tokens is not None)
-        if any(x.output_tokens is not None for x in rows) else None,
+        # A partial sum must not masquerade as total model usage.
+        "total_input_tokens": sum(input_token_values) if len(input_token_values) == total else None,
+        "total_output_tokens": sum(output_token_values) if len(output_token_values) == total else None,
+        "input_token_coverage": round(len(input_token_values) / total, 3),
+        "output_token_coverage": round(len(output_token_values) / total, 3),
         "estimated_cost_usd": round(sum(costs), 6) if len(costs) == total else None,
         "cost_coverage": round(len(costs) / total, 3),
         "sentinel_anomaly_rate_pct": (
