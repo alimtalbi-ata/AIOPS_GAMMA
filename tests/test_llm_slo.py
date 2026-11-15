@@ -455,3 +455,25 @@ def test_extreme_finite_p95_does_not_overflow_slo_response():
     assert result["checks"]["latency_p95_ms"]["value"] == 1e308
     assert result["checks"]["ttft_p95_ms"]["value"] == 1e308
     assert result["observed_breaches"] == ["latency_p95_ms", "ttft_p95_ms"]
+
+
+def test_slo_cost_mean_is_valid_even_when_kpi_total_cost_would_overflow():
+    tenant = uuid4()
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 100, "estimated_cost_usd": 1e308},
+        {"status": "ok", "latency_ms": 120, "estimated_cost_usd": 1e308},
+    ], max_mean_cost_usd=0.02)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "BREACH_PREVIEW"
+    assert result["checks"]["mean_cost_usd"]["value"] == 1e308
+    assert result["observed_breaches"] == ["mean_cost_usd"]
+
+
+def test_slo_still_rejects_cross_tenant_after_kpi_decoupling():
+    tenant = uuid4()
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 100},
+        {"status": "ok", "latency_ms": 120},
+    ])
+    with pytest.raises(ValueError, match="Cross-tenant"):
+        evaluate_llm_slo_preview(req, uuid4())
