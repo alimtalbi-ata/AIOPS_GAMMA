@@ -329,7 +329,7 @@ def test_ci_identifier_does_not_alias_service_name():
     assert len({group["group_id"] for group in result["groups"]}) == 2
 
 
-def test_same_ci_identifier_groups_alerts_from_different_service_labels():
+def test_shared_ci_identifier_never_joins_different_service_labels():
     from app.reused.correlation import correlate
     base = request().correlation.signals[0]
     a = base.model_copy(update={
@@ -341,8 +341,9 @@ def test_same_ci_identifier_groups_alerts_from_different_service_labels():
         "service_name": "checkout-v2",
     })
     result = correlate([a, b], TENANT)
-    assert len(result["groups"]) == 1
-    assert result["groups"][0]["event_count"] == 2
+    assert len(result["groups"]) == 2
+    assert all(group["event_count"] == 1 for group in result["groups"])
+    assert {group["service_name"] for group in result["groups"]} == {"checkout", "checkout-v2"}
 
 
 def test_conflicting_evidence_is_order_independent():
