@@ -677,3 +677,56 @@ def test_legacy_slo_without_window_has_no_fabricated_sample_span():
     ]), tenant)
     assert result["declared_window"] is None
     assert result["sample_window_state"] == "UNVERIFIED"
+
+
+def test_sparse_declared_window_cannot_pass_slo_preview():
+    tenant = uuid4()
+    end = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(minutes=1)
+    start = end - timedelta(hours=1)
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 100,
+         "observed_at": start + timedelta(minutes=20)},
+        {"status": "ok", "latency_ms": 120,
+         "observed_at": start + timedelta(minutes=30)},
+    ], window_start=start, window_end=end)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "INSUFFICIENT_DATA"
+    assert "window_sample_span_below_minimum" in result["insufficient_data_reasons"]
+    assert result["window_span_coverage"] == pytest.approx(1 / 6)
+    assert result["min_window_span_coverage"] == 0.5
+    assert result["authoritative"] is False
+
+
+def test_well_spread_declared_window_remains_advisory_pass():
+    tenant = uuid4()
+    end = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(minutes=1)
+    start = end - timedelta(hours=1)
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 100, "observed_at": start},
+        {"status": "ok", "latency_ms": 120,
+         "observed_at": end - timedelta(seconds=1)},
+    ], window_start=start, window_end=end)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "PASS_PREVIEW"
+    assert result["window_span_coverage"] > 0.99
+    assert result["authoritative"] is False
+
+
+def test_window_span_requirement_is_bounded():
+    tenant = uuid4()
+    for invalid in (-0.1, 1.1, float("nan"), float("inf")):
+        with pytest.raises(ValidationError):
+            make_request(tenant, [
+                {"status": "ok", "latency_ms": 100},
+                {"status": "ok", "latency_ms": 120},
+            ], min_window_span_coverage=invalid)
+
+
+def test_window_span_not_inferred_for_legacy_preview():
+    tenant = uuid4()
+    result = evaluate_llm_slo_preview(make_request(tenant, [
+        {"status": "ok", "latency_ms": 100},
+        {"status": "ok", "latency_ms": 120},
+    ]), tenant)
+    assert result["window_span_coverage"] is None
+    assert result["min_window_span_coverage"] is None
