@@ -365,3 +365,45 @@ def test_authorized_evidence_read_filters_by_signed_tenant_and_incident(client):
     assert "tenant_id" in sql and "incident_id" in sql
     assert expected_tenant in {str(value) for value in params.values()}
     assert "inc-1" in params.values()
+
+
+def test_authorized_evidence_write_uses_signed_tenant_and_exact_incident(client):
+    """An unsigned tenant header cannot change the persisted evidence owner."""
+    test_client, _ = client
+    path = "/api/v1/incidents/inc-1/evidence"
+    token = _token("POST", path, ["inc-1"])
+    encoded = token.split(".")[0]
+    claims = json.loads(base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)))
+    captured = []
+    commits = []
+
+    class RecordingSession:
+        def add(self, obj):
+            captured.append(obj)
+
+        async def commit(self):
+            commits.append(True)
+
+    async def recording_db():
+        yield RecordingSession()
+
+    app.dependency_overrides[get_session] = recording_db
+    try:
+        response = test_client.post(path, headers={
+            "X-Internal-API-Key": "service-secret",
+            "X-Gateway-Principal": token,
+            "X-Tenant-ID": str(uuid4()),
+        }, json={
+            "investigation_id": str(uuid4()),
+            "source_type": "logs",
+            "source_ref": "otel:trace-1",
+            "summary": "Synthetic evidence",
+            "observed_at": "2026-11-15T12:00:00Z",
+        })
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+
+    assert response.status_code == 201, response.text
+    assert len(captured) == 1 and commits == [True]
+    assert str(captured[0].tenant_id) == claims["tenant_id"]
+    assert captured[0].incident_id == "inc-1"
