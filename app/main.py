@@ -159,6 +159,8 @@ async def add_evidence(
     session: AsyncSession = Depends(get_session),
 ):
     validate_incident_resource_id(incident_id)
+    if incident_id not in principal.evidence_incident_grants:
+        raise HTTPException(403, "Incident evidence access denied", headers={"Cache-Control": "no-store"})
     obj = Evidence(
         tenant_id=principal.tenant_id, incident_id=incident_id, **req.model_dump()
     )
@@ -173,6 +175,8 @@ async def list_evidence(
     session: AsyncSession = Depends(get_session),
 ):
     validate_incident_resource_id(incident_id)
+    if incident_id not in principal.evidence_incident_grants:
+        raise HTTPException(403, "Incident evidence access denied", headers={"Cache-Control": "no-store"})
     rows = (await session.scalars(
         select(Evidence).where(Evidence.tenant_id == principal.tenant_id,
                                Evidence.incident_id == incident_id).limit(500)
