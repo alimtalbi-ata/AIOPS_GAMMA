@@ -67,7 +67,7 @@ def alert_duplicate_response(previous: InboxEvent, payload: dict) -> dict:
     """Idempotent retry is safe only when the deduplication key has identical content."""
     if previous.payload != payload:
         raise HTTPException(409, "Alert event identity already exists with different payload")
-    return alert_duplicate_response(previous, payload)
+    return {"id": str(previous.id), "duplicate": True}
 
 
 @app.post("/api/v1/integrations/opensearch/alerts")
