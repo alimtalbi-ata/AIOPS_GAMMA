@@ -4,20 +4,28 @@ Statut : **HOLD / NO_GO**. Cette matrice décrit les preuves requises, pas une c
 
 | Chaîne / besoin | Contrat vérifiable | Preuve disponible | Blocage / suite |
 | --- | --- | --- | --- |
-| Gateway → tenant → incident → preuve | Assertion HMAC liée à la méthode et au chemin, droit explicite, lecture/écriture cloisonnées | Tests HTTP `tests/test_evidence_resource_acl_http.py`, y compris scénario deux tenants ; base simulée | Exécuter dans CI ; refaire sur PostgreSQL réel, avec deux tenants et migrations |
-| Ressources persistées | Identité tenant uniquement depuis le principal vérifié, filtres SQL tenant+incident et limite 500 | Tests AST et HTTP avec inspection SQLAlchemy | Vérifier sur PostgreSQL : RLS/permissions, concurrence, transactions et indexes |
+| Gateway → tenant → incident → preuve | Assertion HMAC liée à la méthode et au chemin, droit explicite, lecture/écriture cloisonnées | Tests HTTP simulés et nouveau `tests/test_evidence_http_postgres_e2e.py` (création/lecture deux tenants, écriture refusée, path binding) ; job CI ajouté | **Non exécuté sur PostgreSQL** : obtenir job steps/logs et attestation des migrations |
+| Ressources persistées | Identité tenant uniquement depuis le principal vérifié, filtres SQL tenant+incident et limite 500 | Tests AST/HTTP avec inspection SQLAlchemy ; `tests/test_resource_list_http_postgres.py` raccordé au job dédié | Tests PostgreSQL non exécutés ; RLS absente/non qualifiée, concurrence/transactions/indexes à vérifier |
 | OpenSearch logs | Recherche read-only, tenant/service/time, DLS côté cluster | Tests unitaires d'adaptateur et contrat `docs/OPENSEARCH-READ-CONTRACT.md` | DLS OpenSearch réel et tests négatifs inter-tenants non qualifiés |
 | Inbox/outbox alertes | Retry idempotent, conflit 409, transaction atomique | Tests de logique ingestion | PostgreSQL réel : unicité, concurrence, rollback, publication/retry worker |
 | Corrélation / RCA / impact | Previews non autoritaires, provenance et incertitude | Fonctions et tests de previews | Sources canoniques, CMDB/ITSM et parcours utilisateur intégrés non qualifiés |
 | Sentinel/ArgusLM KPI/SLO | Couverture, fenêtres, seuils, états indéterminés | Tests unitaires KPI/SLO | Mesures réelles, provenance, observabilité des erreurs et SLO métier |
 | Policy / HITL / remédiation | Aucun effet LIVE sans décision qualifiée | Endpoints de prévisualisation read-only | Exécution interdite ; audit, approbation et contrôle d'effet à concevoir/qualifier |
 | Frontend → BFF | Flux de navigation et erreurs 401/403/422/503 sans fuite | UI partiellement synthétique | Playwright sur build UI + BFF réel, accessibilité et états d'erreur |
-| Déploiement | Compose, Helm, image rootless, migrations | Configurations et workflows présents | GitHub Actions en échec avant allocation runner ; aucune preuve de runtime |
+| Déploiement | Compose, Helm, image rootless, migrations | Configurations et workflows présents | Job `tenant-evidence-postgres-e2e` ajouté au workflow (PG16 jetable, rôle non-superutilisateur, Alembic 0002) ; vérification d'exécution en attente, ancienne CI pré-step échouée |
+
+## Livraisons de la reprise du 16 novembre 2026
+
+- `8348a91` : test HTTP+PostgreSQL de création/lecture tenant-isolées, refus d'écriture et chemin signé, sur base explicitement jetable.
+- `d9585f0` : CI PostgreSQL 16 avec rôle non-superutilisateur, migration et exécution des deux modules d'intégration ; non exécutée dans ce laboratoire.
+- `9bc0f2a`, `b0cac16` : robustesse des DSN et du nettoyage des preuves de test.
+- **Preuve d'exécution** : aucune réussite PG/CI attestée sur ces commits. Les résultats du laboratoire précédent concernent des tests isolés/simulés ; ils ne remplacent pas une qualification de bout en bout.
+- **Limite architecturale importante** : le frontend est une démonstration synthétique qui bloque volontairement `/api` ; le parcours frontend → BFF réel n'est pas développé/qualifié. La sécurité ne doit pas être affaiblie pour produire artificiellement un test vert.
 
 ## Procédure de qualification
 
 1. Exécuter `python -m pytest -q tests/test_evidence_resource_acl_http.py tests/test_gateway_assertion.py tests/test_gateway_resource_acl_contract.py` dans un environnement disposant des dépendances du projet.
-2. Rejouer le scénario deux tenants sur PostgreSQL réel et vérifier les tables, la séparation, les transactions et les contraintes.
+2. Exécuter le job `tenant-evidence-postgres-e2e` du nouveau HEAD (migrations + `tests/test_resource_list_http_postgres.py` et `tests/test_evidence_http_postgres_e2e.py`) puis consigner les logs/étapes ; vérifier séparément RLS, contraintes et concurrence.
 3. Exécuter les parcours API complets avec un émetteur d'assertions gateway **indépendant** et des assertions négatives (signature, expiration, méthode, chemin, tenant, ressource).
 4. Exécuter la chaîne OpenSearch avec DLS effectif, les tests d'ingestion/outbox en concurrence et les parcours UI.
 5. Récupérer les journaux CI, qualifier les runners et faire passer tous les jobs avant de lever HOLD.
