@@ -107,16 +107,17 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
     unique = list(seen.values())
     unique.sort(key=lambda s: (s.observed_at.astimezone(timezone.utc), s.source, s.external_event_id))
     groups: list[dict] = []
+    # Indexed by the complete grouping key. A single pass over sorted signals
+    # avoids repeatedly scanning all previous groups for every incoming event.
+    latest_group_by_key: dict[tuple, dict] = {}
     for signal in unique:
         timestamp = signal.observed_at.astimezone(timezone.utc)
         # A CI identifier alone cannot authorize or justify a cross-service join.
         # Always retain service identity, even when CI metadata is supplied.
         key = (signal.environment, signal.service_name, signal.ci_id, signal.symptom_key)
-        matching = next((
-            g for g in reversed(groups)
-            if g["_key"] == key
-            and timestamp - g["_first"] <= timedelta(seconds=window_seconds)
-        ), None)
+        matching = latest_group_by_key.get(key)
+        if matching is not None and timestamp - matching["_first"] > timedelta(seconds=window_seconds):
+            matching = None
         if matching is None:
             stable_key = json.dumps((tenant_id, *key, timestamp.isoformat()), ensure_ascii=False, separators=(",", ":"))
             matching = {
@@ -134,6 +135,7 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
                 "evidence_refs": [],
             }
             groups.append(matching)
+            latest_group_by_key[key] = matching
         matching["_last"] = timestamp
         matching["last_observed_at"] = timestamp.isoformat()
         if _SEVERITY[signal.severity] > _SEVERITY[matching["severity"]]:
