@@ -171,10 +171,16 @@ def correlate(signals: list[CorrelationSignal], tenant_id: str, window_seconds: 
         # This is conservative display only; resolution_state stays UNKNOWN.
         if firing_by_identity[(signal.source, signal.external_event_id)]:
             matching["status"] = "firing"
+        identity = (signal.source, signal.external_event_id)
         matching["source_events"].append({
             "source": signal.source,
             "external_event_id": signal.external_event_id,
-            "status": signal.status,
+            # Match the conservative group display: a selected resolved
+            # representative must not conceal a firing duplicate.
+            "status": "firing" if firing_by_identity[identity] else "resolved",
+            "status_state": "UNKNOWN" if (
+                identity in conflicting_identities
+            ) else "UNVERIFIED",
         })
         # Keep every reference supplied by duplicate versions, not only
         # those on the deterministic representative. References remain
