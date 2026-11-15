@@ -730,3 +730,42 @@ def test_window_span_not_inferred_for_legacy_preview():
     ]), tenant)
     assert result["window_span_coverage"] is None
     assert result["min_window_span_coverage"] is None
+
+
+def test_declared_window_with_identical_timestamps_is_insufficient():
+    tenant = uuid4()
+    end = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(minutes=1)
+    start = end - timedelta(hours=1)
+    instant = start + timedelta(minutes=30)
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 100, "observed_at": instant},
+        {"status": "ok", "latency_ms": 120, "observed_at": instant},
+    ], window_start=start, window_end=end, min_window_span_coverage=0)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["state"] == "INSUFFICIENT_DATA"
+    assert "window_distinct_timestamps_below_minimum" in result["insufficient_data_reasons"]
+    assert result["distinct_sample_timestamps"] == 1
+    assert result["authoritative"] is False
+
+
+def test_declared_window_reports_distinct_timestamps_across_offsets():
+    tenant = uuid4()
+    end = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(minutes=1)
+    start = end - timedelta(hours=1)
+    req = make_request(tenant, [
+        {"status": "ok", "latency_ms": 100, "observed_at": start},
+        {"status": "ok", "latency_ms": 120, "observed_at": end - timedelta(seconds=1)},
+    ], window_start=start, window_end=end)
+    result = evaluate_llm_slo_preview(req, tenant)
+    assert result["distinct_sample_timestamps"] == 2
+    assert result["state"] == "PASS_PREVIEW"
+    assert result["sample_provenance_state"] == "UNVERIFIED"
+
+
+def test_legacy_slo_does_not_claim_distinct_timestamp_coverage():
+    tenant = uuid4()
+    result = evaluate_llm_slo_preview(make_request(tenant, [
+        {"status": "ok", "latency_ms": 100},
+        {"status": "ok", "latency_ms": 120},
+    ]), tenant)
+    assert result["distinct_sample_timestamps"] is None
