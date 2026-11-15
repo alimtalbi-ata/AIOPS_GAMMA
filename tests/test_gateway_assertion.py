@@ -167,7 +167,7 @@ def test_stricter_gateway_ttl_configuration_is_enforced(monkeypatch):
 
 
 @pytest.mark.parametrize("claim,value", [
-    ("sub", ""), ("sub", "   "), ("sub", "x" * 257),
+    ("sub", ""), ("sub", "   "), ("sub", " user:123"), ("sub", "user:123 "), ("sub", "x" * 257),
     ("jti", ""), ("jti", "short"), ("jti", "x" * 129),
     ("jti", None), ("sub", None),
     ("jti", "        "), ("jti", "abc\n12345"),
