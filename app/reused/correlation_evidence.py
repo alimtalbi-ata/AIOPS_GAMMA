@@ -25,7 +25,7 @@ def preview(request: CorrelationEvidencePreview, tenant_id: str, *, now: datetim
     if (now is not None and (not isinstance(now, datetime)
             or now.tzinfo is None or now.utcoffset() is None)):
         raise ValueError("now requires timezone")
-    if not isinstance(request.evidence, list) or len(request.evidence) > 500:
+    if not isinstance(request.evidence, list):
         raise ValueError("Invalid correlation evidence collection")
     # Nested Pydantic inputs may be mutated after construction. Revalidate
     # evidence timestamps, payload bounds and correlation signals at the gate.
