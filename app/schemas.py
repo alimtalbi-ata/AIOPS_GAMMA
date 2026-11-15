@@ -6,6 +6,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 
 class TimeWindow(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     start: datetime
     end: datetime
 
@@ -23,6 +25,8 @@ class TimeWindow(BaseModel):
 
 
 class LogSearchRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     service_name: str = Field(min_length=1, max_length=255, pattern=r"^[a-zA-Z0-9_.-]+$")
     window: TimeWindow
     severity: list[Annotated[str, Field(min_length=1, max_length=32, pattern=r"^[A-Za-z0-9_.-]+$")]] = Field(
