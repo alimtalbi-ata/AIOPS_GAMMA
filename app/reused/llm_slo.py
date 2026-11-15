@@ -36,6 +36,8 @@ class LLMSLOPreviewRequest(BaseModel):
         if (self.window_start is None) != (self.window_end is None):
             raise ValueError("Both SLO window bounds are required")
         if self.window_start is None:
+            if self.max_quarter_error_rate_pct is not None or self.min_occupied_quarters > 0 or self.max_window_gap_ratio < 1:
+                raise ValueError("Window-specific SLO thresholds require a declared window")
             return self
         start, end = self.window_start, self.window_end
         if (start.tzinfo is None or start.utcoffset() is None
