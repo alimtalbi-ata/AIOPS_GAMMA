@@ -641,3 +641,35 @@ def test_identical_duplicate_references_remain_unique():
     assert result["groups"][0]["evidence_refs"] == ["trace-a", "trace-b"]
     assert result["conflicting_source_events"] == 0
     assert result["deduplicated_events"] == 1
+
+
+def test_conflict_diagnostics_identify_fields_without_exposing_values():
+    original = signal("same", severity="minor", status="resolved")
+    severity_change = original.model_copy(update={"severity": "critical"})
+    status_change = original.model_copy(update={"status": "firing"})
+    forward = correlate([original, severity_change, status_change], "tenant-1")
+    reverse = correlate([status_change, severity_change, original], "tenant-1")
+    assert forward == reverse
+    group = forward["groups"][0]
+    assert group["conflict_fields"] == ["severity", "status"]
+    assert group["conflicting_source_events"] == 1
+    assert group["severity"] == "critical"
+    assert group["status"] == "firing"
+    assert group["resolution_state"] == "UNKNOWN"
+    assert forward["live_remediation_authorized"] is False
+
+
+def test_identical_duplicates_have_no_conflict_fields():
+    original = signal("same")
+    result = correlate([original, original.model_copy(deep=True)], "tenant-1")
+    assert result["groups"][0]["conflict_fields"] == []
+    assert result["conflicting_source_events"] == 0
+
+
+def test_conflicting_service_identity_is_reported_without_cross_service_join():
+    original = signal("same", service="checkout")
+    conflicting = signal("same", service="payments")
+    result = correlate([original, conflicting], "tenant-1")
+    assert result["groups"][0]["conflict_fields"] == ["service_name"]
+    assert result["groups"][0]["conflicting_source_events"] == 1
+    assert result["groups"][0]["resolution_state"] == "UNKNOWN"
