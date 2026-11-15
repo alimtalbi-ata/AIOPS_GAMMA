@@ -16,7 +16,11 @@ def make_log_query(tenant_id: str, req: LogSearchRequest) -> dict:
         raise ValueError("Valid tenant UUID required for OpenSearch query") from exc
     if tenant_id != canonical_tenant:
         raise ValueError("Canonical tenant UUID required for OpenSearch query")
+    # Defense in depth for direct callers: revalidate potentially mutated model data.
+    req = LogSearchRequest.model_validate(req.model_dump())
     # Direct adapter callers must not bypass the HTTP endpoint's query-window policy.
+    if settings.max_query_hours <= 0:
+        raise ValueError("OpenSearch query window policy must be positive")
     if req.window.end - req.window.start > timedelta(hours=settings.max_query_hours):
         raise ValueError("OpenSearch query window exceeds policy")
     filters = [
