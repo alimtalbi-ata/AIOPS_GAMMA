@@ -321,3 +321,47 @@ def test_invalid_signed_incident_grants_fail_before_db(client, method, bad_grant
     assert response.status_code == 401, response.text
     assert response.headers["cache-control"] == "no-store"
     assert calls == []
+
+
+def test_authorized_evidence_read_filters_by_signed_tenant_and_incident(client):
+    """A valid incident grant must not turn the evidence query into a cross-tenant read."""
+    from sqlalchemy.dialects import postgresql
+
+    test_client, _ = client
+    path = "/api/v1/incidents/inc-1/evidence"
+    token = _token("GET", path, ["inc-1"])
+    encoded = token.split(".")[0]
+    claims = json.loads(base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)))
+    expected_tenant = claims["tenant_id"]
+    queries = []
+
+    class EmptyRows:
+        def all(self):
+            return []
+
+    class InspectingSession:
+        async def scalars(self, statement):
+            compiled = statement.compile(dialect=postgresql.dialect())
+            queries.append((str(compiled), compiled.params))
+            return EmptyRows()
+
+    async def inspecting_db():
+        yield InspectingSession()
+
+    app.dependency_overrides[get_session] = inspecting_db
+    try:
+        response = test_client.get(path, headers={
+            "X-Internal-API-Key": "service-secret",
+            "X-Gateway-Principal": token,
+            "X-Tenant-ID": str(uuid4()),
+        })
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+
+    assert response.status_code == 200, response.text
+    assert response.json() == []
+    assert len(queries) == 1
+    sql, params = queries[0]
+    assert "tenant_id" in sql and "incident_id" in sql
+    assert expected_tenant in {str(value) for value in params.values()}
+    assert "inc-1" in params.values()
