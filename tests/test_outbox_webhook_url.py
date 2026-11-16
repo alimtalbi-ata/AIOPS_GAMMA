@@ -356,6 +356,8 @@ def test_transport_errors_remain_retryable():
 @pytest.mark.parametrize(
     ("status", "retry_after", "attempts", "expected_seconds"),
     [
+        (425, "120", 1, 120),
+        (425, "invalid", 1, 2),
         (429, "120", 1, 120),
         (429, "0", 1, 2),
         (429, "1", 4, 16),
@@ -384,6 +386,7 @@ def test_bounded_http_429_and_503_retry_after(status, retry_after, attempts, exp
 @pytest.mark.parametrize(
     ("status", "retry_after", "expected_seconds"),
     [
+        (425, "Wed, 01 Jan 2025 00:02:00 GMT", 120),
         (429, "Wed, 01 Jan 2025 00:02:00 GMT", 120),
         (503, "Wed, 01 Jan 2025 00:10:00 GMT", 300),
         (429, "Tue, 31 Dec 2024 23:59:00 GMT", 2),
