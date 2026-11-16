@@ -521,6 +521,31 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
             assert pending_redirect.attempts == 1
             assert pending_redirect.next_attempt_at is not None
             assert pending_redirect.last_error
+
+            # Once retry eligibility is restored, a real 2xx acknowledgement
+            # must publish the same event exactly once, with no stale retry.
+            async with factory() as session:
+                row = await session.get(OutboxEvent, redirect_event.id)
+                row.next_attempt_at = None
+                await session.commit()
+            received_before = len(received)
+            async with httpx.AsyncClient(transport=httpx.MockTransport(receiver)) as downstream:
+                assert await outbox_relay.dispatch_once(
+                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
+                ) is True
+                assert await outbox_relay.dispatch_once(
+                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
+                ) is False
+            assert len(received) == received_before + 1
+            assert received[-1]["event_id"] == str(redirect_event.id)
+            _, after_redirect_recovery = await rows()
+            recovered_redirect = next(
+                row for row in after_redirect_recovery if row.id == redirect_event.id
+            )
+            assert recovered_redirect.published_at is not None
+            assert recovered_redirect.attempts == 1
+            assert recovered_redirect.next_attempt_at is None
+            assert recovered_redirect.last_error is None
     app.dependency_overrides[get_session] = session_override
     try:
         asyncio.run(exercise())
