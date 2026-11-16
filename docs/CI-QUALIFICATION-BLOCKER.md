@@ -1,5 +1,25 @@
 # CI qualification blocker — 2026-11-14
 
+## Latest GitHub Actions evidence — 2026-11-16 (newer run)
+
+At reviewed HEAD `7925e3fa02518cc5ba31e1c97b7c0bc675ce3ce7`,
+[Python checks run 43937111594](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43937111594)
+completed with `failure`. Its four jobs all completed with `failure`
+within approximately two seconds and each exposes **zero steps** in the
+GitHub Actions jobs API:
+
+- `tenant-evidence-postgres-e2e` — job `133544499646`
+- `gateway-replay-postgres` — job `133544500127`
+- `test` — job `133544500274`
+- `frontend` — job `133544500277`
+
+The paired deployment-contract run `43937111599` also reports `failure`.
+These API results do not establish that a runner executed any checkout,
+pytest, frontend build, or PostgreSQL command. An administrator must inspect
+the Actions UI job-level annotations, runner availability, billing and policy
+settings. Do not assert a specific platform cause without direct evidence.
+**HOLD / NO_GO.**
+
 ## Latest GitHub Actions evidence — 2026-11-16
 
 At reviewed HEAD `3d8f9b42bfe083f6fed3af50444fd2c0d58be8c9`,
