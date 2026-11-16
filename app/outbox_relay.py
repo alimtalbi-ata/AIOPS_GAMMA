@@ -70,7 +70,12 @@ async def dispatch_once(client: httpx.AsyncClient, endpoint: str, token: str) ->
                 event.last_error = None
             except (httpx.HTTPError, ValueError) as exc:
                 event.attempts += 1
-                event.next_attempt_at = now + retry_delay(event.attempts)
+                # Once the retry budget is exhausted, keep the event for
+                # operator inspection without advertising a future retry.
+                event.next_attempt_at = (
+                    now + retry_delay(event.attempts)
+                    if event.attempts < MAX_ATTEMPTS else None
+                )
                 event.last_error = (redact_text(str(exc)) or "")[:1000]
                 log.warning("Outbox delivery failed for %s (attempt %s)", event.id, event.attempts)
             return True
