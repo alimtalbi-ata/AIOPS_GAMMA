@@ -79,6 +79,7 @@ Statut : **HOLD / NO_GO**. Cette matrice décrit les preuves requises, pas une c
 - `221a01b` / `d57c7c9` : rejet des hôtes webhook DNS avec point final (`receiver.example.test.`) pour éviter une représentation TLS/allowlist ambiguë, refus avant accès DB ; exécution CI non attestée.
 - `ef59a2b` / `b676442` / `2f056b7` : `dispatch_once` impose désormais l'égalité exacte avec `CORRELATION_WEBHOOK_URL` (chemin et port compris), en complément de l'allowlist hôte ; tests de dérive avant accès DB et adaptation E2E PostgreSQL ; exécution CI non attestée.
 - `a81b486` / `972db34` / `fc73591` / `e7b41be` : jeton Bearer de `dispatch_once` épinglé à `CORRELATION_WEBHOOK_TOKEN`, refus des substitutions avant accès DB et adaptation E2E PostgreSQL ; exécution CI non attestée.
+- `441cf6a` / `dd815f8` : couverture positive/négative du prédicat de configuration du destinataire et contrat d'exploitation du worker (URL, hôte, token, trust_env=False, déduplication), limites DNS/egress explicites ; exécution CI non attestée.
 - **Preuve d'exécution** : aucune réussite PG/CI attestée sur ces commits. Les résultats du laboratoire précédent concernent des tests isolés/simulés ; ils ne remplacent pas une qualification de bout en bout.
 - **Limite architecturale importante** : le frontend est une démonstration synthétique qui bloque volontairement `/api` ; le parcours frontend → BFF réel n'est pas développé/qualifié. La sécurité ne doit pas être affaiblie pour produire artificiellement un test vert.
 
