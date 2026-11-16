@@ -35,10 +35,26 @@ def retry_delay(attempts: int) -> timedelta:
     return timedelta(seconds=min(300, 2 ** min(attempts, 8)))
 
 
+def valid_receiver_configuration(endpoint: str, token: str, allowed_host: str) -> bool:
+    """Require a configured, exact receiver hostname at every dispatch boundary."""
+    return (
+        valid_webhook_endpoint(endpoint)
+        and valid_webhook_token(token)
+        and isinstance(allowed_host, str)
+        and bool(allowed_host)
+        and allowed_host == allowed_host.strip()
+        and allowed_host.lower() == allowed_host
+        and valid_webhook_endpoint(f"https://{allowed_host}/")
+        and httpx.URL(endpoint).host == allowed_host
+    )
+
+
 async def dispatch_once(client: httpx.AsyncClient, endpoint: str, token: str) -> bool:
     # Enforce the destination boundary even when called outside main().
     # Never query or claim an outbox row for an unsafe receiver.
-    if not valid_webhook_endpoint(endpoint) or not valid_webhook_token(token):
+    if not valid_receiver_configuration(
+        endpoint, token, os.getenv("CORRELATION_WEBHOOK_ALLOWED_HOST", "")
+    ):
         raise ValueError("Invalid HTTPS outbox receiver configuration")
     async with get_session_factory()() as session:
         async with session.begin():
@@ -166,15 +182,7 @@ async def main():
     endpoint = os.getenv("CORRELATION_WEBHOOK_URL", "")
     token = os.getenv("CORRELATION_WEBHOOK_TOKEN", "")
     allowed_host = os.getenv("CORRELATION_WEBHOOK_ALLOWED_HOST", "")
-    if (
-        not valid_webhook_endpoint(endpoint)
-        or not valid_webhook_token(token)
-        or not allowed_host
-        or allowed_host != allowed_host.strip()
-        or allowed_host.lower() != allowed_host
-        or not valid_webhook_endpoint(f"https://{allowed_host}/")
-        or httpx.URL(endpoint).host != allowed_host
-    ):
+    if not valid_receiver_configuration(endpoint, token, allowed_host):
         raise RuntimeError(
             "Set HTTPS CORRELATION_WEBHOOK_URL, CORRELATION_WEBHOOK_TOKEN "
             "and exact CORRELATION_WEBHOOK_ALLOWED_HOST"
