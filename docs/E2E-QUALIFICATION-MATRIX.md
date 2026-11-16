@@ -56,6 +56,7 @@ Statut : **HOLD / NO_GO**. Cette matrice décrit les preuves requises, pas une c
 - `9038deb` / `61aa121` : test PostgreSQL du retry après HTTP 503 : échéance future et bornée par rapport au début de la tentative de dispatch (et non à la création de l'événement), sans publication ; exécution PG non attestée.
 - `e2e7417` / `5309cc7` : le relais calcule le prochain retry après l'échec HTTP et la publication après l'ACK 2xx ; test PostgreSQL vérifiant une échéance encore future après retour du dispatch ; exécution CI/PG non attestée.
 - `e29ad7a` / `8eaf685` : validation RFC 6750 du jeton Bearer outbox, refus des séparateurs et du padding interne avant accès DB ; tests non exécutés en CI à ce stade.
+- `ae34353` : scénario PostgreSQL de timeout HTTP outbox au dernier essai : échec persisté, non-publication, absence de retry après épuisement, puis vérification HTTP 503 ; exécution PG non attestée.
 - **Preuve d'exécution** : aucune réussite PG/CI attestée sur ces commits. Les résultats du laboratoire précédent concernent des tests isolés/simulés ; ils ne remplacent pas une qualification de bout en bout.
 - **Limite architecturale importante** : le frontend est une démonstration synthétique qui bloque volontairement `/api` ; le parcours frontend → BFF réel n'est pas développé/qualifié. La sécurité ne doit pas être affaiblie pour produire artificiellement un test vert.
 
