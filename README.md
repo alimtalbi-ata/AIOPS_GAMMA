@@ -263,3 +263,29 @@ les cas d'échec indispensables : preuve d'un autre tenant refusée,
 dans un même groupe et absence de validation de provenance même lorsque
 la jointure par identifiant réussit. Ces tests restent locaux, sans VM
 ni intégration externe. Leur exécution réussie n'est pas encore confirmée.
+
+### Relais outbox : configuration fermée (non qualifiée LIVE)
+
+Le worker `python -m app.outbox_relay` est **désactivé par défaut** : il refuse
+le démarrage sans les trois variables suivantes, toutes explicites :
+
+- `CORRELATION_WEBHOOK_URL` : URL HTTPS complète et fixe du récepteur interne
+  (chemin et port compris), sans paramètres ni fragments.
+- `CORRELATION_WEBHOOK_ALLOWED_HOST` : nom DNS exact, en minuscules, du
+  récepteur ; doit correspondre à l'hôte de l'URL, sans point final.
+- `CORRELATION_WEBHOOK_TOKEN` : secret Bearer valide, non vide, de 4 096
+  caractères au maximum. Ne jamais le journaliser ni le committer.
+
+Chaque appel à `dispatch_once` revérifie **l'URL, l'hôte et le jeton** par
+rapport à ces variables avant d'interroger PostgreSQL. Le client HTTP ne
+reprend ni proxy ni NETRC de l'environnement (`trust_env=False`) et ne suit
+pas les redirections. Le récepteur doit dédupliquer les messages par
+`X-Event-Id`, car les livraisons sont au moins une fois.
+
+**Limites :** le nom DNS autorisé ne constitue pas une validation de l'adresse
+IP résolue. L'anti-rebinding DNS, les règles egress, la chaîne TLS et
+l'identité du récepteur doivent être qualifiés indépendamment. Le relais
+conserve un verrou PostgreSQL pendant l'appel HTTP : n'utiliser qu'un
+récepteur interne à faible latence. Les tests PostgreSQL et GitHub Actions
+ne sont pas attestés comme exécutés avec succès. **HOLD / NO_GO** : pas de
+LIVE, de déploiement ni de merge sur cette base.
