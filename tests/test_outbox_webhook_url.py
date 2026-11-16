@@ -198,7 +198,10 @@ def test_relay_main_disables_ambient_proxy_and_netrc(monkeypatch):
     monkeypatch.setattr(outbox_relay, "dispatch_once", fake_dispatch)
     with pytest.raises(StopRelay):
         asyncio.run(outbox_relay.main())
-    assert seen["client_kwargs"] == {"trust_env": False}
+    assert seen["client_kwargs"]["trust_env"] is False
+    limits = seen["client_kwargs"]["limits"]
+    assert limits.max_connections == 1
+    assert limits.max_keepalive_connections == 1
     assert isinstance(seen["dispatch"][0], FakeClient)
     assert seen["dispatch"][1:] == (
         "https://receiver.example.test/events", "ci-ephemeral-token"
