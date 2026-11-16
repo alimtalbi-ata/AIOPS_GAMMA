@@ -140,7 +140,9 @@ async def main():
     token = os.getenv("CORRELATION_WEBHOOK_TOKEN", "")
     if not valid_webhook_endpoint(endpoint) or not valid_webhook_token(token):
         raise RuntimeError("Set HTTPS CORRELATION_WEBHOOK_URL and CORRELATION_WEBHOOK_TOKEN")
-    async with httpx.AsyncClient() as client:
+    # Never inherit HTTP(S)_PROXY or NETRC from the worker environment:
+    # the relay carries an internal bearer credential to a fixed receiver.
+    async with httpx.AsyncClient(trust_env=False) as client:
         while True:
             worked = await dispatch_once(client, endpoint, token)
             if not worked:
