@@ -71,9 +71,19 @@ def receiver_retry_delay(exc: Exception, attempts: int, *, now: datetime | None 
             return default
         seconds = int(value)
     else:
+        # Retry-After HTTP-date is an IMF-fixdate in GMT. Reject permissive
+        # email-date variants (including local timezones) rather than
+        # accepting ambiguous or non-standard scheduling instructions.
+        if not re.fullmatch(
+            r"(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), "
+            r"[0-9]{2} (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) "
+            r"[0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2} GMT",
+            value,
+        ):
+            return default
         try:
             deadline = parsedate_to_datetime(value)
-            if deadline.tzinfo is None:
+            if deadline.tzinfo is None or deadline.strftime("%a, %d %b %Y %H:%M:%S GMT") != value:
                 return default
             seconds = (deadline - (now or datetime.now(timezone.utc))).total_seconds()
         except (TypeError, ValueError, OverflowError):
