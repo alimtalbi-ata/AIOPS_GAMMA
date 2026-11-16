@@ -94,6 +94,11 @@ def valid_webhook_endpoint(endpoint: str) -> bool:
     # Reject ambiguous raw destinations before handing them to HTTPX.
     if any(ord(char) < 0x20 or ord(char) == 0x7F or char == "\\" for char in endpoint):
         return False
+    # Reject even empty userinfo (https://@host), which HTTPX can expose
+    # as empty username/password and otherwise silently accept.
+    authority = endpoint.split("://", 1)[-1].split("/", 1)[0].split("?", 1)[0].split("#", 1)[0]
+    if "@" in authority:
+        return False
     try:
         url = httpx.URL(endpoint)
         port = url.port
