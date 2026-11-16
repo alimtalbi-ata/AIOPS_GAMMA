@@ -105,7 +105,11 @@ def valid_webhook_endpoint(endpoint: str) -> bool:
         return False
     # Reject even empty userinfo (https://@host), which HTTPX can expose
     # as empty username/password and otherwise silently accept.
-    authority = endpoint.split("://", 1)[-1].split("/", 1)[0].split("?", 1)[0].split("#", 1)[0]
+    # Only the exact lowercase https:// prefix is accepted: a parser may
+    # normalize mixed-case schemes or a missing authority delimiter.
+    if not endpoint.startswith("https://"):
+        return False
+    authority = endpoint[len("https://"):].split("/", 1)[0].split("?", 1)[0].split("#", 1)[0]
     if "@" in authority:
         return False
     try:
