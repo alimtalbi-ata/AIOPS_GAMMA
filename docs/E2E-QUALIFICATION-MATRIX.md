@@ -35,6 +35,7 @@ Statut : **HOLD / NO_GO**. Cette matrice décrit les preuves requises, pas une c
 - `f8b2586` : refus HTTP des en-têtes d'identité dupliqués (clé de service, assertion gateway, tenant, acteur), avec `401` et zéro écriture PG ; scénario non exécuté.
 - `3f93618` : correspondance exacte des charges utiles inbox/outbox par tenant, type d'événement et service, afin de détecter les associations inter-tenants malgré des comptes corrects (PG non exécuté).
 - `98c2575` : comparaison des enveloppes HTTP effectivement reçues par le destinataire simulé avec les événements outbox d'origine (ID, tenant, payload, type, service) ; scénario PG non exécuté.
+- `3ebc16a` / `c1e1231` : correction du relais pour effacer `next_attempt_at` après publication réussie et assertion PG E2E correspondante (non exécutée).
 - **Preuve d'exécution** : aucune réussite PG/CI attestée sur ces commits. Les résultats du laboratoire précédent concernent des tests isolés/simulés ; ils ne remplacent pas une qualification de bout en bout.
 - **Limite architecturale importante** : le frontend est une démonstration synthétique qui bloque volontairement `/api` ; le parcours frontend → BFF réel n'est pas développé/qualifié. La sécurité ne doit pas être affaiblie pour produire artificiellement un test vert.
 
