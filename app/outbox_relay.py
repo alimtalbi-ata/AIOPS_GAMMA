@@ -58,6 +58,7 @@ async def dispatch_once(client: httpx.AsyncClient, endpoint: str, token: str) ->
             endpoint, token, os.getenv("CORRELATION_WEBHOOK_ALLOWED_HOST", "")
         )
         or endpoint != configured_endpoint
+        or token != os.getenv("CORRELATION_WEBHOOK_TOKEN", "")
     ):
         raise ValueError("Invalid HTTPS outbox receiver configuration")
     async with get_session_factory()() as session:
