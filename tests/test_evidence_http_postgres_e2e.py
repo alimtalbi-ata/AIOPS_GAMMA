@@ -582,6 +582,7 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
             terminal = next(row for row in terminal_rows if row.id == exhausted_event.id)
             assert terminal.published_at is None
             assert terminal.attempts == outbox_relay.MAX_ATTEMPTS
+            assert terminal.next_attempt_at is None
             assert terminal.last_error
     app.dependency_overrides[get_session] = session_override
     try:
