@@ -2014,3 +2014,11 @@
 - Added `docs/CI-RUNNER-TRIAGE.md` at commit `93102f8` with exact previously observed workflow/job IDs, administrator checks for Actions policy, runner allocation and billing/usage, and a copyable evidence record for issue #8.
 - This is documentation only. It does **not** identify a proven root cause, qualify any test execution or authorize blind reruns. The next CI qualification must run against the then-current exact reviewed HEAD, with actual per-step evidence and counts.
 - Independent actor→tenant→resource ACL issue #2 remains blocking. PR #1 remains Draft — HOLD / NO_GO. No merge, deployment, real PostgreSQL, LIVE access or remediation.
+
+
+### 2026-11-16 — PostgreSQL concurrency qualification added; current runner blocker
+- Added same-tenant/same-source/same-key concurrent HTTP alert-ingestion regression at `aaaeb63`: two concurrent POSTs must return one creation and one idempotent duplicate with exactly one inbox/outbox pair. Test is **not executed** on PostgreSQL.
+- Updated qualification matrix at `f3ff08a`. Prior commits `3184717` and `10da7f2` cover response-loss-safe evidence cleanup and outbox HTTP 503 → deferred retry → 202 recovery, also **not executed**.
+- On reviewed HEAD `f3ff08a2fd9eeec7add259c69213a74939c03a3d`, GitHub Actions Python checks run `43847980974` concluded failure. Jobs `133232908634` (tenant-evidence-postgres-e2e), `133232909116` (gateway-replay-postgres), `133232909213` (test), and `133232909289` (frontend) each exposed **zero steps**. Deployment contract run `43847980843` also failed; its steps were not inspected in this checkpoint.
+- Fetching job logs for `133232908634` returned HTTP 404 with BlobNotFound. This is **not evidence of a Python assertion failure**, nor proof of a specific billing, runner or policy root cause. Administrator must inspect the workflow run UI's job setup/annotations, repository/org Actions permissions, runner availability and usage/billing, and attach concrete findings to issue #8.
+- After the runner issue is resolved, execute the **then-current reviewed HEAD**, record each actual job step and the PG16 migration/test logs; separately qualify independent gateway/IdP and actor→tenant→resource ACL (#2), real OpenSearch DLS and frontend→BFF. No merge, deployment, production DB, LIVE activation or remediation; PR #1 remains Draft **HOLD / NO_GO**.
