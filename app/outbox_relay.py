@@ -59,9 +59,9 @@ def permanent_receiver_rejection(exc: Exception) -> bool:
 
 
 def receiver_retry_delay(exc: Exception, attempts: int) -> timedelta:
-    """Respect bounded numeric Retry-After for HTTP 429; never retry immediately."""
+    """Respect bounded numeric Retry-After for HTTP 429/503; never retry immediately."""
     default = retry_delay(attempts)
-    if not isinstance(exc, httpx.HTTPStatusError) or exc.response.status_code != 429:
+    if not isinstance(exc, httpx.HTTPStatusError) or exc.response.status_code not in (429, 503):
         return default
     value = exc.response.headers.get("retry-after", "")
     if not value or len(value) > 6 or not value.isascii() or not value.isdecimal():
