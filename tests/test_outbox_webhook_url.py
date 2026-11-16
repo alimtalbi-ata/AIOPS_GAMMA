@@ -44,6 +44,10 @@ def test_accepts_plain_https_webhook(endpoint):
         "https://receiver.example.test/ev\tents",
         "https://receiver.example.test/ev\x00ents",
         "https://receiver.example.test/ev\x7fents",
+        "https://receiver.example.test/ev ents",
+        "https://receiver.example.test/café",
+        "https://receiver.example.test/ev\u2028ents",
+        "https://receiver.example.test/ev\u00a0ents",
         "https://receiver.example.test\\@untrusted.example.test/events",
     ],
 )
@@ -83,6 +87,8 @@ def test_dispatch_rejects_invalid_destination_before_touching_database(monkeypat
         ("https://@receiver.example.test/events", "secret"),
         (" https://receiver.example.test/events", "secret"),
         ("https://receiver.example.test/ev\nents", "secret"),
+        ("https://receiver.example.test/café", "secret"),
+        ("https://receiver.example.test/ev ents", "secret"),
         ("https://receiver.example.test\\@untrusted.example.test/events", "secret"),
     ):
         with pytest.raises(ValueError, match="Invalid HTTPS outbox receiver"):
