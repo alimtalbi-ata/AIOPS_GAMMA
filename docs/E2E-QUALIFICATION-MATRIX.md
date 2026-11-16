@@ -63,6 +63,7 @@ Statut : **HOLD / NO_GO**. Cette matrice décrit les preuves requises, pas une c
 - `c48b233` / `92534a5` : rejet des délimiteurs URL `?` et `#` même vides, avec tests de validation et refus avant accès DB ; exécution CI non attestée.
 - `8c9f0e3` / `7fd7a2a` / `c5224e9` / `a8807f0` : récupération HTTP 202 après timeout initial et expiration simulée du backoff ; publication unique, méthode POST, destination HTTPS exacte, Content-Type JSON et enveloppe HTTP vérifiés (X-Event-Id, Bearer, event_id, tenant_id, event_type, aggregate_id et payload JSON), effacement de `next_attempt_at` et `last_error`, puis couverture terminale conservée ; exécution PG non attestée.
 - `95be210` / `13b264c` : rejet de l'autorité URL percent-encodée (hôte et délimiteurs d'identité ambigus), avec refus testé avant accès DB ; exécution CI non attestée.
+- `1deac3a` / `0f2a82c` : rejet des séparateurs de route et contrôles percent-encodés dans l'URL webhook, avec tests de refus avant accès DB ; exécution CI non attestée.
 - **Preuve d'exécution** : aucune réussite PG/CI attestée sur ces commits. Les résultats du laboratoire précédent concernent des tests isolés/simulés ; ils ne remplacent pas une qualification de bout en bout.
 - **Limite architecturale importante** : le frontend est une démonstration synthétique qui bloque volontairement `/api` ; le parcours frontend → BFF réel n'est pas développé/qualifié. La sécurité ne doit pas être affaiblie pour produire artificiellement un test vert.
 
