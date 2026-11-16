@@ -271,6 +271,21 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
             assert wrong_method.headers["cache-control"] == "no-store"
             unauthorized_inbox, unauthorized_outbox = await rows()
             assert not unauthorized_inbox and not unauthorized_outbox
+
+            # A signed tenant assertion is not a substitute for the separate
+            # workload credential; neither a missing nor a wrong key may write.
+            signed = _headers("POST", path, tenant_a, [], forged_tenant=tenant_b)
+            for bad_key in (None, "incorrect-service-key"):
+                headers = {**signed}
+                if bad_key is None:
+                    headers.pop("X-Internal-API-Key")
+                else:
+                    headers["X-Internal-API-Key"] = bad_key
+                rejected = await api.post(path, headers=headers, json=payload)
+                assert rejected.status_code == 401, rejected.text
+                assert rejected.headers["cache-control"] == "no-store"
+            no_key_inbox, no_key_outbox = await rows()
+            assert not no_key_inbox and not no_key_outbox
             for tenant, other in ((tenant_a, tenant_b), (tenant_b, tenant_a)):
                 # Same external key may legitimately carry different content
                 # in a different tenant; deduplication must be tenant-scoped.
