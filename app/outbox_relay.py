@@ -20,6 +20,16 @@ log = logging.getLogger(__name__)
 MAX_ATTEMPTS = 10
 
 
+def valid_webhook_token(token: str) -> bool:
+    """Reject empty, whitespace-only and control-character bearer credentials."""
+    return (
+        isinstance(token, str)
+        and bool(token)
+        and token == token.strip()
+        and not any(ord(char) < 0x20 or ord(char) == 0x7F for char in token)
+    )
+
+
 def retry_delay(attempts: int) -> timedelta:
     return timedelta(seconds=min(300, 2 ** min(attempts, 8)))
 
@@ -27,7 +37,7 @@ def retry_delay(attempts: int) -> timedelta:
 async def dispatch_once(client: httpx.AsyncClient, endpoint: str, token: str) -> bool:
     # Enforce the destination boundary even when called outside main().
     # Never query or claim an outbox row for an unsafe receiver.
-    if not valid_webhook_endpoint(endpoint) or not token:
+    if not valid_webhook_endpoint(endpoint) or not valid_webhook_token(token):
         raise ValueError("Invalid HTTPS outbox receiver configuration")
     async with get_session_factory()() as session:
         async with session.begin():
@@ -118,7 +128,7 @@ def valid_webhook_endpoint(endpoint: str) -> bool:
 async def main():
     endpoint = os.getenv("CORRELATION_WEBHOOK_URL", "")
     token = os.getenv("CORRELATION_WEBHOOK_TOKEN", "")
-    if not valid_webhook_endpoint(endpoint) or not token:
+    if not valid_webhook_endpoint(endpoint) or not valid_webhook_token(token):
         raise RuntimeError("Set HTTPS CORRELATION_WEBHOOK_URL and CORRELATION_WEBHOOK_TOKEN")
     async with httpx.AsyncClient() as client:
         while True:
