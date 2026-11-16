@@ -52,8 +52,12 @@ def valid_receiver_configuration(endpoint: str, token: str, allowed_host: str) -
 async def dispatch_once(client: httpx.AsyncClient, endpoint: str, token: str) -> bool:
     # Enforce the destination boundary even when called outside main().
     # Never query or claim an outbox row for an unsafe receiver.
-    if not valid_receiver_configuration(
-        endpoint, token, os.getenv("CORRELATION_WEBHOOK_ALLOWED_HOST", "")
+    configured_endpoint = os.getenv("CORRELATION_WEBHOOK_URL", "")
+    if (
+        not valid_receiver_configuration(
+            endpoint, token, os.getenv("CORRELATION_WEBHOOK_ALLOWED_HOST", "")
+        )
+        or endpoint != configured_endpoint
     ):
         raise ValueError("Invalid HTTPS outbox receiver configuration")
     async with get_session_factory()() as session:
