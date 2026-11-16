@@ -198,7 +198,8 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
     from app import outbox_relay
 
     factory, _ = database
-    monkeypatch.setattr(settings, "enable_alert_ingestion", True)
+    # Exercise the default fail-closed switch before enabling ingestion.
+    monkeypatch.setattr(settings, "enable_alert_ingestion", False)
     monkeypatch.setattr(outbox_relay, "get_session_factory", lambda: factory)
     tenant_a, tenant_b = uuid4(), uuid4()
     path = "/api/v1/integrations/opensearch/alerts"
@@ -238,6 +239,15 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
 
     async def exercise():
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as api:
+            disabled = await api.post(
+                path, headers=_headers("POST", path, tenant_a, [], forged_tenant=tenant_b),
+                json=payload,
+            )
+            assert disabled.status_code == 503, disabled.text
+            assert disabled.headers["cache-control"] == "no-store"
+            disabled_inbox, disabled_outbox = await rows()
+            assert not disabled_inbox and not disabled_outbox
+            monkeypatch.setattr(settings, "enable_alert_ingestion", True)
             for tenant, other in ((tenant_a, tenant_b), (tenant_b, tenant_a)):
                 first = await api.post(
                     path, headers=_headers("POST", path, tenant, [], forged_tenant=other),
