@@ -261,3 +261,18 @@ is available. This confirms only that the rerun failed before any visible step;
 it does **not** establish a root cause. Repository administrator action is
 still required to inspect Actions UI/runner diagnostics and policy. **HOLD / NO_GO.**
 
+
+## Issue #2 upstream contract review — 2026-11-16
+
+Reviewed the current `main` sources in `alimtalbi-ata/aiops` alongside Gamma's exact branch HEAD:
+
+- `aiops/app/evidence/main.py`: `GET /api/evidence` and `GET /api/evidence/{eid}` query the evidence store without actor, tenant, or resource authorization. The list endpoint can return all rows when no filter is supplied. The POST endpoint is a mutation and must never be used by Gamma's read adapter.
+- `aiops/app/twin/main.py`: `GET /api/twin/summary`, `nodes`, `graph`, `impact/{node_id}`, and `at` query global Twin tables without actor/tenant ACL. The same service exposes a synthetic-event POST, which is out of scope and must not be called.
+- `aiops/app/portal/glpi_operator_view.py`: the canonical Portal's own GLPI handoff explicitly states that no GLPI/Core request is permitted until independently verified server-derived actor+tenant ACL and authoritative ticket/Run mapping exist; its viewer token authenticates the Portal request only.
+- Gamma's `app/reused/upstream.py` deliberately returns HTTP 503 before network I/O for Core/Evidence/Twin, even if the feature flag and a tenant echo are configured. `tests/test_upstream.py` includes a network-forbidden regression test for all three resources.
+- Gamma's `app/reused/glpi_read.py` public read function also returns 503 pending independently qualified actor/tenant/resource ACL. Its private unqualified transport helper is not a safe substitute for authorization. Existing tests cover fail-closed behavior and GLPI entity/ticket binding; these tests have not been executed in CI on the current HEAD.
+
+**Finding:** the upstream Evidence and Twin routes currently inspected are not tenant-scoped. A service token, tenant query parameter, tenant header, or echoed tenant field cannot make these global endpoints safe. No Gamma adapter should call them until the upstream owners implement and independently qualify authorization at the canonical service boundary (or expose an equivalent authenticated, resource-scoped facade). Core and GLPI actor/resource ACL contracts remain unprovided. No endpoint or auth semantics are inferred from route names.
+
+The latest Actions runs on exact HEAD `4479d9edfe52340095244ea3c53840e48ced138a` are Python checks `43961789297` and Deployment contract `43961789263`; both report failure. This is not a passing qualification. Do not infer a test failure or runner root cause without job-step/log evidence. Keep PR #1 draft and all canonical reads disabled. **HOLD / NO_GO.**
+
