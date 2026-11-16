@@ -117,7 +117,7 @@ def valid_webhook_endpoint(endpoint: str) -> bool:
         return False
     # Reject URL-encoded path separators and controls that can be decoded
     # by intermediaries into a different receiver route.
-    if re.search(r"%(?:0[0-9a-fA-F]|1[0-9a-fA-F]|2[fF]|5[cC]|7[fF])", endpoint):
+    if re.search(r"%(?:0[0-9a-fA-F]|1[0-9a-fA-F]|2[0fF]|5[cC]|7[fF])", endpoint):
         return False
     try:
         url = httpx.URL(endpoint)
