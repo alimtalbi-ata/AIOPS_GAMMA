@@ -764,6 +764,28 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
                 # Advance only the disposable event for the subsequent 401 test.
                 row.next_attempt_at = None
                 await session.commit()
+            too_early_calls = []
+
+            def too_early_receiver(request):
+                too_early_calls.append(request.headers["x-event-id"])
+                return httpx.Response(425)
+
+            async with httpx.AsyncClient(transport=httpx.MockTransport(too_early_receiver)) as downstream:
+                assert await outbox_relay.dispatch_once(
+                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
+                ) is True
+                assert await outbox_relay.dispatch_once(
+                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
+                ) is False
+            assert too_early_calls == [str(exhausted_event.id)]
+            async with factory() as session:
+                row = await session.get(OutboxEvent, exhausted_event.id)
+                assert row.published_at is None
+                assert row.attempts == 2
+                assert row.next_attempt_at is not None
+                assert "425" in row.last_error
+                row.next_attempt_at = None
+                await session.commit()
             unauthorized_calls = []
 
             def unauthorized_receiver(request):
