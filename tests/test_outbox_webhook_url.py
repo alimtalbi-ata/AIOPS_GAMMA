@@ -364,10 +364,14 @@ def test_transport_errors_remain_retryable():
         (429, "1.5", 1, 2),
         (429, "9999999", 1, 2),
         (429, "１２", 1, 2),
-        (503, "120", 1, 2),
+        (503, "120", 1, 120),
+        (503, "0", 1, 2),
+        (503, "999999", 1, 300),
+        (503, "invalid", 1, 2),
+        (500, "120", 1, 2),
     ],
 )
-def test_bounded_http_429_retry_after(status, retry_after, attempts, expected_seconds):
+def test_bounded_http_429_and_503_retry_after(status, retry_after, attempts, expected_seconds):
     import httpx
     from app.outbox_relay import receiver_retry_delay
 
