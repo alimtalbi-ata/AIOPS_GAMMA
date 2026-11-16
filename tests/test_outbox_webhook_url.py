@@ -1,10 +1,11 @@
 """Pure unit regression for the outbox relay's fail-closed destination validation."""
 
 import asyncio
+from datetime import timedelta
 
 import pytest
 
-from app.outbox_relay import dispatch_once, valid_webhook_endpoint, valid_webhook_token
+from app.outbox_relay import dispatch_once, retry_delay, valid_webhook_endpoint, valid_webhook_token
 
 
 @pytest.mark.parametrize(
@@ -84,3 +85,11 @@ def test_dispatch_rejects_invalid_destination_before_touching_database(monkeypat
     ):
         with pytest.raises(ValueError, match="Invalid HTTPS outbox receiver"):
             asyncio.run(dispatch_once(None, endpoint, token))
+
+
+@pytest.mark.parametrize(
+    ("attempts", "seconds"),
+    [(1, 2), (2, 4), (3, 8), (7, 128), (8, 256), (9, 300), (10, 300), (100, 300)],
+)
+def test_retry_backoff_is_bounded(attempts, seconds):
+    assert retry_delay(attempts) == timedelta(seconds=seconds)
