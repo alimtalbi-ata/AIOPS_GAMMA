@@ -408,6 +408,7 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
             assert failed.published_at is None
             assert failed.attempts == 1
             assert failed.next_attempt_at is not None
+            assert 0 < (failed.next_attempt_at - failed.created_at).total_seconds() < 60
             assert failed.last_error
 
             # Advance eligibility explicitly in this disposable DB rather than
