@@ -69,6 +69,8 @@ def test_dispatch_rejects_invalid_destination_before_touching_database(monkeypat
         ("https://receiver.example.test/events", " "),
         ("https://receiver.example.test/events", "secret\n"),
         ("https://receiver.example.test/events", "sec\x00ret"),
+        ("https://receiver.example.test/events", "sec\tret"),
+        ("https://receiver.example.test/events", "sec\x7fret"),
         ("https://@receiver.example.test/events", "secret"),
         (" https://receiver.example.test/events", "secret"),
         ("https://receiver.example.test/ev\nents", "secret"),
