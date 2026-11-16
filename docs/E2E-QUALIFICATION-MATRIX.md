@@ -54,6 +54,7 @@ Statut : **HOLD / NO_GO**. Cette matrice décrit les preuves requises, pas une c
 - `d32723d` / `ac940fe` : configuration webhook exige le préfixe canonique exact `https://` avant analyse de l'autorité ; tests des schémas non canoniques et refus avant DB ; exécution CI non attestée.
 - `897bdf1` : test unitaire de la progression exponentielle du retry outbox et du plafond de 300 secondes ; exécution CI non attestée.
 - `9038deb` / `61aa121` : test PostgreSQL du retry après HTTP 503 : échéance future et bornée par rapport au début de la tentative de dispatch (et non à la création de l'événement), sans publication ; exécution PG non attestée.
+- `e2e7417` / `5309cc7` : le relais calcule le prochain retry après l'échec HTTP et la publication après l'ACK 2xx ; test PostgreSQL vérifiant une échéance encore future après retour du dispatch ; exécution CI/PG non attestée.
 - **Preuve d'exécution** : aucune réussite PG/CI attestée sur ces commits. Les résultats du laboratoire précédent concernent des tests isolés/simulés ; ils ne remplacent pas une qualification de bout en bout.
 - **Limite architecturale importante** : le frontend est une démonstration synthétique qui bloque volontairement `/api` ; le parcours frontend → BFF réel n'est pas développé/qualifié. La sécurité ne doit pas être affaiblie pour produire artificiellement un test vert.
 
