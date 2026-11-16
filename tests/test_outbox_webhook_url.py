@@ -24,6 +24,9 @@ def test_accepts_plain_https_webhook(endpoint):
         "",
         "https://",
         "http://receiver.example.test/events",
+        "HTTPS://receiver.example.test/events",
+        "Https://receiver.example.test/events",
+        "https:receiver.example.test/events",
         "https://user:pass@receiver.example.test/events",
         "https://@receiver.example.test/events",
         "https://user@receiver.example.test/events",
@@ -64,6 +67,7 @@ def test_dispatch_rejects_invalid_destination_before_touching_database(monkeypat
     monkeypatch.setattr("app.outbox_relay.get_session_factory", must_not_access_database)
     for endpoint, token in (
         ("http://receiver.example.test/events", "secret"),
+        ("HTTPS://receiver.example.test/events", "secret"),
         ("https://receiver.example.test:99999/events", "secret"),
         ("https://receiver.example.test/events", ""),
         ("https://receiver.example.test/events", " "),
