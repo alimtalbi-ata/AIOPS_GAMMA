@@ -107,7 +107,9 @@ def valid_webhook_endpoint(endpoint: str) -> bool:
     if not endpoint.startswith("https://"):
         return False
     authority = endpoint[len("https://"):].split("/", 1)[0].split("?", 1)[0].split("#", 1)[0]
-    if "@" in authority:
+    # Even empty query/fragment delimiters are forbidden. HTTPX exposes
+    # their parsed values as empty bytes and otherwise hides their presence.
+    if "@" in authority or "?" in endpoint or "#" in endpoint:
         return False
     try:
         url = httpx.URL(endpoint)
