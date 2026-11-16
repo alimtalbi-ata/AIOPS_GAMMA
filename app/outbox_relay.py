@@ -57,6 +57,7 @@ async def dispatch_once(client: httpx.AsyncClient, endpoint: str, token: str) ->
                 )
                 response.raise_for_status()
                 event.published_at = now
+                event.next_attempt_at = None
                 event.last_error = None
             except (httpx.HTTPError, ValueError) as exc:
                 event.attempts += 1
