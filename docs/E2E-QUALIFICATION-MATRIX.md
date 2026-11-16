@@ -33,6 +33,7 @@ Statut : **HOLD / NO_GO**. Cette matrice décrit les preuves requises, pas une c
 - `8cda68d` : course entre deux charges utiles contradictoires sur la même clé/tenant ; une seule création (`200`), un conflit (`409`) et une seule paire inbox/outbox attendus (PG non exécuté).
 - `5843277` : assertion signée insuffisante sans clé de service ; clé absente ou erronée → `401` et zéro écriture inbox/outbox (PG non exécuté).
 - `f8b2586` : refus HTTP des en-têtes d'identité dupliqués (clé de service, assertion gateway, tenant, acteur), avec `401` et zéro écriture PG ; scénario non exécuté.
+- `3f93618` : correspondance exacte des charges utiles inbox/outbox par tenant, type d'événement et service, afin de détecter les associations inter-tenants malgré des comptes corrects (PG non exécuté).
 - **Preuve d'exécution** : aucune réussite PG/CI attestée sur ces commits. Les résultats du laboratoire précédent concernent des tests isolés/simulés ; ils ne remplacent pas une qualification de bout en bout.
 - **Limite architecturale importante** : le frontend est une démonstration synthétique qui bloque volontairement `/api` ; le parcours frontend → BFF réel n'est pas développé/qualifié. La sécurité ne doit pas être affaiblie pour produire artificiellement un test vert.
 
