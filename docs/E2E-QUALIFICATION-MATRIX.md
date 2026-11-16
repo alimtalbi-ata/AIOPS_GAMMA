@@ -66,7 +66,7 @@ Statut : **HOLD / NO_GO**. Cette matrice décrit les preuves requises, pas une c
 - `1deac3a` / `0f2a82c` / `215dc99` / `659a729` : rejet des séparateurs de route, contrôles et espaces (`%20`) percent-encodés dans l'URL webhook, avec tests de refus avant accès DB ; exécution CI non attestée.
 - `11892ce` / `8a444cc` : worker outbox avec `httpx.AsyncClient(trust_env=False)` pour ignorer les proxies et NETRC hérités ; test unitaire de configuration en environnement hostile ; exécution CI non attestée.
 - `f2d7daf` : test de démarrage fail-closed du worker outbox ; URL HTTP, route encodée ou token malformé refusés avant instanciation du client HTTP ; exécution CI non attestée.
-- `da30cd1` / `68c4287` : refus des destinations webhook à adresse IP littérale (IPv4/IPv6, loopback, métadonnées cloud) et `localhost` avant accès DB ; les noms DNS restent soumis à une qualification réseau indépendante ; exécution CI non attestée.
+- `da30cd1` / `68c4287` / `4d61d9d` / `f19504d` : refus des destinations webhook à adresse IP littérale (IPv4/IPv6, loopback, métadonnées cloud) et `localhost`, y compris sous-domaines terminés par un point DNS, avant accès DB ; les noms DNS restent soumis à une qualification réseau indépendante ; exécution CI non attestée.
 - **Preuve d'exécution** : aucune réussite PG/CI attestée sur ces commits. Les résultats du laboratoire précédent concernent des tests isolés/simulés ; ils ne remplacent pas une qualification de bout en bout.
 - **Limite architecturale importante** : le frontend est une démonstration synthétique qui bloque volontairement `/api` ; le parcours frontend → BFF réel n'est pas développé/qualifié. La sécurité ne doit pas être affaiblie pour produire artificiellement un test vert.
 
