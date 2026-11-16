@@ -282,6 +282,56 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
             _, final_outbox = await rows()
             assert len(final_outbox) == 2
             assert all(row.published_at is not None and row.attempts == 0 for row in final_outbox)
+            # A transient downstream 503 must retain the event and schedule a
+            # retry; only a subsequent 2xx may mark it as published.
+            transient = await api.post(
+                path,
+                headers=_headers("POST", path, tenant_a, [], forged_tenant=tenant_b),
+                json={**payload, "external_event_id": "ci-alert-transient-retry"},
+            )
+            assert transient.status_code == 200, transient.text
+            assert transient.json()["duplicate"] is False
+            _, pending = await rows()
+            retry_event = next(row for row in pending if row.published_at is None)
+            attempts_seen = []
+
+            def unavailable(request):
+                attempts_seen.append(request.headers["x-event-id"])
+                return httpx.Response(503)
+
+            async with httpx.AsyncClient(transport=httpx.MockTransport(unavailable)) as downstream:
+                assert await outbox_relay.dispatch_once(
+                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
+                ) is True
+                assert await outbox_relay.dispatch_once(
+                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
+                ) is False
+            assert attempts_seen == [str(retry_event.id)]
+            _, deferred = await rows()
+            failed = next(row for row in deferred if row.id == retry_event.id)
+            assert failed.published_at is None
+            assert failed.attempts == 1
+            assert failed.next_attempt_at is not None
+            assert failed.last_error
+
+            # Advance eligibility explicitly in this disposable DB rather than
+            # sleeping or relying on wall-clock timing in CI.
+            async with factory() as session:
+                row = await session.get(OutboxEvent, retry_event.id)
+                row.next_attempt_at = None
+                await session.commit()
+            async with httpx.AsyncClient(transport=httpx.MockTransport(receiver)) as downstream:
+                assert await outbox_relay.dispatch_once(
+                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
+                ) is True
+                assert await outbox_relay.dispatch_once(
+                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
+                ) is False
+            _, recovered = await rows()
+            delivered = next(row for row in recovered if row.id == retry_event.id)
+            assert delivered.published_at is not None
+            assert delivered.attempts == 1
+            assert delivered.last_error is None
     app.dependency_overrides[get_session] = session_override
     try:
         asyncio.run(exercise())
