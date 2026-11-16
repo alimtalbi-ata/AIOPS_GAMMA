@@ -63,7 +63,12 @@ def receiver_retry_delay(exc: Exception, attempts: int, *, now: datetime | None 
     default = retry_delay(attempts)
     if not isinstance(exc, httpx.HTTPStatusError) or exc.response.status_code not in (425, 429, 503):
         return default
-    value = exc.response.headers.get("retry-after", "")
+    # Multiple Retry-After fields are ambiguous. Do not let a combined
+    # header override our bounded local backoff.
+    values = exc.response.headers.get_list("retry-after")
+    if len(values) != 1:
+        return default
+    value = values[0]
     if not value or len(value) > 128 or not value.isascii():
         return default
     if value.isdecimal():
