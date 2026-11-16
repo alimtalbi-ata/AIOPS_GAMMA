@@ -133,7 +133,8 @@ def valid_webhook_endpoint(endpoint: str) -> bool:
             pass
         else:
             return False
-        if host.lower().rstrip(".") == "localhost" or host.lower().endswith(".localhost"):
+        normalized_host = host.lower().rstrip(".")
+        if normalized_host == "localhost" or normalized_host.endswith(".localhost"):
             return False
         return (
             (port is None or 1 <= port <= 65535)
