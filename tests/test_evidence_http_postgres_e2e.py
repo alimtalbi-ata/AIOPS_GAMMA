@@ -640,6 +640,15 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
                 assert row.attempts == outbox_relay.MAX_ATTEMPTS
                 assert row.next_attempt_at is None
                 assert "timed out" in row.last_error
+            # The inspection session is closed: no row lock can mask a
+            # wrongly eligible terminal event during this second dispatch.
+            async with httpx.AsyncClient(transport=httpx.MockTransport(timed_out_receiver)) as downstream:
+                assert await outbox_relay.dispatch_once(
+                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
+                ) is False
+            assert timeout_calls == [str(exhausted_event.id)]
+            async with factory() as session:
+                row = await session.get(OutboxEvent, exhausted_event.id)
                 # Re-arm the disposable row to exercise HTTP 503 exhaustion too.
                 row.attempts = outbox_relay.MAX_ATTEMPTS - 1
                 row.next_attempt_at = None
