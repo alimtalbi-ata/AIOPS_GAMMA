@@ -657,7 +657,31 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
             assert timeout_retry_calls == [str(exhausted_event.id)]
             async with factory() as session:
                 row = await session.get(OutboxEvent, exhausted_event.id)
+                # Simulate elapsed backoff without waiting on the CI clock.
+                row.next_attempt_at = None
+                await session.commit()
+            recovered_calls = []
+
+            def recovered_receiver(request):
+                recovered_calls.append(request.headers["x-event-id"])
+                return httpx.Response(202)
+
+            async with httpx.AsyncClient(transport=httpx.MockTransport(recovered_receiver)) as downstream:
+                assert await outbox_relay.dispatch_once(
+                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
+                ) is True
+                assert await outbox_relay.dispatch_once(
+                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
+                ) is False
+            assert recovered_calls == [str(exhausted_event.id)]
+            async with factory() as session:
+                row = await session.get(OutboxEvent, exhausted_event.id)
+                assert row.published_at is not None
+                assert row.attempts == 1
+                assert row.next_attempt_at is None
+                assert row.last_error is None
                 # Re-arm the disposable row for terminal timeout coverage.
+                row.published_at = None
                 row.attempts = outbox_relay.MAX_ATTEMPTS - 1
                 row.next_attempt_at = None
                 await session.commit()
