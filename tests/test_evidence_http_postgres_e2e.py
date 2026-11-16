@@ -332,6 +332,33 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
             assert delivered.published_at is not None
             assert delivered.attempts == 1
             assert delivered.last_error is None
+
+            # Two independent HTTP requests race on the same tenant/source/key.
+            # PostgreSQL's unique constraint must yield one insert and one
+            # idempotent duplicate, never two inbox/outbox pairs.
+            concurrent_payload = {
+                **payload, "external_event_id": "ci-alert-concurrent-" + uuid4().hex,
+            }
+
+            async def concurrent_ingest():
+                return await api.post(
+                    path,
+                    headers=_headers("POST", path, tenant_b, [], forged_tenant=tenant_a),
+                    json=concurrent_payload,
+                )
+
+            left, right = await asyncio.gather(concurrent_ingest(), concurrent_ingest())
+            assert left.status_code == right.status_code == 200, (left.text, right.text)
+            assert left.json()["id"] == right.json()["id"]
+            assert {left.json()["duplicate"], right.json()["duplicate"]} == {False, True}
+            inbox_after, outbox_after = await rows()
+            matching_inbox = [
+                row for row in inbox_after
+                if row.tenant_id == tenant_b
+                and row.external_event_id == concurrent_payload["external_event_id"]
+            ]
+            assert len(matching_inbox) == 1
+            assert len(inbox_after) == len(outbox_after) == 4
     app.dependency_overrides[get_session] = session_override
     try:
         asyncio.run(exercise())
