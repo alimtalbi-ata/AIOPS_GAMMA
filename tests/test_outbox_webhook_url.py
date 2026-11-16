@@ -332,7 +332,7 @@ def test_dispatch_rejects_configuration_drift_before_db(monkeypatch, configured_
     ("status", "permanent"),
     [(300, True), (301, True), (302, True), (307, True), (308, True),
      (400, True), (401, True), (403, True), (404, True), (408, False),
-     (409, True), (422, True), (429, False), (499, True),
+     (409, True), (422, True), (425, False), (429, False), (499, True),
      (500, False), (503, False)],
 )
 def test_receiver_http_rejection_retry_policy(status, permanent):
