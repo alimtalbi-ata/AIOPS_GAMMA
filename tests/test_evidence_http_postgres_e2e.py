@@ -412,6 +412,7 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
             # The first retry is scheduled two seconds after dispatch time,
             # not relative to the event's potentially older creation time.
             assert dispatch_started_at < failed.next_attempt_at
+            assert (failed.next_attempt_at - datetime.now(timezone.utc)).total_seconds() > 0
             assert (failed.next_attempt_at - dispatch_started_at).total_seconds() < 60
             assert failed.last_error
 
