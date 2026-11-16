@@ -52,7 +52,7 @@ def test_accepts_nonempty_bearer_token(token):
     assert valid_webhook_token(token)
 
 
-@pytest.mark.parametrize("token", ["", " ", " secret", "secret ", "secret\\n", "sec\\tret", "sec\\x00ret", "sec\\x7fret", None])
+@pytest.mark.parametrize("token", ["", " ", " secret", "secret ", "secret\n", "sec\tret", "sec\x00ret", "sec\x7fret", None])
 def test_rejects_malformed_bearer_token(token):
     assert not valid_webhook_token(token)
 
@@ -67,8 +67,8 @@ def test_dispatch_rejects_invalid_destination_before_touching_database(monkeypat
         ("https://receiver.example.test:99999/events", "secret"),
         ("https://receiver.example.test/events", ""),
         ("https://receiver.example.test/events", " "),
-        ("https://receiver.example.test/events", "secret\\n"),
-        ("https://receiver.example.test/events", "sec\\x00ret"),
+        ("https://receiver.example.test/events", "secret\n"),
+        ("https://receiver.example.test/events", "sec\x00ret"),
         ("https://@receiver.example.test/events", "secret"),
         (" https://receiver.example.test/events", "secret"),
         ("https://receiver.example.test/ev\nents", "secret"),
