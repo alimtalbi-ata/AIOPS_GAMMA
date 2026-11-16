@@ -241,3 +241,23 @@ Reviewed commit: `697f9a1fdaa4b0e04d4d080efa9cb07a49a16473`.
 Python checks job IDs: `frontend` 133475289648, `test` 133475289887, `tenant-evidence-postgres-e2e` 133475289893, `gateway-replay-postgres` 133475289909. The job listing exposed no step records for these jobs; check runs have failure conclusions without explanatory summaries. A direct annotations query was unavailable through the connected GitHub API endpoint; **no claim is made that the annotations are empty**. Deployment job steps were not inspected for this checkpoint.
 
 **No evidence of test execution or application assertion failure.** The repository/org administrator must inspect the [Python workflow run](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43917442092) in the GitHub UI, including any pre-run error banner, Actions policies, runner provisioning, and usage/billing, then record the exact error and remediation evidence in [issue #8](https://github.com/alimtalbi-ata/AIOPS_GAMMA/issues/8). Do not blindly rerun or weaken gates. Once resolved, run the then-current reviewed HEAD and archive per-step logs and PG16 results. Independent canonical ACL [issue #2](https://github.com/alimtalbi-ata/AIOPS_GAMMA/issues/2) remains a separate blocker. **Draft PR #1: HOLD / NO_GO.**
+
+
+## Latest rerun investigation — 2026-11-16
+
+The failed jobs of both runs were explicitly re-run (attempt 2):
+
+- [Python checks run 43959539317](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43959539317)
+  — all four jobs failed again: `test`, `gateway-replay-postgres`,
+  `tenant-evidence-postgres-e2e`, and `frontend`.
+- [Deployment contract run 43959539309](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43959539309)
+  — all six jobs failed again: `compose`, `ui-image`,
+  `postgres-nonroot-experiment`, `single-directory-runtime`,
+  `api-postgres-runtime`, and `helm`.
+
+The jobs API still reports zero steps for all ten jobs. Attempts to retrieve
+job logs returned `BlobNotFound` (404), so no test output or runner diagnostic
+is available. This confirms only that the rerun failed before any visible step;
+it does **not** establish a root cause. Repository administrator action is
+still required to inspect Actions UI/runner diagnostics and policy. **HOLD / NO_GO.**
+
