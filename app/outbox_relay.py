@@ -134,6 +134,13 @@ def valid_webhook_endpoint(endpoint: str) -> bool:
         else:
             return False
         normalized_host = host.lower().rstrip(".")
+        # Require canonical DNS labels: reject empty labels, underscores and
+        # non-DNS characters rather than relying on resolver-specific parsing.
+        if not normalized_host or any(
+            not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label)
+            for label in normalized_host.split(".")
+        ):
+            return False
         if normalized_host == "localhost" or normalized_host.endswith(".localhost"):
             return False
         # Numeric host aliases (decimal, octal-looking and hexadecimal,
