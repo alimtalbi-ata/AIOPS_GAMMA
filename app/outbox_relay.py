@@ -10,6 +10,7 @@ import logging
 import os
 import re
 from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 
 import httpx
 from sqlalchemy import or_, select
@@ -57,15 +58,27 @@ def permanent_receiver_rejection(exc: Exception) -> bool:
     return 300 <= status < 400 or (400 <= status < 500 and status not in (408, 425, 429))
 
 
-def receiver_retry_delay(exc: Exception, attempts: int) -> timedelta:
-    """Respect bounded numeric Retry-After for HTTP 429/503; never retry immediately."""
+def receiver_retry_delay(exc: Exception, attempts: int, *, now: datetime | None = None) -> timedelta:
+    """Bound numeric or HTTP-date Retry-After for 429/503 to 300 seconds."""
     default = retry_delay(attempts)
     if not isinstance(exc, httpx.HTTPStatusError) or exc.response.status_code not in (429, 503):
         return default
     value = exc.response.headers.get("retry-after", "")
-    if not value or len(value) > 6 or not value.isascii() or not value.isdecimal():
+    if not value or len(value) > 128 or not value.isascii():
         return default
-    return timedelta(seconds=max(default.total_seconds(), min(int(value), 300)))
+    if value.isdecimal():
+        if len(value) > 6:
+            return default
+        seconds = int(value)
+    else:
+        try:
+            deadline = parsedate_to_datetime(value)
+            if deadline.tzinfo is None:
+                return default
+            seconds = (deadline - (now or datetime.now(timezone.utc))).total_seconds()
+        except (TypeError, ValueError, OverflowError):
+            return default
+    return timedelta(seconds=max(default.total_seconds(), min(seconds, 300)))
 
 
 async def dispatch_once(client: httpx.AsyncClient, endpoint: str, token: str) -> bool:
