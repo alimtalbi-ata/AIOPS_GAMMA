@@ -542,6 +542,28 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
             assert pending_redirect.next_attempt_at is not None
             assert pending_redirect.last_error
 
+            # A deferred retry must not be delivered early, even if the
+            # receiver has recovered. This also proves the retry timestamp
+            # actually gates selection rather than merely recording metadata.
+            early_retry_calls = []
+
+            def early_retry_receiver(request):
+                early_retry_calls.append(request.headers["x-event-id"])
+                return httpx.Response(202)
+
+            async with httpx.AsyncClient(
+                transport=httpx.MockTransport(early_retry_receiver)
+            ) as downstream:
+                assert await outbox_relay.dispatch_once(
+                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
+                ) is False
+            assert early_retry_calls == []
+            _, deferred_rows = await rows()
+            deferred_redirect = next(row for row in deferred_rows if row.id == redirect_event.id)
+            assert deferred_redirect.published_at is None
+            assert deferred_redirect.attempts == 1
+            assert deferred_redirect.next_attempt_at is not None
+
             # Once retry eligibility is restored, a real 2xx acknowledgement
             # must publish the same event exactly once, with no stale retry.
             async with factory() as session:
