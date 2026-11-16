@@ -301,3 +301,25 @@ def test_dispatch_rejects_unconfigured_bearer_token_before_db(monkeypatch, confi
     monkeypatch.setattr("app.outbox_relay.get_session_factory", must_not_access_database)
     with pytest.raises(ValueError, match="Invalid HTTPS outbox receiver"):
         asyncio.run(dispatch_once(None, "https://receiver.example.test/events", "secret"))
+
+
+@pytest.mark.parametrize(
+    ("configured_url", "configured_token"),
+    [
+        ("", "secret"),
+        ("https://receiver.example.test/other", "secret"),
+        ("https://receiver.example.test/events", ""),
+        ("https://receiver.example.test/events", "rotated-secret"),
+    ],
+)
+def test_dispatch_rejects_configuration_drift_before_db(monkeypatch, configured_url, configured_token):
+    """Even a previously valid caller cannot deliver after configuration changes."""
+    def must_not_access_database():
+        raise AssertionError("Stale worker configuration reached the database")
+
+    monkeypatch.setenv("CORRELATION_WEBHOOK_ALLOWED_HOST", "receiver.example.test")
+    monkeypatch.setenv("CORRELATION_WEBHOOK_URL", configured_url)
+    monkeypatch.setenv("CORRELATION_WEBHOOK_TOKEN", configured_token)
+    monkeypatch.setattr("app.outbox_relay.get_session_factory", must_not_access_database)
+    with pytest.raises(ValueError, match="Invalid HTTPS outbox receiver"):
+        asyncio.run(dispatch_once(None, "https://receiver.example.test/events", "secret"))
