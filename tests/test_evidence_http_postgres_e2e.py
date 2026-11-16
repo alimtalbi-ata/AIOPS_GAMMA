@@ -488,6 +488,39 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
             assert len(matching_conflict) == 1
             assert matching_conflict[0].payload["severity"] in ("major", "critical")
             assert len(final_inbox) == len(final_outbox) == 5
+
+            # A receiver redirect is not an acknowledgement. In particular,
+            # the relay must not follow it and forward its bearer token.
+            redirected = await api.post(
+                path,
+                headers=_headers("POST", path, tenant_a, [], forged_tenant=tenant_b),
+                json={**payload, "external_event_id": "ci-alert-redirect-" + uuid4().hex},
+            )
+            assert redirected.status_code == 200, redirected.text
+            _, before_redirect = await rows()
+            redirect_event = next(
+                row for row in before_redirect
+                if row.published_at is None and row.id != retry_event.id
+            )
+            redirect_calls = []
+
+            def redirect_receiver(request):
+                redirect_calls.append(str(request.url))
+                return httpx.Response(302, headers={"Location": "https://untrusted.example.test/"})
+
+            async with httpx.AsyncClient(
+                transport=httpx.MockTransport(redirect_receiver), follow_redirects=False
+            ) as downstream:
+                assert await outbox_relay.dispatch_once(
+                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
+                ) is True
+            assert redirect_calls == ["https://receiver.example.test/events"]
+            _, after_redirect = await rows()
+            pending_redirect = next(row for row in after_redirect if row.id == redirect_event.id)
+            assert pending_redirect.published_at is None
+            assert pending_redirect.attempts == 1
+            assert pending_redirect.next_attempt_at is not None
+            assert pending_redirect.last_error
     app.dependency_overrides[get_session] = session_override
     try:
         asyncio.run(exercise())
