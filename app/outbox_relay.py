@@ -88,9 +88,15 @@ def receiver_retry_delay(exc: Exception, attempts: int, *, now: datetime | None 
             return default
         try:
             deadline = parsedate_to_datetime(value)
-            if deadline.tzinfo is None or deadline.strftime("%a, %d %b %Y %H:%M:%S GMT") != value:
+            current = now or datetime.now(timezone.utc)
+            if (
+                deadline.tzinfo is None
+                or current.tzinfo is None
+                or current.utcoffset() is None
+                or deadline.strftime("%a, %d %b %Y %H:%M:%S GMT") != value
+            ):
                 return default
-            seconds = (deadline - (now or datetime.now(timezone.utc))).total_seconds()
+            seconds = (deadline - current.astimezone(timezone.utc)).total_seconds()
         except (TypeError, ValueError, OverflowError):
             return default
     return timedelta(seconds=max(default.total_seconds(), min(seconds, 300)))
