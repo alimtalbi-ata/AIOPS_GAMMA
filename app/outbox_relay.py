@@ -198,7 +198,12 @@ async def main():
         )
     # Never inherit HTTP(S)_PROXY or NETRC from the worker environment:
     # the relay carries an internal bearer credential to a fixed receiver.
-    async with httpx.AsyncClient(trust_env=False) as client:
+    # Bound the connection pool: this single-worker relay needs at most one
+    # concurrent delivery and must not accumulate idle outbound sockets.
+    async with httpx.AsyncClient(
+        trust_env=False,
+        limits=httpx.Limits(max_connections=1, max_keepalive_connections=1),
+    ) as client:
         while True:
             worked = await dispatch_once(client, endpoint, token)
             if not worked:
