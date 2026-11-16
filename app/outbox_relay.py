@@ -84,7 +84,21 @@ async def dispatch_once(client: httpx.AsyncClient, endpoint: str, token: str) ->
 async def main():
     endpoint = os.getenv("CORRELATION_WEBHOOK_URL", "")
     token = os.getenv("CORRELATION_WEBHOOK_TOKEN", "")
-    if not endpoint.startswith("https://") or not token:
+    # Reject malformed HTTPS URLs and embedded credentials before constructing
+    # a client that will attach the internal bearer token to the request.
+    try:
+        url = httpx.URL(endpoint)
+        valid_endpoint = (
+            url.scheme == "https"
+            and bool(url.host)
+            and not url.username
+            and not url.password
+            and not url.query
+            and not url.fragment
+        )
+    except (httpx.InvalidURL, ValueError):
+        valid_endpoint = False
+    if not valid_endpoint or not token:
         raise RuntimeError("Set HTTPS CORRELATION_WEBHOOK_URL and CORRELATION_WEBHOOK_TOKEN")
     async with httpx.AsyncClient() as client:
         while True:
