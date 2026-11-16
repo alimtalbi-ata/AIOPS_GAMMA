@@ -49,6 +49,7 @@ Statut : **HOLD / NO_GO**. Cette matrice décrit les preuves requises, pas une c
 - `d449d2a` / `d6a07e7` : refus de tout userinfo dans l'autorité webhook, même vide (`https://@host`) ou partiel ; tests unitaires du validateur et du refus avant accès DB, exécution CI non attestée.
 - `198025e` / `c7c5f60` : validation fail-closed du jeton bearer outbox (vide, espaces périphériques, caractères de contrôle) au démarrage et avant accès DB dans `dispatch_once` ; tests unitaires ajoutés, exécution CI non attestée.
 - `452c97e` / `3fccf4d` : correction des tests de jeton bearer pour exercer de vrais caractères de contrôle (`\\n`, `\\t`, NUL, DEL), avec refus avant accès DB ; exécution CI non attestée.
+- `cc671f3` / `2304344` : ordre outbox stable par `(created_at, id)` ; test PostgreSQL impose des timestamps identiques et vérifie l'ordre des identifiants livrés, exécution PG non attestée.
 - **Preuve d'exécution** : aucune réussite PG/CI attestée sur ces commits. Les résultats du laboratoire précédent concernent des tests isolés/simulés ; ils ne remplacent pas une qualification de bout en bout.
 - **Limite architecturale importante** : le frontend est une démonstration synthétique qui bloque volontairement `/api` ; le parcours frontend → BFF réel n'est pas développé/qualifié. La sécurité ne doit pas être affaiblie pour produire artificiellement un test vert.
 
