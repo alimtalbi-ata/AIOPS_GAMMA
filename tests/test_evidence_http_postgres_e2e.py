@@ -10,7 +10,8 @@ import hmac
 import json
 import os
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from email.utils import format_datetime
 from ipaddress import ip_address
 from uuid import uuid4
 
@@ -812,10 +813,13 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
                 row.next_attempt_at = None
                 await session.commit()
             unavailable_calls = []
+            # Use an RFC HTTP-date to verify the persisted retry deadline
+            # end-to-end, independently of the numeric Retry-After scenario.
+            retry_at = format_datetime(datetime.now(timezone.utc) + timedelta(seconds=120), usegmt=True)
 
             def unavailable_receiver(request):
                 unavailable_calls.append(request.headers["x-event-id"])
-                return httpx.Response(503, headers={"Retry-After": "120"})
+                return httpx.Response(503, headers={"Retry-After": retry_at})
 
             async with httpx.AsyncClient(transport=httpx.MockTransport(unavailable_receiver)) as downstream:
                 assert await outbox_relay.dispatch_once(
