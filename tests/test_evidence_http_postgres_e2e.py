@@ -489,6 +489,25 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
             assert matching_conflict[0].payload["severity"] in ("major", "critical")
             assert len(final_inbox) == len(final_outbox) == 5
 
+            # The concurrent-ingestion scenarios left two older unpublished
+            # events. Drain them first: dispatch_once selects the oldest
+            # eligible event, not necessarily the newly inserted redirect.
+            pending_before_redirect = [row for row in final_outbox if row.published_at is None]
+            assert len(pending_before_redirect) == 2
+            drained_ids = {str(row.id) for row in pending_before_redirect}
+            received_before_drain = len(received)
+            async with httpx.AsyncClient(transport=httpx.MockTransport(receiver)) as downstream:
+                for _ in pending_before_redirect:
+                    assert await outbox_relay.dispatch_once(
+                        downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
+                    ) is True
+                assert await outbox_relay.dispatch_once(
+                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
+                ) is False
+            assert {row["event_id"] for row in received[received_before_drain:]} == drained_ids
+            _, drained_outbox = await rows()
+            assert all(row.published_at is not None for row in drained_outbox)
+
             # A receiver redirect is not an acknowledgement. In particular,
             # the relay must not follow it and forward its bearer token.
             redirected = await api.post(
@@ -498,10 +517,11 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
             )
             assert redirected.status_code == 200, redirected.text
             _, before_redirect = await rows()
-            redirect_event = next(
-                row for row in before_redirect
-                if row.published_at is None and row.id != retry_event.id
-            )
+            pending_before_redirect_delivery = [
+                row for row in before_redirect if row.published_at is None
+            ]
+            assert len(pending_before_redirect_delivery) == 1
+            redirect_event = pending_before_redirect_delivery[0]
             redirect_calls = []
 
             def redirect_receiver(request):
