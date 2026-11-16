@@ -24,7 +24,11 @@ MAX_ATTEMPTS = 10
 
 def valid_webhook_token(token: str) -> bool:
     """Accept only RFC 6750 bearer-token characters (no header delimiters)."""
-    return isinstance(token, str) and re.fullmatch(r"[A-Za-z0-9._~+/-]+=*", token) is not None
+    return (
+        isinstance(token, str)
+        and 1 <= len(token) <= 4096
+        and re.fullmatch(r"[A-Za-z0-9._~+/-]+=*", token) is not None
+    )
 
 
 def retry_delay(attempts: int) -> timedelta:
