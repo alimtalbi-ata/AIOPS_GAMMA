@@ -55,7 +55,15 @@ async def dispatch_once(client: httpx.AsyncClient, endpoint: str, token: str) ->
                     headers={"Authorization": f"Bearer {token}", "X-Event-Id": str(event.id)},
                     timeout=5.0,
                 )
-                response.raise_for_status()
+                # Redirects are not delivery acknowledgements: HTTPX does not
+                # raise_for_status() on every 3xx response in all versions.
+                # Never follow redirects with the internal bearer credential.
+                if not 200 <= response.status_code < 300:
+                    raise httpx.HTTPStatusError(
+                        f"Receiver did not acknowledge delivery (HTTP {response.status_code})",
+                        request=response.request,
+                        response=response,
+                    )
                 event.published_at = now
                 event.next_attempt_at = None
                 event.last_error = None
