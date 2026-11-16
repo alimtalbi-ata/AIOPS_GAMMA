@@ -73,6 +73,7 @@ Statut : **HOLD / NO_GO**. Cette matrice décrit les preuves requises, pas une c
 - `116d89b` / `276fbbc` : validation stricte des labels DNS du webhook (pas de labels vides, underscores, tirets aux extrémités) avec refus avant accès DB ; exécution CI non attestée.
 - `d651dc2` / `cbbae04` : limite de 253 caractères pour le nom DNS webhook et tests des labels >63 caractères, refus avant accès DB ; exécution CI non attestée.
 - `56650a3` / `d342b47` : jeton Bearer du relais borné à 4 096 caractères ; tests aux bornes 4 096/4 097 et refus avant accès DB ; exécution CI non attestée.
+- `8920272` / `90a9cca` : URL webhook bornée à 2 048 caractères, suppression d'une vérification percent-encoding redondante, tests aux bornes et refus avant accès DB ; exécution CI non attestée.
 - **Preuve d'exécution** : aucune réussite PG/CI attestée sur ces commits. Les résultats du laboratoire précédent concernent des tests isolés/simulés ; ils ne remplacent pas une qualification de bout en bout.
 - **Limite architecturale importante** : le frontend est une démonstration synthétique qui bloque volontairement `/api` ; le parcours frontend → BFF réel n'est pas développé/qualifié. La sécurité ne doit pas être affaiblie pour produire artificiellement un test vert.
 
