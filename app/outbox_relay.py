@@ -7,6 +7,7 @@ MUST deduplicate by X-Event-Id. No external endpoint is configured by default.
 import asyncio
 import logging
 import os
+import re
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -21,12 +22,8 @@ MAX_ATTEMPTS = 10
 
 
 def valid_webhook_token(token: str) -> bool:
-    """Require printable ASCII bearer credentials safe for HTTP headers."""
-    return (
-        isinstance(token, str)
-        and bool(token)
-        and all(0x21 <= ord(char) <= 0x7E for char in token)
-    )
+    """Accept only RFC 6750 bearer-token characters (no header delimiters)."""
+    return isinstance(token, str) and re.fullmatch(r"[A-Za-z0-9._~+/-]+=*", token) is not None
 
 
 def retry_delay(attempts: int) -> timedelta:
