@@ -71,6 +71,7 @@ Statut : **HOLD / NO_GO**. Cette matrice décrit les preuves requises, pas une c
 - `e7e528a` / `835b539` : rejet des alias IPv4 numériques (`2130706433`, `0177.0.0.1`) avant accès DB ; exécution CI non attestée. Dernière vérification : Python checks `43940295530`, quatre jobs en échec sans étapes visibles.
 - `56ba88e` / `9cda686` / `458fde3` : refus des alias IPv4 hexadécimaux et mixtes (`0x7f000001`, `0x7f.0.0.1`) avant accès DB ; exécution CI non attestée.
 - `116d89b` / `276fbbc` : validation stricte des labels DNS du webhook (pas de labels vides, underscores, tirets aux extrémités) avec refus avant accès DB ; exécution CI non attestée.
+- `d651dc2` / `cbbae04` : limite de 253 caractères pour le nom DNS webhook et tests des labels >63 caractères, refus avant accès DB ; exécution CI non attestée.
 - **Preuve d'exécution** : aucune réussite PG/CI attestée sur ces commits. Les résultats du laboratoire précédent concernent des tests isolés/simulés ; ils ne remplacent pas une qualification de bout en bout.
 - **Limite architecturale importante** : le frontend est une démonstration synthétique qui bloque volontairement `/api` ; le parcours frontend → BFF réel n'est pas développé/qualifié. La sécurité ne doit pas être affaiblie pour produire artificiellement un test vert.
 
