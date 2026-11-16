@@ -380,3 +380,27 @@ def test_bounded_http_429_and_503_retry_after(status, retry_after, attempts, exp
     response = httpx.Response(status, headers={"Retry-After": retry_after}, request=request)
     error = httpx.HTTPStatusError("receiver rejected", request=request, response=response)
     assert receiver_retry_delay(error, attempts).total_seconds() == expected_seconds
+
+
+@pytest.mark.parametrize(
+    ("status", "retry_after", "expected_seconds"),
+    [
+        (429, "Wed, 01 Jan 2025 00:02:00 GMT", 120),
+        (503, "Wed, 01 Jan 2025 00:10:00 GMT", 300),
+        (429, "Tue, 31 Dec 2024 23:59:00 GMT", 2),
+        (503, "Wed, 01 Jan 2025 00:00:01 GMT", 2),
+        (429, "not a date", 2),
+        (429, "Wed, 01 Jan 2025 00:02:00", 2),
+        (500, "Wed, 01 Jan 2025 00:02:00 GMT", 2),
+    ],
+)
+def test_http_date_retry_after_is_bounded(status, retry_after, expected_seconds):
+    import httpx
+    from datetime import datetime, timezone
+    from app.outbox_relay import receiver_retry_delay
+
+    request = httpx.Request("POST", "https://receiver.example.test/events")
+    response = httpx.Response(status, headers={"Retry-After": retry_after}, request=request)
+    error = httpx.HTTPStatusError("receiver rejected", request=request, response=response)
+    now = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    assert receiver_retry_delay(error, 1, now=now).total_seconds() == expected_seconds
