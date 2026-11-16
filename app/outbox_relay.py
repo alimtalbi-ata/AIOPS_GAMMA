@@ -111,6 +111,10 @@ def valid_webhook_endpoint(endpoint: str) -> bool:
     # their parsed values as empty bytes and otherwise hides their presence.
     if "@" in authority or "?" in endpoint or "#" in endpoint:
         return False
+    # Reject percent-encoded authority bytes: URL parsers may decode them
+    # differently (including encoded userinfo delimiters or host characters).
+    if "%" in authority:
+        return False
     try:
         url = httpx.URL(endpoint)
         port = url.port
