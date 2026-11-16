@@ -45,6 +45,7 @@ Statut : **HOLD / NO_GO**. Cette matrice décrit les preuves requises, pas une c
 - `c60ee6b` / `4bf96b9` : refus des URL webhook avec espaces ou sauts de ligne périphériques avant normalisation, et tests unitaires du validateur et de `dispatch_once` ; CI non exécutée.
 - `1e271c9` / `940d303` : refus des caractères de contrôle intégrés et des antislashs dans les URL webhook avant normalisation HTTPX ; tests de validation et refus avant accès DB ajoutés, non exécutés en CI.
 - `c850967` : correction de l'ordre du test PostgreSQL outbox : publication et vérification des deux événements concurrents restants avant scénario de redirection `302`, pour tester le bon événement ; exécution PG non attestée.
+- `b902dfb` : test PostgreSQL du délai de retry après HTTP `302` : aucune livraison avant `next_attempt_at`, aucune tentative supplémentaire, puis récupération sur `202` ; exécution PG non attestée.
 - **Preuve d'exécution** : aucune réussite PG/CI attestée sur ces commits. Les résultats du laboratoire précédent concernent des tests isolés/simulés ; ils ne remplacent pas une qualification de bout en bout.
 - **Limite architecturale importante** : le frontend est une démonstration synthétique qui bloque volontairement `/api` ; le parcours frontend → BFF réel n'est pas développé/qualifié. La sécurité ne doit pas être affaiblie pour produire artificiellement un test vert.
 
