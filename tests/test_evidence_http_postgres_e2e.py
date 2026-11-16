@@ -769,7 +769,7 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
 
             def too_early_receiver(request):
                 too_early_calls.append(request.headers["x-event-id"])
-                return httpx.Response(425)
+                return httpx.Response(425, headers={"Retry-After": "120"})
 
             async with httpx.AsyncClient(transport=httpx.MockTransport(too_early_receiver)) as downstream:
                 assert await outbox_relay.dispatch_once(
@@ -784,6 +784,8 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
                 assert row.published_at is None
                 assert row.attempts == 2
                 assert row.next_attempt_at is not None
+                remaining = (row.next_attempt_at - datetime.now(timezone.utc)).total_seconds()
+                assert 110 <= remaining <= 120
                 assert "425" in row.last_error
                 row.next_attempt_at = None
                 await session.commit()
