@@ -546,6 +546,43 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
             assert recovered_redirect.attempts == 1
             assert recovered_redirect.next_attempt_at is None
             assert recovered_redirect.last_error is None
+
+            # Exhausted deliveries must stop at MAX_ATTEMPTS: the relay may
+            # neither spin forever nor deliver a dead-letter candidate again.
+            exhausted = await api.post(
+                path,
+                headers=_headers("POST", path, tenant_b, [], forged_tenant=tenant_a),
+                json={**payload, "external_event_id": "ci-alert-exhausted-" + uuid4().hex},
+            )
+            assert exhausted.status_code == 200, exhausted.text
+            _, pending_exhaustion = await rows()
+            exhausted_event = next(
+                row for row in pending_exhaustion if row.published_at is None
+            )
+            async with factory() as session:
+                row = await session.get(OutboxEvent, exhausted_event.id)
+                row.attempts = outbox_relay.MAX_ATTEMPTS - 1
+                row.next_attempt_at = None
+                await session.commit()
+            terminal_calls = []
+
+            def terminal_receiver(request):
+                terminal_calls.append(request.headers["x-event-id"])
+                return httpx.Response(503)
+
+            async with httpx.AsyncClient(transport=httpx.MockTransport(terminal_receiver)) as downstream:
+                assert await outbox_relay.dispatch_once(
+                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
+                ) is True
+                assert await outbox_relay.dispatch_once(
+                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
+                ) is False
+            assert terminal_calls == [str(exhausted_event.id)]
+            _, terminal_rows = await rows()
+            terminal = next(row for row in terminal_rows if row.id == exhausted_event.id)
+            assert terminal.published_at is None
+            assert terminal.attempts == outbox_relay.MAX_ATTEMPTS
+            assert terminal.last_error
     app.dependency_overrides[get_session] = session_override
     try:
         asyncio.run(exercise())
