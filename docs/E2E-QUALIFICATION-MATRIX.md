@@ -52,6 +52,7 @@ Statut : **HOLD / NO_GO**. Cette matrice décrit les preuves requises, pas une c
 - `cc671f3` / `2304344` : ordre outbox stable par `(created_at, id)` ; test PostgreSQL impose des timestamps identiques et vérifie l'ordre des identifiants livrés, exécution PG non attestée.
 - `79f1c80` / `d4f0c55` : validation du jeton bearer outbox limitée aux caractères ASCII imprimables sans espace, avec tests non-ASCII/espaces internes et refus avant DB ; exécution CI non attestée.
 - `d32723d` / `ac940fe` : configuration webhook exige le préfixe canonique exact `https://` avant analyse de l'autorité ; tests des schémas non canoniques et refus avant DB ; exécution CI non attestée.
+- `897bdf1` : test unitaire de la progression exponentielle du retry outbox et du plafond de 300 secondes ; exécution CI non attestée.
 - **Preuve d'exécution** : aucune réussite PG/CI attestée sur ces commits. Les résultats du laboratoire précédent concernent des tests isolés/simulés ; ils ne remplacent pas une qualification de bout en bout.
 - **Limite architecturale importante** : le frontend est une démonstration synthétique qui bloque volontairement `/api` ; le parcours frontend → BFF réel n'est pas développé/qualifié. La sécurité ne doit pas être affaiblie pour produire artificiellement un test vert.
 
