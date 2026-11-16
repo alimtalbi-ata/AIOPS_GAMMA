@@ -30,6 +30,7 @@ Statut : **HOLD / NO_GO**. Cette matrice décrit les preuves requises, pas une c
 - `bd73a4c` : contrôle fail-closed de l'ingestion désactivée (`503`, `no-store`, zéro ligne inbox/outbox) dans le scénario PG non exécuté.
 - `3778015` : vérification que la même clé externe avec des charges utiles différentes reste indépendante entre tenants, tout en rejetant les conflits au sein d'un tenant (scénario PG non exécuté).
 - `8930b8f` : ingestion d'alertes refuse les identités forgées sans assertion signée et les assertions liées à la mauvaise méthode (`401`), sans aucune écriture PG (scénario non exécuté).
+- `8cda68d` : course entre deux charges utiles contradictoires sur la même clé/tenant ; une seule création (`200`), un conflit (`409`) et une seule paire inbox/outbox attendus (PG non exécuté).
 - **Preuve d'exécution** : aucune réussite PG/CI attestée sur ces commits. Les résultats du laboratoire précédent concernent des tests isolés/simulés ; ils ne remplacent pas une qualification de bout en bout.
 - **Limite architecturale importante** : le frontend est une démonstration synthétique qui bloque volontairement `/api` ; le parcours frontend → BFF réel n'est pas développé/qualifié. La sécurité ne doit pas être affaiblie pour produire artificiellement un test vert.
 
