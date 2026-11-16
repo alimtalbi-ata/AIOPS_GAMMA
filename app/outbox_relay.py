@@ -99,7 +99,7 @@ async def dispatch_once(client: httpx.AsyncClient, endpoint: str, token: str) ->
 
 def valid_webhook_endpoint(endpoint: str) -> bool:
     """Require an HTTPS host without URL-embedded credentials or query secrets."""
-    if not isinstance(endpoint, str) or not endpoint or endpoint != endpoint.strip():
+    if not isinstance(endpoint, str) or not endpoint or len(endpoint) > 2048 or endpoint != endpoint.strip():
         return False
     # URL parsers may normalize Unicode, whitespace, controls or backslashes.
     # Reject ambiguous raw destinations before handing them to HTTPX.
@@ -115,10 +115,6 @@ def valid_webhook_endpoint(endpoint: str) -> bool:
     # Even empty query/fragment delimiters are forbidden. HTTPX exposes
     # their parsed values as empty bytes and otherwise hides their presence.
     if "@" in authority or "?" in endpoint or "#" in endpoint:
-        return False
-    # Reject percent-encoded authority bytes: URL parsers may decode them
-    # differently (including encoded userinfo delimiters or host characters).
-    if "%" in authority:
         return False
     # The receiver route is static: reject all percent-encoding, including
     # double-encoded separators (%252f) that intermediaries may decode twice.
