@@ -59,9 +59,9 @@ def permanent_receiver_rejection(exc: Exception) -> bool:
 
 
 def receiver_retry_delay(exc: Exception, attempts: int, *, now: datetime | None = None) -> timedelta:
-    """Bound numeric or HTTP-date Retry-After for 429/503 to 300 seconds."""
+    """Bound numeric or HTTP-date Retry-After for 425/429/503 to 300 seconds."""
     default = retry_delay(attempts)
-    if not isinstance(exc, httpx.HTTPStatusError) or exc.response.status_code not in (429, 503):
+    if not isinstance(exc, httpx.HTTPStatusError) or exc.response.status_code not in (425, 429, 503):
         return default
     value = exc.response.headers.get("retry-after", "")
     if not value or len(value) > 128 or not value.isascii():
