@@ -90,6 +90,10 @@ def valid_webhook_endpoint(endpoint: str) -> bool:
     """Require an HTTPS host without URL-embedded credentials or query secrets."""
     if not isinstance(endpoint, str) or not endpoint or endpoint != endpoint.strip():
         return False
+    # URL parsers may normalize embedded control characters or backslashes.
+    # Reject ambiguous raw destinations before handing them to HTTPX.
+    if any(ord(char) < 0x20 or ord(char) == 0x7F or char == "\\\\" for char in endpoint):
+        return False
     try:
         url = httpx.URL(endpoint)
         port = url.port
