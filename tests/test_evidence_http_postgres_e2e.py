@@ -621,6 +621,29 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
                 row.attempts = outbox_relay.MAX_ATTEMPTS - 1
                 row.next_attempt_at = None
                 await session.commit()
+            # A transport timeout must be persisted as a retryable failure,
+            # not escape the transaction or mark the event as delivered.
+            timeout_calls = []
+
+            def timed_out_receiver(request):
+                timeout_calls.append(request.headers["x-event-id"])
+                raise httpx.ReadTimeout("receiver timed out", request=request)
+
+            async with httpx.AsyncClient(transport=httpx.MockTransport(timed_out_receiver)) as downstream:
+                assert await outbox_relay.dispatch_once(
+                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
+                ) is True
+            assert timeout_calls == [str(exhausted_event.id)]
+            async with factory() as session:
+                row = await session.get(OutboxEvent, exhausted_event.id)
+                assert row.published_at is None
+                assert row.attempts == outbox_relay.MAX_ATTEMPTS
+                assert row.next_attempt_at is None
+                assert "timed out" in row.last_error
+                # Re-arm the disposable row to exercise HTTP 503 exhaustion too.
+                row.attempts = outbox_relay.MAX_ATTEMPTS - 1
+                row.next_attempt_at = None
+                await session.commit()
             terminal_calls = []
 
             def terminal_receiver(request):
