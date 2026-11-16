@@ -365,6 +365,16 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
                 ) is False
             assert len(received) == 2
             assert {row["event_id"] for row in received} == {str(i) for i in published_ids}
+            # Check the actual downstream HTTP envelopes, not only the
+            # database rows and delivery count. Tenant-specific severity must
+            # survive serialization and dispatch without cross-tenant mixing.
+            delivered_by_id = {item["event_id"]: item for item in received}
+            for event in outbox:
+                envelope = delivered_by_id[str(event.id)]
+                assert envelope["tenant_id"] == str(event.tenant_id)
+                assert envelope["payload"] == event.payload
+                assert envelope["event_type"] == event.event_type
+                assert envelope["aggregate_id"] == event.aggregate_id
             _, final_outbox = await rows()
             assert len(final_outbox) == 2
             assert all(row.published_at is not None and row.attempts == 0 for row in final_outbox)
