@@ -194,6 +194,7 @@ def test_http_postgres_two_tenants_write_read_and_denied_write_is_atomic(databas
 
 
 def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
+    monkeypatch.setenv("CORRELATION_WEBHOOK_ALLOWED_HOST", "receiver.example.test")
     """Real PG HTTP ingestion, tenant deduplication and locally mocked delivery."""
     from app import outbox_relay
 
