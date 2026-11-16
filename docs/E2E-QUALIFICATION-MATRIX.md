@@ -88,6 +88,7 @@ Statut : **HOLD / NO_GO**. Cette matrice décrit les preuves requises, pas une c
 - `f892622` : scénario E2E PostgreSQL vérifiant pour HTTP 503 la persistance de `Retry-After: 120` avec budget restant, l'absence de deuxième envoi immédiat et l'arrêt terminal après épuisement ; test non attesté exécuté en CI.
 - `425b192` / `a1c7425` / `f9da46b` : redirections HTTP 3xx classées terminales (pas de suivi ni replay automatique), tests unitaires et E2E PostgreSQL vérifiant le réarmement explicite de la ligne avant livraison ; exécution CI non attestée.
 - `d0dd6fe` / `f445c9f` / `89c1cf1` : HTTP 425 Too Early classé temporaire (comme 408/429), test unitaire et E2E PostgreSQL vérifiant retry différé avant refus 401 terminal ; exécution CI non attestée.
+- `b344c59` / `c2ffe7b` : prise en compte de `Retry-After` au format HTTP-date pour 429/503, dates invalides/passées ignorées, délai minimal exponentiel et plafond 300 s ; tests unitaires déterministes ajoutés, exécution CI non attestée.
 - **Preuve d'exécution** : aucune réussite PG/CI attestée sur ces commits. Les résultats du laboratoire précédent concernent des tests isolés/simulés ; ils ne remplacent pas une qualification de bout en bout.
 - **Limite architecturale importante** : le frontend est une démonstration synthétique qui bloque volontairement `/api` ; le parcours frontend → BFF réel n'est pas développé/qualifié. La sécurité ne doit pas être affaiblie pour produire artificiellement un test vert.
 
