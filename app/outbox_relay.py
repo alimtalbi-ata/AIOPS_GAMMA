@@ -105,7 +105,15 @@ async def dispatch_once(client: httpx.AsyncClient, endpoint: str, token: str) ->
                 event.next_attempt_at = None
                 event.last_error = None
             except (httpx.HTTPError, ValueError) as exc:
-                event.attempts += 1
+                # A permanent client error is not recoverable by replaying
+                # the same payload. Preserve the row for operator inspection.
+                # 408 and 429 remain transient and honor the retry budget.
+                permanent_rejection = (
+                    isinstance(exc, httpx.HTTPStatusError)
+                    and 400 <= exc.response.status_code < 500
+                    and exc.response.status_code not in (408, 429)
+                )
+                event.attempts = MAX_ATTEMPTS if permanent_rejection else event.attempts + 1
                 # Once the retry budget is exhausted, keep the event for
                 # operator inspection without advertising a future retry.
                 event.next_attempt_at = (
