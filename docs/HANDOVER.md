@@ -1,3 +1,10 @@
+## Current checkpoint — 2026-11-16 (fail-closed static tripwire)
+
+- Added `tests/test_tenant_integration_hold_guard.py::test_unqualified_canonical_entrypoints_cannot_open_network_clients` to statically inspect the public `fetch_canonical` and `read_glpi_incident` entrypoints. It rejects HTTP client/request calls and requires a fail-closed raise. Commit `e10903b9947a28ec01ede987b83dffd2938454b6`.
+- Clarified `docs/AIOPS-UPSTREAM-ACL-AUDIT.md`: current public canonical and GLPI read entrypoints are hard-disabled before network I/O; the private GLPI transport helper is not an authorization boundary. Historical adapter transport notes are not evidence of an enabled or qualified connector. Commit `83a4af8e0e1de5789f6bbd518d9f9d347c42a7f6`.
+- No pytest execution is claimed. CI remains red on prior HEAD and requires Actions pre-step diagnostics. Upstream Evidence/Twin source still lacks visible tenant ACL in inspected handlers; Gateway/IdP and Core/GLPI owner contracts remain outstanding.
+- PR #1 remains Draft. **HOLD / NO_GO**; no merge, deploy, canonical reads, replay activation or mutation calls.
+
 ## Current checkpoint — 2026-11-16 (upstream tenant ACL source review)
 
 - Exact source-review HEAD before this documentation update: `4479d9edfe52340095244ea3c53840e48ced138a`. Latest documentation update: `a84d7ad899cc173b26c6e84a07f46f77a6dc1a0d`. PR #1 remains draft/open; no merge or deployment.
