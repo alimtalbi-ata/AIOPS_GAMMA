@@ -743,7 +743,7 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
 
             def throttled_receiver(request):
                 throttled_calls.append(request.headers["x-event-id"])
-                return httpx.Response(429, request=request)
+                return httpx.Response(429, headers={"Retry-After": "120"}, request=request)
 
             async with httpx.AsyncClient(transport=httpx.MockTransport(throttled_receiver)) as downstream:
                 assert await outbox_relay.dispatch_once(
@@ -758,6 +758,8 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
                 assert row.published_at is None
                 assert row.attempts == 1
                 assert row.next_attempt_at is not None
+                remaining = (row.next_attempt_at - datetime.now(timezone.utc)).total_seconds()
+                assert 110 <= remaining <= 120
                 assert "429" in row.last_error
                 # Advance only the disposable event for the subsequent 401 test.
                 row.next_attempt_at = None
