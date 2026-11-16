@@ -37,6 +37,7 @@ Statut : **HOLD / NO_GO**. Cette matrice décrit les preuves requises, pas une c
 - `98c2575` : comparaison des enveloppes HTTP effectivement reçues par le destinataire simulé avec les événements outbox d'origine (ID, tenant, payload, type, service) ; scénario PG non exécuté.
 - `3ebc16a` / `c1e1231` : correction du relais pour effacer `next_attempt_at` après publication réussie et assertion PG E2E correspondante (non exécutée).
 - `b258276` / `1fa02bc` / `1545bdc` / `e4c65e7` : relais outbox limité aux accusés `2xx`, redirections explicitement interdites même si le client HTTP les autorise ; test PG E2E de `302`, absence de publication, retry et absence de transfert du jeton (non exécuté).
+- `45358f4` : récupération d'un événement outbox après rejet d'une redirection `302` : nouvel accusé `202`, livraison unique, état de retry nettoyé ; PG E2E non exécuté.
 - **Preuve d'exécution** : aucune réussite PG/CI attestée sur ces commits. Les résultats du laboratoire précédent concernent des tests isolés/simulés ; ils ne remplacent pas une qualification de bout en bout.
 - **Limite architecturale importante** : le frontend est une démonstration synthétique qui bloque volontairement `/api` ; le parcours frontend → BFF réel n'est pas développé/qualifié. La sécurité ne doit pas être affaiblie pour produire artificiellement un test vert.
 
