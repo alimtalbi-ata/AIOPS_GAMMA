@@ -60,6 +60,7 @@ Statut : **HOLD / NO_GO**. Cette matrice décrit les preuves requises, pas une c
 - `40dc00f` : test PostgreSQL de non-réexpédition après timeout terminal, contrôlé après fermeture de la session d'inspection pour éviter un faux positif lié au verrou ; exécution PG non attestée.
 - `8660973` / `600a452` / `ef0a1ff` : scénario PostgreSQL de timeout HTTP au premier essai : échéance de retry persistée bornée par le début et la fin du dispatch (+ délai attendu), puis échéance repoussée dans la base jetable pour contrôler la non-réexpédition sans course avec l'horloge CI ; scénarios terminaux préservés ; exécution PG non attestée.
 - `afe1bc9` / `df4b0c7` : URL brute du webhook limitée à l'ASCII sans espaces, rejet des caractères Unicode et séparateurs invisibles avant accès DB ; exécution CI non attestée.
+- `c48b233` / `92534a5` : rejet des délimiteurs URL `?` et `#` même vides, avec tests de validation et refus avant accès DB ; exécution CI non attestée.
 - **Preuve d'exécution** : aucune réussite PG/CI attestée sur ces commits. Les résultats du laboratoire précédent concernent des tests isolés/simulés ; ils ne remplacent pas une qualification de bout en bout.
 - **Limite architecturale importante** : le frontend est une démonstration synthétique qui bloque volontairement `/api` ; le parcours frontend → BFF réel n'est pas développé/qualifié. La sécurité ne doit pas être affaiblie pour produire artificiellement un test vert.
 
