@@ -1,3 +1,13 @@
+## Current checkpoint — 2026-11-16 (upstream tenant ACL source review)
+
+- Exact source-review HEAD before this documentation update: `4479d9edfe52340095244ea3c53840e48ced138a`. Latest documentation update: `a84d7ad899cc173b26c6e84a07f46f77a6dc1a0d`. PR #1 remains draft/open; no merge or deployment.
+- Inspected canonical upstream `aiops` source. Evidence `GET /api/evidence` and `GET /api/evidence/{eid}` have no actor/tenant/resource authorization in the inspected handlers; list can return all evidence. Twin summary/nodes/graph/impact/at handlers likewise query global tables without tenant ACL. Do not call these from Gamma. Evidence POST and Twin synthetic-event POST are mutations and forbidden for this read-only workstream.
+- Canonical Portal `app/portal/glpi_operator_view.py` explicitly keeps GLPI/Core requests disabled until independent server-derived actor+tenant ACL and authoritative ticket/Run mapping exist. Its shared viewer token authenticates Portal access only.
+- Gamma's upstream adapter is fail-closed before network I/O for Core/Evidence/Twin; tests include a network-forbidden check even with flags and tenant echo. Gamma GLPI public read function is also fail-closed; private unqualified transport helper is not authorization. Tests are source-present but CI has not executed them on current HEAD.
+- Exact findings and citations/paths recorded in `docs/CI-QUALIFICATION-BLOCKER.md`. Core/GLPI contracts remain unprovided. Required owner action: upstream Evidence/Twin owners must provide tenant-scoped, actor/resource-authorized endpoints or an approved authenticated facade; Gateway/IdP owners must provide issuer/audience, signed assertion and ACL contract; GLPI owner must provide authoritative tenant↔entity and ticket↔Run ACL mapping. Until then, no adapters or canonical reads.
+- CI runs on source-review HEAD `4479d9e`: Python checks `43961789297` and Deployment contract `43961789263` both failed; no green qualification. Do not interpret as application test failure without step/log evidence.
+- **HOLD / NO_GO.** No merge, deploy, LIVE reads, replay activation, or upstream mutation calls.
+
 ## Current checkpoint — 2026-11-16 (issue #2 contract gate)
 
 - Latest branch HEAD: `045117a628d6d9e4b711c38a0da7b26ce2bbb11a`; PR #1 remains draft/open and explicitly HOLD / NO_GO.
