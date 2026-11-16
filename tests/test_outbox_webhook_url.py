@@ -13,6 +13,7 @@ from app.outbox_relay import dispatch_once, retry_delay, valid_webhook_endpoint,
     [
         "https://receiver.example.test/events",
         "https://receiver.example.test:8443/events",
+        "https://receiver.example.test/" + "a" * (2048 - len("https://receiver.example.test/")),
     ],
 )
 def test_accepts_plain_https_webhook(endpoint):
@@ -36,6 +37,7 @@ def test_accepts_plain_https_webhook(endpoint):
         "https://receiver.example.test/events%2fadmin",
         "https://receiver.example.test/events%252fadmin",
         "https://receiver.example.test/events%41",
+        "https://receiver.example.test/" + "a" * 2048,
         "https://127.0.0.1/events",
         "https://2130706433/events",
         "https://0177.0.0.1/events",
@@ -109,6 +111,7 @@ def test_dispatch_rejects_invalid_destination_before_touching_database(monkeypat
         ("https://receiver.example.test/events%2fadmin", "secret"),
         ("https://receiver.example.test/events%252fadmin", "secret"),
         ("https://receiver.example.test/events%41", "secret"),
+        ("https://receiver.example.test/" + "a" * 2048, "secret"),
         ("https://127.0.0.1/events", "secret"),
         ("https://2130706433/events", "secret"),
         ("https://0177.0.0.1/events", "secret"),
