@@ -249,9 +249,14 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
             assert not disabled_inbox and not disabled_outbox
             monkeypatch.setattr(settings, "enable_alert_ingestion", True)
             for tenant, other in ((tenant_a, tenant_b), (tenant_b, tenant_a)):
+                # Same external key may legitimately carry different content
+                # in a different tenant; deduplication must be tenant-scoped.
+                tenant_payload = (
+                    payload if tenant == tenant_a else {**payload, "severity": "critical"}
+                )
                 first = await api.post(
                     path, headers=_headers("POST", path, tenant, [], forged_tenant=other),
-                    json=payload,
+                    json=tenant_payload,
                 )
                 assert first.status_code == 200, first.text
                 assert first.headers["cache-control"] == "no-store"
@@ -260,13 +265,13 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
 
                 retry = await api.post(
                     path, headers=_headers("POST", path, tenant, [], forged_tenant=other),
-                    json=payload,
+                    json=tenant_payload,
                 )
                 assert retry.status_code == 200, retry.text
                 assert retry.json() == {"id": first.json()["id"], "duplicate": True}
                 conflicting = await api.post(
                     path, headers=_headers("POST", path, tenant, [], forged_tenant=other),
-                    json={**payload, "severity": "critical"},
+                    json={**tenant_payload, "severity": "minor"},
                 )
                 assert conflicting.status_code == 409, conflicting.text
                 assert conflicting.headers["cache-control"] == "no-store"
@@ -275,6 +280,9 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
             assert {str(row.id) for row in inbox} == set(created)
             assert len(outbox) == len(inbox) == 2
             assert {row.tenant_id for row in outbox} == {tenant_a, tenant_b}
+            assert {
+                row.tenant_id: row.payload["severity"] for row in inbox
+            } == {tenant_a: "major", tenant_b: "critical"}
             assert all(row.published_at is None and row.attempts == 0 for row in outbox)
             published_ids.extend(row.id for row in outbox)
             async with httpx.AsyncClient(transport=httpx.MockTransport(receiver)) as downstream:
