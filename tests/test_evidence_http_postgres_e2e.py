@@ -664,6 +664,9 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
 
             def recovered_receiver(request):
                 recovered_calls.append({
+                    "method": request.method,
+                    "url": str(request.url),
+                    "content_type": request.headers["content-type"],
                     "event_id": request.headers["x-event-id"],
                     "authorization": request.headers["authorization"],
                     "body": request.content,
@@ -678,6 +681,9 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
                     downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
                 ) is False
             assert len(recovered_calls) == 1
+            assert recovered_calls[0]["method"] == "POST"
+            assert recovered_calls[0]["url"] == "https://receiver.example.test/events"
+            assert recovered_calls[0]["content_type"] == "application/json"
             assert recovered_calls[0]["event_id"] == str(exhausted_event.id)
             assert recovered_calls[0]["authorization"] == "Bearer ci-ephemeral-token"
             recovered_body = json.loads(recovered_calls[0]["body"])
