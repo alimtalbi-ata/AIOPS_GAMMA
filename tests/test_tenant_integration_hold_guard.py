@@ -25,6 +25,37 @@ class TenantIntegrationHoldGuard(unittest.TestCase):
             with self.subTest(setting=name):
                 self.assertIs(defaults.get(name), False, f"{name} must default fail-closed")
 
+    def test_unqualified_canonical_entrypoints_cannot_open_network_clients(self):
+        """Static tripwire: unqualified read entrypoints stay network-free."""
+        cases = (
+            ("app/reused/upstream.py", "fetch_canonical"),
+            ("app/reused/glpi_read.py", "read_glpi_incident"),
+        )
+        for relative, function_name in cases:
+            tree = ast.parse((ROOT / relative).read_text(encoding="utf-8"))
+            function = next(
+                node for node in tree.body
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and node.name == function_name
+            )
+            calls = [node for node in ast.walk(function) if isinstance(node, ast.Call)]
+            called_names = []
+            for call in calls:
+                if isinstance(call.func, ast.Attribute):
+                    called_names.append(call.func.attr)
+                elif isinstance(call.func, ast.Name):
+                    called_names.append(call.func.id)
+            with self.subTest(entrypoint=function_name):
+                self.assertNotIn("AsyncClient", called_names)
+                self.assertNotIn("get", called_names)
+                self.assertNotIn("post", called_names)
+                self.assertNotIn("request", called_names)
+                self.assertIn("HTTPException", called_names)
+                self.assertTrue(
+                    any(isinstance(node, ast.Raise) for node in ast.walk(function)),
+                    "unqualified entrypoint must fail closed",
+                )
+
     def test_provisional_upstream_paths_not_silently_mapped_to_global_core_routes(self):
         tree = ast.parse((ROOT / "app/reused/upstream.py").read_text(encoding="utf-8"))
         allowed = next(n.value for n in tree.body if isinstance(n, ast.Assign)
