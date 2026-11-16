@@ -186,6 +186,7 @@ def test_relay_main_disables_ambient_proxy_and_netrc(monkeypatch):
 
     monkeypatch.setenv("CORRELATION_WEBHOOK_URL", "https://receiver.example.test/events")
     monkeypatch.setenv("CORRELATION_WEBHOOK_TOKEN", "ci-ephemeral-token")
+    monkeypatch.setenv("CORRELATION_WEBHOOK_ALLOWED_HOST", "receiver.example.test")
     monkeypatch.setenv("HTTPS_PROXY", "http://untrusted-proxy.example.test:8080")
     monkeypatch.setenv("NETRC", "/tmp/untrusted-netrc")
     monkeypatch.setattr(outbox_relay.httpx, "AsyncClient", FakeClient)
@@ -217,6 +218,22 @@ def test_relay_main_rejects_configuration_before_constructing_http_client(
 
     monkeypatch.setenv("CORRELATION_WEBHOOK_URL", endpoint)
     monkeypatch.setenv("CORRELATION_WEBHOOK_TOKEN", token)
+    monkeypatch.setenv("CORRELATION_WEBHOOK_ALLOWED_HOST", "receiver.example.test")
     monkeypatch.setattr(outbox_relay.httpx, "AsyncClient", must_not_construct_client)
     with pytest.raises(RuntimeError, match="Set HTTPS CORRELATION_WEBHOOK_URL"):
+        asyncio.run(outbox_relay.main())
+
+
+@pytest.mark.parametrize("allowed_host", ["", "other.example.test", "receiver.example.test.", "RECEIVER.EXAMPLE.TEST", "receiver.example.test:8443", " receiver.example.test"])
+def test_relay_main_requires_exact_receiver_host_allowlist(monkeypatch, allowed_host):
+    from app import outbox_relay
+
+    def must_not_construct_client(*_args, **_kwargs):
+        raise AssertionError("Mismatched receiver allowlist constructed HTTP client")
+
+    monkeypatch.setenv("CORRELATION_WEBHOOK_URL", "https://receiver.example.test/events")
+    monkeypatch.setenv("CORRELATION_WEBHOOK_TOKEN", "ci-ephemeral-token")
+    monkeypatch.setenv("CORRELATION_WEBHOOK_ALLOWED_HOST", allowed_host)
+    monkeypatch.setattr(outbox_relay.httpx, "AsyncClient", must_not_construct_client)
+    with pytest.raises(RuntimeError, match="CORRELATION_WEBHOOK_ALLOWED_HOST"):
         asyncio.run(outbox_relay.main())
