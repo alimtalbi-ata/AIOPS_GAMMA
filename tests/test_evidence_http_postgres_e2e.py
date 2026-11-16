@@ -395,6 +395,7 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
                 attempts_seen.append(request.headers["x-event-id"])
                 return httpx.Response(503)
 
+            dispatch_started_at = datetime.now(timezone.utc)
             async with httpx.AsyncClient(transport=httpx.MockTransport(unavailable)) as downstream:
                 assert await outbox_relay.dispatch_once(
                     downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
@@ -408,7 +409,10 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
             assert failed.published_at is None
             assert failed.attempts == 1
             assert failed.next_attempt_at is not None
-            assert 0 < (failed.next_attempt_at - failed.created_at).total_seconds() < 60
+            # The first retry is scheduled two seconds after dispatch time,
+            # not relative to the event's potentially older creation time.
+            assert dispatch_started_at < failed.next_attempt_at
+            assert (failed.next_attempt_at - dispatch_started_at).total_seconds() < 60
             assert failed.last_error
 
             # Advance eligibility explicitly in this disposable DB rather than
