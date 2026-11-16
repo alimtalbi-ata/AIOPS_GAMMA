@@ -81,6 +81,7 @@ Statut : **HOLD / NO_GO**. Cette matrice décrit les preuves requises, pas une c
 - `a81b486` / `972db34` / `fc73591` / `e7b41be` : jeton Bearer de `dispatch_once` épinglé à `CORRELATION_WEBHOOK_TOKEN`, refus des substitutions avant accès DB et adaptation E2E PostgreSQL ; exécution CI non attestée.
 - `441cf6a` / `dd815f8` : couverture positive/négative du prédicat de configuration du destinataire et contrat d'exploitation du worker (URL, hôte, token, trust_env=False, déduplication), limites DNS/egress explicites ; exécution CI non attestée.
 - `1b773c2` / `bf24fa9` / `89b3666` : tests de refus avant DB si URL ou jeton du worker dérivent ; pool HTTP borné à une connexion active/persistante avec assertion de `trust_env=False` ; exécution CI non attestée.
+- `bdb1e07` / `32e03f3` / `fa1dde0` : arrêt automatique des retries pour réponses HTTP 4xx permanentes (hors 408/429), conservation de l'événement pour inspection, tests unitaires de classification HTTP et erreurs transport ; tests PostgreSQL/CI non exécutés avec succès confirmé.
 - **Preuve d'exécution** : aucune réussite PG/CI attestée sur ces commits. Les résultats du laboratoire précédent concernent des tests isolés/simulés ; ils ne remplacent pas une qualification de bout en bout.
 - **Limite architecturale importante** : le frontend est une démonstration synthétique qui bloque volontairement `/api` ; le parcours frontend → BFF réel n'est pas développé/qualifié. La sécurité ne doit pas être affaiblie pour produire artificiellement un test vert.
 
