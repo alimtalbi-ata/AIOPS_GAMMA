@@ -173,3 +173,17 @@ At PR commit `de2261bac37783f86f78b4cb283d82cf0c04b127`, GitHub reported:
 All **nine** listed jobs were completed/failure with `logs_url: null` in the job-list responses. Direct job-step queries returned `steps: []` for Python `test` job `132565289375` and Deployment `compose` job `132565289344`. No job-log download was attempted for these runs; earlier 404 observations do not establish the state of these logs. A combined commit-status query returned no individual legacy statuses, which is **not** evidence of green CI.
 
 **Interpretation:** the available evidence does not prove checkout, compileall, pytest, Compose, PostgreSQL or deployment commands ran. The GitHub administrator must inspect the run summaries and runner allocation / Actions policy / billing constraints, record the exact platform error in [issue #8](https://github.com/alimtalbi-ata/AIOPS_GAMMA/issues/8), and obtain actual per-step logs and test counts for the *then-current exact reviewed HEAD* after repair. No blind rerun, weakened checks, real PostgreSQL or LIVE action. Independent ACL [issue #2](https://github.com/alimtalbi-ata/AIOPS_GAMMA/issues/2) remains blocking. **PR #1 Draft — HOLD / NO_GO.**
+
+
+## Latest observed HEAD — 2026-11-16 (alert outbox envelope tests)
+
+Reviewed commit: `697f9a1fdaa4b0e04d4d080efa9cb07a49a16473`.
+
+| Workflow | Run | GitHub conclusion |
+| --- | --- | --- |
+| Python checks | [43917442092](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43917442092) | failure |
+| Deployment contract | [43917441961](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43917441961) | failure |
+
+Python checks job IDs: `frontend` 133475289648, `test` 133475289887, `tenant-evidence-postgres-e2e` 133475289893, `gateway-replay-postgres` 133475289909. The job listing exposed no step records for these jobs; check runs have failure conclusions without explanatory summaries. A direct annotations query was unavailable through the connected GitHub API endpoint; **no claim is made that the annotations are empty**. Deployment job steps were not inspected for this checkpoint.
+
+**No evidence of test execution or application assertion failure.** The repository/org administrator must inspect the [Python workflow run](https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/43917442092) in the GitHub UI, including any pre-run error banner, Actions policies, runner provisioning, and usage/billing, then record the exact error and remediation evidence in [issue #8](https://github.com/alimtalbi-ata/AIOPS_GAMMA/issues/8). Do not blindly rerun or weaken gates. Once resolved, run the then-current reviewed HEAD and archive per-step logs and PG16 results. Independent canonical ACL [issue #2](https://github.com/alimtalbi-ata/AIOPS_GAMMA/issues/2) remains a separate blocker. **Draft PR #1: HOLD / NO_GO.**
