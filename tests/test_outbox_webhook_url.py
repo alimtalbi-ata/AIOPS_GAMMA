@@ -119,3 +119,41 @@ def test_dispatch_rejects_invalid_destination_before_touching_database(monkeypat
 )
 def test_retry_backoff_is_bounded(attempts, seconds):
     assert retry_delay(attempts) == timedelta(seconds=seconds)
+
+
+def test_relay_main_disables_ambient_proxy_and_netrc(monkeypatch):
+    """A worker's proxy/netrc environment must not influence bearer delivery."""
+    from app import outbox_relay
+
+    seen = {}
+
+    class StopRelay(Exception):
+        pass
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            seen["client_kwargs"] = kwargs
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return False
+
+    async def fake_dispatch(client, endpoint, token):
+        seen["dispatch"] = (client, endpoint, token)
+        raise StopRelay
+
+    monkeypatch.setenv("CORRELATION_WEBHOOK_URL", "https://receiver.example.test/events")
+    monkeypatch.setenv("CORRELATION_WEBHOOK_TOKEN", "ci-ephemeral-token")
+    monkeypatch.setenv("HTTPS_PROXY", "http://untrusted-proxy.example.test:8080")
+    monkeypatch.setenv("NETRC", "/tmp/untrusted-netrc")
+    monkeypatch.setattr(outbox_relay.httpx, "AsyncClient", FakeClient)
+    monkeypatch.setattr(outbox_relay, "dispatch_once", fake_dispatch)
+    with pytest.raises(StopRelay):
+        asyncio.run(outbox_relay.main())
+    assert seen["client_kwargs"] == {"trust_env": False}
+    assert isinstance(seen["dispatch"][0], FakeClient)
+    assert seen["dispatch"][1:] == (
+        "https://receiver.example.test/events", "ci-ephemeral-token"
+    )
