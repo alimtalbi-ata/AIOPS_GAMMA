@@ -427,6 +427,7 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
             delivered = next(row for row in recovered if row.id == retry_event.id)
             assert delivered.published_at is not None
             assert delivered.attempts == 1
+            assert delivered.next_attempt_at is None
             assert delivered.last_error is None
 
             # Two independent HTTP requests race on the same tenant/source/key.
