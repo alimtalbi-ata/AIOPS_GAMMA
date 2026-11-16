@@ -136,6 +136,10 @@ def valid_webhook_endpoint(endpoint: str) -> bool:
         normalized_host = host.lower().rstrip(".")
         if normalized_host == "localhost" or normalized_host.endswith(".localhost"):
             return False
+        # Numeric host aliases (e.g. 2130706433 or 0177.0.0.1) can be
+        # interpreted as IPv4 by network stacks even if ipaddress rejects them.
+        if re.fullmatch(r"[0-9.]+", normalized_host):
+            return False
         return (
             (port is None or 1 <= port <= 65535)
             and url.scheme == "https"
