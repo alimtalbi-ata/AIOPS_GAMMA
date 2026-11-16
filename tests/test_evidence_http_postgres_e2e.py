@@ -509,7 +509,7 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
                 return httpx.Response(302, headers={"Location": "https://untrusted.example.test/"})
 
             async with httpx.AsyncClient(
-                transport=httpx.MockTransport(redirect_receiver), follow_redirects=False
+                transport=httpx.MockTransport(redirect_receiver), follow_redirects=True
             ) as downstream:
                 assert await outbox_relay.dispatch_once(
                     downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
