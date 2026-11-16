@@ -58,6 +58,17 @@ def permanent_receiver_rejection(exc: Exception) -> bool:
     )
 
 
+def receiver_retry_delay(exc: Exception, attempts: int) -> timedelta:
+    """Respect bounded numeric Retry-After for HTTP 429; never retry immediately."""
+    default = retry_delay(attempts)
+    if not isinstance(exc, httpx.HTTPStatusError) or exc.response.status_code != 429:
+        return default
+    value = exc.response.headers.get("retry-after", "")
+    if not value or len(value) > 6 or not value.isascii() or not value.isdecimal():
+        return default
+    return timedelta(seconds=max(default.total_seconds(), min(int(value), 300)))
+
+
 async def dispatch_once(client: httpx.AsyncClient, endpoint: str, token: str) -> bool:
     # Enforce the destination boundary even when called outside main().
     # Never query or claim an outbox row for an unsafe receiver.
@@ -122,7 +133,7 @@ async def dispatch_once(client: httpx.AsyncClient, endpoint: str, token: str) ->
                 # Once the retry budget is exhausted, keep the event for
                 # operator inspection without advertising a future retry.
                 event.next_attempt_at = (
-                    datetime.now(timezone.utc) + retry_delay(event.attempts)
+                    datetime.now(timezone.utc) + receiver_retry_delay(exc, event.attempts)
                     if event.attempts < MAX_ATTEMPTS else None
                 )
                 event.last_error = (redact_text(str(exc)) or "")[:1000]
