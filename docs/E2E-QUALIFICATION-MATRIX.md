@@ -85,6 +85,7 @@ Statut : **HOLD / NO_GO**. Cette matrice décrit les preuves requises, pas une c
 - `a029b79` / `529f016` : scénario E2E PostgreSQL enrichi : HTTP 429 planifie un retry différé et HTTP 401 rend l'événement terminal sans publication, chacun sans second envoi immédiat ; scénario non attesté exécuté en CI.
 - `c9ea5d2` / `bdbd929` / `cc5f520` : HTTP 429 respecte `Retry-After` numérique borné à 300 s sans raccourcir le backoff, tests unitaires et assertion de l'échéance persistée en E2E PostgreSQL ; CI encore en échec sans preuve d'exécution (Python checks `43946491047`, quatre jobs failed sans étapes visibles).
 - `6775afb` / `7cbed0d` / `323a546` : prise en compte de `Retry-After` numérique borné pour HTTP 503 en plus de 429, tests des valeurs invalides et contrôle E2E de l'absence de réactivation après épuisement des tentatives ; exécution CI non attestée.
+- `f892622` : scénario E2E PostgreSQL vérifiant pour HTTP 503 la persistance de `Retry-After: 120` avec budget restant, l'absence de deuxième envoi immédiat et l'arrêt terminal après épuisement ; test non attesté exécuté en CI.
 - **Preuve d'exécution** : aucune réussite PG/CI attestée sur ces commits. Les résultats du laboratoire précédent concernent des tests isolés/simulés ; ils ne remplacent pas une qualification de bout en bout.
 - **Limite architecturale importante** : le frontend est une démonstration synthétique qui bloque volontairement `/api` ; le parcours frontend → BFF réel n'est pas développé/qualifié. La sécurité ne doit pas être affaiblie pour produire artificiellement un test vert.
 
