@@ -41,6 +41,7 @@ Statut : **HOLD / NO_GO**. Cette matrice décrit les preuves requises, pas une c
 - `d41eed0` : arrêt du relais après `MAX_ATTEMPTS` échecs, aucune livraison supplémentaire, événement conservé non publié avec erreur ; scénario PostgreSQL non exécuté.
 - `5a3c6aa` / `075bcfc` : état terminal outbox cohérent après épuisement de `MAX_ATTEMPTS` (`next_attempt_at = NULL`, erreur conservée) ; assertion PG non exécutée.
 - `f2b7e18` / `49b2619` / `282d695` : validation fail-closed de l'URL webhook du relais (HTTPS, hôte, absence de credentials/query/fragment) et tests unitaires dédiés ; exécution CI non attestée.
+- `77b2628` / `21d619b` : validation HTTPS et port au point d'appel `dispatch_once`, refus des destinations non sûres ou jetons vides avant tout accès DB ; tests unitaires ajoutés, non exécutés en CI.
 - **Preuve d'exécution** : aucune réussite PG/CI attestée sur ces commits. Les résultats du laboratoire précédent concernent des tests isolés/simulés ; ils ne remplacent pas une qualification de bout en bout.
 - **Limite architecturale importante** : le frontend est une démonstration synthétique qui bloque volontairement `/api` ; le parcours frontend → BFF réel n'est pas développé/qualifié. La sécurité ne doit pas être affaiblie pour produire artificiellement un test vert.
 
