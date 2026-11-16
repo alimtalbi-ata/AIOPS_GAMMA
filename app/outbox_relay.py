@@ -165,8 +165,20 @@ def valid_webhook_endpoint(endpoint: str) -> bool:
 async def main():
     endpoint = os.getenv("CORRELATION_WEBHOOK_URL", "")
     token = os.getenv("CORRELATION_WEBHOOK_TOKEN", "")
-    if not valid_webhook_endpoint(endpoint) or not valid_webhook_token(token):
-        raise RuntimeError("Set HTTPS CORRELATION_WEBHOOK_URL and CORRELATION_WEBHOOK_TOKEN")
+    allowed_host = os.getenv("CORRELATION_WEBHOOK_ALLOWED_HOST", "")
+    if (
+        not valid_webhook_endpoint(endpoint)
+        or not valid_webhook_token(token)
+        or not allowed_host
+        or allowed_host != allowed_host.strip()
+        or allowed_host.lower() != allowed_host
+        or not valid_webhook_endpoint(f"https://{allowed_host}/")
+        or httpx.URL(endpoint).host != allowed_host
+    ):
+        raise RuntimeError(
+            "Set HTTPS CORRELATION_WEBHOOK_URL, CORRELATION_WEBHOOK_TOKEN "
+            "and exact CORRELATION_WEBHOOK_ALLOWED_HOST"
+        )
     # Never inherit HTTP(S)_PROXY or NETRC from the worker environment:
     # the relay carries an internal bearer credential to a fixed receiver.
     async with httpx.AsyncClient(trust_env=False) as client:
