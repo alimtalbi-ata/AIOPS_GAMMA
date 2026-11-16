@@ -37,3 +37,12 @@
 ## Statut
 
 Audit de source statique uniquement. Aucun service upstream appelé, aucun test PostgreSQL/HTTP d'intégration exécuté, aucune ACL runtime qualifiée. Ne pas fusionner ni déployer sur la base de ce document seul.
+
+
+## Addendum — current fail-closed state, 2026-11-16
+
+This addendum supersedes any implication in the original snapshot that the current Gamma adapters perform live upstream reads or validate a tenant echo. At current branch HEAD before this addendum, `app/reused/upstream.py:fetch_canonical` unconditionally returns HTTP 503 for every known resource before creating an HTTP client, even if the legacy enable flag and service token are configured. `app/reused/glpi_read.py:read_glpi_incident` likewise unconditionally returns HTTP 503; its private `_read_glpi_incident_unqualified` helper is not called by the API entrypoint and is not an authorization boundary. No canonical Evidence/Twin/Core or GLPI network reads are enabled.
+
+The current source-level upstream review additionally confirms that the inspected Evidence and Twin GET handlers do not show actor/tenant/resource ACL enforcement. The canonical Portal GLPI handoff explicitly says it will not issue GLPI/Core requests before independently verified server-derived actor+tenant ACL and authoritative ticket/Run mapping. Therefore the older transport-contract observations above are historical design/test notes only, not evidence of an enabled or qualified adapter.
+
+A static regression tripwire was added in `tests/test_tenant_integration_hold_guard.py` to assert that both public unqualified read entrypoints contain no HTTP client or request calls and raise fail-closed. This source-level guard is not a substitute for pytest execution or upstream ACL integration tests. No test execution is claimed. **NO_GO remains.**
