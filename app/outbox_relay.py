@@ -78,7 +78,7 @@ async def dispatch_once(client: httpx.AsyncClient, endpoint: str, token: str) ->
                         request=response.request,
                         response=response,
                     )
-                event.published_at = now
+                event.published_at = datetime.now(timezone.utc)
                 event.next_attempt_at = None
                 event.last_error = None
             except (httpx.HTTPError, ValueError) as exc:
@@ -86,7 +86,7 @@ async def dispatch_once(client: httpx.AsyncClient, endpoint: str, token: str) ->
                 # Once the retry budget is exhausted, keep the event for
                 # operator inspection without advertising a future retry.
                 event.next_attempt_at = (
-                    now + retry_delay(event.attempts)
+                    datetime.now(timezone.utc) + retry_delay(event.attempts)
                     if event.attempts < MAX_ATTEMPTS else None
                 )
                 event.last_error = (redact_text(str(exc)) or "")[:1000]
