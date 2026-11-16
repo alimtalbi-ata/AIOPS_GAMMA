@@ -286,6 +286,27 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
                 assert rejected.headers["cache-control"] == "no-store"
             no_key_inbox, no_key_outbox = await rows()
             assert not no_key_inbox and not no_key_outbox
+
+            # Conflicting duplicate security headers must not depend on which
+            # header a proxy, ASGI server or framework happens to choose.
+            for duplicate_name, duplicate_value in (
+                ("X-Internal-API-Key", "incorrect-service-key"),
+                ("X-Gateway-Principal", "forged-principal"),
+                ("X-Tenant-ID", str(tenant_b)),
+                ("X-Actor-ID", "forged-second-actor"),
+            ):
+                duplicate_headers = list(signed.items()) + [
+                    (duplicate_name, duplicate_value)
+                ]
+                ambiguous = await api.post(
+                    path, headers=duplicate_headers, json=payload
+                )
+                assert ambiguous.status_code == 401, (
+                    duplicate_name, ambiguous.text
+                )
+                assert ambiguous.headers["cache-control"] == "no-store"
+            duplicate_inbox, duplicate_outbox = await rows()
+            assert not duplicate_inbox and not duplicate_outbox
             for tenant, other in ((tenant_a, tenant_b), (tenant_b, tenant_a)):
                 # Same external key may legitimately carry different content
                 # in a different tenant; deduplication must be tenant-scoped.
