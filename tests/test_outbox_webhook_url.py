@@ -247,6 +247,7 @@ def test_relay_main_requires_exact_receiver_host_allowlist(monkeypatch, allowed_
 @pytest.mark.parametrize("allowed_host", ["", "other.example.test", "RECEIVER.EXAMPLE.TEST", "receiver.example.test."])
 def test_dispatch_rejects_missing_or_mismatched_receiver_allowlist_before_db(monkeypatch, allowed_host):
     monkeypatch.setenv("CORRELATION_WEBHOOK_URL", "https://receiver.example.test/events")
+    monkeypatch.setenv("CORRELATION_WEBHOOK_TOKEN", "secret")
     def must_not_access_database():
         raise AssertionError("Receiver allowlist mismatch reached the database")
 
