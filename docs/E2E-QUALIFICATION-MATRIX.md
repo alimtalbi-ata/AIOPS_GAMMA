@@ -75,6 +75,7 @@ Statut : **HOLD / NO_GO**. Cette matrice décrit les preuves requises, pas une c
 - `56650a3` / `d342b47` : jeton Bearer du relais borné à 4 096 caractères ; tests aux bornes 4 096/4 097 et refus avant accès DB ; exécution CI non attestée.
 - `8920272` / `90a9cca` : URL webhook bornée à 2 048 caractères, suppression d'une vérification percent-encoding redondante, tests aux bornes et refus avant accès DB ; exécution CI non attestée.
 - `9f99c38` / `dae2057` : démarrage du relais conditionné à `CORRELATION_WEBHOOK_ALLOWED_HOST`, correspondance exacte avec le hostname HTTPS, tests des valeurs absentes/incohérentes avant création client ; configuration à fournir en exploitation, résolution DNS et réseau non qualifiés ; exécution CI non attestée.
+- `b5e65f2` / `a19d1ee` / `26f8b84` / `c0e4fbd` : allowlist exacte `CORRELATION_WEBHOOK_ALLOWED_HOST` imposée aussi à chaque `dispatch_once`, rejet des appels directs avant accès DB, adaptation E2E PostgreSQL ; tests non exécutés en CI, résolution DNS non qualifiée.
 - **Preuve d'exécution** : aucune réussite PG/CI attestée sur ces commits. Les résultats du laboratoire précédent concernent des tests isolés/simulés ; ils ne remplacent pas une qualification de bout en bout.
 - **Limite architecturale importante** : le frontend est une démonstration synthétique qui bloque volontairement `/api` ; le parcours frontend → BFF réel n'est pas développé/qualifié. La sécurité ne doit pas être affaiblie pour produire artificiellement un test vert.
 
