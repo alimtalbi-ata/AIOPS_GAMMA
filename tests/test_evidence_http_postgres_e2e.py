@@ -634,13 +634,17 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
                 assert await outbox_relay.dispatch_once(
                     downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
                 ) is True
+            timeout_completed_at = datetime.now(timezone.utc)
             assert timeout_retry_calls == [str(exhausted_event.id)]
             async with factory() as session:
                 row = await session.get(OutboxEvent, exhausted_event.id)
                 assert row.published_at is None
                 assert row.attempts == 1
                 assert row.next_attempt_at is not None
-                assert timeout_started_at < row.next_attempt_at
+                # The deadline must be computed after the HTTP failure, not
+                # against the original event creation time.
+                assert timeout_started_at + outbox_relay.retry_delay(1) <= row.next_attempt_at
+                assert row.next_attempt_at <= timeout_completed_at + outbox_relay.retry_delay(1)
                 assert "timed out" in row.last_error
                 # Hold this disposable event beyond the test's wall-clock
                 # duration so a slow CI runner cannot cause a flaky retry.
