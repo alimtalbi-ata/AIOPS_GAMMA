@@ -12,6 +12,10 @@ completed with `failure`. The API reports all four jobs failed:
 - `gateway-replay-postgres` — job `133535387218`
 
 Independent job-step queries returned **zero steps for each job**.
+Direct job-log retrieval for all four job IDs also returned **HTTP 404
+`BlobNotFound`** on 2026-11-16. The exact platform failure remains
+unidentified; this is not evidence that application tests executed.
+
 This does not establish that checkout, tests, or PostgreSQL ever started;
 record the GitHub Actions UI runner/platform error before rerunning.
 Subsequent commits require qualification at their own exact HEAD.
