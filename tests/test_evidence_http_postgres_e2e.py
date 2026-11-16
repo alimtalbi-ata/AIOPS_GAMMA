@@ -248,6 +248,29 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
             disabled_inbox, disabled_outbox = await rows()
             assert not disabled_inbox and not disabled_outbox
             monkeypatch.setattr(settings, "enable_alert_ingestion", True)
+
+            # Neither caller-selected identity headers nor an assertion bound
+            # to another HTTP method can create tenant-scoped alert records.
+            unsigned = await api.post(
+                path,
+                headers={
+                    "X-Internal-API-Key": "ci-service-key",
+                    "X-Tenant-ID": str(tenant_a),
+                    "X-Actor-ID": "forged-admin",
+                },
+                json=payload,
+            )
+            assert unsigned.status_code == 401, unsigned.text
+            assert unsigned.headers["cache-control"] == "no-store"
+            wrong_method = await api.post(
+                path,
+                headers=_headers("GET", path, tenant_a, [], forged_tenant=tenant_b),
+                json=payload,
+            )
+            assert wrong_method.status_code == 401, wrong_method.text
+            assert wrong_method.headers["cache-control"] == "no-store"
+            unauthorized_inbox, unauthorized_outbox = await rows()
+            assert not unauthorized_inbox and not unauthorized_outbox
             for tenant, other in ((tenant_a, tenant_b), (tenant_b, tenant_a)):
                 # Same external key may legitimately carry different content
                 # in a different tenant; deduplication must be tenant-scoped.
