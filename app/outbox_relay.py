@@ -54,6 +54,7 @@ async def dispatch_once(client: httpx.AsyncClient, endpoint: str, token: str) ->
                     },
                     headers={"Authorization": f"Bearer {token}", "X-Event-Id": str(event.id)},
                     timeout=5.0,
+                    follow_redirects=False,
                 )
                 # Redirects are not delivery acknowledgements: HTTPX does not
                 # raise_for_status() on every 3xx response in all versions.
