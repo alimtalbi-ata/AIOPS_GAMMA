@@ -680,7 +680,12 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
             assert len(recovered_calls) == 1
             assert recovered_calls[0]["event_id"] == str(exhausted_event.id)
             assert recovered_calls[0]["authorization"] == "Bearer ci-ephemeral-token"
-            assert json.loads(recovered_calls[0]["body"])["event_id"] == str(exhausted_event.id)
+            recovered_body = json.loads(recovered_calls[0]["body"])
+            assert recovered_body["event_id"] == str(exhausted_event.id)
+            assert recovered_body["tenant_id"] == str(exhausted_event.tenant_id)
+            assert recovered_body["event_type"] == exhausted_event.event_type
+            assert recovered_body["aggregate_id"] == exhausted_event.aggregate_id
+            assert recovered_body["payload"] == exhausted_event.payload
             async with factory() as session:
                 row = await session.get(OutboxEvent, exhausted_event.id)
                 assert row.published_at is not None
