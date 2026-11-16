@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 
-from app.outbox_relay import dispatch_once, valid_webhook_endpoint
+from app.outbox_relay import dispatch_once, valid_webhook_endpoint, valid_webhook_token
 
 
 @pytest.mark.parametrize(
@@ -47,6 +47,16 @@ def test_rejects_unsafe_or_malformed_webhook(endpoint):
     assert not valid_webhook_endpoint(endpoint)
 
 
+@pytest.mark.parametrize("token", ["secret", "token-with-._~+/="])
+def test_accepts_nonempty_bearer_token(token):
+    assert valid_webhook_token(token)
+
+
+@pytest.mark.parametrize("token", ["", " ", " secret", "secret ", "secret\\n", "sec\\tret", "sec\\x00ret", "sec\\x7fret", None])
+def test_rejects_malformed_bearer_token(token):
+    assert not valid_webhook_token(token)
+
+
 def test_dispatch_rejects_invalid_destination_before_touching_database(monkeypatch):
     def must_not_access_database():
         raise AssertionError("Unsafe endpoint reached the database")
@@ -56,6 +66,9 @@ def test_dispatch_rejects_invalid_destination_before_touching_database(monkeypat
         ("http://receiver.example.test/events", "secret"),
         ("https://receiver.example.test:99999/events", "secret"),
         ("https://receiver.example.test/events", ""),
+        ("https://receiver.example.test/events", " "),
+        ("https://receiver.example.test/events", "secret\\n"),
+        ("https://receiver.example.test/events", "sec\\x00ret"),
         ("https://@receiver.example.test/events", "secret"),
         (" https://receiver.example.test/events", "secret"),
         ("https://receiver.example.test/ev\nents", "secret"),
