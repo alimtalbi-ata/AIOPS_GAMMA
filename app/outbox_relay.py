@@ -5,6 +5,7 @@ so only deploy against a trusted low-latency internal receiver. The receiver
 MUST deduplicate by X-Event-Id. No external endpoint is configured by default.
 """
 import asyncio
+import ipaddress
 import logging
 import os
 import re
@@ -122,6 +123,18 @@ def valid_webhook_endpoint(endpoint: str) -> bool:
     try:
         url = httpx.URL(endpoint)
         port = url.port
+        # Internal receivers must use an explicit DNS name. Reject literal IPs
+        # (including loopback, link-local and cloud metadata addresses) and
+        # localhost aliases to avoid accidental credential delivery to them.
+        host = url.host or ""
+        try:
+            ipaddress.ip_address(host.strip("[]"))
+        except ValueError:
+            pass
+        else:
+            return False
+        if host.lower().rstrip(".") == "localhost" or host.lower().endswith(".localhost"):
+            return False
         return (
             (port is None or 1 <= port <= 65535)
             and url.scheme == "https"
