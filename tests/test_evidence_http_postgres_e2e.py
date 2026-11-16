@@ -400,6 +400,38 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
             ]
             assert len(matching_inbox) == 1
             assert len(inbox_after) == len(outbox_after) == 4
+
+            # Conflicting payloads racing for the same idempotency key must
+            # never both succeed: the winning payload is immutable.
+            conflicting_key = "ci-alert-racing-conflict-" + uuid4().hex
+
+            async def conflicting_ingest(severity):
+                return await api.post(
+                    path,
+                    headers=_headers("POST", path, tenant_a, [], forged_tenant=tenant_b),
+                    json={
+                        **payload,
+                        "external_event_id": conflicting_key,
+                        "severity": severity,
+                    },
+                )
+
+            first_conflict, second_conflict = await asyncio.gather(
+                conflicting_ingest("major"), conflicting_ingest("critical")
+            )
+            assert sorted((first_conflict.status_code, second_conflict.status_code)) == [200, 409], (
+                first_conflict.text, second_conflict.text
+            )
+            assert first_conflict.headers["cache-control"] == "no-store"
+            assert second_conflict.headers["cache-control"] == "no-store"
+            final_inbox, final_outbox = await rows()
+            matching_conflict = [
+                row for row in final_inbox
+                if row.tenant_id == tenant_a and row.external_event_id == conflicting_key
+            ]
+            assert len(matching_conflict) == 1
+            assert matching_conflict[0].payload["severity"] in ("major", "critical")
+            assert len(final_inbox) == len(final_outbox) == 5
     app.dependency_overrides[get_session] = session_override
     try:
         asyncio.run(exercise())
