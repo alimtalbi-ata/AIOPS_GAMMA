@@ -116,9 +116,9 @@ def valid_webhook_endpoint(endpoint: str) -> bool:
     # differently (including encoded userinfo delimiters or host characters).
     if "%" in authority:
         return False
-    # Reject URL-encoded path separators and controls that can be decoded
-    # by intermediaries into a different receiver route.
-    if re.search(r"%(?:0[0-9a-fA-F]|1[0-9a-fA-F]|2[0fF]|5[cC]|7[fF])", endpoint):
+    # The receiver route is static: reject all percent-encoding, including
+    # double-encoded separators (%252f) that intermediaries may decode twice.
+    if "%" in endpoint:
         return False
     try:
         url = httpx.URL(endpoint)
