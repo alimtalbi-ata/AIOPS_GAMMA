@@ -663,7 +663,11 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
             recovered_calls = []
 
             def recovered_receiver(request):
-                recovered_calls.append(request.headers["x-event-id"])
+                recovered_calls.append({
+                    "event_id": request.headers["x-event-id"],
+                    "authorization": request.headers["authorization"],
+                    "body": request.content,
+                })
                 return httpx.Response(202)
 
             async with httpx.AsyncClient(transport=httpx.MockTransport(recovered_receiver)) as downstream:
@@ -673,7 +677,10 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
                 assert await outbox_relay.dispatch_once(
                     downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
                 ) is False
-            assert recovered_calls == [str(exhausted_event.id)]
+            assert len(recovered_calls) == 1
+            assert recovered_calls[0]["event_id"] == str(exhausted_event.id)
+            assert recovered_calls[0]["authorization"] == "Bearer ci-ephemeral-token"
+            assert json.loads(recovered_calls[0]["body"])["event_id"] == str(exhausted_event.id)
             async with factory() as session:
                 row = await session.get(OutboxEvent, exhausted_event.id)
                 assert row.published_at is not None
