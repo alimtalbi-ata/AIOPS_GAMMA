@@ -28,6 +28,7 @@ Statut : **HOLD / NO_GO**. Cette matrice décrit les preuves requises, pas une c
 - `10da7f2` : scénario PostgreSQL du relais outbox avec HTTP 503, tentative différée et récupération HTTP 202 (récepteur simulé, non exécuté).
 - `aaaeb63` : course entre deux requêtes HTTP pour la même clé d'alerte et le même tenant ; une seule paire inbox/outbox attendue (PG non exécuté).
 - `bd73a4c` : contrôle fail-closed de l'ingestion désactivée (`503`, `no-store`, zéro ligne inbox/outbox) dans le scénario PG non exécuté.
+- `3778015` : vérification que la même clé externe avec des charges utiles différentes reste indépendante entre tenants, tout en rejetant les conflits au sein d'un tenant (scénario PG non exécuté).
 - **Preuve d'exécution** : aucune réussite PG/CI attestée sur ces commits. Les résultats du laboratoire précédent concernent des tests isolés/simulés ; ils ne remplacent pas une qualification de bout en bout.
 - **Limite architecturale importante** : le frontend est une démonstration synthétique qui bloque volontairement `/api` ; le parcours frontend → BFF réel n'est pas développé/qualifié. La sécurité ne doit pas être affaiblie pour produire artificiellement un test vert.
 
