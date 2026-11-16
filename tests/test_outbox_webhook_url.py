@@ -33,6 +33,11 @@ def test_accepts_plain_https_webhook(endpoint):
         " https://receiver.example.test/events",
         "https://receiver.example.test/events ",
         "https://receiver.example.test/events\n",
+        "https://receiver.example.test/ev\nents",
+        "https://receiver.example.test/ev\tents",
+        "https://receiver.example.test/ev\x00ents",
+        "https://receiver.example.test/ev\x7fents",
+        "https://receiver.example.test\\@untrusted.example.test/events",
     ],
 )
 def test_rejects_unsafe_or_malformed_webhook(endpoint):
@@ -49,6 +54,8 @@ def test_dispatch_rejects_invalid_destination_before_touching_database(monkeypat
         ("https://receiver.example.test:99999/events", "secret"),
         ("https://receiver.example.test/events", ""),
         (" https://receiver.example.test/events", "secret"),
+        ("https://receiver.example.test/ev\nents", "secret"),
+        ("https://receiver.example.test\\@untrusted.example.test/events", "secret"),
     ):
         with pytest.raises(ValueError, match="Invalid HTTPS outbox receiver"):
             asyncio.run(dispatch_once(None, endpoint, token))
