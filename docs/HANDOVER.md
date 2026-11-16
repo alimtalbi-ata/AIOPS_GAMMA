@@ -1,3 +1,12 @@
+## Current checkpoint — 2026-11-16 (static guard follow-up)
+
+- PR #1 exact HEAD `eb8ac483b9acc97908be26ff2a6da9a0f51a9217`, still Draft. Issue #2 remains open.
+- Exact-HEAD Actions runs: Python checks `43964980052` and Deployment contract `43964979258`; both completed with failure. No green qualification. Prior evidence shows pre-step jobs with no visible steps/log blobs; administrator-side Actions diagnostics remain required.
+- Reviewed existing regression coverage: canonical reads reject network even with feature flag, service token, configured origins and tenant echo; GLPI route tests reject network even with feature flag and service tokens, and verify no-store/401/503 boundaries. Added AST tripwire to guard the public fail-closed entrypoints against accidental HTTP client/request calls.
+- Latest commits: `e10903b9947a28ec01ede987b83dffd2938454b6` (static guard), `83a4af8e0e1de5789f6bbd518d9f9d347c42a7f6` (audit clarification), `eb8ac483b9acc97908be26ff2a6da9a0f51a9217` (handover). No test execution claimed.
+- Next productive action is owner-side: obtain a redacted Actions pre-step failure annotation and canonical Evidence/Twin/Core/GLPI tenant ACL contract from Gateway/IdP and service owners. Do not keep adding speculative adapters or churn retry-policy tests while CI cannot execute and upstream contracts remain absent.
+- **HOLD / NO_GO**. No merge, deploy, canonical reads, replay activation, or upstream mutation calls.
+
 ## Current checkpoint — 2026-11-16 (fail-closed static tripwire)
 
 - Added `tests/test_tenant_integration_hold_guard.py::test_unqualified_canonical_entrypoints_cannot_open_network_clients` to statically inspect the public `fetch_canonical` and `read_glpi_incident` entrypoints. It rejects HTTP client/request calls and requires a fail-closed raise. Commit `e10903b9947a28ec01ede987b83dffd2938454b6`.
