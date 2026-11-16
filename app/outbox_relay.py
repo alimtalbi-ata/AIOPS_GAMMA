@@ -25,6 +25,10 @@ def retry_delay(attempts: int) -> timedelta:
 
 
 async def dispatch_once(client: httpx.AsyncClient, endpoint: str, token: str) -> bool:
+    # Enforce the destination boundary even when called outside main().
+    # Never query or claim an outbox row for an unsafe receiver.
+    if not valid_webhook_endpoint(endpoint) or not token:
+        raise ValueError("Invalid HTTPS outbox receiver configuration")
     async with get_session_factory()() as session:
         async with session.begin():
             now = datetime.now(timezone.utc)
@@ -86,7 +90,10 @@ def valid_webhook_endpoint(endpoint: str) -> bool:
     """Require an HTTPS host without URL-embedded credentials or query secrets."""
     try:
         url = httpx.URL(endpoint)
+        port = url.port
         return (
+            (port is None or 1 <= port <= 65535)
+            and 
             url.scheme == "https"
             and bool(url.host)
             and not url.username
