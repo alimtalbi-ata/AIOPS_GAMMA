@@ -12,7 +12,7 @@ import os
 import time
 from datetime import datetime, timezone
 from ipaddress import ip_address
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 import httpx
@@ -52,7 +52,7 @@ def database(monkeypatch):
     raw = _disposable_database_url()
     engine = create_async_engine(raw, poolclass=NullPool)
     factory = async_sessionmaker(engine, expire_on_commit=False)
-    written_ids = []
+    written_tenants = []
     async def preflight():
         async with engine.connect() as conn:
             name = await conn.scalar(text("select current_database()"))
@@ -73,9 +73,11 @@ def database(monkeypatch):
                     pytest.fail(f"Disposable table {table} must be empty before testing")
     async def clean():
         try:
-            if written_ids:
+            if written_tenants:
                 async with factory() as session:
-                    await session.execute(delete(Evidence).where(Evidence.id.in_([UUID(row_id) for row_id in written_ids])))
+                    await session.execute(
+                        delete(Evidence).where(Evidence.tenant_id.in_(written_tenants))
+                    )
                     await session.commit()
         finally:
             await engine.dispose()
@@ -86,7 +88,7 @@ def database(monkeypatch):
     monkeypatch.setattr(settings, "gateway_assertion_max_ttl_seconds", 60)
     try:
         asyncio.run(preflight())
-        yield factory, written_ids
+        yield factory, written_tenants
     finally:
         asyncio.run(clean())
 
@@ -116,7 +118,7 @@ def _headers(method, path, tenant, grants, *, forged_tenant):
 
 
 def test_http_postgres_two_tenants_write_read_and_denied_write_is_atomic(database):
-    factory, written_ids = database
+    factory, written_tenants = database
     tenant_a, tenant_b = uuid4(), uuid4()
     incident = "shared-ci-e2e-incident"
     path = f"/api/v1/incidents/{incident}/evidence"
@@ -140,6 +142,9 @@ def test_http_postgres_two_tenants_write_read_and_denied_write_is_atomic(databas
                     "source_ref": "ci-e2e-" + marker,
                     "observed_at": datetime.now(timezone.utc).isoformat(),
                 }
+                # Register the isolated tenant before the write: cleanup must
+                # cover a committed insert even if the HTTP response is lost.
+                written_tenants.append(tenant)
                 response = await client.post(
                     path,
                     headers=_headers("POST", path, tenant, [incident], forged_tenant=other),
@@ -147,7 +152,6 @@ def test_http_postgres_two_tenants_write_read_and_denied_write_is_atomic(databas
                 )
                 assert response.status_code == 201, response.text
                 assert response.headers["cache-control"] == "no-store"
-                written_ids.append(response.json()["id"])
             assert await persisted_count() == 2
             for tenant, other, expected in (
                 (tenant_a, tenant_b, "ci-e2e-tenant-a"),
