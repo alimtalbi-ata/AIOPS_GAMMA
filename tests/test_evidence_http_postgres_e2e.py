@@ -792,7 +792,7 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
 
             def terminal_receiver(request):
                 terminal_calls.append(request.headers["x-event-id"])
-                return httpx.Response(503)
+                return httpx.Response(503, headers={"Retry-After": "120"})
 
             async with httpx.AsyncClient(transport=httpx.MockTransport(terminal_receiver)) as downstream:
                 assert await outbox_relay.dispatch_once(
