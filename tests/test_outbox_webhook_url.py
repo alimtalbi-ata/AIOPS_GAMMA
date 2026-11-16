@@ -427,3 +427,16 @@ def test_duplicate_retry_after_headers_fall_back_to_local_backoff(status):
     assert response.headers.get_list("retry-after") == ["120", "240"]
     error = httpx.HTTPStatusError("receiver rejected", request=request, response=response)
     assert receiver_retry_delay(error, 1).total_seconds() == 2
+
+
+def test_http_date_retry_after_ignores_naive_injected_clock():
+    import httpx
+    from datetime import datetime
+    from app.outbox_relay import receiver_retry_delay
+
+    request = httpx.Request("POST", "https://receiver.example.test/events")
+    response = httpx.Response(
+        429, headers={"Retry-After": "Wed, 01 Jan 2025 00:02:00 GMT"}, request=request
+    )
+    error = httpx.HTTPStatusError("receiver rejected", request=request, response=response)
+    assert receiver_retry_delay(error, 1, now=datetime(2025, 1, 1)).total_seconds() == 2
