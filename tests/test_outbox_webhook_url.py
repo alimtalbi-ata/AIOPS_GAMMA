@@ -273,6 +273,23 @@ def test_dispatch_rejects_unconfigured_route_or_port_before_db(monkeypatch, endp
         asyncio.run(dispatch_once(None, endpoint, "secret"))
 
 
+@pytest.mark.parametrize(
+    ("endpoint", "token", "allowed_host", "expected"),
+    [
+        ("https://receiver.example.test/events", "secret", "receiver.example.test", True),
+        ("https://receiver.example.test/other", "secret", "receiver.example.test", True),
+        ("https://other.example.test/events", "secret", "receiver.example.test", False),
+        ("https://receiver.example.test/events", "secret", "", False),
+        ("https://receiver.example.test/events", "secret", "receiver.example.test.", False),
+        ("https://receiver.example.test/events", "bad token", "receiver.example.test", False),
+    ],
+)
+def test_receiver_configuration_hostname_boundary(endpoint, token, allowed_host, expected):
+    from app.outbox_relay import valid_receiver_configuration
+
+    assert valid_receiver_configuration(endpoint, token, allowed_host) is expected
+
+
 @pytest.mark.parametrize("configured_token", ["", "different-token", "secret "])
 def test_dispatch_rejects_unconfigured_bearer_token_before_db(monkeypatch, configured_token):
     def must_not_access_database():
