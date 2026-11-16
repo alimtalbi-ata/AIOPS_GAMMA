@@ -618,6 +618,33 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
             )
             async with factory() as session:
                 row = await session.get(OutboxEvent, exhausted_event.id)
+                row.attempts = 0
+                row.next_attempt_at = None
+                await session.commit()
+            # A transport timeout on the first attempt must be retryable.
+            # Verify persisted backoff and no immediate redelivery.
+            timeout_retry_calls = []
+
+            def retry_timeout_receiver(request):
+                timeout_retry_calls.append(request.headers["x-event-id"])
+                raise httpx.ReadTimeout("receiver timed out", request=request)
+
+            async with httpx.AsyncClient(transport=httpx.MockTransport(retry_timeout_receiver)) as downstream:
+                assert await outbox_relay.dispatch_once(
+                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
+                ) is True
+                assert await outbox_relay.dispatch_once(
+                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
+                ) is False
+            assert timeout_retry_calls == [str(exhausted_event.id)]
+            async with factory() as session:
+                row = await session.get(OutboxEvent, exhausted_event.id)
+                assert row.published_at is None
+                assert row.attempts == 1
+                assert row.next_attempt_at is not None
+                assert row.next_attempt_at > datetime.now(timezone.utc)
+                assert "timed out" in row.last_error
+                # Re-arm the disposable row for terminal timeout coverage.
                 row.attempts = outbox_relay.MAX_ATTEMPTS - 1
                 row.next_attempt_at = None
                 await session.commit()
