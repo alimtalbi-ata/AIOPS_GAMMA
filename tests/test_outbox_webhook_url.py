@@ -99,6 +99,7 @@ def test_rejects_malformed_bearer_token(token):
 
 
 def test_dispatch_rejects_invalid_destination_before_touching_database(monkeypatch):
+    monkeypatch.setenv("CORRELATION_WEBHOOK_ALLOWED_HOST", "receiver.example.test")
     def must_not_access_database():
         raise AssertionError("Unsafe endpoint reached the database")
 
@@ -237,3 +238,14 @@ def test_relay_main_requires_exact_receiver_host_allowlist(monkeypatch, allowed_
     monkeypatch.setattr(outbox_relay.httpx, "AsyncClient", must_not_construct_client)
     with pytest.raises(RuntimeError, match="CORRELATION_WEBHOOK_ALLOWED_HOST"):
         asyncio.run(outbox_relay.main())
+
+
+@pytest.mark.parametrize("allowed_host", ["", "other.example.test", "RECEIVER.EXAMPLE.TEST", "receiver.example.test."])
+def test_dispatch_rejects_missing_or_mismatched_receiver_allowlist_before_db(monkeypatch, allowed_host):
+    def must_not_access_database():
+        raise AssertionError("Receiver allowlist mismatch reached the database")
+
+    monkeypatch.setenv("CORRELATION_WEBHOOK_ALLOWED_HOST", allowed_host)
+    monkeypatch.setattr("app.outbox_relay.get_session_factory", must_not_access_database)
+    with pytest.raises(ValueError, match="Invalid HTTPS outbox receiver"):
+        asyncio.run(dispatch_once(None, "https://receiver.example.test/events", "secret"))
