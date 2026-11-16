@@ -326,3 +326,27 @@ def test_dispatch_rejects_configuration_drift_before_db(monkeypatch, configured_
     monkeypatch.setattr("app.outbox_relay.get_session_factory", must_not_access_database)
     with pytest.raises(ValueError, match="Invalid HTTPS outbox receiver"):
         asyncio.run(dispatch_once(None, "https://receiver.example.test/events", "secret"))
+
+
+@pytest.mark.parametrize(
+    ("status", "permanent"),
+    [(400, True), (401, True), (403, True), (404, True), (408, False),
+     (409, True), (422, True), (429, False), (499, True),
+     (500, False), (503, False), (302, False)],
+)
+def test_receiver_http_rejection_retry_policy(status, permanent):
+    import httpx
+    from app.outbox_relay import permanent_receiver_rejection
+
+    request = httpx.Request("POST", "https://receiver.example.test/events")
+    response = httpx.Response(status, request=request)
+    error = httpx.HTTPStatusError("receiver rejected", request=request, response=response)
+    assert permanent_receiver_rejection(error) is permanent
+
+
+def test_transport_errors_remain_retryable():
+    import httpx
+    from app.outbox_relay import permanent_receiver_rejection
+
+    request = httpx.Request("POST", "https://receiver.example.test/events")
+    assert permanent_receiver_rejection(httpx.ReadTimeout("timed out", request=request)) is False
