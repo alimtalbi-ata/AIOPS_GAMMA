@@ -411,3 +411,19 @@ def test_http_date_retry_after_is_bounded(status, retry_after, expected_seconds)
     error = httpx.HTTPStatusError("receiver rejected", request=request, response=response)
     now = datetime(2025, 1, 1, tzinfo=timezone.utc)
     assert receiver_retry_delay(error, 1, now=now).total_seconds() == expected_seconds
+
+
+@pytest.mark.parametrize("status", [425, 429, 503])
+def test_duplicate_retry_after_headers_fall_back_to_local_backoff(status):
+    import httpx
+    from app.outbox_relay import receiver_retry_delay
+
+    request = httpx.Request("POST", "https://receiver.example.test/events")
+    response = httpx.Response(
+        status,
+        headers=[("Retry-After", "120"), ("Retry-After", "240")],
+        request=request,
+    )
+    assert response.headers.get_list("retry-after") == ["120", "240"]
+    error = httpx.HTTPStatusError("receiver rejected", request=request, response=response)
+    assert receiver_retry_delay(error, 1).total_seconds() == 2
