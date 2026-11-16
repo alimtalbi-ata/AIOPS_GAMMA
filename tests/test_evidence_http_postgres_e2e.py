@@ -784,7 +784,34 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
                 assert row.attempts == outbox_relay.MAX_ATTEMPTS
                 assert row.next_attempt_at is None
                 assert "401" in row.last_error
-                # Re-arm the disposable row to exercise HTTP 503 exhaustion too.
+                # Re-arm the disposable row to exercise HTTP 503 Retry-After
+                # persistence before exhausting its budget.
+                row.attempts = 0
+                row.next_attempt_at = None
+                await session.commit()
+            unavailable_calls = []
+
+            def unavailable_receiver(request):
+                unavailable_calls.append(request.headers["x-event-id"])
+                return httpx.Response(503, headers={"Retry-After": "120"})
+
+            async with httpx.AsyncClient(transport=httpx.MockTransport(unavailable_receiver)) as downstream:
+                assert await outbox_relay.dispatch_once(
+                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
+                ) is True
+                assert await outbox_relay.dispatch_once(
+                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
+                ) is False
+            assert unavailable_calls == [str(exhausted_event.id)]
+            async with factory() as session:
+                row = await session.get(OutboxEvent, exhausted_event.id)
+                assert row.published_at is None
+                assert row.attempts == 1
+                assert row.next_attempt_at is not None
+                remaining = (row.next_attempt_at - datetime.now(timezone.utc)).total_seconds()
+                assert 110 <= remaining <= 120
+                assert "503" in row.last_error
+                # Re-arm only this disposable row for HTTP 503 exhaustion.
                 row.attempts = outbox_relay.MAX_ATTEMPTS - 1
                 row.next_attempt_at = None
                 await session.commit()
