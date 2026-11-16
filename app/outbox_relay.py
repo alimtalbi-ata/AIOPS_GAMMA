@@ -49,6 +49,15 @@ def valid_receiver_configuration(endpoint: str, token: str, allowed_host: str) -
     )
 
 
+def permanent_receiver_rejection(exc: Exception) -> bool:
+    """Do not retry 4xx except timeout (408) and rate limiting (429)."""
+    return (
+        isinstance(exc, httpx.HTTPStatusError)
+        and 400 <= exc.response.status_code < 500
+        and exc.response.status_code not in (408, 429)
+    )
+
+
 async def dispatch_once(client: httpx.AsyncClient, endpoint: str, token: str) -> bool:
     # Enforce the destination boundary even when called outside main().
     # Never query or claim an outbox row for an unsafe receiver.
@@ -108,11 +117,7 @@ async def dispatch_once(client: httpx.AsyncClient, endpoint: str, token: str) ->
                 # A permanent client error is not recoverable by replaying
                 # the same payload. Preserve the row for operator inspection.
                 # 408 and 429 remain transient and honor the retry budget.
-                permanent_rejection = (
-                    isinstance(exc, httpx.HTTPStatusError)
-                    and 400 <= exc.response.status_code < 500
-                    and exc.response.status_code not in (408, 429)
-                )
+                permanent_rejection = permanent_receiver_rejection(exc)
                 event.attempts = MAX_ATTEMPTS if permanent_rejection else event.attempts + 1
                 # Once the retry budget is exhausted, keep the event for
                 # operator inspection without advertising a future retry.
