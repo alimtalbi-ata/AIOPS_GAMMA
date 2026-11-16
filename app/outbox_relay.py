@@ -149,7 +149,11 @@ def valid_webhook_endpoint(endpoint: str) -> bool:
             pass
         else:
             return False
-        normalized_host = host.lower().rstrip(".")
+        # A trailing root dot is valid DNS but changes URL/TLS hostname
+        # canonicalization across clients. Require one unambiguous spelling.
+        if host.endswith("."):
+            return False
+        normalized_host = host.lower()
         # Require canonical DNS labels: reject empty labels, underscores and
         # non-DNS characters rather than relying on resolver-specific parsing.
         if len(normalized_host) > 253 or not normalized_host or any(
