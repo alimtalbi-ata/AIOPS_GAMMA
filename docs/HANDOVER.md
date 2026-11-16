@@ -1,3 +1,14 @@
+## Current checkpoint — 2026-11-16 (issue #2 contract gate)
+
+- Latest branch HEAD: `045117a628d6d9e4b711c38a0da7b26ce2bbb11a`; PR #1 remains draft/open and explicitly HOLD / NO_GO.
+- Latest recorded reruns at HEAD `7e8ecb99df47beba671d2b15207025d05d58cec5`: Python checks run `43959539317` (4/4 jobs failed) and Deployment contract run `43959539309` (6/6 failed). The jobs API exposed zero steps; direct log retrieval returned `BlobNotFound` 404. These runs predate the current documentation-only HEAD and are not test execution evidence for current HEAD. No further automatic rerun was made.
+- CI blocker evidence is recorded in `docs/CI-QUALIFICATION-BLOCKER.md`; root cause is unknown. A repository administrator must provide the redacted Actions pre-step failure annotation and verify runner/hosted-runner entitlement, runner groups, Actions policy, billing/usage, and approvals before a targeted rerun.
+- Handover directs next work to issue #2. Issue #2 remains open. Its acceptance criteria require an authenticated gateway-issued actor/tenant identity and authoritative actor→tenant→resource ACL, fixed internal upstream origins, no redirects, bounded timeout/body/schema, tenant allow/deny + malformed/unavailable/SSRF/secret-leak tests, and proof of no upstream mutation calls.
+- Gamma currently verifies a signed, short-lived, request-bound gateway assertion and fails closed when issuer/audience/secret are not configured. Signed service-log and incident-evidence grants are optional claims; absence denies access. This is a contract boundary only, **not evidence that the upstream gateway/IdP actually issues or enforces these claims**.
+- Searches of the connected `alimtalbi-ata/aiops` code index for gateway assertion, tenant ACL, GLPI and Twin read contracts returned no matching files. No authoritative upstream contract or owner confirmation is available in this session. Do not invent upstream URLs, issuer/audience, header names, tenant membership semantics, or resource grant formats. Keep canonical reads disabled until the gateway/IdP and service owners provide those contracts.
+- No upstream adapters were added: without trusted contract details, implementing them would risk SSRF, confused-deputy access, tenant leakage, or invented API semantics. Next action is owner-provided, redacted gateway/IdP assertion contract plus Core/Evidence/Twin/GLPI read endpoint and ACL specifications; then implement adapters as fixed-origin, read-only clients and qualify all issue #2 tests.
+- No pytest, PostgreSQL 16, IdP/gateway integration, OpenSearch DLS, staging or production runtime qualification is claimed. **HOLD / NO_GO.** No merge, deploy, LIVE reads, replay activation or mutation calls.
+
 # AIOPS_GAMMA — Handover / session recovery
 
 **Snapshot: 2026-11-12.** Read this first when taking over work, after a session interruption, or when changing developer/agent.
