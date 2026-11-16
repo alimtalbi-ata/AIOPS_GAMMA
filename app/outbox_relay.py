@@ -88,13 +88,14 @@ async def dispatch_once(client: httpx.AsyncClient, endpoint: str, token: str) ->
 
 def valid_webhook_endpoint(endpoint: str) -> bool:
     """Require an HTTPS host without URL-embedded credentials or query secrets."""
+    if not isinstance(endpoint, str) or not endpoint or endpoint != endpoint.strip():
+        return False
     try:
         url = httpx.URL(endpoint)
         port = url.port
         return (
             (port is None or 1 <= port <= 65535)
-            and 
-            url.scheme == "https"
+            and url.scheme == "https"
             and bool(url.host)
             and not url.username
             and not url.password
