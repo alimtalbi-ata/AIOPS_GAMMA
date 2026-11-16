@@ -495,6 +495,15 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
             pending_before_redirect = [row for row in final_outbox if row.published_at is None]
             assert len(pending_before_redirect) == 2
             drained_ids = {str(row.id) for row in pending_before_redirect}
+            # Force a timestamp tie to exercise the stable UUID tiebreaker.
+            # This protects ordering against identical database timestamp values.
+            tied_created_at = min(row.created_at for row in pending_before_redirect)
+            async with factory() as session:
+                for pending in pending_before_redirect:
+                    row = await session.get(OutboxEvent, pending.id)
+                    row.created_at = tied_created_at
+                await session.commit()
+            expected_drain_order = sorted(drained_ids)
             received_before_drain = len(received)
             async with httpx.AsyncClient(transport=httpx.MockTransport(receiver)) as downstream:
                 for _ in pending_before_redirect:
@@ -504,7 +513,7 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
                 assert await outbox_relay.dispatch_once(
                     downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
                 ) is False
-            assert {row["event_id"] for row in received[received_before_drain:]} == drained_ids
+            assert [row["event_id"] for row in received[received_before_drain:]] == expected_drain_order
             _, drained_outbox = await rows()
             assert all(row.published_at is not None for row in drained_outbox)
 
