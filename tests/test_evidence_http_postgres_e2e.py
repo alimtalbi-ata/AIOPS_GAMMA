@@ -197,6 +197,7 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
     """Real PG HTTP ingestion, tenant deduplication and locally mocked delivery."""
     monkeypatch.setenv("CORRELATION_WEBHOOK_ALLOWED_HOST", "receiver.example.test")
     monkeypatch.setenv("CORRELATION_WEBHOOK_URL", "https://receiver.example.test/events")
+    monkeypatch.setenv("CORRELATION_WEBHOOK_TOKEN", "ci-ephemeral-token")
     from app import outbox_relay
 
     factory, _ = database
