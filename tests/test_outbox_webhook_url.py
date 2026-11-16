@@ -350,3 +350,28 @@ def test_transport_errors_remain_retryable():
 
     request = httpx.Request("POST", "https://receiver.example.test/events")
     assert permanent_receiver_rejection(httpx.ReadTimeout("timed out", request=request)) is False
+
+
+@pytest.mark.parametrize(
+    ("status", "retry_after", "attempts", "expected_seconds"),
+    [
+        (429, "120", 1, 120),
+        (429, "0", 1, 2),
+        (429, "1", 4, 16),
+        (429, "999999", 1, 300),
+        (429, "invalid", 1, 2),
+        (429, "-1", 1, 2),
+        (429, "1.5", 1, 2),
+        (429, "9999999", 1, 2),
+        (429, "１２", 1, 2),
+        (503, "120", 1, 2),
+    ],
+)
+def test_bounded_http_429_retry_after(status, retry_after, attempts, expected_seconds):
+    import httpx
+    from app.outbox_relay import receiver_retry_delay
+
+    request = httpx.Request("POST", "https://receiver.example.test/events")
+    response = httpx.Response(status, headers={"Retry-After": retry_after}, request=request)
+    error = httpx.HTTPStatusError("receiver rejected", request=request, response=response)
+    assert receiver_retry_delay(error, attempts).total_seconds() == expected_seconds
