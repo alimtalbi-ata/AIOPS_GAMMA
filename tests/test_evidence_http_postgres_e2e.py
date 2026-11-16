@@ -734,6 +734,31 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
             assert timeout_calls == [str(exhausted_event.id)]
             async with factory() as session:
                 row = await session.get(OutboxEvent, exhausted_event.id)
+                # Re-arm the disposable row to prove permanent 401 rejection
+                # stops retries immediately, even with budget remaining.
+                row.attempts = 0
+                row.next_attempt_at = None
+                await session.commit()
+            unauthorized_calls = []
+
+            def unauthorized_receiver(request):
+                unauthorized_calls.append(request.headers["x-event-id"])
+                return httpx.Response(401, request=request)
+
+            async with httpx.AsyncClient(transport=httpx.MockTransport(unauthorized_receiver)) as downstream:
+                assert await outbox_relay.dispatch_once(
+                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
+                ) is True
+                assert await outbox_relay.dispatch_once(
+                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
+                ) is False
+            assert unauthorized_calls == [str(exhausted_event.id)]
+            async with factory() as session:
+                row = await session.get(OutboxEvent, exhausted_event.id)
+                assert row.published_at is None
+                assert row.attempts == outbox_relay.MAX_ATTEMPTS
+                assert row.next_attempt_at is None
+                assert "401" in row.last_error
                 # Re-arm the disposable row to exercise HTTP 503 exhaustion too.
                 row.attempts = outbox_relay.MAX_ATTEMPTS - 1
                 row.next_attempt_at = None
