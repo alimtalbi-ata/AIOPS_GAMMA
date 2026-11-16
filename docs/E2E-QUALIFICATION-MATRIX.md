@@ -68,6 +68,7 @@ Statut : **HOLD / NO_GO**. Cette matrice décrit les preuves requises, pas une c
 - `f2d7daf` : test de démarrage fail-closed du worker outbox ; URL HTTP, route encodée ou token malformé refusés avant instanciation du client HTTP ; exécution CI non attestée.
 - `da30cd1` / `68c4287` / `4d61d9d` / `f19504d` : refus des destinations webhook à adresse IP littérale (IPv4/IPv6, loopback, métadonnées cloud) et `localhost`, y compris sous-domaines terminés par un point DNS, avant accès DB ; les noms DNS restent soumis à une qualification réseau indépendante ; exécution CI non attestée.
 - `492d6f9` / `1262fd1` : politique stricte de route webhook sans percent-encoding, y compris double encodage `%252f` ; tests de refus avant accès DB ; exécution CI non attestée.
+- `e7e528a` / `835b539` : rejet des alias IPv4 numériques (`2130706433`, `0177.0.0.1`) avant accès DB ; exécution CI non attestée. Dernière vérification : Python checks `43940295530`, quatre jobs en échec sans étapes visibles.
 - **Preuve d'exécution** : aucune réussite PG/CI attestée sur ces commits. Les résultats du laboratoire précédent concernent des tests isolés/simulés ; ils ne remplacent pas une qualification de bout en bout.
 - **Limite architecturale importante** : le frontend est une démonstration synthétique qui bloque volontairement `/api` ; le parcours frontend → BFF réel n'est pas développé/qualifié. La sécurité ne doit pas être affaiblie pour produire artificiellement un test vert.
 
