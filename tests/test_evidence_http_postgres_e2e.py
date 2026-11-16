@@ -629,21 +629,30 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
                 timeout_retry_calls.append(request.headers["x-event-id"])
                 raise httpx.ReadTimeout("receiver timed out", request=request)
 
+            timeout_started_at = datetime.now(timezone.utc)
             async with httpx.AsyncClient(transport=httpx.MockTransport(retry_timeout_receiver)) as downstream:
                 assert await outbox_relay.dispatch_once(
                     downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
                 ) is True
-                assert await outbox_relay.dispatch_once(
-                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
-                ) is False
             assert timeout_retry_calls == [str(exhausted_event.id)]
             async with factory() as session:
                 row = await session.get(OutboxEvent, exhausted_event.id)
                 assert row.published_at is None
                 assert row.attempts == 1
                 assert row.next_attempt_at is not None
-                assert row.next_attempt_at > datetime.now(timezone.utc)
+                assert timeout_started_at < row.next_attempt_at
                 assert "timed out" in row.last_error
+                # Hold this disposable event beyond the test's wall-clock
+                # duration so a slow CI runner cannot cause a flaky retry.
+                row.next_attempt_at = datetime.now(timezone.utc) + outbox_relay.retry_delay(9)
+                await session.commit()
+            async with httpx.AsyncClient(transport=httpx.MockTransport(retry_timeout_receiver)) as downstream:
+                assert await outbox_relay.dispatch_once(
+                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
+                ) is False
+            assert timeout_retry_calls == [str(exhausted_event.id)]
+            async with factory() as session:
+                row = await session.get(OutboxEvent, exhausted_event.id)
                 # Re-arm the disposable row for terminal timeout coverage.
                 row.attempts = outbox_relay.MAX_ATTEMPTS - 1
                 row.next_attempt_at = None
