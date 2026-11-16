@@ -49,7 +49,7 @@ async def dispatch_once(client: httpx.AsyncClient, endpoint: str, token: str) ->
                     OutboxEvent.attempts < MAX_ATTEMPTS,
                     or_(OutboxEvent.next_attempt_at.is_(None), OutboxEvent.next_attempt_at <= now),
                 )
-                .order_by(OutboxEvent.created_at)
+                .order_by(OutboxEvent.created_at, OutboxEvent.id)
                 .limit(1)
                 .with_for_update(skip_locked=True)
             )
