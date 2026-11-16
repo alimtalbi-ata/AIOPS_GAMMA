@@ -157,3 +157,26 @@ def test_relay_main_disables_ambient_proxy_and_netrc(monkeypatch):
     assert seen["dispatch"][1:] == (
         "https://receiver.example.test/events", "ci-ephemeral-token"
     )
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "token"),
+    [
+        ("http://receiver.example.test/events", "ci-ephemeral-token"),
+        ("https://receiver.example.test/events%2fadmin", "ci-ephemeral-token"),
+        ("https://receiver.example.test/events", "invalid token"),
+    ],
+)
+def test_relay_main_rejects_configuration_before_constructing_http_client(
+    monkeypatch, endpoint, token
+):
+    from app import outbox_relay
+
+    def must_not_construct_client(*_args, **_kwargs):
+        raise AssertionError("Invalid relay configuration constructed an HTTP client")
+
+    monkeypatch.setenv("CORRELATION_WEBHOOK_URL", endpoint)
+    monkeypatch.setenv("CORRELATION_WEBHOOK_TOKEN", token)
+    monkeypatch.setattr(outbox_relay.httpx, "AsyncClient", must_not_construct_client)
+    with pytest.raises(RuntimeError, match="Set HTTPS CORRELATION_WEBHOOK_URL"):
+        asyncio.run(outbox_relay.main())
