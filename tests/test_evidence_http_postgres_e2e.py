@@ -556,13 +556,12 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
             _, after_redirect = await rows()
             pending_redirect = next(row for row in after_redirect if row.id == redirect_event.id)
             assert pending_redirect.published_at is None
-            assert pending_redirect.attempts == 1
-            assert pending_redirect.next_attempt_at is not None
+            assert pending_redirect.attempts == outbox_relay.MAX_ATTEMPTS
+            assert pending_redirect.next_attempt_at is None
             assert pending_redirect.last_error
 
-            # A deferred retry must not be delivered early, even if the
-            # receiver has recovered. This also proves the retry timestamp
-            # actually gates selection rather than merely recording metadata.
+            # A terminal redirect must not be replayed automatically even if
+            # the receiver later becomes healthy.
             early_retry_calls = []
 
             def early_retry_receiver(request):
@@ -579,13 +578,14 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
             _, deferred_rows = await rows()
             deferred_redirect = next(row for row in deferred_rows if row.id == redirect_event.id)
             assert deferred_redirect.published_at is None
-            assert deferred_redirect.attempts == 1
-            assert deferred_redirect.next_attempt_at is not None
+            assert deferred_redirect.attempts == outbox_relay.MAX_ATTEMPTS
+            assert deferred_redirect.next_attempt_at is None
 
-            # Once retry eligibility is restored, a real 2xx acknowledgement
-            # must publish the same event exactly once, with no stale retry.
+            # An explicit operator reset on this disposable row is required
+            # before a later 2xx acknowledgement may publish the event.
             async with factory() as session:
                 row = await session.get(OutboxEvent, redirect_event.id)
+                row.attempts = 0
                 row.next_attempt_at = None
                 await session.commit()
             received_before = len(received)
