@@ -339,6 +339,15 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
             assert {str(row.id) for row in inbox} == set(created)
             assert len(outbox) == len(inbox) == 2
             assert {row.tenant_id for row in outbox} == {tenant_a, tenant_b}
+            # Inbox/outbox must carry the same tenant-specific payload;
+            # matching row counts alone cannot detect cross-tenant leakage.
+            inbox_by_tenant = {row.tenant_id: row for row in inbox}
+            outbox_by_tenant = {row.tenant_id: row for row in outbox}
+            assert len(inbox_by_tenant) == len(outbox_by_tenant) == 2
+            for tenant in (tenant_a, tenant_b):
+                assert outbox_by_tenant[tenant].payload == inbox_by_tenant[tenant].payload
+                assert outbox_by_tenant[tenant].event_type == "observability.alert.firing"
+                assert outbox_by_tenant[tenant].aggregate_id == "checkout"
             assert {
                 row.tenant_id: row.payload["severity"] for row in inbox
             } == {tenant_a: "major", tenant_b: "critical"}
