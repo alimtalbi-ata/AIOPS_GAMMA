@@ -21,12 +21,11 @@ MAX_ATTEMPTS = 10
 
 
 def valid_webhook_token(token: str) -> bool:
-    """Reject empty, whitespace-only and control-character bearer credentials."""
+    """Require printable ASCII bearer credentials safe for HTTP headers."""
     return (
         isinstance(token, str)
         and bool(token)
-        and token == token.strip()
-        and not any(ord(char) < 0x20 or ord(char) == 0x7F for char in token)
+        and all(0x21 <= ord(char) <= 0x7E for char in token)
     )
 
 
