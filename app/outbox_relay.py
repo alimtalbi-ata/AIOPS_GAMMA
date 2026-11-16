@@ -140,7 +140,7 @@ def valid_webhook_endpoint(endpoint: str) -> bool:
         # including mixed dotted forms) may resolve to IPv4 even when
         # ipaddress rejects their non-canonical spelling.
         numeric_label = r"(?:[0-9]+|0[xX][0-9a-fA-F]+)"
-        if re.fullmatch(rf"{numeric_label}(?:\\.{numeric_label})*", normalized_host):
+        if re.fullmatch(rf"{numeric_label}(?:\.{numeric_label})*", normalized_host):
             return False
         return (
             (port is None or 1 <= port <= 65535)
