@@ -357,6 +357,8 @@ async def test_internal_principal_consumes_jti_before_access(monkeypatch):
     monkeypatch.setattr(settings, "internal_api_key", "service-key")
     token = _token(monkeypatch)
     calls = []
+    session = object()
+    monkeypatch.setattr(security, "get_session_factory", lambda: lambda: _ReplaySessionContext(session))
 
     async def consume(session, *, issuer, assertion_id, expires_at):
         calls.append((session, issuer, assertion_id, expires_at))
@@ -373,7 +375,6 @@ async def test_internal_principal_consumes_jti_before_access(monkeypatch):
         "query_string": b"", "server": ("test", 80),
         "client": ("127.0.0.1", 1234), "scheme": "http",
     }
-    session = object()
     principal = await security.internal_principal(
         Request(scope), "service-key", token
     )
@@ -388,6 +389,9 @@ async def test_internal_principal_rejects_replayed_jti(monkeypatch):
 
     monkeypatch.setattr(settings, "internal_api_key", "service-key")
     token = _token(monkeypatch)
+
+    session = object()
+    monkeypatch.setattr(security, "get_session_factory", lambda: lambda: _ReplaySessionContext(session))
 
     async def duplicate(*args, **kwargs):
         return False
@@ -417,6 +421,9 @@ async def test_internal_principal_fails_closed_when_replay_store_unavailable(mon
     monkeypatch.setattr(settings, "internal_api_key", "service-key")
     token = _token(monkeypatch)
 
+    session = object()
+    monkeypatch.setattr(security, "get_session_factory", lambda: lambda: _ReplaySessionContext(session))
+
     async def unavailable(*args, **kwargs):
         raise RuntimeError("database internals must not leak")
 
@@ -435,3 +442,14 @@ async def test_internal_principal_fails_closed_when_replay_store_unavailable(mon
         await security.internal_principal(Request(scope), "service-key", token, object())
     assert exc.value.status_code == 503
     assert exc.value.detail == "Gateway replay protection unavailable"
+
+
+class _ReplaySessionContext:
+    def __init__(self, session):
+        self.session = session
+
+    async def __aenter__(self):
+        return self.session
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
