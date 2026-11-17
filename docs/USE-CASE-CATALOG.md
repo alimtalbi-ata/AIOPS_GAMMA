@@ -19,6 +19,26 @@ Ce catalogue reprend **les identifiants UC01–UC10 déjà définis dans [ROADMA
 | UC09 | Récupération contrôlée et vérification | Core/Temporal existant identifié comme **intégration cible** ; simulations de planification uniquement | **NO_GO LIVE** : Policy/HITL, fencing, rollback, vérification SLI et réconciliation non qualifiés |
 | UC10 | Postmortem et apprentissage | `app/reused/synthetic_postmortem.py`, `tests/test_synthetic_postmortem_usecase.py`, `tests/test_synthetic_end_to_end_usecase.py` | Brouillon **synthétique** avec UNKNOWN et revue humaine requise ; aucune clôture ni leçon canonique persistée |
 
+## Fil rouge produit — autonomie opérationnelle mesurable
+
+**Objectif final :** transformer un incident réel en une résolution **autonome, traçable et vérifiée**, sans confondre autonomie de diagnostic et permission d'agir. La plateforme doit détecter une dégradation, corréler les signaux, identifier le service et les dépendances, établir une RCA étayée, choisir un runbook approuvé, obtenir la décision Policy/HITL requise, déléguer l'exécution au Core/Temporal, contrôler le rétablissement des SLI et réconcilier l'incident ITSM.
+
+**Scénario de référence unique à qualifier en premier :** latence anormale du service *checkout* (exemple synthétique, pas un incident client). Le flux traverse UC02 → UC04 → UC03/UC06 → UC05 → UC08 → UC09 → UC10. L'agent ne doit pas inventer la cause racine : si les traces, la topologie ou les droits sont incomplets, il produit **UNKNOWN** et s'arrête avant toute action.
+
+| Niveau | Capacité métier vérifiable | Preuve exigée | État sur PR #1 |
+| --- | --- | --- | --- |
+| A0 — démonstration | Corrélation → impact → RCA UNKNOWN → proposition ITSM → postmortem | Test synthétique de bout en bout, invariants sans écriture | **Implémenté comme test source** ; exécution CI du HEAD non prouvée |
+| A1 — observation réelle | Signaux horodatés et tenant-isolés, incident canonique lié, CMDB et GLPI en lecture seule | Contrats IdP/ACL et tests inter-tenant, provenance, fraîcheur, replay, staging | **Non qualifié** (#2, #3, #4, #8) |
+| A2 — diagnostic autonome | Investigation multi-étapes en shadow mode, hypothèses contradictoires et citations vérifiables | Jeu de pannes adjudiqué, exactitude RCA, abstention UNKNOWN, coût/latence, attaques par injection | **Non livré** (#5) |
+| A3 — décision autonome encadrée | Proposition de remédiation tirée d'un catalogue versionné, évaluation Policy et HITL selon risque | Tests de refus, approbation indépendante, expiration/anti-rejeu, dry-run et rollback | **Non qualifié** (#6) |
+| A4 — résolution autonome contrôlée | Exécution idempotente, contrôle SLI post-action, rollback, ITSM et audit | Staging avec injection de panne, fencing, comparaison avant/après, arrêt sûr, revue et autorisation distincte | **Interdit en LIVE** (#6) |
+
+**Mesures de réussite à instrumenter, sans inventer de seuils :** MTTD, temps de corrélation, taux de doublons, couverture/fraîcheur des preuves, précision RCA sur vérité terrain, taux d'abstention correct, temps jusqu'à proposition, taux de refus Policy, taux de remédiation réussie *et vérifiée*, taux de rollback, MTTR, erreurs inter-tenant et coût par investigation. Les objectifs numériques doivent être approuvés par l'exploitant sur une baseline staging avant d'ouvrir A2–A4.
+
+**Critère d'acceptation du scénario :** un test E2E doit suivre le **même identifiant d'incident et le même tenant** d'une étape à l'autre, démontrer les décisions et preuves horodatées, vérifier les échecs sûrs (source absente, cause ambiguë, ACL refusée, approbation manquante, action en échec, SLI non rétabli) et prouver qu'aucune sortie de preview, de modèle ou d'UI ne vaut autorisation d'exécuter. Le test synthétique existant `tests/test_synthetic_end_to_end_usecase.py` couvre une partie d'A0, **pas** l'autonomie A2–A4.
+
+**Priorisation :** la prochaine valeur produit après déblocage P0/P1 est un parcours **shadow** complet sur un seul service et une seule source d'alertes, avant multiplication des intégrations ou ajout d'agents. Une nouvelle protection statique n'est prioritaire que si elle débloque ou sécurise ce parcours.
+
 ## Parcours de bout en bout
 
 1. **UC01–UC02** — présenter des signaux étiquetés DEMO/REAL et les regrouper sans écrire dans le Core.
