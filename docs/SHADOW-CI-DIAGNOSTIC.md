@@ -44,3 +44,7 @@ Le run RCA isolé 44182434119 était `in_progress` lors du contrôle, tandis que
 ## Observation du run RCA 44182552803
 
 Le job `shadow-contracts` (134390419769) est `completed/failure`, avec `logs_url=null`, `steps=null` et une réponse `steps=[]` à la consultation détaillée. Les workflows Python (44182552687) et Deployment (44182552818) ont aussi conclu `failure`. Il n'existe donc toujours aucune trace exploitable permettant d'attribuer ces échecs aux assertions du benchmark. La branche conserve la politique `HOLD / NO_GO LIVE`.
+
+## Limitation du bruit CI
+
+Le workflow `Shadow RCA isolated checks` applique désormais `concurrency.cancel-in-progress: true` par PR ou référence Git. Les exécutions obsolètes peuvent être annulées lors de nouveaux commits. Cette optimisation n'est pas une réparation des jobs sans étapes et ne modifie pas les contrôles Python ou Deployment. Les runs du commit `828846f` (44182658999 Python, 44182659261 RCA, 44182658986 Deployment) ont tous conclu `failure`.
