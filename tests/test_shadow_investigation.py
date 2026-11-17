@@ -13,7 +13,7 @@ H = (Hypothesis("database", "Database saturation"), Hypothesis("network", "Netwo
 
 
 def evidence(ref, hypothesis="database", stance="supports", **overrides):
-    return replace(Evidence(ref, "tenant-a", "inc-1", hypothesis, stance, NOW, True), **overrides)
+    return replace(Evidence(ref, "tenant-a", "inc-1", hypothesis, stance, NOW, True, ref), **overrides)
 
 
 def request(*items, **overrides):
@@ -76,3 +76,33 @@ def test_missing_evidence_abstains():
 def test_invalid_inputs_fail_closed(items, overrides):
     with pytest.raises(ValueError):
         investigate_shadow(request(*items, **overrides))
+
+
+def test_duplicate_source_identity_does_not_count_twice():
+    result = investigate_shadow(request(
+        evidence("metric", source_id="otel"),
+        evidence("trace", source_id="otel"),
+    ))
+    assert result["state"] == "ABSTAIN"
+    assert "INSUFFICIENT_SUPPORT" in result["hypotheses"][0]["reasons"]
+    assert result["hypotheses"][0]["supporting_source_ids"] == ("otel",)
+
+
+def test_missing_source_identity_abstains():
+    result = investigate_shadow(request(
+        evidence("metric", source_id=""),
+        evidence("trace", source_id="trace"),
+    ))
+    assert result["state"] == "ABSTAIN"
+    assert ("metric", "MISSING_SOURCE_ID") in result["rejected_evidence"]
+
+
+def test_source_ids_are_synthetic_not_execution_authority():
+    result = investigate_shadow(request(
+        evidence("metric", source_id="metrics"),
+        evidence("trace", source_id="traces"),
+    ))
+    assert result["state"] == "REVIEW_CANDIDATE"
+    assert result["hypotheses"][0]["supporting_source_ids"] == ("metrics", "traces")
+    assert result["authoritative"] is False
+    assert result["live_execution_authorized"] is False
