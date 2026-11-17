@@ -4,7 +4,6 @@ from functools import lru_cache
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.settings import settings
-from app.security import Principal
 
 
 @lru_cache(maxsize=1)
@@ -18,7 +17,7 @@ async def get_session():
         yield session
 
 
-async def get_tenant_session(principal: Principal):
+async def get_tenant_session(principal):
     """Yield a session with transaction-local PostgreSQL RLS tenant context.
 
     The tenant value comes only from the verified Gateway Principal. SET LOCAL
