@@ -63,9 +63,9 @@ async def test_binding_read_query_is_tenant_scoped():
     tenant_a = uuid4()
     session = FakeSession()
     await list_bindings(principal(tenant_a), session)
-    compiled = str(session.statement.compile(compile_kwargs={"literal_binds": True}))
-    assert "telemetry_service_bindings.tenant_id" in compiled
-    assert str(tenant_a) in compiled
+    compiled = session.statement.compile()
+    assert "telemetry_service_bindings.tenant_id" in str(compiled)
+    assert tenant_a in compiled.params.values()
 
 
 @pytest.mark.asyncio
@@ -73,11 +73,11 @@ async def test_evidence_read_query_scopes_both_tenant_and_granted_incident():
     tenant_a = uuid4()
     session = FakeSession()
     await list_evidence("INC-42", principal(tenant_a), session)
-    compiled = str(session.statement.compile(compile_kwargs={"literal_binds": True}))
-    assert "investigation_evidence.tenant_id" in compiled
-    assert "investigation_evidence.incident_id" in compiled
-    assert str(tenant_a) in compiled
-    assert "INC-42" in compiled
+    compiled = session.statement.compile()
+    assert "investigation_evidence.tenant_id" in str(compiled)
+    assert "investigation_evidence.incident_id" in str(compiled)
+    assert tenant_a in compiled.params.values()
+    assert "INC-42" in compiled.params.values()
 
 
 @pytest.mark.asyncio
