@@ -15,6 +15,7 @@ from app.reused.itil import IncidentAssessment
 from app.reused.itsm_contract import IncidentSyncPreview, PriorityMatrix, PriorityRule, plan_incident_sync
 from app.reused.shadow_autonomy import assess_shadow_autonomy
 from app.reused.shadow_runbook import RunbookCandidate, plan_shadow_runbook
+from app.reused.synthetic_recovery import assess_synthetic_recovery
 from app.reused.synthetic_postmortem import PostmortemDraftRequest, TimelineEvent, draft_postmortem, render_postmortem_markdown
 
 TENANT = UUID("11111111-1111-4111-8111-111111111111")
@@ -111,6 +112,17 @@ def test_synthetic_incident_journey_preserves_all_authority_boundaries():
     assert runbook.runbook_id is None
     assert runbook.verification_state == "NOT_MEASURED"
     assert runbook.live_execution_authorized is False
+
+    # UC09: no remediation has happened, so there are no legitimate
+    # before/after observations. Recovery and rollback both stay unverified.
+    recovery = assess_synthetic_recovery(
+        before=None, after=None, max_acceptable_value=250.0,
+    )
+    assert recovery.state == "UNKNOWN"
+    assert "MISSING_MEASUREMENT" in recovery.reasons
+    assert recovery.rollback_proposal == "HUMAN_REVIEW_REQUIRED"
+    assert recovery.rollback_executed is False
+    assert recovery.live_execution_authorized is False
 
     levels = ("high", "medium", "low")
     proposal = plan_incident_sync(
