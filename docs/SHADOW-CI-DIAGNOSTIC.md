@@ -24,3 +24,9 @@ Déclenchement manuel possible (`workflow_dispatch`) et sur PR lorsque les chemi
 Le run 44181341370 du workflow isolé s'est terminé en `failure`, avec un job `shadow-contracts` dont la liste d'étapes est vide. Les runs 44181341372 (`Python checks`) et 44181341464 (`Deployment contract`) sont également en échec. Cela ne constitue pas une preuve d'échec des tests applicatifs.
 
 Un script Python sans dépendance tierce (`scripts/check_shadow_rca_stdlib.py`) permet désormais de vérifier localement des invariants de décision, refus de tenant, source dupliquée, contradiction, fraîcheur, empreinte et métriques du benchmark. Commande depuis la racine : `python scripts/check_shadow_rca_stdlib.py`. Le workflow isolé exécute ce smoke test **avant** l'installation de pytest. Ce script est une qualification partielle, pas un substitut à la suite complète. Aucun résultat d'exécution de ce script n'est revendiqué dans cette livraison.
+
+## Observation suivante et tests de sécurité
+
+Sur le commit `172b781`, les workflows `Shadow RCA isolated checks` (run 44181517610), `Python checks` (44181517584) et `Deployment contract` (44181517542) ont tous conclu `failure`. La qualification de l'exécution effective reste non établie.
+
+Le benchmark de snapshots rejette maintenant les rapports qui annoncent `authoritative`, `live_execution_authorized`, `connectors_invoked`, `tools_invoked` ou `itsm_mutations_performed` comme vrais, ainsi que les états RCA incohérents. Des tests injectent des rapports volontairement falsifiés pour vérifier cette abstention par erreur explicite. Ces tests ne sont pas déclarés réussis tant qu'une exécution n'est pas attestée.
