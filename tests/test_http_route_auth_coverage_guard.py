@@ -36,6 +36,7 @@ EXPECTED_ROUTES = {
     ("POST", "/api/v1/itil4/incidents/sync-preview"),
     ("GET", "/api/v1/itil4/glpi/incidents/{ticket_id}/snapshot"),
     ("POST", "/api/v1/observability/llm/kpis/preview"),
+    ("POST", "/api/v1/observability/llm/slo/preview"),
     ("POST", "/api/v1/incidents/investigation/preview"),
     ("POST", "/api/v1/incidents/evidence/preview"),
     ("POST", "/api/v1/incidents/correlation-evidence/preview"),
