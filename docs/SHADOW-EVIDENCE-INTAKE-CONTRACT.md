@@ -41,3 +41,7 @@ Le benchmark refuse désormais toute cause attendue qui n'appartient pas au cata
 ## Référence d'intégrité facultative
 
 `SnapshotRequest.expected_fingerprint_sha256` accepte `None` (mode historique) ou une empreinte SHA-256 hexadécimale minuscule de 64 caractères. Après les contrôles d'identité, de grant déclaré et de fraîcheur, l'ingestion recalcule l'empreinte des métadonnées et rejette une différence par `ValueError("Snapshot fingerprint mismatch")`. Une empreinte malformée est également rejetée. La comparaison ne porte **pas** sur le contenu brut des preuves et ne vérifie pas l'auteur de la référence ; un attaquant contrôlant simultanément l'instantané et son empreinte peut les modifier ensemble. Aucun accès LIVE n'est accordé.
+
+## Cohérence temporelle de la capture
+
+L'ingestion rejette désormais toute preuve dont `observed_at` est strictement postérieur à `snapshot.captured_at`, même si elle se situe avant `as_of`. Les comparaisons utilisent les instants des `datetime` avec fuseau horaire, pas les chaînes d'affichage. Cette règle interdit de qualifier un instantané qui prétend contenir une observation encore inexistante au moment de sa capture. Elle ne constitue ni une horloge de confiance, ni une attestation de collecte réelle.
