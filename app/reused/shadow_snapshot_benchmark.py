@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.reused.shadow_evidence_intake import SnapshotRequest, investigate_snapshot
+from app.reused.shadow_investigation import Hypothesis
 
 
 @dataclass(frozen=True)
@@ -32,6 +33,9 @@ def evaluate_snapshot_benchmark(cases: tuple[SnapshotBenchmarkCase, ...]) -> dic
                          or not case.expected_hypothesis_id.strip()))):
             raise ValueError("Invalid snapshot benchmark case")
         seen.add(case.case_id)
+        if (type(case.request.hypotheses) is not tuple
+                or any(type(h) is not Hypothesis for h in case.request.hypotheses)):
+            raise ValueError("Invalid benchmark hypotheses")
         if (case.expected_hypothesis_id is not None
                 and case.expected_hypothesis_id not in {
                     h.hypothesis_id for h in case.request.hypotheses
