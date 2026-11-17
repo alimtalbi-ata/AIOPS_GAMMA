@@ -65,6 +65,10 @@ def evaluate_snapshot_benchmark(cases: tuple[SnapshotBenchmarkCase, ...]) -> dic
                         "tools_invoked", "itsm_mutations_performed"))):
                 raise ValueError("Unsafe snapshot investigation report")
             selected = investigation["selected_hypothesis_id"]
+            if (selected is not None
+                    and (type(selected) is not str
+                         or selected not in {h.hypothesis_id for h in case.request.hypotheses})):
+                raise ValueError("Unknown selected RCA hypothesis")
             if ((investigation.get("state") == "ABSTAIN" and selected is not None)
                     or (investigation.get("state") == "REVIEW_CANDIDATE"
                         and (type(selected) is not str or not selected.strip()))
