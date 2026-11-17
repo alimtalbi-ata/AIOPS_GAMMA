@@ -179,3 +179,78 @@ def _cleanup_execute(session, *, rowcount):
         session.params = params
         return _Result(rowcount=rowcount)
     return execute
+
+
+@pytest.mark.asyncio
+async def test_postgres_cleanup_preserves_live_rows_and_respects_batch_limit():
+    database_url = os.getenv("GAMMA_TEST_DATABASE_URL", "")
+    if not database_url:
+        pytest.skip("GAMMA_TEST_DATABASE_URL not configured; disposable PostgreSQL required")
+
+    from datetime import datetime, timedelta, timezone
+    import hashlib
+
+    engine = create_async_engine(database_url, pool_size=3, max_overflow=0)
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    prefix = "gamma-cleanup-integration"
+    rows = {
+        "expired-1": hashlib.sha256((prefix + "\\x00expired-1").encode()).hexdigest(),
+        "expired-2": hashlib.sha256((prefix + "\\x00expired-2").encode()).hexdigest(),
+        "expired-3": hashlib.sha256((prefix + "\\x00expired-3").encode()).hexdigest(),
+        "still-live": hashlib.sha256((prefix + "\\x00still-live").encode()).hexdigest(),
+    }
+    try:
+        async with engine.begin() as connection:
+            exists = await connection.scalar(text(
+                "SELECT to_regclass('public.gateway_assertion_replay') IS NOT NULL"
+            ))
+            if not exists:
+                pytest.fail("Apply Alembic migration 0002 to the disposable database first")
+            await connection.execute(
+                text("DELETE FROM gateway_assertion_replay WHERE assertion_digest IN :digests")
+                .bindparams(__import__("sqlalchemy").bindparam("digests", expanding=True)),
+                {"digests": list(rows.values())},
+            )
+            await connection.execute(
+                text("""
+                    INSERT INTO gateway_assertion_replay (assertion_digest, expires_at)
+                    VALUES
+                    (:e1, NOW() - INTERVAL '10 minutes'),
+                    (:e2, NOW() - INTERVAL '9 minutes'),
+                    (:e3, NOW() - INTERVAL '8 minutes'),
+                    (:live, NOW() + INTERVAL '10 minutes')
+                """),
+                {"e1": rows["expired-1"], "e2": rows["expired-2"],
+                 "e3": rows["expired-3"], "live": rows["still-live"]},
+            )
+
+        async with factory() as session:
+            deleted = await purge_expired_assertions(session, batch_size=2, grace_seconds=120)
+        assert deleted == 2
+
+        async with engine.connect() as connection:
+            remaining = set((await connection.execute(
+                text("SELECT assertion_digest FROM gateway_assertion_replay WHERE assertion_digest IN :digests")
+                .bindparams(__import__("sqlalchemy").bindparam("digests", expanding=True)),
+                {"digests": list(rows.values())},
+            )).scalars().all())
+        assert rows["still-live"] in remaining
+        assert len(remaining.intersection({rows["expired-1"], rows["expired-2"], rows["expired-3"]})) == 1
+
+        async with factory() as session:
+            deleted_second_batch = await purge_expired_assertions(session, batch_size=2, grace_seconds=120)
+        assert deleted_second_batch == 1
+        async with engine.connect() as connection:
+            live_count = await connection.scalar(
+                text("SELECT count(*) FROM gateway_assertion_replay WHERE assertion_digest=:digest"),
+                {"digest": rows["still-live"]},
+            )
+        assert live_count == 1
+    finally:
+        async with engine.begin() as connection:
+            await connection.execute(
+                text("DELETE FROM gateway_assertion_replay WHERE assertion_digest IN :digests")
+                .bindparams(__import__("sqlalchemy").bindparam("digests", expanding=True)),
+                {"digests": list(rows.values())},
+            )
+        await engine.dispose()
