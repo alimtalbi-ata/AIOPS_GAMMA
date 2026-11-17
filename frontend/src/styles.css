@@ -278,3 +278,11 @@ td code,.drawer code{color:#b4a2ff}
 .integration-next ol{margin:10px 0 0;padding-left:19px;color:#a6aec7;font-size:10px;line-height:1.9}
 @media(max-width:850px){.integration-cards{grid-template-columns:1fr}.integration-cards article>p{min-height:0}}
 @media(max-width:600px){.integration-readiness{padding:15px}.integration-heading{flex-direction:column}}
+
+
+/* UX7 — gateway release gates */
+.integration-gates{display:flex;flex-direction:column;gap:9px;margin-top:12px;padding:14px 16px;border:1px solid #383a57;border-radius:9px;background:#121629}
+.integration-gates>strong{font-size:11px;color:#e6e5f5;margin-bottom:2px}
+.integration-gates>div{display:flex;align-items:flex-start;gap:10px;padding-top:8px;border-top:1px solid #292d46}
+.integration-gates .tag{flex:0 0 auto;font-size:8px;padding:4px 6px}
+.integration-gates span:last-child{font-size:10px;line-height:1.5;color:#a5aec8}
