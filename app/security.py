@@ -16,8 +16,11 @@ import unicodedata
 from dataclasses import dataclass
 from uuid import UUID
 
-from fastapi import Header, HTTPException, Request
+from fastapi import Depends, Header, HTTPException, Request
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db import get_session
+from app.gateway_replay import consume_assertion_before_access
 from app.settings import settings
 
 
@@ -158,10 +161,11 @@ def verify_gateway_assertion(token: str, *, method: str, path: str, now: int | N
         raise HTTPException(status_code=401, detail="Invalid gateway principal assertion") from exc
 
 
-def internal_principal(
+async def internal_principal(
     request: Request,
     x_internal_api_key: str | None = Header(default=None),
     x_gateway_principal: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
 ) -> Principal:
     # Reject ambiguous duplicate security headers before trusting FastAPI's
     # single Header value. Proxies and ASGI servers can disagree on which wins.
@@ -181,6 +185,21 @@ def internal_principal(
         raise HTTPException(status_code=401, detail="Unauthorized")
     if not x_gateway_principal:
         raise HTTPException(status_code=401, detail="Verified gateway principal required")
-    return verify_gateway_assertion(
+    principal = verify_gateway_assertion(
         x_gateway_principal, method=request.method, path=request.url.path
     )
+    # Reserve the signed issuer/JTI atomically in shared PostgreSQL state and
+    # COMMIT before any protected route handler can run. Never use process-local
+    # memory: multiple workers must observe the same one-time assertion.
+    try:
+        consumed = await consume_assertion_before_access(
+            session, issuer=settings.gateway_assertion_issuer,
+            assertion_id=principal.assertion_id, expires_at=principal.expires_at,
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503, detail="Gateway replay protection unavailable"
+        ) from exc
+    if not consumed:
+        raise HTTPException(status_code=401, detail="Gateway assertion already used")
+    return principal
