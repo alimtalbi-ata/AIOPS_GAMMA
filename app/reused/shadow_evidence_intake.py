@@ -87,6 +87,16 @@ def investigate_snapshot(req: SnapshotRequest) -> dict:
         raise ValueError("Snapshot outside freshness window")
     if type(snapshot.evidence) is not tuple or type(req.hypotheses) is not tuple:
         raise ValueError("Invalid snapshot collections")
+    # A captured snapshot cannot contain observations from its own future.
+    # Validate temporal coherence before evaluating or fingerprinting evidence.
+    for item in snapshot.evidence:
+        if (type(item) is not Evidence
+                or type(item.observed_at) is not datetime
+                or item.observed_at.tzinfo is None
+                or item.observed_at.utcoffset() is None):
+            raise ValueError("Invalid snapshot evidence timestamp")
+        if item.observed_at > snapshot.captured_at:
+            raise ValueError("Evidence newer than snapshot capture")
     fingerprint = snapshot_fingerprint(snapshot)
     expected = req.expected_fingerprint_sha256
     if expected is not None:
