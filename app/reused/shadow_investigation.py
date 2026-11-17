@@ -18,6 +18,7 @@ class Evidence:
     stance: str  # supports | contradicts
     observed_at: datetime
     source_verified: bool = False
+    source_id: str = ""  # synthetic source identity, not authenticated provenance
 
 
 @dataclass(frozen=True)
@@ -62,7 +63,7 @@ def investigate_shadow(req: InvestigationInput) -> dict:
             raise ValueError("Invalid or duplicate hypothesis")
         ids.add(hypothesis.hypothesis_id)
     seen_refs = set()
-    grouped = {key: {"supports": [], "contradicts": []} for key in ids}
+    grouped = {key: {"supports": [], "contradicts": [], "sources": set()} for key in ids}
     rejected = []
     for item in req.evidence:
         if (type(item) is not Evidence or type(item.ref) is not str
@@ -72,6 +73,7 @@ def investigate_shadow(req: InvestigationInput) -> dict:
                 or type(item.stance) is not str
                 or item.stance not in ("supports", "contradicts")
                 or type(item.source_verified) is not bool
+                or type(item.source_id) is not str
                 or type(item.observed_at) is not datetime
                 or item.observed_at.tzinfo is None
                 or item.observed_at.utcoffset() is None):
@@ -81,18 +83,22 @@ def investigate_shadow(req: InvestigationInput) -> dict:
             rejected.append((item.ref, "IDENTITY_MISMATCH"))
         elif item.hypothesis_id not in ids:
             rejected.append((item.ref, "UNKNOWN_HYPOTHESIS"))
+        elif not item.source_id.strip():
+            rejected.append((item.ref, "MISSING_SOURCE_ID"))
         elif not item.source_verified:
             rejected.append((item.ref, "UNVERIFIED_SOURCE"))
         elif not 0 <= (req.as_of - item.observed_at).total_seconds() <= req.max_age_seconds:
             rejected.append((item.ref, "OUT_OF_WINDOW"))
         else:
             grouped[item.hypothesis_id][item.stance].append(item.ref)
+            if item.stance == "supports":
+                grouped[item.hypothesis_id]["sources"].add(item.source_id)
     evaluations = []
     candidates = []
     for hypothesis in req.hypotheses:
         refs = grouped[hypothesis.hypothesis_id]
         reasons = []
-        if len(refs["supports"]) < req.min_independent_sources:
+        if len(refs["sources"]) < req.min_independent_sources:
             reasons.append("INSUFFICIENT_SUPPORT")
         if refs["contradicts"]:
             reasons.append("CONTRADICTORY_EVIDENCE")
@@ -103,6 +109,7 @@ def investigate_shadow(req: InvestigationInput) -> dict:
             "hypothesis_id": hypothesis.hypothesis_id,
             "status": status,
             "supporting_refs": tuple(sorted(refs["supports"])),
+            "supporting_source_ids": tuple(sorted(refs["sources"])),
             "contradicting_refs": tuple(sorted(refs["contradicts"])),
             "reasons": tuple(reasons),
         })
