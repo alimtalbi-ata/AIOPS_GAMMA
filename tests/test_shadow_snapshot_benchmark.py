@@ -214,3 +214,14 @@ def test_forged_selected_cause_not_in_hypotheses_is_rejected(monkeypatch, select
         evaluate_snapshot_benchmark((
             SnapshotBenchmarkCase("forged-selection", request(), "db"),
         ))
+
+
+@pytest.mark.parametrize("identifier", [
+    None, [], 17, " db ", "",
+])
+def test_benchmark_rejects_malformed_hypothesis_identifier(identifier):
+    req = replace(request(), hypotheses=(Hypothesis(identifier, "Malformed"),))
+    with pytest.raises(ValueError, match="Invalid benchmark hypotheses"):
+        evaluate_snapshot_benchmark((
+            SnapshotBenchmarkCase("malformed-id", req, None),
+        ))
