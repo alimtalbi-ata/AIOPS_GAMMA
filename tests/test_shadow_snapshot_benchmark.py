@@ -290,3 +290,12 @@ def test_missing_nested_selection_field_fails_closed(monkeypatch):
         evaluate_snapshot_benchmark((
             SnapshotBenchmarkCase("missing-selection", request(), "db"),
         ))
+
+
+def test_benchmark_rejects_case_ids_with_whitespace_alias():
+    req = request()
+    with pytest.raises(ValueError, match="Invalid snapshot benchmark case"):
+        evaluate_snapshot_benchmark((
+            SnapshotBenchmarkCase("case", req, "db"),
+            SnapshotBenchmarkCase(" case ", req, "db"),
+        ))
