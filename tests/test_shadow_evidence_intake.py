@@ -105,3 +105,24 @@ def test_fingerprint_pin_does_not_override_tenant_denial():
                      allowed_tenants=())
     with pytest.raises(PermissionError):
         investigate_snapshot(pinned)
+
+
+def test_evidence_newer_than_snapshot_capture_rejected():
+    req = request()
+    future_evidence = replace(req.snapshot.evidence[0], observed_at=NOW + timedelta(seconds=1))
+    changed = replace(req, snapshot=replace(req.snapshot, evidence=(
+        future_evidence, req.snapshot.evidence[1],
+    )), as_of=NOW + timedelta(seconds=2))
+    with pytest.raises(ValueError, match="newer than snapshot capture"):
+        investigate_snapshot(changed)
+
+
+def test_timezone_equivalent_evidence_timestamp_is_accepted():
+    req = request()
+    from datetime import timedelta as delta
+    local_time = NOW.astimezone(timezone(delta(hours=2)))
+    changed = replace(req, snapshot=replace(req.snapshot, evidence=(
+        replace(req.snapshot.evidence[0], observed_at=local_time),
+        req.snapshot.evidence[1],
+    )))
+    assert investigate_snapshot(changed)["investigation"]["state"] == "REVIEW_CANDIDATE"
