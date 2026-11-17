@@ -49,6 +49,16 @@ def main() -> None:
     ))
     assert investigate_snapshot(whitespace_alias)["investigation"]["state"] == "ABSTAIN"
 
+    alias_ref = replace(request, snapshot=replace(
+        request.snapshot, evidence=(evidence[0], replace(evidence[1], ref=' metric ')),
+    ))
+    try:
+        investigate_snapshot(alias_ref)
+    except ValueError as exc:
+        assert 'duplicate evidence' in str(exc)
+    else:
+        raise AssertionError('Whitespace-alias evidence reference was accepted')
+
     contradiction = replace(request, snapshot=replace(
         request.snapshot, evidence=evidence + (
             Evidence("counter", "tenant-a", "inc-1", "db", "contradicts", now, True, "logs"),
@@ -114,7 +124,7 @@ def main() -> None:
     assert benchmark["correct_denials"] == 1
     assert benchmark["false_positives"] == 0
     assert benchmark["live_execution_authorized"] is False
-    print("SHADOW_RCA_STDLIB_SMOKE_OK: 11 offline assertion groups passed")
+    print("SHADOW_RCA_STDLIB_SMOKE_OK: 12 offline assertion groups passed")
 
 
 if __name__ == "__main__":
