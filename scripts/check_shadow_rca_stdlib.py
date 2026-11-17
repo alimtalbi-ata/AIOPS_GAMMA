@@ -98,6 +98,12 @@ def main() -> None:
 
     reversed_snapshot = replace(request.snapshot, evidence=tuple(reversed(evidence)))
     assert snapshot_fingerprint(request.snapshot) == snapshot_fingerprint(reversed_snapshot)
+    alternate_zone = timezone(timedelta(hours=5, minutes=30))
+    timezone_snapshot = replace(request.snapshot,
+        captured_at=request.snapshot.captured_at.astimezone(alternate_zone),
+        evidence=tuple(replace(item, observed_at=item.observed_at.astimezone(alternate_zone))
+                       for item in evidence))
+    assert snapshot_fingerprint(request.snapshot) == snapshot_fingerprint(timezone_snapshot)
 
     benchmark = evaluate_snapshot_benchmark((
         SnapshotBenchmarkCase("supported", request, "db"),
@@ -108,7 +114,7 @@ def main() -> None:
     assert benchmark["correct_denials"] == 1
     assert benchmark["false_positives"] == 0
     assert benchmark["live_execution_authorized"] is False
-    print("SHADOW_RCA_STDLIB_SMOKE_OK: 10 offline assertion groups passed")
+    print("SHADOW_RCA_STDLIB_SMOKE_OK: 11 offline assertion groups passed")
 
 
 if __name__ == "__main__":
