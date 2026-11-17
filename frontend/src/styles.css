@@ -177,3 +177,17 @@ td code,.drawer code{color:#b4a2ff}
 .impact-row>strong:last-child{font-size:10px;color:#c8c3e8;white-space:nowrap}
 @media(max-width:1000px){.source-grid{grid-template-columns:1fr}.command-lower{grid-template-columns:1fr}}
 @media(max-width:560px){.command-status{padding:15px}.command-status-head{flex-direction:column}.source-tile{gap:8px}.priority-copy strong{white-space:normal}}
+
+
+/* UX2 — Signal Explorer */
+.signal-intro{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;padding:20px 21px;margin-bottom:17px;border:1px solid #34304f;border-radius:12px;background:linear-gradient(110deg,#1d1a35,#171a30)}
+.signal-intro h2{font-size:16px;color:#f0edff;margin:7px 0 5px}
+.signal-intro p{font-size:11px;color:#9da5c2;margin:0;line-height:1.5}
+.signal-tabs{display:flex;gap:7px;padding:5px;width:max-content;max-width:100%;border:1px solid #30334e;border-radius:10px;background:#111629;margin-bottom:17px}
+.signal-tabs button{display:flex;align-items:center;gap:8px;border:1px solid transparent;border-radius:7px;background:transparent;color:#969fbd;padding:9px 15px;font-size:11px;font-weight:700}
+.signal-tabs button:hover{background:#20223b;color:#e4e3f5}
+.signal-tabs button.selected{background:#30264e;border-color:#514274;color:#d3c5ff;box-shadow:0 3px 12px #0002}
+.signal-tabs button svg{color:#b09aff}
+.signal-footnote{display:flex;align-items:flex-start;gap:9px;padding:13px 15px;margin-top:15px;border:1px solid #3b3657;border-radius:9px;background:#191a31;color:#a6aec9;font-size:10px;line-height:1.5}
+.signal-footnote svg{color:#b7a4ff;flex:0 0 auto}
+@media(max-width:650px){.signal-intro{flex-direction:column;padding:16px}.signal-tabs{width:100%}.signal-tabs button{flex:1;justify-content:center;padding:9px 7px}}
