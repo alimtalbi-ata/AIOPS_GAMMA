@@ -34,7 +34,11 @@ def evaluate_snapshot_benchmark(cases: tuple[SnapshotBenchmarkCase, ...]) -> dic
             raise ValueError("Invalid snapshot benchmark case")
         seen.add(case.case_id)
         if (type(case.request.hypotheses) is not tuple
-                or any(type(h) is not Hypothesis for h in case.request.hypotheses)):
+                or any(type(h) is not Hypothesis
+                       or type(h.hypothesis_id) is not str
+                       or not h.hypothesis_id.strip()
+                       or h.hypothesis_id != h.hypothesis_id.strip()
+                       for h in case.request.hypotheses)):
             raise ValueError("Invalid benchmark hypotheses")
         if (case.expected_hypothesis_id is not None
                 and case.expected_hypothesis_id not in {
