@@ -72,3 +72,44 @@ async def consume_assertion_before_access(
     # exception handler so a rollback failure is never retried or masked.
     await session.rollback()
     return False
+
+
+async def purge_expired_assertions(
+    session: AsyncSession, *, batch_size: int = 500, grace_seconds: int = 120
+) -> int:
+    """Delete at most one bounded batch of expired replay rows.
+
+    The grace window protects against small clock skew between API workers and
+    PostgreSQL. Rows are eligible only when expires_at is older than database
+    NOW() minus the grace window. SKIP LOCKED allows concurrent cleanup workers
+    without waiting on each other. Caller should invoke this from a maintenance
+    job, never on the authentication request path.
+    """
+    if (type(batch_size) is not int or not 1 <= batch_size <= 10_000
+            or type(grace_seconds) is not int or not 60 <= grace_seconds <= 86_400):
+        raise ValueError("invalid replay cleanup policy")
+    try:
+        result = await session.execute(
+            text("""
+                WITH expired AS (
+                    SELECT assertion_digest
+                    FROM gateway_assertion_replay
+                    WHERE expires_at < NOW() - (:grace_seconds * INTERVAL '1 second')
+                    ORDER BY expires_at ASC
+                    FOR UPDATE SKIP LOCKED
+                    LIMIT :batch_size
+                )
+                DELETE FROM gateway_assertion_replay AS replay
+                USING expired
+                WHERE replay.assertion_digest = expired.assertion_digest
+            """),
+            {"grace_seconds": grace_seconds, "batch_size": batch_size},
+        )
+        deleted = result.rowcount
+        if type(deleted) is not int or deleted < 0 or deleted > batch_size:
+            raise RuntimeError("invalid replay cleanup row count")
+        await session.commit()
+        return deleted
+    except (Exception, asyncio.CancelledError):
+        await session.rollback()
+        raise
