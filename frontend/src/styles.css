@@ -257,3 +257,24 @@ td code,.drawer code{color:#b4a2ff}
 .intel-result>.tag{font-size:9px}
 @media(max-width:850px){.intel-grid{grid-template-columns:1fr}}
 @media(max-width:600px){.intel-controls{align-items:stretch;flex-direction:column}.intel-controls select{min-width:0;width:100%}.coverage-grid{grid-template-columns:repeat(2,1fr)}}
+
+
+/* UX5 — secure integration readiness; endpoints are documented, not browser-called */
+.integration-readiness{padding:19px 20px;margin-bottom:18px;border:1px solid #34304f;border-radius:12px;background:linear-gradient(115deg,#1d1a35,#171a30)}
+.integration-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}
+.integration-heading h2{font-size:16px;color:#f0edff;margin:7px 0 5px}
+.integration-heading p{font-size:10px;line-height:1.5;color:#9da5c2;margin:0;max-width:650px}
+.integration-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.integration-cards article{min-width:0;padding:13px;border:1px solid #30334e;border-radius:9px;background:#111629}
+.integration-card-top{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:12px}
+.integration-card-top>svg{color:#b6a3ff}
+.integration-card-top .tag{font-size:8px;padding:4px 6px}
+.integration-cards article>strong{display:block;color:#e6e5f5;font-size:11px;margin-bottom:8px}
+.integration-cards article>code{display:block;overflow-wrap:anywhere;color:#b9a8ff;font-size:9px;line-height:1.5}
+.integration-cards article>p{color:#9ba4c0;font-size:9px;line-height:1.55;min-height:57px;margin:10px 0}
+.integration-cards article>small{display:block;border-top:1px solid #2c3049;padding-top:9px;color:#d7b977;font-size:9px;line-height:1.4}
+.integration-next{margin-top:13px;padding:14px 16px;border:1px solid #30334e;border-radius:9px;background:#14182a}
+.integration-next>strong{font-size:11px;color:#e5e4f4}
+.integration-next ol{margin:10px 0 0;padding-left:19px;color:#a6aec7;font-size:10px;line-height:1.9}
+@media(max-width:850px){.integration-cards{grid-template-columns:1fr}.integration-cards article>p{min-height:0}}
+@media(max-width:600px){.integration-readiness{padding:15px}.integration-heading{flex-direction:column}}
