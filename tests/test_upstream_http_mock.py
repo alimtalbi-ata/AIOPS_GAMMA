@@ -1,4 +1,4 @@
-"""HTTPX mock integration tests for disabled-by-default upstream read adapters."""
+"""Offline HTTPX transport tests; public upstream entrypoints remain on ACL HOLD."""
 from uuid import UUID
 
 import httpx
@@ -67,7 +67,7 @@ async def test_glpi_rejects_ambiguous_json(monkeypatch, payload):
     configure_glpi(monkeypatch)
     mock_http(monkeypatch, payload)
     with pytest.raises(HTTPException) as exc:
-        await glpi_read.read_glpi_incident(TENANT, 7)
+        await glpi_read._read_glpi_incident_unqualified(TENANT, 7)
     assert exc.value.status_code == 502
     assert exc.value.detail == "GLPI upstream unavailable"
 
@@ -86,7 +86,7 @@ async def test_canonical_tenant_echo_never_grants_access(monkeypatch):
 async def test_glpi_accepts_valid_entity_and_projects(monkeypatch):
     configure_glpi(monkeypatch)
     requests = mock_http(monkeypatch, b'{"id":7,"entities_id":3,"type":1,"status":2,"private":"do-not-return"}')
-    result = await glpi_read.read_glpi_incident(TENANT, 7)
+    result = await glpi_read._read_glpi_incident_unqualified(TENANT, 7)
     assert result["read_only"] is True
     assert "private" not in result
     assert requests[0].method == "GET"
