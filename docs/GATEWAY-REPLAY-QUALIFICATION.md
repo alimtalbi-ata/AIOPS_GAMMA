@@ -49,3 +49,10 @@ The current code and tests have not yet been executed in CI. Do not interpret te
 The grace window is a conservative clock-skew allowance, not a replacement for synchronized clocks. Cleanup scheduling, monitoring, and retention alerting are not deployed by this helper. The helper has no effect until a separately authorized maintenance job invokes it.
 
 Unit tests cover SQL guardrails, configured bounds, successful bounded deletion, and rollback on database failure. A live PostgreSQL race between cleanup and valid authentication has not yet been run. Keep the grace window greater than the maximum accepted assertion lifetime plus expected clock skew before enabling a scheduled cleaner.
+
+
+## PostgreSQL cleanup integration fixture
+
+An opt-in integration test now inserts three expired reservations and one future-expiring reservation into the migration-created table. It invokes cleanup with a batch limit of two, verifies exactly two expired rows are removed while the live row remains, invokes a second batch to remove the final expired row, and verifies the live reservation still exists. The fixture refuses to create a substitute table: migration 0002 must already be applied. It cleans only its deterministic test digests in a `finally` block.
+
+This test requires `GAMMA_TEST_DATABASE_URL` and has not yet been executed against PostgreSQL in CI. It verifies bounded batches and live-row preservation, but does not yet simulate a lock-held cleanup/authentication race or exercise Alembic downgrade/upgrade.
