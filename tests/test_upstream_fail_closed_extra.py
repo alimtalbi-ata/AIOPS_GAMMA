@@ -129,6 +129,6 @@ async def test_glpi_remains_on_resource_acl_hold_even_with_valid_entity_and_tick
     glpi(monkeypatch)
     requests = stub(monkeypatch, content=b'{"id":7,"entities_id":3,"type":1}')
     with pytest.raises(HTTPException) as exc:
-        await glpi_read._read_glpi_incident_unqualified(TENANT, 7)
+        await glpi_read.read_glpi_incident(TENANT, 7)
     assert exc.value.status_code == 503
     assert not requests, "Unqualified GLPI reads must never touch the network"
