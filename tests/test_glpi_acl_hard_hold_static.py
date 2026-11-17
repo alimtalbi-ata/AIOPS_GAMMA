@@ -70,3 +70,26 @@ def test_glpi_hold_guard_detects_invalid_ticket_condition_bypass():
     changed = original.replace(target, "if ticket_id == 7:", 1)
     with pytest.raises(AssertionError):
         assert_public_glpi_hold(changed)
+
+
+def test_glpi_http_route_cannot_bypass_public_acl_hold():
+    """The FastAPI snapshot route must call the guarded public entrypoint only."""
+    route_source = SOURCE.parents[1] / "main.py"
+    tree = ast.parse(route_source.read_text(encoding="utf-8"))
+    routes = [node for node in tree.body if isinstance(node, ast.AsyncFunctionDef)
+              and node.name == "glpi_incident_snapshot"]
+    assert len(routes) == 1
+    route = routes[0]
+    calls = [node for node in ast.walk(route) if isinstance(node, ast.Call)]
+    assert len([node for node in calls if isinstance(node.func, ast.Name)
+                and node.func.id == "read_glpi_incident"]) == 1
+    assert not any(isinstance(node.func, ast.Name)
+                   and node.func.id == "_read_glpi_incident_unqualified"
+                   for node in calls)
+    assert not any(isinstance(node, (ast.Return, ast.Yield, ast.YieldFrom))
+                   for node in ast.walk(route)
+                   if not (isinstance(node, ast.Return)
+                           and isinstance(node.value, ast.Await)
+                           and isinstance(node.value.value, ast.Call)
+                           and isinstance(node.value.value.func, ast.Name)
+                           and node.value.value.func.id == "read_glpi_incident"))
