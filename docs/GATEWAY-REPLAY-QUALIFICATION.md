@@ -28,3 +28,9 @@ The table needs retention/cleanup of expired rows. Cleanup must never delete une
 - Capture real CI step logs on the exact reviewed PR HEAD.
 
 Until these checks pass, PR #1 remains Draft / HOLD / NO_GO. No LIVE reads, mutation, merge or deployment is authorized.
+
+## Tests added
+
+`tests/test_gateway_replay.py` now covers atomic INSERT conflict handling, commit-before-return, duplicate rollback, commit-failure rollback, and an opt-in five-session PostgreSQL race. The race test requires `GAMMA_TEST_DATABASE_URL` pointing only to a disposable PostgreSQL database; without it, pytest reports the integration case as skipped. The test creates the replay table if absent and removes its unique test digest in a finally block. It does not apply Alembic migration 0002 or qualify migration upgrade/downgrade.
+
+The current code and tests have not yet been executed in CI. Do not interpret test presence as test success.
