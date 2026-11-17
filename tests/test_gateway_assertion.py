@@ -375,7 +375,7 @@ async def test_internal_principal_consumes_jti_before_access(monkeypatch):
     }
     session = object()
     principal = await security.internal_principal(
-        Request(scope), "service-key", token, session
+        Request(scope), "service-key", token
     )
     assert principal.assertion_id == "assertion-123456"
     assert calls == [(session, "trusted-gateway", "assertion-123456", 1060)]
@@ -404,7 +404,7 @@ async def test_internal_principal_rejects_replayed_jti(monkeypatch):
         "client": ("127.0.0.1", 1234), "scheme": "http",
     }
     with pytest.raises(HTTPException) as exc:
-        await security.internal_principal(Request(scope), "service-key", token, object())
+        await security.internal_principal(Request(scope), "service-key", token)
     assert exc.value.status_code == 401
     assert exc.value.detail == "Gateway assertion already used"
 
