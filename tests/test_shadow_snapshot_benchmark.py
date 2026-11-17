@@ -1,0 +1,96 @@
+"""Full-path synthetic snapshot benchmark and metadata fingerprint tests."""
+from dataclasses import replace
+from datetime import datetime, timedelta, timezone
+
+import pytest
+
+from app.reused.shadow_evidence_intake import (
+    SnapshotRequest, SyntheticSnapshot, investigate_snapshot, snapshot_fingerprint,
+)
+from app.reused.shadow_investigation import Evidence, Hypothesis
+from app.reused.shadow_snapshot_benchmark import (
+    SnapshotBenchmarkCase, evaluate_snapshot_benchmark,
+)
+
+NOW = datetime(2026, 11, 17, 12, tzinfo=timezone.utc)
+
+
+def request():
+    evidence = (
+        Evidence("metric", "tenant-a", "inc-1", "db", "supports", NOW, True, "metrics"),
+        Evidence("trace", "tenant-a", "inc-1", "db", "supports", NOW, True, "traces"),
+    )
+    return SnapshotRequest(
+        "actor-a", "tenant-a", "inc-1", ("tenant-a",),
+        SyntheticSnapshot("snapshot-a", "tenant-a", "inc-1", NOW, evidence),
+        (Hypothesis("db", "Database saturation"),), NOW,
+    )
+
+
+def test_metadata_fingerprint_is_stable_and_order_independent():
+    req = request()
+    a = snapshot_fingerprint(req.snapshot)
+    reversed_snapshot = replace(req.snapshot, evidence=tuple(reversed(req.snapshot.evidence)))
+    assert a == snapshot_fingerprint(reversed_snapshot)
+    assert a == investigate_snapshot(req)["snapshot_fingerprint_sha256"]
+    assert len(a) == 64
+
+
+def test_metadata_change_changes_fingerprint():
+    req = request()
+    changed = replace(req.snapshot, evidence=(
+        replace(req.snapshot.evidence[0], source_id="different"),
+        req.snapshot.evidence[1],
+    ))
+    assert snapshot_fingerprint(req.snapshot) != snapshot_fingerprint(changed)
+
+
+def test_full_path_benchmark_counts_denials_and_abstentions():
+    good = request()
+    denied = replace(good, allowed_tenants=())
+    contradictory = replace(good, snapshot=replace(good.snapshot, evidence=(
+        *good.snapshot.evidence,
+        Evidence("counter", "tenant-a", "inc-1", "db", "contradicts", NOW, True, "logs"),
+    )))
+    cases = (
+        SnapshotBenchmarkCase("supported", good, "db"),
+        SnapshotBenchmarkCase("contradiction", contradictory, None),
+        SnapshotBenchmarkCase("denied", denied, None, True),
+    )
+    result = evaluate_snapshot_benchmark(cases)
+    assert result["total"] == 3
+    assert result["correct_selections"] == 1
+    assert result["correct_abstentions"] == 1
+    assert result["correct_denials"] == 1
+    assert result["false_positives"] == 0
+    assert result["case_accuracy"] == 1.0
+    assert result["authoritative"] is False
+    assert result["live_execution_authorized"] is False
+
+
+def test_missed_denial_is_detected():
+    result = evaluate_snapshot_benchmark((
+        SnapshotBenchmarkCase("should-deny", request(), None, True),
+    ))
+    assert result["missed_denials"] == 1
+    assert result["case_accuracy"] == 0.0
+
+
+def test_unexpected_denial_is_detected():
+    req = replace(request(), allowed_tenants=())
+    result = evaluate_snapshot_benchmark((
+        SnapshotBenchmarkCase("should-allow", req, "db"),
+    ))
+    assert result["unexpected_denials"] == 1
+
+
+@pytest.mark.parametrize("cases", [
+    (),
+    (SnapshotBenchmarkCase("same", request(), "db"),
+     SnapshotBenchmarkCase("same", request(), "db")),
+    (SnapshotBenchmarkCase("", request(), "db"),),
+    (SnapshotBenchmarkCase("bad", request(), "db", True),),
+])
+def test_invalid_benchmark_cases_fail_closed(cases):
+    with pytest.raises(ValueError):
+        evaluate_snapshot_benchmark(cases)
