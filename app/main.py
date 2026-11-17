@@ -183,7 +183,7 @@ async def add_evidence(
 @app.get("/api/v1/incidents/{incident_id}/evidence")
 async def list_evidence(
     incident_id: str, principal: Principal = Depends(internal_principal),
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(tenant_session),
 ):
     validate_incident_resource_id(incident_id)
     if incident_id not in principal.evidence_incident_grants:
