@@ -92,7 +92,7 @@ def investigate_shadow(req: InvestigationInput) -> dict:
         else:
             grouped[item.hypothesis_id][item.stance].append(item.ref)
             if item.stance == "supports":
-                grouped[item.hypothesis_id]["sources"].add(item.source_id)
+                grouped[item.hypothesis_id]["sources"].add(item.source_id.strip())
     evaluations = []
     candidates = []
     for hypothesis in req.hypotheses:
