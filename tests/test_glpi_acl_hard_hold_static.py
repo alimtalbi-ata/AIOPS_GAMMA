@@ -84,7 +84,18 @@ def test_glpi_http_route_cannot_bypass_public_acl_hold():
     # the public fail-closed entrypoint.
     assert len(route.body) == 2
     assert isinstance(route.body[0], ast.Assign)
-    assert ast.unparse(route.body[0]) == 'response.headers["Cache-Control"] = "no-store"'
+    header_assignment = route.body[0]
+    assert len(header_assignment.targets) == 1
+    target = header_assignment.targets[0]
+    assert isinstance(target, ast.Subscript)
+    assert isinstance(target.value, ast.Attribute)
+    assert isinstance(target.value.value, ast.Name)
+    assert target.value.value.id == "response"
+    assert target.value.attr == "headers"
+    assert isinstance(target.slice, ast.Constant)
+    assert target.slice.value == "Cache-Control"
+    assert isinstance(header_assignment.value, ast.Constant)
+    assert header_assignment.value.value == "no-store"
     assert isinstance(route.body[1], ast.Return)
     returned = route.body[1].value
     assert isinstance(returned, ast.Await)
