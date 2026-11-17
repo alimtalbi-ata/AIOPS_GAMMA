@@ -59,6 +59,7 @@ def investigate_shadow(req: InvestigationInput) -> dict:
                 or not hypothesis.hypothesis_id.strip()
                 or type(hypothesis.description) is not str
                 or not hypothesis.description.strip()
+                or hypothesis.hypothesis_id.strip() != hypothesis.hypothesis_id
                 or hypothesis.hypothesis_id in ids):
             raise ValueError("Invalid or duplicate hypothesis")
         ids.add(hypothesis.hypothesis_id)
@@ -67,7 +68,7 @@ def investigate_shadow(req: InvestigationInput) -> dict:
     rejected = []
     for item in req.evidence:
         if (type(item) is not Evidence or type(item.ref) is not str
-                or not item.ref.strip() or item.ref in seen_refs
+                or not item.ref.strip() or item.ref.strip() in seen_refs
                 or type(item.tenant_id) is not str or type(item.incident_id) is not str
                 or type(item.hypothesis_id) is not str
                 or type(item.stance) is not str
@@ -78,7 +79,7 @@ def investigate_shadow(req: InvestigationInput) -> dict:
                 or item.observed_at.tzinfo is None
                 or item.observed_at.utcoffset() is None):
             raise ValueError("Invalid or duplicate evidence")
-        seen_refs.add(item.ref)
+        seen_refs.add(item.ref.strip())
         if item.tenant_id != req.tenant_id or item.incident_id != req.incident_id:
             rejected.append((item.ref, "IDENTITY_MISMATCH"))
         elif item.hypothesis_id not in ids:
