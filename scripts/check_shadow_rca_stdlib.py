@@ -74,6 +74,17 @@ def main() -> None:
     else:
         raise AssertionError("Stale snapshot was accepted")
 
+    pinned = replace(request, expected_fingerprint_sha256=snapshot_fingerprint(request.snapshot))
+    assert investigate_snapshot(pinned)["snapshot_fingerprint_sha256"] == pinned.expected_fingerprint_sha256
+    try:
+        investigate_snapshot(replace(pinned, snapshot=replace(
+            request.snapshot, evidence=(replace(evidence[0], source_id="changed"), evidence[1]),
+        )))
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Changed pinned snapshot was accepted")
+
     reversed_snapshot = replace(request.snapshot, evidence=tuple(reversed(evidence)))
     assert snapshot_fingerprint(request.snapshot) == snapshot_fingerprint(reversed_snapshot)
 
@@ -86,7 +97,7 @@ def main() -> None:
     assert benchmark["correct_denials"] == 1
     assert benchmark["false_positives"] == 0
     assert benchmark["live_execution_authorized"] is False
-    print("SHADOW_RCA_STDLIB_SMOKE_OK: 8 offline assertion groups passed")
+    print("SHADOW_RCA_STDLIB_SMOKE_OK: 9 offline assertion groups passed")
 
 
 if __name__ == "__main__":
