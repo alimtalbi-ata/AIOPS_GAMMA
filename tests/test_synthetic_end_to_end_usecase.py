@@ -13,6 +13,7 @@ from app.reused.synthetic_impact import DependencyEdge, ImpactPreviewRequest, pr
 from app.reused.investigation import EvidenceRef, Hypothesis, InvestigationPreview, evaluate_investigation
 from app.reused.itil import IncidentAssessment
 from app.reused.itsm_contract import IncidentSyncPreview, PriorityMatrix, PriorityRule, plan_incident_sync
+from app.reused.shadow_autonomy import assess_shadow_autonomy
 from app.reused.synthetic_postmortem import PostmortemDraftRequest, TimelineEvent, draft_postmortem, render_postmortem_markdown
 
 TENANT = UUID("11111111-1111-4111-8111-111111111111")
@@ -72,6 +73,24 @@ def test_synthetic_incident_journey_preserves_all_authority_boundaries():
     assert investigation["unknown_hypotheses"] == 1
     assert investigation["citations_source_verified"] is False
     assert investigation["authoritative"] is False
+
+    # The synthetic investigation is not a trusted RCA. Autonomous planning
+    # must abstain even when the supplied hypothesis references a trace.
+    shadow = assess_shadow_autonomy(
+        evidence_source_verified=investigation["citations_source_verified"],
+        topology_source_verified=impact["canonical_cmdb_verified"],
+        rca_verdict="unknown",
+        supporting_evidence_count=1,
+        contradicting_evidence_count=0,
+        runbook_approved=False,
+        policy_approved=False,
+        hitl_approved=False,
+    )
+    assert shadow.state == "ABSTAIN"
+    assert "EVIDENCE_UNVERIFIED" in shadow.reasons
+    assert "TOPOLOGY_UNVERIFIED" in shadow.reasons
+    assert "RCA_NOT_SUPPORTED" in shadow.reasons
+    assert shadow.live_execution_authorized is False
 
     levels = ("high", "medium", "low")
     proposal = plan_incident_sync(
