@@ -63,3 +63,14 @@ This test requires `GAMMA_TEST_DATABASE_URL` and has not yet been executed again
 `tests/test_gateway_replay.py::test_two_postgres_cleanup_workers_race_with_fresh_gateway_authentication` runs two independent cleanup sessions and a fresh assertion-consumption session concurrently with `asyncio.gather`. Four expired rows are seeded; each cleanup worker has a batch limit of two. The test requires the combined deletion count to equal four, the new JTI reservation to be accepted, and its digest to remain in the table. The fixture requires Alembic migration 0002 and removes only its deterministic digests in a `finally` block.
 
 This is an opt-in concurrency integration test, not evidence of a successful race run. It requires `GAMMA_TEST_DATABASE_URL` pointing to a disposable PostgreSQL database with migration 0002 applied. It does not hold an explicit row lock to force a particular interleaving, nor does it replace multi-process/container qualification.
+
+
+## Actor-to-resource authorization checks
+
+The signed principal defaults both resource-grant collections to empty. Log search requires an exact service-name match in `log_service_grants`; evidence read/write requires an exact incident ID match in `evidence_incident_grants`. Wildcards, duplicate grants, path-like incident grants and malformed service names are rejected while verifying the assertion. Tenant ID is always taken from the verified principal, never from request payload or caller-selected tenant headers.
+
+New tests:
+- `tests/test_gateway_assertion.py`: least-privilege empty defaults, exact grants, malformed/wildcard/duplicate grant rejection.
+- `tests/test_resource_acl.py`: route-boundary denial for ungranted log service and incident evidence, and exact-grant positive-path checks.
+
+These tests do not prove that the upstream gateway actually performs actor→tenant membership lookup, strips spoofed identity headers, or derives grants from a current authoritative ACL. Those remain gateway deployment/integration requirements. No database row-level security policy is asserted here.
