@@ -33,3 +33,7 @@ Les tests sont définis dans le dépôt ; aucun succès d'exécution locale ou C
 `app/reused/shadow_snapshot_benchmark.py` fournit `evaluate_snapshot_benchmark` pour mesurer ensemble : sélection correcte, faux positif, cause manquée, abstention correcte, refus d'accès attendu, refus inattendu et refus manqué. Les refus déclaratifs sont comptabilisés indépendamment des décisions RCA. Les cas invalides sont rejetés ; un benchmark n'exécute aucun connecteur.
 
 Les tests de `tests/test_shadow_snapshot_benchmark.py` couvrent les empreintes, contradictions, refus, refus manqués et cas invalides. Les métriques attendues sont des assertions de fixtures, **pas des résultats d'exécution attestés**.
+
+## Validité du jeu de référence
+
+Le benchmark refuse désormais toute cause attendue qui n'appartient pas au catalogue d'hypothèses du cas. Les tests distinguent explicitement un faux positif (cause sélectionnée différente de l'étiquette) d'une cause manquée (abstention alors qu'une cause était attendue). Les étiquettes sont synthétiques et déclarées par l'auteur des fixtures : elles ne prouvent pas une RCA de production.
