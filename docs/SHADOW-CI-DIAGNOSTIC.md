@@ -36,3 +36,7 @@ Le benchmark de snapshots rejette maintenant les rapports qui annoncent `authori
 Le run isolé 44182186632 s'est terminé en `failure`. Les runs Python 44182186678 et Deployment 44182186549 étaient encore en file d'attente au moment du contrôle. Le run isolé précédent 44181958529 avait un job `shadow-contracts` en échec, sans aucune étape exposée par l'API des jobs. Ces observations ne prouvent pas une défaillance du code Python ; elles interdisent de certifier les tests.
 
 Action d'exploitation recommandée hors du périmètre de cette branche : examiner dans l'interface Actions les éventuelles annotations de politique, de quota, de facturation ou de disponibilité des runners, puis déclencher une exécution manuelle du workflow isolé une fois la cause identifiée. Ne pas désactiver les contrôles de branche pour contourner le problème. Aucun accès à l'administration des runners ou à la facturation n'a été utilisé ici.
+
+## Contrôle du commit a90f947
+
+Le run RCA isolé 44182434119 était `in_progress` lors du contrôle, tandis que les runs Python 44182434013 et Deployment 44182434068 étaient `queued`. Aucun résultat de tests n'était encore attesté. Le run RCA précédent 44182307625 a conclu `failure` avec un job `shadow-contracts` sans étapes exposées. Ne pas confondre une entrée en exécution avec la réussite des contrôles.
