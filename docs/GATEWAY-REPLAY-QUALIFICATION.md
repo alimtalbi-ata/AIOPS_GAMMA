@@ -56,3 +56,10 @@ Unit tests cover SQL guardrails, configured bounds, successful bounded deletion,
 An opt-in integration test now inserts three expired reservations and one future-expiring reservation into the migration-created table. It invokes cleanup with a batch limit of two, verifies exactly two expired rows are removed while the live row remains, invokes a second batch to remove the final expired row, and verifies the live reservation still exists. The fixture refuses to create a substitute table: migration 0002 must already be applied. It cleans only its deterministic test digests in a `finally` block.
 
 This test requires `GAMMA_TEST_DATABASE_URL` and has not yet been executed against PostgreSQL in CI. It verifies bounded batches and live-row preservation, but does not yet simulate a lock-held cleanup/authentication race or exercise Alembic downgrade/upgrade.
+
+
+## Concurrent cleanup and authentication integration test
+
+`tests/test_gateway_replay.py::test_two_postgres_cleanup_workers_race_with_fresh_gateway_authentication` runs two independent cleanup sessions and a fresh assertion-consumption session concurrently with `asyncio.gather`. Four expired rows are seeded; each cleanup worker has a batch limit of two. The test requires the combined deletion count to equal four, the new JTI reservation to be accepted, and its digest to remain in the table. The fixture requires Alembic migration 0002 and removes only its deterministic digests in a `finally` block.
+
+This is an opt-in concurrency integration test, not evidence of a successful race run. It requires `GAMMA_TEST_DATABASE_URL` pointing to a disposable PostgreSQL database with migration 0002 applied. It does not hold an explicit row lock to force a particular interleaving, nor does it replace multi-process/container qualification.
