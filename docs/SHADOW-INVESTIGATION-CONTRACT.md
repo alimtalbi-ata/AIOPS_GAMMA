@@ -37,3 +37,7 @@ Avant tout passage à une investigation sur sources réelles : attester indépen
 Indicateurs : sélections correctes, faux positifs, causes manquées, abstentions correctes, taux d'abstention, précision des sélections (null si aucune sélection), exactitude par cas. Une sélection de la mauvaise cause, même sur un incident ayant une cause attendue, est comptée comme faux positif. Les cas sans cause attendue exigent l'abstention. Les doublons d'identifiants de cas et les attentes inconnues échouent fermés.
 
 Ce benchmark de développement n'est pas un benchmark indépendant ou représentatif de production : il ne mesure ni la robustesse d'un LLM, ni l'ACL, ni l'authenticité des sources, ni les actions réelles. Les tests ont été ajoutés au dépôt, sans exécution locale ou succès CI revendiqué.
+
+## Normalisation des identifiants de source
+
+Les identifiants `source_id` sont normalisés par suppression des espaces de bord avant le calcul du nombre de sources distinctes. Ainsi `otel` et ` otel ` ne peuvent pas satisfaire le seuil de deux sources. La normalisation n'atteste **ni l'identité réelle, ni l'indépendance réelle** des systèmes déclarés. Les tests unitaires et le smoke test sans dépendance couvrent ce cas.
