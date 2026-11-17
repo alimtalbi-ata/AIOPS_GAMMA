@@ -76,6 +76,30 @@ def test_glpi_http_route_cannot_bypass_public_acl_hold():
     """The FastAPI snapshot route must call the guarded public entrypoint only."""
     route_source = SOURCE.parents[1] / "main.py"
     tree = ast.parse(route_source.read_text(encoding="utf-8"))
+    # The route's public function name must resolve to the guarded adapter,
+    # not a similarly named helper or a reassigned module-level symbol.
+    imports = [node for node in tree.body if isinstance(node, ast.ImportFrom)
+               and node.module == "app.reused.glpi_read"]
+    assert len(imports) == 1
+    assert [(alias.name, alias.asname) for alias in imports[0].names] == [
+        ("read_glpi_incident", None)
+    ]
+    assert not any(
+        isinstance(node, (ast.Assign, ast.AnnAssign, ast.FunctionDef,
+                          ast.AsyncFunctionDef, ast.ClassDef))
+        and (
+            (isinstance(node, ast.Assign)
+             and any(isinstance(target, ast.Name)
+                     and target.id == "read_glpi_incident"
+                     for target in node.targets))
+            or (isinstance(node, ast.AnnAssign)
+                and isinstance(node.target, ast.Name)
+                and node.target.id == "read_glpi_incident")
+            or (isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+                and node.name == "read_glpi_incident")
+        )
+        for node in tree.body
+    )
     routes = [node for node in tree.body if isinstance(node, ast.AsyncFunctionDef)
               and node.name == "glpi_incident_snapshot"]
     assert len(routes) == 1
