@@ -74,6 +74,17 @@ def main() -> None:
     else:
         raise AssertionError("Stale snapshot was accepted")
 
+    future_observation = replace(request, as_of=now + timedelta(seconds=2),
+        snapshot=replace(request.snapshot, evidence=(
+            replace(evidence[0], observed_at=now + timedelta(seconds=1)), evidence[1],
+        )))
+    try:
+        investigate_snapshot(future_observation)
+    except ValueError as exc:
+        assert "newer than snapshot capture" in str(exc)
+    else:
+        raise AssertionError("Future observation within snapshot was accepted")
+
     pinned = replace(request, expected_fingerprint_sha256=snapshot_fingerprint(request.snapshot))
     assert investigate_snapshot(pinned)["snapshot_fingerprint_sha256"] == pinned.expected_fingerprint_sha256
     try:
@@ -97,7 +108,7 @@ def main() -> None:
     assert benchmark["correct_denials"] == 1
     assert benchmark["false_positives"] == 0
     assert benchmark["live_execution_authorized"] is False
-    print("SHADOW_RCA_STDLIB_SMOKE_OK: 9 offline assertion groups passed")
+    print("SHADOW_RCA_STDLIB_SMOKE_OK: 10 offline assertion groups passed")
 
 
 if __name__ == "__main__":
