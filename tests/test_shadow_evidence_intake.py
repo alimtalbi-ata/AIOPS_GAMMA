@@ -89,7 +89,7 @@ def test_pinned_fingerprint_detects_metadata_change():
         replace(req.snapshot.evidence[0], source_id="different"),
         req.snapshot.evidence[1],
     )))
-    with pytest.raises(ValueError, match="fingerprint mismatch"):
+    with pytest.raises(ValueError, match="(?i)fingerprint mismatch"):
         investigate_snapshot(tampered)
 
 
