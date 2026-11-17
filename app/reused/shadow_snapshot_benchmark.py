@@ -50,7 +50,22 @@ def evaluate_snapshot_benchmark(cases: tuple[SnapshotBenchmarkCase, ...]) -> dic
             selected = None
             fingerprint = None
         else:
-            selected = report["investigation"]["selected_hypothesis_id"]
+            investigation = report["investigation"]
+            if (report.get("mode") != "synthetic_shadow"
+                    or investigation.get("mode") != "synthetic_shadow"
+                    or any(report.get(flag) is not False for flag in (
+                        "authoritative", "live_execution_authorized",
+                        "connectors_invoked", "itsm_mutations_performed"))
+                    or any(investigation.get(flag) is not False for flag in (
+                        "authoritative", "live_execution_authorized",
+                        "tools_invoked", "itsm_mutations_performed"))):
+                raise ValueError("Unsafe snapshot investigation report")
+            selected = investigation["selected_hypothesis_id"]
+            if ((investigation.get("state") == "ABSTAIN" and selected is not None)
+                    or (investigation.get("state") == "REVIEW_CANDIDATE"
+                        and (type(selected) is not str or not selected.strip()))
+                    or investigation.get("state") not in ("ABSTAIN", "REVIEW_CANDIDATE")):
+                raise ValueError("Inconsistent investigation state")
             fingerprint = report["snapshot_fingerprint_sha256"]
             if case.expect_access_denied:
                 missed_denial += 1
