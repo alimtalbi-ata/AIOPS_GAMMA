@@ -1,0 +1,70 @@
+services:
+  frontend:
+    build: ./frontend
+    ports: ["127.0.0.1:5173:8080"]
+    restart: unless-stopped
+  api:
+    build: .
+    ports: ["127.0.0.1:8000:8000"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://aiops:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/aiops
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?set INTERNAL_API_KEY}
+      GATEWAY_ASSERTION_SECRET: ${GATEWAY_ASSERTION_SECRET:-}
+      GATEWAY_ASSERTION_ISSUER: ${GATEWAY_ASSERTION_ISSUER:-gamma-gateway}
+      GATEWAY_ASSERTION_AUDIENCE: ${GATEWAY_ASSERTION_AUDIENCE:-aiops-gamma}
+      GATEWAY_ASSERTION_MAX_TTL_SECONDS: ${GATEWAY_ASSERTION_MAX_TTL_SECONDS:-60}
+      OPENSEARCH_URL: http://opensearch:9200
+      ENABLE_OPENSEARCH: ${ENABLE_OPENSEARCH:-false}
+      ENABLE_ALERT_INGESTION: ${ENABLE_ALERT_INGESTION:-false}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json,urllib.request; assert json.load(urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/live', timeout=3)) == {'status': 'ok'}"]
+      interval: 5s
+      timeout: 4s
+      retries: 12
+      start_period: 5s
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+  migrate:
+    build: .
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://aiops:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/aiops
+    depends_on:
+      postgres:
+        condition: service_healthy
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: aiops
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: aiops
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL","pg_isready -U aiops -d aiops"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  outbox-relay:
+    build: .
+    profiles: [relay]
+    command: ["python", "-m", "app.outbox_relay"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://aiops:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/aiops
+      CORRELATION_WEBHOOK_URL: ${CORRELATION_WEBHOOK_URL:-}
+      CORRELATION_WEBHOOK_TOKEN: ${CORRELATION_WEBHOOK_TOKEN:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+  opensearch:
+    image: opensearchproject/opensearch:2.19.4
+    profiles: [observability-demo]
+    environment:
+      discovery.type: single-node
+      plugins.security.disabled: "true"
+      OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
+    volumes: [osdata:/usr/share/opensearch/data]
+volumes:
+  pgdata:
+  osdata:

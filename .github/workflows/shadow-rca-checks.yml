@@ -1,0 +1,42 @@
+name: Shadow RCA isolated checks
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'app/reused/shadow_*.py'
+      - 'app/reused/synthetic_recovery.py'
+      - 'tests/test_shadow_*.py'
+      - '.github/workflows/shadow-rca-checks.yml'
+      - 'scripts/check_shadow_rca_stdlib.py'
+
+concurrency:
+  group: shadow-rca-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  shadow-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Dependency-free shadow smoke
+        run: python scripts/check_shadow_rca_stdlib.py
+      - name: Install isolated test dependency
+        run: python -m pip install 'pytest>=8,<10'
+      - name: Compile shadow modules
+        run: python -m compileall -q app/reused/shadow_investigation.py app/reused/shadow_evidence_intake.py app/reused/shadow_rca_benchmark.py app/reused/shadow_snapshot_benchmark.py app/reused/shadow_incident_journey.py
+      - name: Run isolated synthetic shadow tests
+        run: >-
+          python -m pytest -q
+          tests/test_shadow_investigation.py
+          tests/test_shadow_incident_journey.py
+          tests/test_shadow_evidence_intake.py
+          tests/test_shadow_rca_benchmark.py
+          tests/test_shadow_snapshot_benchmark.py

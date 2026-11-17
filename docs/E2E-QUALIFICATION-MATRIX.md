@@ -1,0 +1,108 @@
+# GAMMA — matrice de qualification E2E (PR #1)
+
+Statut : **HOLD / NO_GO**. Cette matrice décrit les preuves requises, pas une certification de production.
+
+| Chaîne / besoin | Contrat vérifiable | Preuve disponible | Blocage / suite |
+| --- | --- | --- | --- |
+| Gateway → tenant → incident → preuve | Assertion HMAC liée à la méthode et au chemin, droit explicite, lecture/écriture cloisonnées | Tests HTTP simulés et nouveau `tests/test_evidence_http_postgres_e2e.py` (création/lecture deux tenants, écriture refusée, path binding) ; job CI ajouté | **Non exécuté sur PostgreSQL** : obtenir job steps/logs et attestation des migrations |
+| Ressources persistées | Identité tenant uniquement depuis le principal vérifié, filtres SQL tenant+incident et limite 500 | Tests AST/HTTP avec inspection SQLAlchemy ; `tests/test_resource_list_http_postgres.py` raccordé au job dédié | Tests PostgreSQL non exécutés ; RLS absente/non qualifiée, concurrence/transactions/indexes à vérifier |
+| OpenSearch logs | Recherche read-only, tenant/service/time, DLS côté cluster | Tests unitaires d'adaptateur et contrat `docs/OPENSEARCH-READ-CONTRACT.md` | DLS OpenSearch réel et tests négatifs inter-tenants non qualifiés |
+| Inbox/outbox alertes | Retry idempotent, conflit 409, transaction atomique | Tests de logique ingestion ; scénario PostgreSQL ajouté pour deux tenants, idempotence, conflit 409, création inbox/outbox, et appel du relais vers HTTP MockTransport | Scénario PG non exécuté ; réessai HTTP 503 → 202 désormais couvert par test non exécuté ; concurrence même tenant/clé ajoutée au scénario PostgreSQL mais non exécutée |
+| Corrélation / RCA / impact | Previews non autoritaires, provenance et incertitude | Fonctions et tests de previews | Sources canoniques, CMDB/ITSM et parcours utilisateur intégrés non qualifiés |
+| Sentinel/ArgusLM KPI/SLO | Couverture, fenêtres, seuils, états indéterminés | Tests unitaires KPI/SLO | Mesures réelles, provenance, observabilité des erreurs et SLO métier |
+| Policy / HITL / remédiation | Aucun effet LIVE sans décision qualifiée | Endpoints de prévisualisation read-only | Exécution interdite ; audit, approbation et contrôle d'effet à concevoir/qualifier |
+| Frontend → BFF | Flux de navigation et erreurs 401/403/422/503 sans fuite | UI partiellement synthétique | Playwright sur build UI + BFF réel, accessibilité et états d'erreur |
+| Déploiement | Compose, Helm, image rootless, migrations | Configurations et workflows présents | Job `tenant-evidence-postgres-e2e` ajouté au workflow (PG16 jetable, rôle non-superutilisateur, Alembic 0002) ; vérification d'exécution en attente, ancienne CI pré-step échouée |
+
+## Livraisons de la reprise du 16 novembre 2026
+
+- `8348a91` : test HTTP+PostgreSQL de création/lecture tenant-isolées, refus d'écriture et chemin signé, sur base explicitement jetable.
+- `d9585f0` : CI PostgreSQL 16 avec rôle non-superutilisateur, migration et exécution des deux modules d'intégration ; non exécutée dans ce laboratoire.
+- `9bc0f2a`, `b0cac16` : robustesse des DSN et du nettoyage des preuves de test.
+- `04d7d4a` : refus de lecture sans grant ajouté au scénario PostgreSQL.
+- `93e7071` : CI scindée entre tests indépendants de PostgreSQL et E2E sur base jetable ; les skips E2E sont rapportés, pas validés comme passes.
+- `9c85efc`, `8580ded` : requêtes HTTP et vérifications PostgreSQL dans une seule boucle événementielle.
+- `0dc0e0a` : droits d'incident explicites dans les assertions des anciens tests PostgreSQL.
+- `9efdc79`, `36520bf` : nouveau scénario ingestion HTTP → PostgreSQL inbox/outbox → relais HTTP simulé, et nettoyage des écritures partielles par tenants éphémères.
+- `3184717` : nettoyage des preuves E2E par tenants éphémères, y compris si la réponse HTTP manque après commit.
+- `10da7f2` : scénario PostgreSQL du relais outbox avec HTTP 503, tentative différée et récupération HTTP 202 (récepteur simulé, non exécuté).
+- `aaaeb63` : course entre deux requêtes HTTP pour la même clé d'alerte et le même tenant ; une seule paire inbox/outbox attendue (PG non exécuté).
+- `bd73a4c` : contrôle fail-closed de l'ingestion désactivée (`503`, `no-store`, zéro ligne inbox/outbox) dans le scénario PG non exécuté.
+- `3778015` : vérification que la même clé externe avec des charges utiles différentes reste indépendante entre tenants, tout en rejetant les conflits au sein d'un tenant (scénario PG non exécuté).
+- `8930b8f` : ingestion d'alertes refuse les identités forgées sans assertion signée et les assertions liées à la mauvaise méthode (`401`), sans aucune écriture PG (scénario non exécuté).
+- `8cda68d` : course entre deux charges utiles contradictoires sur la même clé/tenant ; une seule création (`200`), un conflit (`409`) et une seule paire inbox/outbox attendus (PG non exécuté).
+- `5843277` : assertion signée insuffisante sans clé de service ; clé absente ou erronée → `401` et zéro écriture inbox/outbox (PG non exécuté).
+- `f8b2586` : refus HTTP des en-têtes d'identité dupliqués (clé de service, assertion gateway, tenant, acteur), avec `401` et zéro écriture PG ; scénario non exécuté.
+- `3f93618` : correspondance exacte des charges utiles inbox/outbox par tenant, type d'événement et service, afin de détecter les associations inter-tenants malgré des comptes corrects (PG non exécuté).
+- `98c2575` : comparaison des enveloppes HTTP effectivement reçues par le destinataire simulé avec les événements outbox d'origine (ID, tenant, payload, type, service) ; scénario PG non exécuté.
+- `3ebc16a` / `c1e1231` : correction du relais pour effacer `next_attempt_at` après publication réussie et assertion PG E2E correspondante (non exécutée).
+- `b258276` / `1fa02bc` / `1545bdc` / `e4c65e7` : relais outbox limité aux accusés `2xx`, redirections explicitement interdites même si le client HTTP les autorise ; test PG E2E de `302`, absence de publication, retry et absence de transfert du jeton (non exécuté).
+- `45358f4` : récupération d'un événement outbox après rejet d'une redirection `302` : nouvel accusé `202`, livraison unique, état de retry nettoyé ; PG E2E non exécuté.
+- `d41eed0` : arrêt du relais après `MAX_ATTEMPTS` échecs, aucune livraison supplémentaire, événement conservé non publié avec erreur ; scénario PostgreSQL non exécuté.
+- `5a3c6aa` / `075bcfc` : état terminal outbox cohérent après épuisement de `MAX_ATTEMPTS` (`next_attempt_at = NULL`, erreur conservée) ; assertion PG non exécutée.
+- `f2b7e18` / `49b2619` / `282d695` : validation fail-closed de l'URL webhook du relais (HTTPS, hôte, absence de credentials/query/fragment) et tests unitaires dédiés ; exécution CI non attestée.
+- `77b2628` / `21d619b` : validation HTTPS et port au point d'appel `dispatch_once`, refus des destinations non sûres ou jetons vides avant tout accès DB ; tests unitaires ajoutés, non exécutés en CI.
+- `c60ee6b` / `4bf96b9` : refus des URL webhook avec espaces ou sauts de ligne périphériques avant normalisation, et tests unitaires du validateur et de `dispatch_once` ; CI non exécutée.
+- `1e271c9` / `940d303` : refus des caractères de contrôle intégrés et des antislashs dans les URL webhook avant normalisation HTTPX ; tests de validation et refus avant accès DB ajoutés, non exécutés en CI.
+- `c850967` : correction de l'ordre du test PostgreSQL outbox : publication et vérification des deux événements concurrents restants avant scénario de redirection `302`, pour tester le bon événement ; exécution PG non attestée.
+- `b902dfb` : test PostgreSQL du délai de retry après HTTP `302` : aucune livraison avant `next_attempt_at`, aucune tentative supplémentaire, puis récupération sur `202` ; exécution PG non attestée.
+- `d449d2a` / `d6a07e7` : refus de tout userinfo dans l'autorité webhook, même vide (`https://@host`) ou partiel ; tests unitaires du validateur et du refus avant accès DB, exécution CI non attestée.
+- `198025e` / `c7c5f60` : validation fail-closed du jeton bearer outbox (vide, espaces périphériques, caractères de contrôle) au démarrage et avant accès DB dans `dispatch_once` ; tests unitaires ajoutés, exécution CI non attestée.
+- `452c97e` / `3fccf4d` : correction des tests de jeton bearer pour exercer de vrais caractères de contrôle (`\\n`, `\\t`, NUL, DEL), avec refus avant accès DB ; exécution CI non attestée.
+- `cc671f3` / `2304344` : ordre outbox stable par `(created_at, id)` ; test PostgreSQL impose des timestamps identiques et vérifie l'ordre des identifiants livrés, exécution PG non attestée.
+- `79f1c80` / `d4f0c55` : validation du jeton bearer outbox limitée aux caractères ASCII imprimables sans espace, avec tests non-ASCII/espaces internes et refus avant DB ; exécution CI non attestée.
+- `d32723d` / `ac940fe` : configuration webhook exige le préfixe canonique exact `https://` avant analyse de l'autorité ; tests des schémas non canoniques et refus avant DB ; exécution CI non attestée.
+- `897bdf1` : test unitaire de la progression exponentielle du retry outbox et du plafond de 300 secondes ; exécution CI non attestée.
+- `9038deb` / `61aa121` : test PostgreSQL du retry après HTTP 503 : échéance future et bornée par rapport au début de la tentative de dispatch (et non à la création de l'événement), sans publication ; exécution PG non attestée.
+- `e2e7417` / `5309cc7` : le relais calcule le prochain retry après l'échec HTTP et la publication après l'ACK 2xx ; test PostgreSQL vérifiant une échéance encore future après retour du dispatch ; exécution CI/PG non attestée.
+- `e29ad7a` / `8eaf685` : validation RFC 6750 du jeton Bearer outbox, refus des séparateurs et du padding interne avant accès DB ; tests non exécutés en CI à ce stade.
+- `ae34353` : scénario PostgreSQL de timeout HTTP outbox au dernier essai : échec persisté, non-publication, absence de retry après épuisement, puis vérification HTTP 503 ; exécution PG non attestée.
+- `40dc00f` : test PostgreSQL de non-réexpédition après timeout terminal, contrôlé après fermeture de la session d'inspection pour éviter un faux positif lié au verrou ; exécution PG non attestée.
+- `8660973` / `600a452` / `ef0a1ff` : scénario PostgreSQL de timeout HTTP au premier essai : échéance de retry persistée bornée par le début et la fin du dispatch (+ délai attendu), puis échéance repoussée dans la base jetable pour contrôler la non-réexpédition sans course avec l'horloge CI ; scénarios terminaux préservés ; exécution PG non attestée.
+- `afe1bc9` / `df4b0c7` : URL brute du webhook limitée à l'ASCII sans espaces, rejet des caractères Unicode et séparateurs invisibles avant accès DB ; exécution CI non attestée.
+- `c48b233` / `92534a5` : rejet des délimiteurs URL `?` et `#` même vides, avec tests de validation et refus avant accès DB ; exécution CI non attestée.
+- `8c9f0e3` / `7fd7a2a` / `c5224e9` / `a8807f0` : récupération HTTP 202 après timeout initial et expiration simulée du backoff ; publication unique, méthode POST, destination HTTPS exacte, Content-Type JSON et enveloppe HTTP vérifiés (X-Event-Id, Bearer, event_id, tenant_id, event_type, aggregate_id et payload JSON), effacement de `next_attempt_at` et `last_error`, puis couverture terminale conservée ; exécution PG non attestée.
+- `95be210` / `13b264c` : rejet de l'autorité URL percent-encodée (hôte et délimiteurs d'identité ambigus), avec refus testé avant accès DB ; exécution CI non attestée.
+- `1deac3a` / `0f2a82c` / `215dc99` / `659a729` : rejet des séparateurs de route, contrôles et espaces (`%20`) percent-encodés dans l'URL webhook, avec tests de refus avant accès DB ; exécution CI non attestée.
+- `11892ce` / `8a444cc` : worker outbox avec `httpx.AsyncClient(trust_env=False)` pour ignorer les proxies et NETRC hérités ; test unitaire de configuration en environnement hostile ; exécution CI non attestée.
+- `f2d7daf` : test de démarrage fail-closed du worker outbox ; URL HTTP, route encodée ou token malformé refusés avant instanciation du client HTTP ; exécution CI non attestée.
+- `da30cd1` / `68c4287` / `4d61d9d` / `f19504d` : refus des destinations webhook à adresse IP littérale (IPv4/IPv6, loopback, métadonnées cloud) et `localhost`, y compris sous-domaines terminés par un point DNS, avant accès DB ; les noms DNS restent soumis à une qualification réseau indépendante ; exécution CI non attestée.
+- `492d6f9` / `1262fd1` : politique stricte de route webhook sans percent-encoding, y compris double encodage `%252f` ; tests de refus avant accès DB ; exécution CI non attestée.
+- `e7e528a` / `835b539` : rejet des alias IPv4 numériques (`2130706433`, `0177.0.0.1`) avant accès DB ; exécution CI non attestée. Dernière vérification : Python checks `43940295530`, quatre jobs en échec sans étapes visibles.
+- `56ba88e` / `9cda686` / `458fde3` : refus des alias IPv4 hexadécimaux et mixtes (`0x7f000001`, `0x7f.0.0.1`) avant accès DB ; exécution CI non attestée.
+- `116d89b` / `276fbbc` : validation stricte des labels DNS du webhook (pas de labels vides, underscores, tirets aux extrémités) avec refus avant accès DB ; exécution CI non attestée.
+- `d651dc2` / `cbbae04` : limite de 253 caractères pour le nom DNS webhook et tests des labels >63 caractères, refus avant accès DB ; exécution CI non attestée.
+- `56650a3` / `d342b47` : jeton Bearer du relais borné à 4 096 caractères ; tests aux bornes 4 096/4 097 et refus avant accès DB ; exécution CI non attestée.
+- `8920272` / `90a9cca` : URL webhook bornée à 2 048 caractères, suppression d'une vérification percent-encoding redondante, tests aux bornes et refus avant accès DB ; exécution CI non attestée.
+- `9f99c38` / `dae2057` : démarrage du relais conditionné à `CORRELATION_WEBHOOK_ALLOWED_HOST`, correspondance exacte avec le hostname HTTPS, tests des valeurs absentes/incohérentes avant création client ; configuration à fournir en exploitation, résolution DNS et réseau non qualifiés ; exécution CI non attestée.
+- `b5e65f2` / `a19d1ee` / `26f8b84` / `c0e4fbd` : allowlist exacte `CORRELATION_WEBHOOK_ALLOWED_HOST` imposée aussi à chaque `dispatch_once`, rejet des appels directs avant accès DB, adaptation E2E PostgreSQL ; tests non exécutés en CI, résolution DNS non qualifiée.
+- `221a01b` / `d57c7c9` : rejet des hôtes webhook DNS avec point final (`receiver.example.test.`) pour éviter une représentation TLS/allowlist ambiguë, refus avant accès DB ; exécution CI non attestée.
+- `ef59a2b` / `b676442` / `2f056b7` : `dispatch_once` impose désormais l'égalité exacte avec `CORRELATION_WEBHOOK_URL` (chemin et port compris), en complément de l'allowlist hôte ; tests de dérive avant accès DB et adaptation E2E PostgreSQL ; exécution CI non attestée.
+- `a81b486` / `972db34` / `fc73591` / `e7b41be` : jeton Bearer de `dispatch_once` épinglé à `CORRELATION_WEBHOOK_TOKEN`, refus des substitutions avant accès DB et adaptation E2E PostgreSQL ; exécution CI non attestée.
+- `441cf6a` / `dd815f8` : couverture positive/négative du prédicat de configuration du destinataire et contrat d'exploitation du worker (URL, hôte, token, trust_env=False, déduplication), limites DNS/egress explicites ; exécution CI non attestée.
+- `1b773c2` / `bf24fa9` / `89b3666` : tests de refus avant DB si URL ou jeton du worker dérivent ; pool HTTP borné à une connexion active/persistante avec assertion de `trust_env=False` ; exécution CI non attestée.
+- `bdb1e07` / `32e03f3` / `fa1dde0` : arrêt automatique des retries pour réponses HTTP 4xx permanentes (hors 408/429), conservation de l'événement pour inspection, tests unitaires de classification HTTP et erreurs transport ; tests PostgreSQL/CI non exécutés avec succès confirmé.
+- `a029b79` / `529f016` : scénario E2E PostgreSQL enrichi : HTTP 429 planifie un retry différé et HTTP 401 rend l'événement terminal sans publication, chacun sans second envoi immédiat ; scénario non attesté exécuté en CI.
+- `c9ea5d2` / `bdbd929` / `cc5f520` : HTTP 429 respecte `Retry-After` numérique borné à 300 s sans raccourcir le backoff, tests unitaires et assertion de l'échéance persistée en E2E PostgreSQL ; CI encore en échec sans preuve d'exécution (Python checks `43946491047`, quatre jobs failed sans étapes visibles).
+- `6775afb` / `7cbed0d` / `323a546` : prise en compte de `Retry-After` numérique borné pour HTTP 503 en plus de 429, tests des valeurs invalides et contrôle E2E de l'absence de réactivation après épuisement des tentatives ; exécution CI non attestée.
+- `f892622` : scénario E2E PostgreSQL vérifiant pour HTTP 503 la persistance de `Retry-After: 120` avec budget restant, l'absence de deuxième envoi immédiat et l'arrêt terminal après épuisement ; test non attesté exécuté en CI.
+- `425b192` / `a1c7425` / `f9da46b` : redirections HTTP 3xx classées terminales (pas de suivi ni replay automatique), tests unitaires et E2E PostgreSQL vérifiant le réarmement explicite de la ligne avant livraison ; exécution CI non attestée.
+- `d0dd6fe` / `f445c9f` / `89c1cf1` : HTTP 425 Too Early classé temporaire (comme 408/429), test unitaire et E2E PostgreSQL vérifiant retry différé avant refus 401 terminal ; exécution CI non attestée.
+- `b344c59` / `c2ffe7b` : prise en compte de `Retry-After` au format HTTP-date pour 429/503, dates invalides/passées ignorées, délai minimal exponentiel et plafond 300 s ; tests unitaires déterministes ajoutés, exécution CI non attestée.
+- `960b13d` / `0ddc02d` : scénario E2E PostgreSQL HTTP 503 avec `Retry-After` au format date GMT et échéance persistée ; retrait d'une fixture HTTPX invalide (en-tête non ASCII rejeté avant l'appel du code) ; exécution CI non attestée.
+- `2054418` / `54b5c85` : `Retry-After` HTTP-date limité au format canonique GMT avec jour de semaine cohérent ; rejet des dates ambiguës/non canoniques et tests unitaires associés ; exécution CI non attestée.
+- `1621807` / `73f5825` / `ce316df` : `Retry-After` numérique et HTTP-date également honoré sur HTTP 425, test unitaire et E2E PostgreSQL de l'échéance persistée de 120 s ; exécution CI non attestée.
+- `bfe2da5` / `763c617` : en-têtes `Retry-After` multiples rejetés comme ambigus sur HTTP 425/429/503, repli sur le backoff local ; tests unitaires ajoutés, exécution CI non attestée.
+- `99910ea` / `a961696` : garde contre horloge injectée sans fuseau lors du calcul `Retry-After` HTTP-date ; repli sûr sur backoff local et test unitaire de non-crash ; exécution CI non attestée.
+- **Preuve d'exécution** : aucune réussite PG/CI attestée sur ces commits. Les résultats du laboratoire précédent concernent des tests isolés/simulés ; ils ne remplacent pas une qualification de bout en bout.
+- **Limite architecturale importante** : le frontend est une démonstration synthétique qui bloque volontairement `/api` ; le parcours frontend → BFF réel n'est pas développé/qualifié. La sécurité ne doit pas être affaiblie pour produire artificiellement un test vert.
+
+## Procédure de qualification
+
+1. Exécuter `python -m pytest -q tests/test_evidence_resource_acl_http.py tests/test_gateway_assertion.py tests/test_gateway_resource_acl_contract.py` dans un environnement disposant des dépendances du projet.
+2. Exécuter le job `tenant-evidence-postgres-e2e` du nouveau HEAD (migrations + `tests/test_resource_list_http_postgres.py` et `tests/test_evidence_http_postgres_e2e.py`, incluant ingestion/outbox/relais simulé) puis consigner les logs/étapes ; vérifier séparément RLS, contraintes et concurrence.
+3. Exécuter les parcours API complets avec un émetteur d'assertions gateway **indépendant** et des assertions négatives (signature, expiration, méthode, chemin, tenant, ressource).
+4. Exécuter la chaîne OpenSearch avec DLS effectif, les tests d'ingestion/outbox en concurrence et les parcours UI.
+5. Récupérer les journaux CI, qualifier les runners et faire passer tous les jobs avant de lever HOLD.
+
+**Ne pas confondre** un TestClient avec persistance simulée, une validation SQLAlchemy, une CI verte et une qualification E2E PostgreSQL/OpenSearch. Aucune autorisation LIVE, merge ou déploiement ne découle des tests actuels.

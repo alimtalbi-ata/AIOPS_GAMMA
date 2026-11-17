@@ -1,0 +1,12 @@
+# Thin Compose entry point: reuse the existing, tested root stack.
+# Run from repository root with:
+# docker compose -f docker-compose.yml -f deploy/compose/compose.yaml up -d --build
+services:
+  api:
+    environment:
+      ENABLE_GLPI_READS: "false"
+      ENABLE_CANONICAL_READS: "false"
+      OPENSEARCH_VERIFY_CERTS: "true"
+    security_opt: [no-new-privileges:true]
+  frontend:
+    security_opt: [no-new-privileges:true]

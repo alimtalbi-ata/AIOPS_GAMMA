@@ -1,0 +1,6 @@
+apiVersion: v2
+name: gamma
+description: AIOPS_GAMMA UI/API with optional in-cluster PostgreSQL for non-production evaluation
+type: application
+version: 0.1.0
+appVersion: "0.2.0"

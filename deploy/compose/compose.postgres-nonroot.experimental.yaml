@@ -1,0 +1,11 @@
+# Experimental PostgreSQL non-root override. NOT qualified on rootless Docker.
+# Apply AFTER compose.rootless.yaml on a dedicated disposable host only.
+# Requires explicit bind ownership/UID mapping preparation and runtime proof.
+services:
+  postgres:
+    user: "10001:10001"
+    environment:
+      PGDATA: /var/lib/postgresql/data/pgdata
+    cap_drop: [ALL]
+    # Compose !reset clears the inherited capability additions from rootless overlay.
+    cap_add: !reset []

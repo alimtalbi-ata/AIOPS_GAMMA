@@ -1,0 +1,16 @@
+{
+  "index_patterns": ["aiops-logs-v1-*"],
+  "template": {
+    "mappings": {
+      "properties": {
+        "@timestamp": {"type": "date"},
+        "tenant": {"properties": {"id": {"type": "keyword"}}},
+        "resource": {"properties": {"attributes": {"properties": {"service": {"properties": {"name": {"type": "keyword"}}}}}}}},
+        "severityText": {"type": "keyword"},
+        "body": {"type": "text"},
+        "traceId": {"type": "keyword"},
+        "spanId": {"type": "keyword"}
+      }
+    }
+  }
+}

@@ -1,0 +1,50 @@
+"""Conservative scope-claim rejection adapted from aiops/app/shared/tenant_scope.py.
+
+Used only on untrusted upstream diagnostic metadata, not on authenticated
+internal tenant identity. This does not implement tenant authorization.
+"""
+import re
+import unicodedata
+
+NAMES = frozenset((
+    "tenant", "tenantid", "tenantname", "tenantkey", "tenantids",
+    "org", "orgid", "orgname", "organization", "organizationid",
+    "workspace", "workspaceid", "workspacename",
+    "account", "accountid", "accountname",
+    "customer", "customerid", "customername",
+    "tenantaclqualified", "aclqualified", "orgref", "organizationref",
+    "workspaceref", "accountref", "customerref",
+))
+
+
+def reject_unqualified_tenant_scope(value: object) -> None:
+    pending = [value]
+    visited = 0
+    while pending:
+        item = pending.pop()
+        visited += 1
+        if visited > 4096:
+            raise ValueError("tenant-scope scan bound exceeded")
+        if isinstance(item, dict):
+            # Refuse oversized containers before materializing their children.
+            # The total scan budget also bounds pending work and memory.
+            if len(item) + visited + len(pending) > 4096:
+                raise ValueError("tenant-scope scan bound exceeded")
+            for key, child in item.items():
+                if not isinstance(key, str) or len(key) > 255:
+                    raise ValueError("invalid tenant-scope key")
+                normalized = re.sub(
+                    r"[^a-z0-9]", "", unicodedata.normalize("NFKC", key).casefold()
+                )
+                if (normalized in NAMES
+                    or normalized.startswith(("tenant", "organization", "workspace"))
+                    or normalized.endswith((
+                        "tenant", "tenantid", "orgid", "organizationid",
+                        "workspaceid", "accountid", "customerid",
+                    ))):
+                    raise ValueError("unqualified tenant scope claim")
+                pending.append(child)
+        elif isinstance(item, (list, tuple)):
+            if len(item) + visited + len(pending) > 4096:
+                raise ValueError("tenant-scope scan bound exceeded")
+            pending.extend(item)

@@ -1,0 +1,318 @@
+name: Deployment contract (static + runtime smoke)
+on:
+  push:
+  pull_request:
+jobs:
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Compose baseline + secure override
+        env:
+          POSTGRES_PASSWORD: ci-placeholder-not-a-secret
+          INTERNAL_API_KEY: ci-placeholder-not-a-secret
+        run: docker compose -f docker-compose.yml -f deploy/compose/compose.yaml config --quiet
+      - name: Validate single-directory rootless overlay
+        env:
+          POSTGRES_PASSWORD: ci-placeholder-not-a-secret
+          INTERNAL_API_KEY: ci-placeholder-not-a-secret
+          GAMMA_HOME: /home/runner/gamma-home
+        run: |
+          mkdir -p "$GAMMA_HOME/data/postgres" "$GAMMA_HOME/data/opensearch"
+          docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml config --quiet
+      - name: Validate experimental non-root PostgreSQL Compose override
+        env:
+          POSTGRES_PASSWORD: ci-placeholder-not-a-secret
+          INTERNAL_API_KEY: ci-placeholder-not-a-secret
+          GAMMA_HOME: /home/runner/gamma-home
+        run: |
+          docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml -f deploy/compose/compose.postgres-nonroot.experimental.yaml config --format json > /tmp/gamma-pg-experimental.json
+          python3 - <<'PY'
+          import json
+          with open("/tmp/gamma-pg-experimental.json", encoding="utf-8") as f:
+              pg = json.load(f)["services"]["postgres"]
+          assert pg["user"] == "10001:10001", pg
+          assert pg["environment"]["PGDATA"] == "/var/lib/postgresql/data/pgdata", pg
+          assert pg["cap_drop"] == ["ALL"], pg
+          assert not pg.get("cap_add"), pg
+          print("Experimental PostgreSQL non-root static configuration: OK")
+          PY
+      - name: Check rootless preflight shell syntax
+        run: |
+          sh -n deploy/scripts/check-rootless-home.sh
+          sh -n deploy/scripts/audit-rootless-compose.sh
+          sh -n deploy/scripts/smoke-rootless.sh
+          sh -n deploy/scripts/inspect-rootless-evidence.sh
+      - name: Test rootless preflight with mocked Docker
+        run: python3 deploy/scripts/test-rootless-preflight.py -v
+      - name: Test strict rootless audit with mocked Docker
+        run: python3 deploy/scripts/test-rootless-audit.py -v
+      - name: Test disposable rootless smoke guards with mocked Docker
+        run: python3 deploy/scripts/test-rootless-smoke.py -v
+      - name: Test rootless smoke port collision guard
+        run: python3 deploy/scripts/test-smoke-ports.py -v
+      - name: Test PostgreSQL rootless configured-user preflight
+        run: python3 deploy/scripts/test-postgres-rootless.py -v
+      - name: Assert rootless bind mounts and non-root users
+        env:
+          POSTGRES_PASSWORD: ci-placeholder-not-a-secret
+          INTERNAL_API_KEY: ci-placeholder-not-a-secret
+          GAMMA_HOME: /home/runner/gamma-home
+        run: |
+          docker compose --profile relay --profile observability-demo -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml config --format json > compose-rendered.json
+          python3 - <<'PY'
+          import json, os
+          with open("compose-rendered.json", encoding="utf-8") as f:
+              services = json.load(f)["services"]
+          home = os.environ["GAMMA_HOME"]
+          for name in ("postgres", "opensearch"):
+              mounts = services[name]["volumes"]
+              assert len(mounts) == 1, (name, mounts)
+              assert mounts[0]["type"] == "bind", (name, mounts)
+              assert mounts[0]["source"].startswith(home + "/data/"), (name, mounts)
+          for name in ("api", "outbox-relay"):
+              assert services[name]["user"] == "10001:10001"
+          assert services["frontend"]["security_opt"] == ["no-new-privileges:true"]
+          print("Compose rootless static contract: OK")
+          PY
+  ui-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build non-root UI image
+        run: docker build -t gamma-ui:ci frontend
+      - name: Assert UI image non-root user and unprivileged port
+        run: |
+          test "$(docker image inspect gamma-ui:ci --format '{{.Config.User}}')" = "101:101"
+          docker run --rm --cap-drop ALL --security-opt no-new-privileges --user 101:101 --entrypoint nginx gamma-ui:ci -t
+      - name: Smoke test running UI with dropped capabilities
+        run: |
+          set -eu
+          # The static UI has no API upstream or dependency on API DNS.
+          docker run -d --name gamma-ui-smoke --cap-drop ALL --security-opt no-new-privileges --user 101:101 -p 127.0.0.1:18080:8080 gamma-ui:ci
+          trap 'docker logs gamma-ui-smoke || true; docker rm -f gamma-ui-smoke || true' EXIT
+          for i in $(seq 1 30); do
+            if curl --fail --silent --show-error --max-time 2 http://127.0.0.1:18080/ -o ui-response.html; then
+              grep -qi '<html' ui-response.html
+              docker inspect --format '{{.State.Running}}' gamma-ui-smoke | grep -qx true
+              docker inspect --format '{{.HostConfig.Privileged}}' gamma-ui-smoke | grep -qx false
+              test "$(docker inspect --format '{{.Config.User}}' gamma-ui-smoke)" = "101:101"
+              # The static frontend has no API proxy or demo API access:
+              # every /api path is denied, with security headers retained.
+              for route in correlation investigation; do
+                headers=$(mktemp)
+                status=$(curl --silent --show-error --max-time 3 -o /dev/null -D "$headers" -w '%{http_code}' -X POST "http://127.0.0.1:18080/api/v1/demo/$route")
+                test "$status" = 404
+                grep -Eqi '^X-Content-Type-Options: nosniff' "$headers"
+                grep -Eqi '^Referrer-Policy: no-referrer' "$headers"
+                grep -Eqi '^X-Frame-Options: DENY' "$headers"
+                grep -Eqi '^Content-Security-Policy: ' "$headers"
+                grep -Eqi '^Cache-Control: no-store' "$headers"
+                rm -f "$headers"
+              done
+              private_headers=$(mktemp)
+              status=$(curl --silent --show-error --max-time 3 -o /dev/null -D "$private_headers" -w '%{http_code}' http://127.0.0.1:18080/api/v1/private)
+              test "$status" = 404
+              grep -Eqi '^Cache-Control: no-store' "$private_headers"
+              grep -Eqi '^X-Content-Type-Options: nosniff' "$private_headers"
+              grep -Eqi '^Referrer-Policy: no-referrer' "$private_headers"
+              grep -Eqi '^X-Frame-Options: DENY' "$private_headers"
+              grep -Eqi '^Content-Security-Policy: ' "$private_headers"
+              rm -f "$private_headers"
+              # Exact /api must never be handled by the SPA fallback.
+              exact_headers=$(mktemp)
+              status=$(curl --silent --show-error --max-time 3 -o /dev/null -D "$exact_headers" -w '%{http_code}' http://127.0.0.1:18080/api)
+              test "$status" = 404
+              grep -Eqi '^Cache-Control: no-store' "$exact_headers"
+              grep -Eqi '^X-Content-Type-Options: nosniff' "$exact_headers"
+              grep -Eqi '^Referrer-Policy: no-referrer' "$exact_headers"
+              grep -Eqi '^X-Frame-Options: DENY' "$exact_headers"
+              grep -Eqi '^Content-Security-Policy: ' "$exact_headers"
+              rm -f "$exact_headers"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Non-root UI did not respond over HTTP" >&2
+          exit 1
+  api-postgres-runtime:
+    runs-on: ubuntu-latest
+    env:
+      POSTGRES_PASSWORD: ci-only-test-password
+      INTERNAL_API_KEY: ci-only-test-internal-key
+      COMPOSE_PROJECT_NAME: gamma-api-pg-ci
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start PostgreSQL and API in Compose
+        run: |
+          set -eu
+          docker compose -f docker-compose.yml -f deploy/compose/compose.yaml up -d --build --wait postgres api
+      - name: Verify database readiness and API HTTP health
+        run: |
+          set -eu
+          docker compose -f docker-compose.yml -f deploy/compose/compose.yaml exec -T postgres pg_isready -U aiops -d aiops
+          for i in $(seq 1 30); do
+            if curl --fail --silent --show-error --max-time 2 http://127.0.0.1:8000/api/v1/health/live -o api-health.json; then
+              python3 -c 'import json; assert json.load(open("api-health.json"))["status"] == "ok"'
+              docker compose -f docker-compose.yml -f deploy/compose/compose.yaml ps
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "API did not respond to health probe" >&2
+          exit 1
+      - name: Inspect runtime security configuration
+        run: |
+          set -eu
+          api_id=$(docker compose -f docker-compose.yml -f deploy/compose/compose.yaml ps -q api)
+          test "$(docker inspect --format '{{.Config.User}}' "$api_id")" = gamma
+          test "$(docker inspect --format '{{.HostConfig.Privileged}}' "$api_id")" = false
+          test "$(docker inspect --format '{{.State.Running}}' "$api_id")" = true
+      - name: Capture logs and remove test containers
+        if: always()
+        run: |
+          docker compose -f docker-compose.yml -f deploy/compose/compose.yaml logs --no-color --tail=100 || true
+          docker compose -f docker-compose.yml -f deploy/compose/compose.yaml down --volumes --remove-orphans || true
+  postgres-nonroot-experiment:
+    runs-on: ubuntu-latest
+    env:
+      POSTGRES_PASSWORD: ci-only-test-password
+      INTERNAL_API_KEY: ci-only-test-internal-key
+      COMPOSE_PROJECT_NAME: gamma-pg-nonroot-ci
+      GAMMA_HOME: ${{ github.workspace }}/gamma-experimental-home
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare disposable private PostgreSQL bind for UID 10001
+        run: |
+          set -eu
+          mkdir -p "$GAMMA_HOME/data/postgres"
+          # Rootful CI-only: chown the disposable bind to the container UID.
+          # This is NOT a rootless UID mapping procedure or host qualification.
+          chmod 700 "$GAMMA_HOME/data/postgres"
+          sudo chown 10001:10001 "$GAMMA_HOME/data/postgres"
+          test "$(stat -c %u "$GAMMA_HOME/data/postgres")" = 10001
+          test "$(stat -c %a "$GAMMA_HOME/data/postgres")" = 700
+      - name: Initialize PostgreSQL as UID 10001 with no added capabilities
+        run: |
+          set -eu
+          docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml -f deploy/compose/compose.postgres-nonroot.experimental.yaml up -d --wait postgres
+          id=$(docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml -f deploy/compose/compose.postgres-nonroot.experimental.yaml ps -q postgres)
+          test "$(docker inspect --format '{{.Config.User}}' "$id")" = "10001:10001"
+          test "$(docker inspect --format '{{.HostConfig.Privileged}}' "$id")" = false
+          test "$(docker inspect --format '{{len .HostConfig.CapAdd}}' "$id")" = 0
+          test "$(docker exec "$id" sh -c "awk '/^Uid:/ {print \$2}' /proc/1/status")" = 10001
+          docker exec "$id" pg_isready -U aiops -d aiops
+          docker exec "$id" psql -v ON_ERROR_STOP=1 -U aiops -d aiops -c 'CREATE TABLE gamma_nonroot_ci (id integer PRIMARY KEY); INSERT INTO gamma_nonroot_ci VALUES (1);'
+          # Confirm PostgreSQL made a private PGDATA directory despite the
+          # disposable permissive parent (not a rootless host permission test).
+          test "$(stat -c %a "$GAMMA_HOME/data/postgres/pgdata")" = 700
+          test "$(stat -c %u "$GAMMA_HOME/data/postgres/pgdata")" = 10001
+          # Recreate the container, retaining the same bind mount.
+          compose="docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml -f deploy/compose/compose.postgres-nonroot.experimental.yaml"
+          $compose stop postgres
+          $compose rm -f postgres
+          $compose up -d --wait postgres
+          recreated=$($compose ps -q postgres)
+          test "$recreated" != "$id"
+          test "$(docker inspect --format '{{.Config.User}}' "$recreated")" = "10001:10001"
+          test "$(docker inspect --format '{{len .HostConfig.CapAdd}}' "$recreated")" = 0
+          persisted=$(docker exec "$recreated" psql -At -v ON_ERROR_STOP=1 -U aiops -d aiops -c 'SELECT id FROM gamma_nonroot_ci;')
+          test "$persisted" = 1
+          echo "Rootful Docker non-root PostgreSQL initialization, private PGDATA, and persistence: OK"
+      - name: Collect experimental logs and remove disposable containers
+        if: always()
+        run: |
+          docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml -f deploy/compose/compose.postgres-nonroot.experimental.yaml logs --no-color --tail=100 postgres || true
+          docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml -f deploy/compose/compose.postgres-nonroot.experimental.yaml down --remove-orphans || true
+  single-directory-runtime:
+    runs-on: ubuntu-latest
+    env:
+      POSTGRES_PASSWORD: ci-only-test-password
+      INTERNAL_API_KEY: ci-only-test-internal-key
+      COMPOSE_PROJECT_NAME: gamma-bind-ci
+      GAMMA_HOME: ${{ github.workspace }}/gamma-home
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare user-owned data directory
+        run: |
+          mkdir -p "$GAMMA_HOME/data/postgres" "$GAMMA_HOME/data/opensearch"
+          test "$(stat -c %u "$GAMMA_HOME")" = "$(id -u)"
+      - name: Start baseline stack with single-directory bind mounts
+        run: |
+          docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml up -d --build --wait postgres api frontend
+      - name: Probe baseline services and verify actual mounts
+        run: |
+          set -eu
+          # Compose --wait only waits for declared healthchecks. UI/API have none:
+          # retry the actual HTTP probes instead of racing their process startup.
+          for url in http://127.0.0.1:5173/ http://127.0.0.1:8000/api/v1/health/live; do
+            ready=0
+            for i in $(seq 1 30); do
+              if curl --fail --silent --max-time 3 "$url" -o /dev/null; then
+                ready=1
+                break
+              fi
+              sleep 2
+            done
+            if [ "$ready" -ne 1 ]; then
+              echo "HTTP readiness timed out: $url" >&2
+              exit 1
+            fi
+          done
+          docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml exec -T postgres pg_isready -U aiops -d aiops
+          pg_id=$(docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml ps -q postgres)
+          actual=$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/var/lib/postgresql/data"}}{{.Source}}{{end}}{{end}}' "$pg_id")
+          test "$actual" = "$GAMMA_HOME/data/postgres"
+          test "$(docker inspect --format '{{.HostConfig.Privileged}}' "$pg_id")" = false
+          # Upstream image starts with an empty configured user, then switches
+          # to postgres. Verify the *running server* is not UID 0; this does
+          # not waive the strict configured-user audit on a rootless host.
+          server_uid=$(docker exec "$pg_id" sh -c "awk '/^Uid:/ {print \$2}' /proc/1/status")
+          test "$server_uid" != 0
+          test -n "$server_uid"
+          echo "PostgreSQL PID 1 runtime UID: $server_uid (configured user may differ)"
+          # A real write/read across container recreation, not just a health probe.
+          compose="docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml"
+          $compose exec -T postgres psql -v ON_ERROR_STOP=1 -U aiops -d aiops -c 'CREATE TABLE IF NOT EXISTS gamma_ci_persistence (id integer PRIMARY KEY, note text NOT NULL);'
+          $compose exec -T postgres psql -v ON_ERROR_STOP=1 -U aiops -d aiops -c "INSERT INTO gamma_ci_persistence (id, note) VALUES (1, 'survived-recreate') ON CONFLICT (id) DO UPDATE SET note = EXCLUDED.note;"
+          $compose stop postgres
+          $compose rm -f postgres
+          $compose up -d --wait postgres
+          persisted=$($compose exec -T postgres psql -At -v ON_ERROR_STOP=1 -U aiops -d aiops -c 'SELECT note FROM gamma_ci_persistence WHERE id = 1;')
+          test "$persisted" = survived-recreate
+          new_pg_id=$($compose ps -q postgres)
+          test "$new_pg_id" != "$pg_id"
+          actual_after=$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/var/lib/postgresql/data"}}{{.Source}}{{end}}{{end}}' "$new_pg_id")
+          test "$actual_after" = "$GAMMA_HOME/data/postgres"
+          # CI-only logical backup and destructive restore rehearsal. Never run
+          # this table-drop sequence against a real tenant database.
+          mkdir -p "$GAMMA_HOME/backups"
+          chmod 700 "$GAMMA_HOME/backups"
+          backup="$GAMMA_HOME/backups/ci-postgres.sql"
+          $compose exec -T postgres pg_dump -U aiops -d aiops --no-owner --no-acl > "$backup"
+          test -s "$backup"
+          chmod 600 "$backup"
+          test "$(stat -c %u "$backup")" = "$(id -u)"
+          $compose exec -T postgres psql -v ON_ERROR_STOP=1 -U aiops -d aiops -c 'DROP TABLE gamma_ci_persistence;'
+          $compose exec -T postgres psql -v ON_ERROR_STOP=1 -U aiops -d aiops < "$backup"
+          restored=$($compose exec -T postgres psql -At -v ON_ERROR_STOP=1 -U aiops -d aiops -c 'SELECT note FROM gamma_ci_persistence WHERE id = 1;')
+          test "$restored" = survived-recreate
+          echo "Single-directory PostgreSQL recreation and logical backup/restore smoke passed (non-rootless Docker runner)"
+      - name: Capture logs and clean up
+        if: always()
+        run: |
+          docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml logs --no-color --tail=100 || true
+          docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml down --remove-orphans || true
+          # No forced recursive deletion: preserve permission evidence on failure.
+  helm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+      - name: Helm lint and template
+        run: |
+          helm lint deploy/helm/gamma
+          helm template gamma deploy/helm/gamma --namespace gamma > /tmp/gamma-rendered.yaml
+          test -s /tmp/gamma-rendered.yaml

@@ -1,0 +1,442 @@
+"""Pure unit regression for the outbox relay's fail-closed destination validation."""
+
+import asyncio
+from datetime import timedelta
+
+import pytest
+
+from app.outbox_relay import dispatch_once, retry_delay, valid_webhook_endpoint, valid_webhook_token
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "https://receiver.example.test/events",
+        "https://receiver.example.test:8443/events",
+        "https://receiver.example.test/" + "a" * (2048 - len("https://receiver.example.test/")),
+    ],
+)
+def test_accepts_plain_https_webhook(endpoint):
+    assert valid_webhook_endpoint(endpoint)
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "",
+        "https://",
+        "http://receiver.example.test/events",
+        "HTTPS://receiver.example.test/events",
+        "Https://receiver.example.test/events",
+        "https:receiver.example.test/events",
+        "https://user:pass@receiver.example.test/events",
+        "https://@receiver.example.test/events",
+        "https://user@receiver.example.test/events",
+        "https://:pass@receiver.example.test/events",
+        "https://receiver.example.test/events?token=secret",
+        "https://receiver.example.test/events%2fadmin",
+        "https://receiver.example.test/events%252fadmin",
+        "https://receiver.example.test/events%41",
+        "https://receiver.example.test/" + "a" * 2048,
+        "https://127.0.0.1/events",
+        "https://2130706433/events",
+        "https://0177.0.0.1/events",
+        "https://0x7f000001/events",
+        "https://0x7f.0.0.1/events",
+        "https://169.254.169.254/latest/meta-data",
+        "https://[::1]/events",
+        "https://localhost/events",
+        "https://receiver.localhost/events",
+        "https://receiver..example.test/events",
+        "https://_receiver.example.test/events",
+        "https://receiver_.example.test/events",
+        "https://-receiver.example.test/events",
+        "https://receiver-.example.test/events",
+        "https://" + ".".join(["a" * 63] * 4) + "/events",
+        "https://" + "a" * 64 + ".example.test/events",
+        "https://localhost./events",
+        "https://receiver.localhost./events",
+        "https://receiver.example.test./events",
+        "https://receiver.example.test/events%5Cadmin",
+        "https://receiver.example.test/events%0aadmin",
+        "https://receiver.example.test/events%20admin",
+        "https://receiver.example.test/events%7fadmin",
+        "https://receiver%2eexample.test/events",
+        "https://receiver.example.test%40attacker.example/events",
+        "https://%72eceiver.example.test/events",
+        "https://receiver.example.test/events?",
+        "https://receiver.example.test/events#",
+        "https://receiver.example.test/events?#",
+        "https://receiver.example.test/events#fragment",
+        "https://receiver.example.test:invalid/events",
+        "https://receiver.example.test:99999/events",
+        "https://receiver.example.test:0/events",
+        " https://receiver.example.test/events",
+        "https://receiver.example.test/events ",
+        "https://receiver.example.test/events\n",
+        "https://receiver.example.test/ev\nents",
+        "https://receiver.example.test/ev\tents",
+        "https://receiver.example.test/ev\x00ents",
+        "https://receiver.example.test/ev\x7fents",
+        "https://receiver.example.test/ev ents",
+        "https://receiver.example.test/café",
+        "https://receiver.example.test/ev\u2028ents",
+        "https://receiver.example.test/ev\u00a0ents",
+        "https://receiver.example.test\\@untrusted.example.test/events",
+    ],
+)
+def test_rejects_unsafe_or_malformed_webhook(endpoint):
+    assert not valid_webhook_endpoint(endpoint)
+
+
+@pytest.mark.parametrize("token", ["secret", "token-with-._~+/=", "a" * 4096])
+def test_accepts_nonempty_bearer_token(token):
+    assert valid_webhook_token(token)
+
+
+@pytest.mark.parametrize("token", ["", " ", " secret", "secret ", "secret\n", "sec\tret", "sec\x00ret", "sec\x7fret", "sec\x80ret", "tökén", "sec ret", "secret:other", "secret,other", "secret;other", "secret=other", "secret!", "a" * 4097, None])
+def test_rejects_malformed_bearer_token(token):
+    assert not valid_webhook_token(token)
+
+
+def test_dispatch_rejects_invalid_destination_before_touching_database(monkeypatch):
+    monkeypatch.setenv("CORRELATION_WEBHOOK_ALLOWED_HOST", "receiver.example.test")
+    monkeypatch.setenv("CORRELATION_WEBHOOK_URL", "https://receiver.example.test/events")
+    monkeypatch.setenv("CORRELATION_WEBHOOK_TOKEN", "secret")
+    def must_not_access_database():
+        raise AssertionError("Unsafe endpoint reached the database")
+
+    monkeypatch.setattr("app.outbox_relay.get_session_factory", must_not_access_database)
+    for endpoint, token in (
+        ("http://receiver.example.test/events", "secret"),
+        ("HTTPS://receiver.example.test/events", "secret"),
+        ("https://receiver.example.test:99999/events", "secret"),
+        ("https://receiver.example.test/events?", "secret"),
+        ("https://receiver.example.test/events%2fadmin", "secret"),
+        ("https://receiver.example.test/events%252fadmin", "secret"),
+        ("https://receiver.example.test/events%41", "secret"),
+        ("https://receiver.example.test/" + "a" * 2048, "secret"),
+        ("https://127.0.0.1/events", "secret"),
+        ("https://2130706433/events", "secret"),
+        ("https://0177.0.0.1/events", "secret"),
+        ("https://0x7f000001/events", "secret"),
+        ("https://0x7f.0.0.1/events", "secret"),
+        ("https://169.254.169.254/latest/meta-data", "secret"),
+        ("https://[::1]/events", "secret"),
+        ("https://localhost/events", "secret"),
+        ("https://receiver..example.test/events", "secret"),
+        ("https://_receiver.example.test/events", "secret"),
+        ("https://-receiver.example.test/events", "secret"),
+        ("https://" + ".".join(["a" * 63] * 4) + "/events", "secret"),
+        ("https://localhost./events", "secret"),
+        ("https://receiver.localhost./events", "secret"),
+        ("https://receiver.example.test./events", "secret"),
+        ("https://receiver.example.test/events%0aadmin", "secret"),
+        ("https://receiver.example.test/events%20admin", "secret"),
+        ("https://receiver%2eexample.test/events", "secret"),
+        ("https://receiver.example.test%40attacker.example/events", "secret"),
+        ("https://receiver.example.test/events#", "secret"),
+        ("https://receiver.example.test/events", ""),
+        ("https://receiver.example.test/events", " "),
+        ("https://receiver.example.test/events", "secret\n"),
+        ("https://receiver.example.test/events", "sec\x00ret"),
+        ("https://receiver.example.test/events", "sec\tret"),
+        ("https://receiver.example.test/events", "sec\x7fret"),
+        ("https://receiver.example.test/events", "tökén"),
+        ("https://receiver.example.test/events", "sec ret"),
+        ("https://receiver.example.test/events", "secret:other"),
+        ("https://receiver.example.test/events", "secret=other"),
+        ("https://receiver.example.test/events", "a" * 4097),
+        ("https://@receiver.example.test/events", "secret"),
+        (" https://receiver.example.test/events", "secret"),
+        ("https://receiver.example.test/ev\nents", "secret"),
+        ("https://receiver.example.test/café", "secret"),
+        ("https://receiver.example.test/ev ents", "secret"),
+        ("https://receiver.example.test\\@untrusted.example.test/events", "secret"),
+    ):
+        with pytest.raises(ValueError, match="Invalid HTTPS outbox receiver"):
+            asyncio.run(dispatch_once(None, endpoint, token))
+
+
+@pytest.mark.parametrize(
+    ("attempts", "seconds"),
+    [(1, 2), (2, 4), (3, 8), (7, 128), (8, 256), (9, 300), (10, 300), (100, 300)],
+)
+def test_retry_backoff_is_bounded(attempts, seconds):
+    assert retry_delay(attempts) == timedelta(seconds=seconds)
+
+
+def test_relay_main_disables_ambient_proxy_and_netrc(monkeypatch):
+    """A worker's proxy/netrc environment must not influence bearer delivery."""
+    from app import outbox_relay
+
+    seen = {}
+
+    class StopRelay(Exception):
+        pass
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            seen["client_kwargs"] = kwargs
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return False
+
+    async def fake_dispatch(client, endpoint, token):
+        seen["dispatch"] = (client, endpoint, token)
+        raise StopRelay
+
+    monkeypatch.setenv("CORRELATION_WEBHOOK_URL", "https://receiver.example.test/events")
+    monkeypatch.setenv("CORRELATION_WEBHOOK_TOKEN", "ci-ephemeral-token")
+    monkeypatch.setenv("CORRELATION_WEBHOOK_ALLOWED_HOST", "receiver.example.test")
+    monkeypatch.setenv("HTTPS_PROXY", "http://untrusted-proxy.example.test:8080")
+    monkeypatch.setenv("NETRC", "/tmp/untrusted-netrc")
+    monkeypatch.setattr(outbox_relay.httpx, "AsyncClient", FakeClient)
+    monkeypatch.setattr(outbox_relay, "dispatch_once", fake_dispatch)
+    with pytest.raises(StopRelay):
+        asyncio.run(outbox_relay.main())
+    assert seen["client_kwargs"]["trust_env"] is False
+    limits = seen["client_kwargs"]["limits"]
+    assert limits.max_connections == 1
+    assert limits.max_keepalive_connections == 1
+    assert isinstance(seen["dispatch"][0], FakeClient)
+    assert seen["dispatch"][1:] == (
+        "https://receiver.example.test/events", "ci-ephemeral-token"
+    )
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "token"),
+    [
+        ("http://receiver.example.test/events", "ci-ephemeral-token"),
+        ("https://receiver.example.test/events%2fadmin", "ci-ephemeral-token"),
+        ("https://receiver.example.test/events", "invalid token"),
+    ],
+)
+def test_relay_main_rejects_configuration_before_constructing_http_client(
+    monkeypatch, endpoint, token
+):
+    from app import outbox_relay
+
+    def must_not_construct_client(*_args, **_kwargs):
+        raise AssertionError("Invalid relay configuration constructed an HTTP client")
+
+    monkeypatch.setenv("CORRELATION_WEBHOOK_URL", endpoint)
+    monkeypatch.setenv("CORRELATION_WEBHOOK_TOKEN", token)
+    monkeypatch.setenv("CORRELATION_WEBHOOK_ALLOWED_HOST", "receiver.example.test")
+    monkeypatch.setattr(outbox_relay.httpx, "AsyncClient", must_not_construct_client)
+    with pytest.raises(RuntimeError, match="Set HTTPS CORRELATION_WEBHOOK_URL"):
+        asyncio.run(outbox_relay.main())
+
+
+@pytest.mark.parametrize("allowed_host", ["", "other.example.test", "receiver.example.test.", "RECEIVER.EXAMPLE.TEST", "receiver.example.test:8443", " receiver.example.test"])
+def test_relay_main_requires_exact_receiver_host_allowlist(monkeypatch, allowed_host):
+    from app import outbox_relay
+
+    def must_not_construct_client(*_args, **_kwargs):
+        raise AssertionError("Mismatched receiver allowlist constructed HTTP client")
+
+    monkeypatch.setenv("CORRELATION_WEBHOOK_URL", "https://receiver.example.test/events")
+    monkeypatch.setenv("CORRELATION_WEBHOOK_TOKEN", "ci-ephemeral-token")
+    monkeypatch.setenv("CORRELATION_WEBHOOK_ALLOWED_HOST", allowed_host)
+    monkeypatch.setattr(outbox_relay.httpx, "AsyncClient", must_not_construct_client)
+    with pytest.raises(RuntimeError, match="CORRELATION_WEBHOOK_ALLOWED_HOST"):
+        asyncio.run(outbox_relay.main())
+
+
+@pytest.mark.parametrize("allowed_host", ["", "other.example.test", "RECEIVER.EXAMPLE.TEST", "receiver.example.test."])
+def test_dispatch_rejects_missing_or_mismatched_receiver_allowlist_before_db(monkeypatch, allowed_host):
+    monkeypatch.setenv("CORRELATION_WEBHOOK_URL", "https://receiver.example.test/events")
+    monkeypatch.setenv("CORRELATION_WEBHOOK_TOKEN", "secret")
+    def must_not_access_database():
+        raise AssertionError("Receiver allowlist mismatch reached the database")
+
+    monkeypatch.setenv("CORRELATION_WEBHOOK_ALLOWED_HOST", allowed_host)
+    monkeypatch.setattr("app.outbox_relay.get_session_factory", must_not_access_database)
+    with pytest.raises(ValueError, match="Invalid HTTPS outbox receiver"):
+        asyncio.run(dispatch_once(None, "https://receiver.example.test/events", "secret"))
+
+
+@pytest.mark.parametrize("endpoint", [
+    "https://receiver.example.test/other",
+    "https://receiver.example.test:8443/events",
+])
+def test_dispatch_rejects_unconfigured_route_or_port_before_db(monkeypatch, endpoint):
+    def must_not_access_database():
+        raise AssertionError("Unconfigured webhook destination reached the database")
+
+    monkeypatch.setenv("CORRELATION_WEBHOOK_URL", "https://receiver.example.test/events")
+    monkeypatch.setenv("CORRELATION_WEBHOOK_ALLOWED_HOST", "receiver.example.test")
+    monkeypatch.setenv("CORRELATION_WEBHOOK_TOKEN", "secret")
+    monkeypatch.setattr("app.outbox_relay.get_session_factory", must_not_access_database)
+    with pytest.raises(ValueError, match="Invalid HTTPS outbox receiver"):
+        asyncio.run(dispatch_once(None, endpoint, "secret"))
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "token", "allowed_host", "expected"),
+    [
+        ("https://receiver.example.test/events", "secret", "receiver.example.test", True),
+        ("https://receiver.example.test/other", "secret", "receiver.example.test", True),
+        ("https://other.example.test/events", "secret", "receiver.example.test", False),
+        ("https://receiver.example.test/events", "secret", "", False),
+        ("https://receiver.example.test/events", "secret", "receiver.example.test.", False),
+        ("https://receiver.example.test/events", "bad token", "receiver.example.test", False),
+    ],
+)
+def test_receiver_configuration_hostname_boundary(endpoint, token, allowed_host, expected):
+    from app.outbox_relay import valid_receiver_configuration
+
+    assert valid_receiver_configuration(endpoint, token, allowed_host) is expected
+
+
+@pytest.mark.parametrize("configured_token", ["", "different-token", "secret "])
+def test_dispatch_rejects_unconfigured_bearer_token_before_db(monkeypatch, configured_token):
+    def must_not_access_database():
+        raise AssertionError("Mismatched outbox bearer reached the database")
+
+    monkeypatch.setenv("CORRELATION_WEBHOOK_URL", "https://receiver.example.test/events")
+    monkeypatch.setenv("CORRELATION_WEBHOOK_ALLOWED_HOST", "receiver.example.test")
+    monkeypatch.setenv("CORRELATION_WEBHOOK_TOKEN", configured_token)
+    monkeypatch.setattr("app.outbox_relay.get_session_factory", must_not_access_database)
+    with pytest.raises(ValueError, match="Invalid HTTPS outbox receiver"):
+        asyncio.run(dispatch_once(None, "https://receiver.example.test/events", "secret"))
+
+
+@pytest.mark.parametrize(
+    ("configured_url", "configured_token"),
+    [
+        ("", "secret"),
+        ("https://receiver.example.test/other", "secret"),
+        ("https://receiver.example.test/events", ""),
+        ("https://receiver.example.test/events", "rotated-secret"),
+    ],
+)
+def test_dispatch_rejects_configuration_drift_before_db(monkeypatch, configured_url, configured_token):
+    """Even a previously valid caller cannot deliver after configuration changes."""
+    def must_not_access_database():
+        raise AssertionError("Stale worker configuration reached the database")
+
+    monkeypatch.setenv("CORRELATION_WEBHOOK_ALLOWED_HOST", "receiver.example.test")
+    monkeypatch.setenv("CORRELATION_WEBHOOK_URL", configured_url)
+    monkeypatch.setenv("CORRELATION_WEBHOOK_TOKEN", configured_token)
+    monkeypatch.setattr("app.outbox_relay.get_session_factory", must_not_access_database)
+    with pytest.raises(ValueError, match="Invalid HTTPS outbox receiver"):
+        asyncio.run(dispatch_once(None, "https://receiver.example.test/events", "secret"))
+
+
+@pytest.mark.parametrize(
+    ("status", "permanent"),
+    [(300, True), (301, True), (302, True), (307, True), (308, True),
+     (400, True), (401, True), (403, True), (404, True), (408, False),
+     (409, True), (422, True), (425, False), (429, False), (499, True),
+     (500, False), (503, False)],
+)
+def test_receiver_http_rejection_retry_policy(status, permanent):
+    import httpx
+    from app.outbox_relay import permanent_receiver_rejection
+
+    request = httpx.Request("POST", "https://receiver.example.test/events")
+    response = httpx.Response(status, request=request)
+    error = httpx.HTTPStatusError("receiver rejected", request=request, response=response)
+    assert permanent_receiver_rejection(error) is permanent
+
+
+def test_transport_errors_remain_retryable():
+    import httpx
+    from app.outbox_relay import permanent_receiver_rejection
+
+    request = httpx.Request("POST", "https://receiver.example.test/events")
+    assert permanent_receiver_rejection(httpx.ReadTimeout("timed out", request=request)) is False
+
+
+@pytest.mark.parametrize(
+    ("status", "retry_after", "attempts", "expected_seconds"),
+    [
+        (425, "120", 1, 120),
+        (425, "invalid", 1, 2),
+        (429, "120", 1, 120),
+        (429, "0", 1, 2),
+        (429, "1", 4, 16),
+        (429, "999999", 1, 300),
+        (429, "invalid", 1, 2),
+        (429, "-1", 1, 2),
+        (429, "1.5", 1, 2),
+        (429, "9999999", 1, 2),
+        (503, "120", 1, 120),
+        (503, "0", 1, 2),
+        (503, "999999", 1, 300),
+        (503, "invalid", 1, 2),
+        (500, "120", 1, 2),
+    ],
+)
+def test_bounded_http_429_and_503_retry_after(status, retry_after, attempts, expected_seconds):
+    import httpx
+    from app.outbox_relay import receiver_retry_delay
+
+    request = httpx.Request("POST", "https://receiver.example.test/events")
+    response = httpx.Response(status, headers={"Retry-After": retry_after}, request=request)
+    error = httpx.HTTPStatusError("receiver rejected", request=request, response=response)
+    assert receiver_retry_delay(error, attempts).total_seconds() == expected_seconds
+
+
+@pytest.mark.parametrize(
+    ("status", "retry_after", "expected_seconds"),
+    [
+        (425, "Wed, 01 Jan 2025 00:02:00 GMT", 120),
+        (429, "Wed, 01 Jan 2025 00:02:00 GMT", 120),
+        (503, "Wed, 01 Jan 2025 00:10:00 GMT", 300),
+        (429, "Tue, 31 Dec 2024 23:59:00 GMT", 2),
+        (503, "Wed, 01 Jan 2025 00:00:01 GMT", 2),
+        (429, "not a date", 2),
+        (429, "Thu, 01 Jan 2025 00:02:00 GMT", 2),
+        (429, "Wed, 01 Jan 2025 00:02:00 +0000", 2),
+        (429, "Wednesday, 01-Jan-25 00:02:00 GMT", 2),
+        (429, "Wed,  1 Jan 2025 00:02:00 GMT", 2),
+        (429, "Wed, 01 Jan 2025 00:02:00 UTC", 2),
+        (429, "Wed, 01 Jan 2025 00:02:00", 2),
+        (500, "Wed, 01 Jan 2025 00:02:00 GMT", 2),
+    ],
+)
+def test_http_date_retry_after_is_bounded(status, retry_after, expected_seconds):
+    import httpx
+    from datetime import datetime, timezone
+    from app.outbox_relay import receiver_retry_delay
+
+    request = httpx.Request("POST", "https://receiver.example.test/events")
+    response = httpx.Response(status, headers={"Retry-After": retry_after}, request=request)
+    error = httpx.HTTPStatusError("receiver rejected", request=request, response=response)
+    now = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    assert receiver_retry_delay(error, 1, now=now).total_seconds() == expected_seconds
+
+
+@pytest.mark.parametrize("status", [425, 429, 503])
+def test_duplicate_retry_after_headers_fall_back_to_local_backoff(status):
+    import httpx
+    from app.outbox_relay import receiver_retry_delay
+
+    request = httpx.Request("POST", "https://receiver.example.test/events")
+    response = httpx.Response(
+        status,
+        headers=[("Retry-After", "120"), ("Retry-After", "240")],
+        request=request,
+    )
+    assert response.headers.get_list("retry-after") == ["120", "240"]
+    error = httpx.HTTPStatusError("receiver rejected", request=request, response=response)
+    assert receiver_retry_delay(error, 1).total_seconds() == 2
+
+
+def test_http_date_retry_after_ignores_naive_injected_clock():
+    import httpx
+    from datetime import datetime
+    from app.outbox_relay import receiver_retry_delay
+
+    request = httpx.Request("POST", "https://receiver.example.test/events")
+    response = httpx.Response(
+        429, headers={"Retry-After": "Wed, 01 Jan 2025 00:02:00 GMT"}, request=request
+    )
+    error = httpx.HTTPStatusError("receiver rejected", request=request, response=response)
+    assert receiver_retry_delay(error, 1, now=datetime(2025, 1, 1)).total_seconds() == 2

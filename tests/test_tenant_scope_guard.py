@@ -1,0 +1,88 @@
+"""Fail-closed checks for untrusted diagnostic tenant-scope metadata."""
+import pytest
+from app.reused.tenant_scope import reject_unqualified_tenant_scope
+
+
+@pytest.mark.parametrize("key", [
+    "tenant", "Tenant-ID", "TENANT_ID", "workspace.name",
+    "organizationRef", "account_id", "customer-id", "Ｔｅｎａｎｔ",
+])
+def test_nested_untrusted_scope_claim_rejected(key):
+    with pytest.raises(ValueError, match="unqualified tenant scope"):
+        reject_unqualified_tenant_scope({"diagnostics": [{"metadata": {key: "forged"}}]})
+
+
+def test_non_string_key_rejected():
+    with pytest.raises(ValueError, match="invalid tenant-scope key"):
+        reject_unqualified_tenant_scope({42: "untrusted"})
+
+
+def test_scan_bound_fails_closed():
+    with pytest.raises(ValueError, match="scan bound exceeded"):
+        reject_unqualified_tenant_scope([{} for _ in range(4097)])
+
+
+def test_benign_nested_metadata_allowed():
+    reject_unqualified_tenant_scope({"event": [{"source": "synthetic", "severity": "P3"}]})
+
+
+@pytest.mark.parametrize("key", [
+    "tenant_acl_qualified", "org-ref", "customerRef", "pre_account_id",
+    "workspace_id", "organization-id",
+])
+def test_scope_aliases_and_suffixes_rejected(key):
+    with pytest.raises(ValueError, match="unqualified tenant scope"):
+        reject_unqualified_tenant_scope({"upstream": [{"metadata": {key: "forged"}}]})
+
+
+def test_scan_bound_accepts_exact_limit():
+    # A boundary regression must not silently weaken the fail-closed limit.
+    reject_unqualified_tenant_scope([{} for _ in range(4095)])
+
+
+def test_scope_claim_hidden_after_many_benign_entries_rejected():
+    metadata = [{"source": "synthetic"} for _ in range(100)]
+    metadata.insert(0, {"nested": {"tenant_id": "forged"}})
+    with pytest.raises(ValueError, match="unqualified tenant scope"):
+        reject_unqualified_tenant_scope(metadata)
+
+@pytest.mark.parametrize("metadata", [
+    ({"tenant_id": "forged"},),
+    {"diagnostics": ({"workspace_id": "forged"},)},
+    [{"nested": ({"organizationRef": "forged"},)}],
+])
+def test_tuple_nested_untrusted_scope_claim_rejected(metadata):
+    """Internal diagnostic tuples must not bypass the recursive scope scan."""
+    with pytest.raises(ValueError, match="unqualified tenant scope"):
+        reject_unqualified_tenant_scope(metadata)
+
+
+def test_benign_tuple_metadata_allowed():
+    reject_unqualified_tenant_scope(({"source": "synthetic"}, {"severity": "P3"}))
+
+
+@pytest.mark.parametrize("metadata", [
+    [{"source": "synthetic"} for _ in range(4096)],
+    {f"key_{i}": "synthetic" for i in range(4096)},
+    ({"source": "synthetic"},) * 4096,
+])
+def test_oversized_containers_rejected_before_child_queue_expansion(metadata):
+    with pytest.raises(ValueError, match="scan bound exceeded"):
+        reject_unqualified_tenant_scope(metadata)
+
+
+def test_nested_container_pending_work_is_bounded():
+    metadata = [{"source": "synthetic"} for _ in range(4094)]
+    metadata.append({"nested": [{"source": "synthetic"}]})
+    with pytest.raises(ValueError, match="scan bound exceeded"):
+        reject_unqualified_tenant_scope(metadata)
+
+
+@pytest.mark.parametrize("key", ["x" * 256, "Ｔ" * 256])
+def test_oversized_untrusted_metadata_key_rejected_before_normalization(key):
+    with pytest.raises(ValueError, match="invalid tenant-scope key"):
+        reject_unqualified_tenant_scope({"diagnostics": {key: "synthetic"}})
+
+
+def test_maximum_length_benign_metadata_key_is_allowed():
+    reject_unqualified_tenant_scope({"x" * 255: "synthetic"})

@@ -1,0 +1,32 @@
+# Opt-in rootless single-directory data layout. Not a complete compliance certificate.
+# Usage: export GAMMA_HOME=/absolute/owned/path
+# docker compose -f docker-compose.yml -f deploy/compose/compose.yaml \
+#   -f deploy/compose/compose.rootless.yaml config
+# Requires Docker Engine rootless, prepared owned directories, and image UID validation.
+services:
+  api:
+    user: "10001:10001"
+    cap_drop: [ALL]
+  frontend:
+    cap_drop: [ALL]
+  postgres:
+    volumes:
+      - type: bind
+        source: ${GAMMA_HOME:?set absolute GAMMA_HOME}/data/postgres
+        target: /var/lib/postgresql/data
+    # Upstream postgres entrypoint initializes ownership and permissions before
+    # dropping privileges to its postgres account. SETUID/SETGID are needed
+    # for the upstream gosu/su-exec user transition. CAP_DROP ALL alone prevents
+    # chown/chmod on fresh bind mounts. These caps apply only inside the
+    # container user namespace when the daemon is genuinely rootless.
+    cap_drop: [ALL]
+    cap_add: [CHOWN, FOWNER, DAC_OVERRIDE, SETUID, SETGID]
+  opensearch:
+    volumes:
+      - type: bind
+        source: ${GAMMA_HOME:?set absolute GAMMA_HOME}/data/opensearch
+        target: /usr/share/opensearch/data
+    cap_drop: [ALL]
+  outbox-relay:
+    user: "10001:10001"
+    cap_drop: [ALL]
