@@ -7,6 +7,11 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
+import sys
+
+# Allow direct execution from the repository root without an editable install.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.reused.shadow_evidence_intake import (
     SnapshotRequest, SyntheticSnapshot, investigate_snapshot, snapshot_fingerprint,
