@@ -10,6 +10,10 @@ on:
       - '.github/workflows/shadow-rca-checks.yml'
       - 'scripts/check_shadow_rca_stdlib.py'
 
+concurrency:
+  group: shadow-rca-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
