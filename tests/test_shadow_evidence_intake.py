@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from app.reused.shadow_evidence_intake import (
-    SnapshotRequest, SyntheticSnapshot, investigate_snapshot,
+    SnapshotRequest, SyntheticSnapshot, investigate_snapshot, snapshot_fingerprint,
 )
 from app.reused.shadow_investigation import Evidence, Hypothesis
 
@@ -73,3 +73,35 @@ def test_cross_tenant_evidence_causes_abstention():
 def test_invalid_grants_and_policy_fail_closed(changes):
     with pytest.raises(ValueError):
         investigate_snapshot(replace(request(), **changes))
+
+
+def test_pinned_fingerprint_accepts_unchanged_snapshot():
+    req = request()
+    pinned = replace(req, expected_fingerprint_sha256=snapshot_fingerprint(req.snapshot))
+    result = investigate_snapshot(pinned)
+    assert result["snapshot_fingerprint_sha256"] == pinned.expected_fingerprint_sha256
+
+
+def test_pinned_fingerprint_detects_metadata_change():
+    req = request()
+    pinned = replace(req, expected_fingerprint_sha256=snapshot_fingerprint(req.snapshot))
+    tampered = replace(pinned, snapshot=replace(req.snapshot, evidence=(
+        replace(req.snapshot.evidence[0], source_id="different"),
+        req.snapshot.evidence[1],
+    )))
+    with pytest.raises(ValueError, match="fingerprint mismatch"):
+        investigate_snapshot(tampered)
+
+
+@pytest.mark.parametrize("expected", ["", "A" * 64, "0" * 63, "z" * 64, True])
+def test_invalid_fingerprint_pins_fail_closed(expected):
+    with pytest.raises(ValueError, match="Invalid expected"):
+        investigate_snapshot(replace(request(), expected_fingerprint_sha256=expected))
+
+
+def test_fingerprint_pin_does_not_override_tenant_denial():
+    req = request()
+    pinned = replace(req, expected_fingerprint_sha256=snapshot_fingerprint(req.snapshot),
+                     allowed_tenants=())
+    with pytest.raises(PermissionError):
+        investigate_snapshot(pinned)
