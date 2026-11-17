@@ -31,3 +31,35 @@ This is a presentation-only increment. It does not add API calls, live polling, 
 2. Replace fixture-derived blast radius and timeline with tenant-authorized, timestamped source records only after provenance and API contracts are qualified.
 3. Obtain gateway/IdP owner approval, server-side proxy design, tenant/resource ACL evidence and exact-HEAD CI before any API connection.
 4. Connect Sentinel / ArgusLM only through documented server-side read-only connectors, source provenance, audit logging, model evaluation and human approval gates. Existing preview endpoints accept caller-supplied data and are not live connectors.
+
+
+## UX6 — Sentinel / ArgusLM connector qualification (2026-11-17)
+
+### Findings from source inspection
+
+- Sentinel repository: `alimtalbi-ata/sentinel-llm`, branch `main`.
+  - `crates/sentinel-api/src/routes.rs` exposes `GET /metrics`, query routes and agent routes including `POST /api/v1/agents/anomaly/detect`.
+  - Agent POST routes use execution-context middleware and require `X-Parent-Span-Id`.
+  - `crates/sentinel-api/src/handlers/metrics.rs` exports Prometheus text; the inspected route contract does not establish tenant-scoped metric authorization.
+  - `crates/sentinel-api/src/handlers/anomaly.rs` currently returns a placeholder `anomaly_detected=false`; do not represent this endpoint as production anomaly detection without further implementation evidence.
+- ArgusLM repository: `alimtalbi-ata/arguslm-llm`, branch `master`.
+  - `arguslm/server/api/monitoring.py` exposes monitoring config, run and uptime-history endpoints.
+  - The inspected uptime query has no tenant predicate and the monitoring router handlers do not declare an authentication dependency. It is not safe to proxy into a multi-tenant Gamma workspace as-is.
+- Gamma backend:
+  - `POST /api/v1/incidents/investigation/preview` evaluates caller-supplied references and hypotheses; it does not authenticate source content or establish causality.
+  - `POST /api/v1/observability/llm/kpis/preview` aggregates caller-supplied observations; it is not a Sentinel/ArgusLM connector.
+  - `app/reused/upstream.py` deliberately fails closed pending independent actor/tenant/resource ACL qualification.
+
+### UX6 implementation decision
+
+The AI Intelligence Center now distinguishes Gamma preview APIs from Sentinel and ArgusLM upstream APIs and displays explicit NOT TENANT-QUALIFIED states. No network connector, credentials, browser request, polling or data ingestion was added. This is intentional: wiring these endpoints directly would risk cross-tenant disclosure or misrepresent placeholder telemetry as trusted intelligence.
+
+### Required upstream gates
+
+1. Sentinel owner: document authentication, tenant/resource scoping, metric naming, counter semantics, retention, timestamps and production implementation status for each agent route.
+2. ArgusLM owner: add authenticated tenant/model-scoped read-only monitoring endpoints; ensure every query includes server-derived tenant scope and resource ACL.
+3. Gateway owner: approve actor→tenant→resource identity, secret delivery/rotation, replay policy and network path.
+4. Gamma: implement fixed-origin server-side connectors only after the above contracts are approved; persist provenance (tenant, source, resource, observed_at, fetched_at, window, coverage, source version) and reject stale/ambiguous records.
+5. Qualification: exact-HEAD CI, cross-tenant negative tests, source outage/timeout tests, data minimization, audit trail and human-reviewed RCA benchmark.
+
+**Decision: NO CONNECTOR ACTIVATED.** No production data has been fetched and no upstream integration is qualified.
