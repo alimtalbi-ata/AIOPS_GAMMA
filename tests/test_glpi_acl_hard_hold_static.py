@@ -104,6 +104,37 @@ def test_glpi_http_route_cannot_bypass_public_acl_hold():
               and node.name == "glpi_incident_snapshot"]
     assert len(routes) == 1
     route = routes[0]
+    # Pin the HTTP method/path and the gateway-auth dependency: a safe body
+    # alone is insufficient if the route is re-registered as an unprotected API.
+    assert len(route.decorator_list) == 1
+    decorator = route.decorator_list[0]
+    assert isinstance(decorator, ast.Call)
+    assert isinstance(decorator.func, ast.Attribute)
+    assert isinstance(decorator.func.value, ast.Name)
+    assert decorator.func.value.id == "app"
+    assert decorator.func.attr == "get"
+    assert len(decorator.args) == 1
+    assert isinstance(decorator.args[0], ast.Constant)
+    assert decorator.args[0].value == (
+        "/api/v1/itil4/glpi/incidents/{ticket_id}/snapshot"
+    )
+    assert not decorator.keywords
+    assert [arg.arg for arg in route.args.args] == [
+        "ticket_id", "response", "principal"
+    ]
+    assert not route.args.posonlyargs
+    assert not route.args.kwonlyargs
+    assert not route.args.vararg
+    assert not route.args.kwarg
+    assert len(route.args.defaults) == 1
+    dependency = route.args.defaults[0]
+    assert isinstance(dependency, ast.Call)
+    assert isinstance(dependency.func, ast.Name)
+    assert dependency.func.id == "Depends"
+    assert len(dependency.args) == 1
+    assert isinstance(dependency.args[0], ast.Name)
+    assert dependency.args[0].id == "internal_principal"
+    assert not dependency.keywords
     # No side-effect, alternate return, or transport call can be inserted before
     # the public fail-closed entrypoint.
     assert len(route.body) == 2
@@ -168,6 +199,35 @@ def test_glpi_route_guard_rejects_import_alias_bypass(tmp_path, monkeypatch):
         "_read_glpi_incident_unqualified as read_glpi_incident",
         1,
     )
+    source_dir = tmp_path / "app" / "reused"
+    source_dir.mkdir(parents=True)
+    fake_source = source_dir / "glpi_read.py"
+    fake_source.write_text("", encoding="utf-8")
+    (tmp_path / "app" / "main.py").write_text(changed, encoding="utf-8")
+    monkeypatch.setattr(sys.modules[__name__], "SOURCE", fake_source)
+    with pytest.raises(AssertionError):
+        test_glpi_http_route_cannot_bypass_public_acl_hold()
+
+
+@pytest.mark.parametrize("old, new", [
+    (
+        '@app.get("/api/v1/itil4/glpi/incidents/{ticket_id}/snapshot")',
+        '@app.post("/api/v1/itil4/glpi/incidents/{ticket_id}/snapshot")',
+    ),
+    (
+        "principal: Principal = Depends(internal_principal)",
+        "principal: Principal = None",
+    ),
+])
+def test_glpi_route_guard_rejects_unprotected_registration(
+    tmp_path, monkeypatch, old, new
+):
+    """Reject changes to HTTP method or principal dependency."""
+    import sys
+
+    original = (SOURCE.parents[1] / "main.py").read_text(encoding="utf-8")
+    assert old in original
+    changed = original.replace(old, new, 1)
     source_dir = tmp_path / "app" / "reused"
     source_dir.mkdir(parents=True)
     fake_source = source_dir / "glpi_read.py"
