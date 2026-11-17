@@ -1,6 +1,10 @@
 """Tenant scoping regression tests for persistence route boundaries."""
 from datetime import datetime, timezone
 from uuid import uuid4
+import os
+
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import create_async_engine
 
 import pytest
 
@@ -99,3 +103,61 @@ async def test_binding_write_does_not_accept_caller_supplied_tenant_field():
             cmdb_service_id=uuid4(), otel_service_name="checkout-api",
             environment="production", tenant_id=str(uuid4()),
         )
+
+
+@pytest.mark.asyncio
+async def test_postgres_rls_denies_cross_tenant_reads_and_writes():
+    database_url = os.getenv("GAMMA_TEST_DATABASE_URL", "")
+    if not database_url:
+        pytest.skip("GAMMA_TEST_DATABASE_URL must point to restricted gamma_app role")
+    engine = create_async_engine(database_url)
+    tenant_a, tenant_b = uuid4(), uuid4()
+    row_id = uuid4()
+    try:
+        async with engine.begin() as connection:
+            role = await connection.execute(text("""
+                SELECT r.rolsuper, r.rolbypassrls
+                FROM pg_roles r WHERE r.rolname = current_user
+            """))
+            is_superuser, bypasses_rls = role.one()
+            assert not is_superuser and not bypasses_rls, (
+                "RLS integration tests must use the restricted non-superuser runtime role"
+            )
+            version = await connection.scalar(text(
+                "SELECT version_num FROM alembic_version"
+            ))
+            assert version == "0003_tenant_rls"
+            await connection.execute(
+                text("SELECT set_config('app.tenant_id', :tenant, true)"),
+                {"tenant": str(tenant_a)},
+            )
+            await connection.execute(text("""
+                INSERT INTO telemetry_service_bindings
+                    (id, tenant_id, cmdb_service_id, otel_service_name, environment)
+                VALUES (:id, :tenant, :cmdb, 'gamma-rls-test', 'test')
+            """), {"id": row_id, "tenant": tenant_a, "cmdb": uuid4()})
+
+        async with engine.begin() as connection:
+            await connection.execute(
+                text("SELECT set_config('app.tenant_id', :tenant, true)"),
+                {"tenant": str(tenant_b)},
+            )
+            visible = await connection.scalar(
+                text("SELECT count(*) FROM telemetry_service_bindings WHERE id=:id"),
+                {"id": row_id},
+            )
+            assert visible == 0
+            with pytest.raises(Exception):
+                await connection.execute(text("""
+                    INSERT INTO telemetry_service_bindings
+                        (id, tenant_id, cmdb_service_id, otel_service_name, environment)
+                    VALUES (:id, :tenant, :cmdb, 'gamma-rls-forged', 'test')
+                """), {"id": uuid4(), "tenant": tenant_a, "cmdb": uuid4()})
+    finally:
+        async with engine.begin() as connection:
+            # Cleanup is performed as bootstrap/admin connection, not gamma_app.
+            await connection.execute(
+                text("DELETE FROM telemetry_service_bindings WHERE id=:id"),
+                {"id": row_id},
+            )
+        await engine.dispose()
