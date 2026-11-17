@@ -17,7 +17,7 @@ async def get_session():
         yield session
 
 
-async def get_tenant_session(principal):
+async def get_tenant_session(tenant_id):
     """Yield a session with transaction-local PostgreSQL RLS tenant context.
 
     The tenant value comes only from the verified Gateway Principal. SET LOCAL
@@ -28,6 +28,6 @@ async def get_tenant_session(principal):
     async with get_session_factory()() as session:
         await session.execute(
             text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
-            {"tenant_id": str(principal.tenant_id)},
+            {"tenant_id": str(tenant_id)},
         )
         yield session
