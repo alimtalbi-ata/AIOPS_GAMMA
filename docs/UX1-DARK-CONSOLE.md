@@ -5,6 +5,7 @@ Date: 2026-11-17
 ## Scope delivered
 
 - Added a dark-first visual theme to the existing React/Vite console.
+- Expanded Overview into a Command Center with a source-provenance strip, priority incident queue and service-impact snapshot. All entries are explicitly marked as preview/offline or synthetic.
 - Restyled the navigation shell, header, cards, tables, status tags, service map, incident groups, evidence panels and trace/incident drawers.
 - Preserved the existing five page flows and their current React state/interaction logic.
 - Clarified the header demo marker to **DÉMO · DONNÉES SYNTHÉTIQUES**.
