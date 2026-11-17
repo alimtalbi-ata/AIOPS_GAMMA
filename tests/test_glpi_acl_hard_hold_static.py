@@ -232,7 +232,7 @@ def test_glpi_route_guard_rejects_unprotected_registration(
     route_start = original.index(
         '@app.get("/api/v1/itil4/glpi/incidents/{ticket_id}/snapshot")'
     )
-    route_end = original.index("\\n\\n", original.index("return await read_glpi_incident(", route_start))
+    route_end = original.index("\n\n", original.index("return await read_glpi_incident(", route_start))
     route_source = original[route_start:route_end]
     assert old in route_source
     changed = original[:route_start] + route_source.replace(old, new, 1) + original[route_end:]
