@@ -80,16 +80,41 @@ def test_glpi_http_route_cannot_bypass_public_acl_hold():
               and node.name == "glpi_incident_snapshot"]
     assert len(routes) == 1
     route = routes[0]
-    calls = [node for node in ast.walk(route) if isinstance(node, ast.Call)]
-    assert len([node for node in calls if isinstance(node.func, ast.Name)
-                and node.func.id == "read_glpi_incident"]) == 1
-    assert not any(isinstance(node.func, ast.Name)
-                   and node.func.id == "_read_glpi_incident_unqualified"
-                   for node in calls)
-    assert not any(isinstance(node, (ast.Return, ast.Yield, ast.YieldFrom))
-                   for node in ast.walk(route)
-                   if not (isinstance(node, ast.Return)
-                           and isinstance(node.value, ast.Await)
-                           and isinstance(node.value.value, ast.Call)
-                           and isinstance(node.value.value.func, ast.Name)
-                           and node.value.value.func.id == "read_glpi_incident"))
+    # No side-effect, alternate return, or transport call can be inserted before
+    # the public fail-closed entrypoint.
+    assert len(route.body) == 2
+    assert isinstance(route.body[0], ast.Assign)
+    assert ast.unparse(route.body[0]) == 'response.headers["Cache-Control"] = "no-store"'
+    assert isinstance(route.body[1], ast.Return)
+    returned = route.body[1].value
+    assert isinstance(returned, ast.Await)
+    assert isinstance(returned.value, ast.Call)
+    assert isinstance(returned.value.func, ast.Name)
+    assert returned.value.func.id == "read_glpi_incident"
+    assert [ast.unparse(arg) for arg in returned.value.args] == [
+        "principal.tenant_id", "ticket_id"
+    ]
+    assert not returned.value.keywords
+
+
+def test_glpi_route_guard_rejects_transport_bypass(tmp_path, monkeypatch):
+    import sys
+
+    original = (SOURCE.parents[1] / "main.py").read_text(encoding="utf-8")
+    target = "return await read_glpi_incident(principal.tenant_id, ticket_id)"
+    assert target in original
+    changed = original.replace(
+        target,
+        "return await _read_glpi_incident_unqualified(principal.tenant_id, ticket_id)",
+        1,
+    )
+    # The route guard reads the application source; monkeypatch its source root
+    # to an isolated copy so this mutation test never touches production code.
+    source_dir = tmp_path / "app" / "reused"
+    source_dir.mkdir(parents=True)
+    fake_source = source_dir / "glpi_read.py"
+    fake_source.write_text("", encoding="utf-8")
+    (tmp_path / "app" / "main.py").write_text(changed, encoding="utf-8")
+    monkeypatch.setattr(sys.modules[__name__], "SOURCE", fake_source)
+    with pytest.raises(AssertionError):
+        test_glpi_http_route_cannot_bypass_public_acl_hold()
