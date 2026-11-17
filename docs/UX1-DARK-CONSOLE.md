@@ -9,6 +9,7 @@ Date: 2026-11-17
 - Added a Signal Explorer workspace with Logs, Metrics and Traces tabs, local filtering, trace inspection, and an explicit synthetic-data disclaimer.
 - Expanded Incident Workbench with competing unconfirmed hypotheses, a fixture-derived dependency blast-radius list, evidence timeline and source citations.
 - Added an AI Intelligence Center UI with analyst hypotheses, critic guardrail checks, evidence coverage and an explicit deterministic local-simulation result. No model or remote API is invoked.
+- Added a backend integration-readiness panel documenting the existing investigation and LLM KPI preview endpoints, their limitations, and the gateway/tenant-ACL blocker. No browser-to-API calls were added.
 - Restyled the navigation shell, header, cards, tables, status tags, service map, incident groups, evidence panels and trace/incident drawers.
 - Preserved the existing five page flows and their current React state/interaction logic.
 - Clarified the header demo marker to **DÉMO · DONNÉES SYNTHÉTIQUES**.
@@ -28,4 +29,5 @@ This is a presentation-only increment. It does not add API calls, live polling, 
 
 1. Qualify source contracts, tenant authorization and provenance before replacing Signal Explorer fixtures with real logs, metrics and traces.
 2. Replace fixture-derived blast radius and timeline with tenant-authorized, timestamped source records only after provenance and API contracts are qualified.
-3. Connect Sentinel / ArgusLM only through documented model/API contracts, tenant authorization, audit logging, model evaluation and human approval gates. Until then, the Intelligence Center remains a local UI simulation.
+3. Obtain gateway/IdP owner approval, server-side proxy design, tenant/resource ACL evidence and exact-HEAD CI before any API connection.
+4. Connect Sentinel / ArgusLM only through documented server-side read-only connectors, source provenance, audit logging, model evaluation and human approval gates. Existing preview endpoints accept caller-supplied data and are not live connectors.
