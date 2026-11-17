@@ -16,10 +16,9 @@ import unicodedata
 from dataclasses import dataclass
 from uuid import UUID
 
-from fastapi import Depends, Header, HTTPException, Request
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import Header, HTTPException, Request
 
-from app.db import get_session
+from app.db import get_session_factory
 from app.gateway_replay import consume_assertion_before_access
 from app.settings import settings
 
@@ -165,7 +164,6 @@ async def internal_principal(
     request: Request,
     x_internal_api_key: str | None = Header(default=None),
     x_gateway_principal: str | None = Header(default=None),
-    session: AsyncSession = Depends(get_session),
 ) -> Principal:
     # Reject ambiguous duplicate security headers before trusting FastAPI's
     # single Header value. Proxies and ASGI servers can disagree on which wins.
@@ -192,10 +190,13 @@ async def internal_principal(
     # COMMIT before any protected route handler can run. Never use process-local
     # memory: multiple workers must observe the same one-time assertion.
     try:
-        consumed = await consume_assertion_before_access(
-            session, issuer=settings.gateway_assertion_issuer,
-            assertion_id=principal.assertion_id, expires_at=principal.expires_at,
-        )
+        # Use an independent short-lived session so FastAPI cannot share the
+        # replay transaction with a handler's business transaction.
+        async with get_session_factory()() as replay_session:
+            consumed = await consume_assertion_before_access(
+                replay_session, issuer=settings.gateway_assertion_issuer,
+                assertion_id=principal.assertion_id, expires_at=principal.expires_at,
+            )
     except Exception as exc:
         raise HTTPException(
             status_code=503, detail="Gateway replay protection unavailable"
