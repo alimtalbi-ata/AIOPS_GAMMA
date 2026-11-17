@@ -10,8 +10,9 @@ from app.gateway_replay import (\n    consume_assertion_before_access, reserve_a
 
 
 class _Result:
-    def __init__(self, value):
+    def __init__(self, value=None, rowcount=0):
         self.value = value
+        self.rowcount = rowcount
 
     def scalar_one_or_none(self):
         return self.value
@@ -135,7 +136,7 @@ async def test_replay_reservation_is_atomic_across_independent_postgres_sessions
 @pytest.mark.asyncio
 async def test_cleanup_deletes_bounded_batch_with_grace_and_commits():
     session = _Session()
-    session.execute = async_execute = _cleanup_execute(session, rowcount=17)
+    session.execute = _cleanup_execute(session, rowcount=17)
     assert await purge_expired_assertions(session, batch_size=100, grace_seconds=300) == 17
     assert "FOR UPDATE SKIP LOCKED" in session.statement
     assert "NOW()" in session.statement
