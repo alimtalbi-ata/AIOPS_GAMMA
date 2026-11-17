@@ -4,6 +4,7 @@ from functools import lru_cache
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.settings import settings
+from app.security import Principal
 
 
 @lru_cache(maxsize=1)
@@ -14,4 +15,20 @@ def get_session_factory():
 
 async def get_session():
     async with get_session_factory()() as session:
+        yield session
+
+
+async def get_tenant_session(principal: Principal):
+    """Yield a session with transaction-local PostgreSQL RLS tenant context.
+
+    The tenant value comes only from the verified Gateway Principal. SET LOCAL
+    semantics prevent the value leaking across pooled connections.
+    """
+    from sqlalchemy import text
+
+    async with get_session_factory()() as session:
+        await session.execute(
+            text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+            {"tenant_id": str(principal.tenant_id)},
+        )
         yield session
