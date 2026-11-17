@@ -162,3 +162,25 @@ def test_unsafe_or_inconsistent_rca_fails_closed(monkeypatch, mutation):
     monkeypatch.setattr(benchmark, "investigate_snapshot", forged)
     with pytest.raises(ValueError):
         evaluate_snapshot_benchmark((SnapshotBenchmarkCase("unsafe-rca", request(), "db"),))
+
+
+def test_fingerprint_uses_instant_not_timezone_representation():
+    req = request()
+    offset = timezone(timedelta(hours=5, minutes=30))
+    equivalent = replace(req.snapshot,
+        captured_at=req.snapshot.captured_at.astimezone(offset),
+        evidence=tuple(replace(item, observed_at=item.observed_at.astimezone(offset))
+                       for item in req.snapshot.evidence))
+    assert snapshot_fingerprint(req.snapshot) == snapshot_fingerprint(equivalent)
+
+
+def test_pinned_fingerprint_survives_timezone_conversion():
+    req = request()
+    offset = timezone(timedelta(hours=-4))
+    equivalent = replace(req.snapshot,
+        captured_at=req.snapshot.captured_at.astimezone(offset),
+        evidence=tuple(replace(item, observed_at=item.observed_at.astimezone(offset))
+                       for item in req.snapshot.evidence))
+    pinned = replace(req, snapshot=equivalent,
+                     expected_fingerprint_sha256=snapshot_fingerprint(req.snapshot))
+    assert investigate_snapshot(pinned)["snapshot_fingerprint_sha256"] == pinned.expected_fingerprint_sha256
