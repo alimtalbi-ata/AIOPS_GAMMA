@@ -104,3 +104,12 @@ Protected API database dependencies now use `get_tenant_session`, which sets the
 Compose initialization scripts run only when the PostgreSQL data directory is first initialized. For an existing volume, an administrator must create the restricted role and grant the required privileges before applying migration 0003; do not delete production volumes to force initialization.
 
 New opt-in integration test `test_postgres_rls_denies_cross_tenant_reads_and_writes` requires `GAMMA_TEST_DATABASE_URL` using gamma_app and schema at revision `0003_tenant_rls`. It asserts the role is neither superuser nor BYPASSRLS, verifies tenant A cannot read tenant B's row, and verifies a forged tenant B write under tenant A context is rejected. It has not yet been run against PostgreSQL in CI. Review and validate the bootstrap script and migration on a disposable PostgreSQL 16 instance before rollout.
+
+
+### RLS rollout caveats and worker boundary
+
+The earlier statement above that no RLS policies exist is historical and is superseded by migration 0003. All tenant-facing API handlers that use Inbox, Outbox, ServiceBinding or Evidence now obtain their session through the verified-principal dependency, which applies the transaction-local tenant setting. Do not add tenant-owned DB access using the unscoped `get_session` dependency.
+
+The existing outbox relay is a background worker and does not have a verified request Principal. Under forced RLS, an unscoped relay session will see no tenant rows. This is intentionally fail-closed; the relay must not be switched to the bootstrap/superuser role. Before enabling the relay, design a separate narrowly scoped worker model (for example, per-tenant claims with audited tenant context) and add tests. The same rule applies to future background workers.
+
+The API container's restricted role is created only on first initialization of a fresh Postgres volume. Existing deployments require a controlled administrative role-bootstrap and grant procedure; never drop or recreate a data volume as a shortcut. Verify the role has neither SUPERUSER nor BYPASSRLS and does not own tenant tables before rollout.
