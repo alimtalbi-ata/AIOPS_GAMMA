@@ -25,3 +25,11 @@ Aucun effet de bord, outil, LLM, exécution de runbook, rollback ou mutation ITS
 Mettre en place une ACL indépendante `actor→tenant→incident→resource`, une identité d'acteur authentifiée, une provenance de source attestée, une chaîne d'intégrité des références, un budget de collecte, des contrôles de pagination/timeout, une politique de rétention et un audit de lecture. Les données brutes doivent être filtrées pour les secrets et informations personnelles. Tant que ces exigences ne sont pas satisfaites, **HOLD / NO_GO LIVE**.
 
 Les tests sont définis dans le dépôt ; aucun succès d'exécution locale ou CI n'est revendiqué.
+
+## Empreinte et benchmark de parcours complet
+
+`snapshot_fingerprint` calcule un SHA-256 déterministe des métadonnées déclarées : identité du snapshot, tenant, incident, capture, références de preuves, sources, polarités et horodatages. L'ordre des preuves n'affecte pas l'empreinte. Il ne s'agit **ni d'une signature, ni d'une attestation de provenance, ni d'une preuve d'intégrité des contenus bruts** ; le hash est recalculé à partir de données fournies par l'appelant.
+
+`app/reused/shadow_snapshot_benchmark.py` fournit `evaluate_snapshot_benchmark` pour mesurer ensemble : sélection correcte, faux positif, cause manquée, abstention correcte, refus d'accès attendu, refus inattendu et refus manqué. Les refus déclaratifs sont comptabilisés indépendamment des décisions RCA. Les cas invalides sont rejetés ; un benchmark n'exécute aucun connecteur.
+
+Les tests de `tests/test_shadow_snapshot_benchmark.py` couvrent les empreintes, contradictions, refus, refus manqués et cas invalides. Les métriques attendues sont des assertions de fixtures, **pas des résultats d'exécution attestés**.
