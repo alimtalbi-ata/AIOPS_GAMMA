@@ -250,3 +250,25 @@ def test_forged_snapshot_report_provenance_fails_closed(monkeypatch, mutation):
         evaluate_snapshot_benchmark((
             SnapshotBenchmarkCase("forged-provenance", request(), "db"),
         ))
+
+
+@pytest.mark.parametrize("mutation", [
+    {"tenant_id": "foreign-tenant"},
+    {"incident_id": "foreign-incident"},
+    {"tenant_id": None},
+    {"incident_id": None},
+])
+def test_nested_rca_identity_mismatch_fails_closed(monkeypatch, mutation):
+    import app.reused.shadow_snapshot_benchmark as benchmark
+
+    original = benchmark.investigate_snapshot
+
+    def forged(req):
+        result = original(req)
+        return {**result, "investigation": {**result["investigation"], **mutation}}
+
+    monkeypatch.setattr(benchmark, "investigate_snapshot", forged)
+    with pytest.raises(ValueError, match="Inconsistent RCA investigation identity"):
+        evaluate_snapshot_benchmark((
+            SnapshotBenchmarkCase("nested-identity", request(), "db"),
+        ))
