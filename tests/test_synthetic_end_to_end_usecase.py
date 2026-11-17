@@ -14,6 +14,7 @@ from app.reused.investigation import EvidenceRef, Hypothesis, InvestigationPrevi
 from app.reused.itil import IncidentAssessment
 from app.reused.itsm_contract import IncidentSyncPreview, PriorityMatrix, PriorityRule, plan_incident_sync
 from app.reused.shadow_autonomy import assess_shadow_autonomy
+from app.reused.shadow_runbook import RunbookCandidate, plan_shadow_runbook
 from app.reused.synthetic_postmortem import PostmortemDraftRequest, TimelineEvent, draft_postmortem, render_postmortem_markdown
 
 TENANT = UUID("11111111-1111-4111-8111-111111111111")
@@ -91,6 +92,25 @@ def test_synthetic_incident_journey_preserves_all_authority_boundaries():
     assert "TOPOLOGY_UNVERIFIED" in shadow.reasons
     assert "RCA_NOT_SUPPORTED" in shadow.reasons
     assert shadow.live_execution_authorized is False
+
+    # UC08: the matching synthetic recipe is not actionable when RCA is
+    # unknown. No post-action SLI has been measured.
+    runbook = plan_shadow_runbook(
+        service=group["service_name"], symptom="latency",
+        catalog=(RunbookCandidate(
+            runbook_id="demo-checkout-latency", version="v1",
+            service="checkout", symptom="latency",
+            approved=True, rollback_defined=True,
+            verification_sli="checkout_request_latency_p95_ms",
+        ),),
+        rca_supported=investigation["supported_hypotheses"] > 0
+        and investigation["unknown_hypotheses"] == 0,
+    )
+    assert runbook.state == "ABSTAIN"
+    assert "RCA_NOT_SUPPORTED" in runbook.reasons
+    assert runbook.runbook_id is None
+    assert runbook.verification_state == "NOT_MEASURED"
+    assert runbook.live_execution_authorized is False
 
     levels = ("high", "medium", "low")
     proposal = plan_incident_sync(
