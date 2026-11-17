@@ -26,6 +26,7 @@ def evaluate_snapshot_benchmark(cases: tuple[SnapshotBenchmarkCase, ...]) -> dic
     for case in cases:
         if (type(case) is not SnapshotBenchmarkCase
                 or type(case.case_id) is not str or not case.case_id.strip()
+                or case.case_id != case.case_id.strip()
                 or case.case_id.strip() in seen or type(case.request) is not SnapshotRequest
                 or type(case.expect_access_denied) is not bool
                 or (case.expected_hypothesis_id is not None
