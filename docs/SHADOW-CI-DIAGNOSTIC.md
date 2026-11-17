@@ -52,3 +52,9 @@ Le workflow `Shadow RCA isolated checks` applique désormais `concurrency.cancel
 ## Échec transversal confirmé au commit d62c6e0
 
 Les runs `44184122459` (RCA), `44184122315` (Python) et `44184122430` (Deployment) sont `completed/failure`. Les jobs RCA `shadow-contracts` (134395947036), Python `test` (134395947149) et Deployment `api-postgres-runtime` (134395946785) exposent chacun `steps=null` et `logs_url=null` via l'API. Ce symptôme transversal est compatible avec un problème d'initialisation/autorisation des jobs, sans en établir la cause. Vérifier les annotations dans l'interface Actions et les paramètres d'exécution du dépôt avant toute conclusion sur les tests.
+
+## Tentative de lecture des journaux — run 44184237138
+
+Le run RCA `44184237138` et son job `134396349691` sont `completed/failure`, avec `steps=null` et `logs_url=null`. L'API de téléchargement des journaux du job renvoie `404 BlobNotFound` depuis le stockage des logs. Les runs Python `44184237292` et Deployment `44184237135` ont aussi échoué. Ce constat documente une absence de journaux récupérables ; il ne démontre ni un défaut des tests, ni une cause unique de panne GitHub Actions.
+
+**Diagnostic à effectuer par un administrateur du dépôt** : consulter l'interface du run pour les annotations et messages d'erreur hors journaux ; vérifier l'autorisation GitHub Actions, les politiques de runners et, le cas échéant, les limites de consommation/facturation ; exécuter ensuite le workflow isolé et conserver son résultat. Ne pas assouplir les règles de fusion ni autoriser le LIVE sur la base de ce seul diagnostic.
