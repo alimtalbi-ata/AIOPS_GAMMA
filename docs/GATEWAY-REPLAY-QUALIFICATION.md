@@ -34,3 +34,18 @@ Until these checks pass, PR #1 remains Draft / HOLD / NO_GO. No LIVE reads, muta
 `tests/test_gateway_replay.py` now covers atomic INSERT conflict handling, commit-before-return, duplicate rollback, commit-failure rollback, and an opt-in five-session PostgreSQL race. The race test requires `GAMMA_TEST_DATABASE_URL` pointing only to a disposable PostgreSQL database; without it, pytest reports the integration case as skipped. The test creates the replay table if absent and removes its unique test digest in a finally block. It does not apply Alembic migration 0002 or qualify migration upgrade/downgrade.
 
 The current code and tests have not yet been executed in CI. Do not interpret test presence as test success.
+
+
+## Expired reservation cleanup
+
+`app.gateway_replay.purge_expired_assertions` provides one bounded maintenance batch:
+- selects only rows with `expires_at < database NOW() - grace_seconds`;
+- defaults to a 500-row batch and 120-second grace window;
+- enforces batch size 1..10,000 and grace 60..86,400 seconds;
+- orders oldest expiry first and uses `FOR UPDATE SKIP LOCKED` so multiple maintenance workers do not block on the same rows;
+- commits the deletion batch; database/cancellation errors roll back and propagate;
+- is deliberately not called from the request authentication path.
+
+The grace window is a conservative clock-skew allowance, not a replacement for synchronized clocks. Cleanup scheduling, monitoring, and retention alerting are not deployed by this helper. The helper has no effect until a separately authorized maintenance job invokes it.
+
+Unit tests cover SQL guardrails, configured bounds, successful bounded deletion, and rollback on database failure. A live PostgreSQL race between cleanup and valid authentication has not yet been run. Keep the grace window greater than the maximum accepted assertion lifetime plus expected clock skew before enabling a scheduled cleaner.
