@@ -155,7 +155,10 @@ async def test_postgres_rls_denies_cross_tenant_reads_and_writes():
                 """), {"id": uuid4(), "tenant": tenant_a, "cmdb": uuid4()})
     finally:
         async with engine.begin() as connection:
-            # Cleanup is performed as bootstrap/admin connection, not gamma_app.
+            await connection.execute(
+                text("SELECT set_config('app.tenant_id', :tenant, true)"),
+                {"tenant": str(tenant_a)},
+            )
             await connection.execute(
                 text("DELETE FROM telemetry_service_bindings WHERE id=:id"),
                 {"id": row_id},
