@@ -48,3 +48,7 @@ Le job `shadow-contracts` (134390419769) est `completed/failure`, avec `logs_url
 ## Limitation du bruit CI
 
 Le workflow `Shadow RCA isolated checks` applique désormais `concurrency.cancel-in-progress: true` par PR ou référence Git. Les exécutions obsolètes peuvent être annulées lors de nouveaux commits. Cette optimisation n'est pas une réparation des jobs sans étapes et ne modifie pas les contrôles Python ou Deployment. Les runs du commit `828846f` (44182658999 Python, 44182659261 RCA, 44182658986 Deployment) ont tous conclu `failure`.
+
+## Échec transversal confirmé au commit d62c6e0
+
+Les runs `44184122459` (RCA), `44184122315` (Python) et `44184122430` (Deployment) sont `completed/failure`. Les jobs RCA `shadow-contracts` (134395947036), Python `test` (134395947149) et Deployment `api-postgres-runtime` (134395946785) exposent chacun `steps=null` et `logs_url=null` via l'API. Ce symptôme transversal est compatible avec un problème d'initialisation/autorisation des jobs, sans en établir la cause. Vérifier les annotations dans l'interface Actions et les paramètres d'exécution du dépôt avant toute conclusion sur les tests.
