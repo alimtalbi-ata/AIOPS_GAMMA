@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 
 from app.reused.shadow_autonomy import assess_shadow_autonomy
+from app.reused.shadow_investigation import InvestigationInput, investigate_shadow
 from app.reused.shadow_runbook import RunbookCandidate, plan_shadow_runbook
 from app.reused.synthetic_recovery import SLIObservation, assess_synthetic_recovery
 
@@ -30,6 +31,7 @@ class IncidentShadowInput:
     before: SLIObservation | None = None
     after: SLIObservation | None = None
     sli_max_value: float = 250.0
+    investigation: InvestigationInput | None = None
 
 
 def evaluate_incident_shadow(req: IncidentShadowInput) -> dict:
@@ -39,16 +41,26 @@ def evaluate_incident_shadow(req: IncidentShadowInput) -> dict:
     if (type(req.tenant_id) is not str or not req.tenant_id.strip()
             or type(req.incident_id) is not str or not req.incident_id.strip()):
         raise ValueError("Missing tenant or incident identity")
+    investigation_report = None
+    if req.investigation is not None:
+        investigation_report = investigate_shadow(req.investigation)
+        if (investigation_report["tenant_id"] != req.tenant_id
+                or investigation_report["incident_id"] != req.incident_id):
+            raise ValueError("Investigation identity mismatch")
+    # Synthetic investigation cannot certify upstream evidence or override
+    # caller RCA flags; with an investigation attached, always fail closed.
+    evidence_qualified = req.evidence_verified and investigation_report is None
+    rca_qualified = req.rca_verdict == "supported" and investigation_report is None
     runbook = plan_shadow_runbook(
         service=req.service, symptom=req.symptom, catalog=req.catalog,
-        rca_supported=req.rca_verdict == "supported"
+        rca_supported=rca_qualified
         and req.supporting_refs > 0 and req.contradicting_refs == 0
-        and req.evidence_verified,
+        and evidence_qualified,
     )
     autonomy = assess_shadow_autonomy(
-        evidence_source_verified=req.evidence_verified,
+        evidence_source_verified=evidence_qualified,
         topology_source_verified=req.topology_verified,
-        rca_verdict=req.rca_verdict,
+        rca_verdict=req.rca_verdict if investigation_report is None else "unknown",
         supporting_evidence_count=req.supporting_refs,
         contradicting_evidence_count=req.contradicting_refs,
         runbook_approved=runbook.state == "REVIEW_CANDIDATE",
@@ -70,6 +82,7 @@ def evaluate_incident_shadow(req: IncidentShadowInput) -> dict:
         "service": req.service,
         "mode": "synthetic_shadow",
         "stages": {
+            **({"investigation": investigation_report} if investigation_report is not None else {}),
             "runbook": asdict(runbook),
             "autonomy": asdict(autonomy),
             "recovery": asdict(recovery),
