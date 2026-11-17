@@ -126,3 +126,23 @@ def test_timezone_equivalent_evidence_timestamp_is_accepted():
         req.snapshot.evidence[1],
     )))
     assert investigate_snapshot(changed)["investigation"]["state"] == "REVIEW_CANDIDATE"
+
+
+@pytest.mark.parametrize("field,value", [
+    ("snapshot_id", 123), ("tenant_id", None), ("incident_id", ""),
+])
+def test_fingerprint_rejects_invalid_snapshot_identity(field, value):
+    req = request()
+    with pytest.raises(ValueError, match="fingerprint identity"):
+        snapshot_fingerprint(replace(req.snapshot, **{field: value}))
+
+
+@pytest.mark.parametrize("field,value", [
+    ("source_id", None), ("source_verified", "true"),
+    ("stance", 1), ("ref", ["not-a-string"]),
+])
+def test_fingerprint_rejects_invalid_evidence_fields(field, value):
+    req = request()
+    bad = replace(req.snapshot.evidence[0], **{field: value})
+    with pytest.raises(ValueError, match="fingerprint fields"):
+        snapshot_fingerprint(replace(req.snapshot, evidence=(bad, req.snapshot.evidence[1])))
