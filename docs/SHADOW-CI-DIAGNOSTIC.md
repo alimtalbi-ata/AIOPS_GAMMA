@@ -30,3 +30,9 @@ Un script Python sans dépendance tierce (`scripts/check_shadow_rca_stdlib.py`) 
 Sur le commit `172b781`, les workflows `Shadow RCA isolated checks` (run 44181517610), `Python checks` (44181517584) et `Deployment contract` (44181517542) ont tous conclu `failure`. La qualification de l'exécution effective reste non établie.
 
 Le benchmark de snapshots rejette maintenant les rapports qui annoncent `authoritative`, `live_execution_authorized`, `connectors_invoked`, `tools_invoked` ou `itsm_mutations_performed` comme vrais, ainsi que les états RCA incohérents. Des tests injectent des rapports volontairement falsifiés pour vérifier cette abstention par erreur explicite. Ces tests ne sont pas déclarés réussis tant qu'une exécution n'est pas attestée.
+
+## Diagnostic au commit 0ef1843
+
+Le run isolé 44182186632 s'est terminé en `failure`. Les runs Python 44182186678 et Deployment 44182186549 étaient encore en file d'attente au moment du contrôle. Le run isolé précédent 44181958529 avait un job `shadow-contracts` en échec, sans aucune étape exposée par l'API des jobs. Ces observations ne prouvent pas une défaillance du code Python ; elles interdisent de certifier les tests.
+
+Action d'exploitation recommandée hors du périmètre de cette branche : examiner dans l'interface Actions les éventuelles annotations de politique, de quota, de facturation ou de disponibilité des runners, puis déclencher une exécution manuelle du workflow isolé une fois la cause identifiée. Ne pas désactiver les contrôles de branche pour contourner le problème. Aucun accès à l'administration des runners ou à la facturation n'a été utilisé ici.
