@@ -167,7 +167,7 @@ def validate_incident_resource_id(incident_id: str) -> str:
 @app.post("/api/v1/incidents/{incident_id}/evidence", status_code=201)
 async def add_evidence(
     incident_id: str, req: EvidenceIn, principal: Principal = Depends(internal_principal),
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(tenant_session),
 ):
     validate_incident_resource_id(incident_id)
     if incident_id not in principal.evidence_incident_grants:
