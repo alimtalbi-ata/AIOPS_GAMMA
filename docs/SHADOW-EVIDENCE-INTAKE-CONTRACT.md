@@ -53,3 +53,7 @@ Les horodatages `captured_at` et `observed_at` sont convertis en UTC avant séri
 ## Liaison du benchmark à la requête
 
 Le benchmark de bout en bout recalcule l'empreinte de l'instantané d'entrée et exige qu'elle corresponde au rapport d'ingestion. Il vérifie également `snapshot_id`, `actor_id`, `tenant_id`, `incident_id`, `fingerprint_scope=CALLER_DECLARED_METADATA_ONLY` et `grant_origin=CALLER_DECLARED_SYNTHETIC`. Un rapport falsifié est rejeté avant notation, même si son verdict RCA paraît cohérent. Ces contrôles sont internes au chemin synthétique et ne constituent pas une attestation cryptographique de provenance.
+
+## Identité du résultat RCA imbriqué
+
+Le benchmark refuse également un rapport dont le résultat `investigation` porte un `tenant_id` ou un `incident_id` différent de la requête, même lorsque l'enveloppe d'ingestion et son empreinte sont correctes. Les identités internes et externes doivent rester cohérentes. Ce contrôle est un garde-fou de données synthétiques, non une preuve d'authentification.
