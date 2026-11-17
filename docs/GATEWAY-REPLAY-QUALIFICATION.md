@@ -91,3 +91,16 @@ Current route review:
 - ServiceBinding writes and reads use principal tenant.
 
 Important remaining boundary: these are application-level predicates and route tests, not PostgreSQL Row-Level Security. The current migrations do not create RLS policies, and the DB connection does not establish a transaction-local tenant context. A future RLS rollout needs explicit policy design, migration/role testing, and a non-owner application DB role; do not claim database-enforced isolation today.
+
+
+## PostgreSQL RLS enforcement (migration 0003)
+
+Migration `0003_tenant_rls` enables and forces RLS on `integration_inbox`, `integration_outbox`, `telemetry_service_bindings`, and `investigation_evidence`. Both USING and WITH CHECK compare `tenant_id` with transaction-local `current_setting('app.tenant_id', true)`; absent context yields no visible rows and rejects writes.
+
+Protected API database dependencies now use `get_tenant_session`, which sets the context from the verified Gateway Principal with `set_config(..., true)` (transaction-local). Gateway replay uses its own session and is not tenant-scoped.
+
+**Runtime role requirement:** PostgreSQL superusers and roles with BYPASSRLS bypass row policies. The API container therefore uses the dedicated `gamma_app` role, bootstrapped as NOSUPERUSER/NOBYPASSRLS by `postgres/init/01-app-role.sh`. The migration/bootstrap connection remains `aiops`; it owns schema objects. The migration grants DML on tenant tables and replay-table access to gamma_app. Do not point the API's DATABASE_URL at the bootstrap/superuser role.
+
+Compose initialization scripts run only when the PostgreSQL data directory is first initialized. For an existing volume, an administrator must create the restricted role and grant the required privileges before applying migration 0003; do not delete production volumes to force initialization.
+
+New opt-in integration test `test_postgres_rls_denies_cross_tenant_reads_and_writes` requires `GAMMA_TEST_DATABASE_URL` using gamma_app and schema at revision `0003_tenant_rls`. It asserts the role is neither superuser nor BYPASSRLS, verifies tenant A cannot read tenant B's row, and verifies a forged tenant B write under tenant A context is rejected. It has not yet been run against PostgreSQL in CI. Review and validate the bootstrap script and migration on a disposable PostgreSQL 16 instance before rollout.
