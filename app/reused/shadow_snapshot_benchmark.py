@@ -26,13 +26,13 @@ def evaluate_snapshot_benchmark(cases: tuple[SnapshotBenchmarkCase, ...]) -> dic
     for case in cases:
         if (type(case) is not SnapshotBenchmarkCase
                 or type(case.case_id) is not str or not case.case_id.strip()
-                or case.case_id in seen or type(case.request) is not SnapshotRequest
+                or case.case_id.strip() in seen or type(case.request) is not SnapshotRequest
                 or type(case.expect_access_denied) is not bool
                 or (case.expected_hypothesis_id is not None
                     and (type(case.expected_hypothesis_id) is not str
                          or not case.expected_hypothesis_id.strip()))):
             raise ValueError("Invalid snapshot benchmark case")
-        seen.add(case.case_id)
+        seen.add(case.case_id.strip())
         if (type(case.request.hypotheses) is not tuple
                 or any(type(h) is not Hypothesis
                        or type(h.hypothesis_id) is not str
