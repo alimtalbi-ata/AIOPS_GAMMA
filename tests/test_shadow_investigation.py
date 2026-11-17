@@ -106,3 +106,12 @@ def test_source_ids_are_synthetic_not_execution_authority():
     assert result["hypotheses"][0]["supporting_source_ids"] == ("metrics", "traces")
     assert result["authoritative"] is False
     assert result["live_execution_authorized"] is False
+
+
+def test_whitespace_source_alias_does_not_fake_independence():
+    result = investigate_shadow(request(
+        evidence("metric", source_id="otel"),
+        evidence("trace", source_id=" otel "),
+    ))
+    assert result["state"] == "ABSTAIN"
+    assert result["hypotheses"][0]["supporting_source_ids"] == ("otel",)
