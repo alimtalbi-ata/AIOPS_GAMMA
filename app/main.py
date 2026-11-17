@@ -15,6 +15,12 @@ from app.settings import settings
 
 app = FastAPI(title="AIOPS_GAMMA", version="0.1.0")
 
+async def tenant_session(principal: Principal = Depends(internal_principal)):
+    """Bind every protected tenant DB session to the verified principal."""
+    async for session in get_tenant_session(principal.tenant_id):
+        yield session
+
+
 
 @app.middleware("http")
 async def prevent_tenant_api_caching(request, call_next):
@@ -119,7 +125,7 @@ async def alerts(
 @app.post("/api/v1/topology/bindings", status_code=201)
 async def add_binding(
     req: BindingIn, principal: Principal = Depends(internal_principal),
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(tenant_session),
 ):
     obj = ServiceBinding(tenant_id=principal.tenant_id, **req.model_dump())
     session.add(obj)
