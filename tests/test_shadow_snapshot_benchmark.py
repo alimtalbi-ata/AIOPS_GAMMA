@@ -272,3 +272,21 @@ def test_nested_rca_identity_mismatch_fails_closed(monkeypatch, mutation):
         evaluate_snapshot_benchmark((
             SnapshotBenchmarkCase("nested-identity", request(), "db"),
         ))
+
+
+def test_missing_nested_selection_field_fails_closed(monkeypatch):
+    import app.reused.shadow_snapshot_benchmark as benchmark
+
+    original = benchmark.investigate_snapshot
+
+    def forged(req):
+        report = original(req)
+        investigation = dict(report["investigation"])
+        investigation.pop("selected_hypothesis_id")
+        return {**report, "investigation": investigation}
+
+    monkeypatch.setattr(benchmark, "investigate_snapshot", forged)
+    with pytest.raises(ValueError, match="Missing RCA selection field"):
+        evaluate_snapshot_benchmark((
+            SnapshotBenchmarkCase("missing-selection", request(), "db"),
+        ))
