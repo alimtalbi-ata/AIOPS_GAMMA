@@ -32,6 +32,7 @@ class SnapshotRequest:
     hypotheses: tuple[Hypothesis, ...]
     as_of: datetime
     max_snapshot_age_seconds: int = 900
+    expected_fingerprint_sha256: str | None = None
 
 
 def snapshot_fingerprint(snapshot: SyntheticSnapshot) -> str:
@@ -86,6 +87,14 @@ def investigate_snapshot(req: SnapshotRequest) -> dict:
         raise ValueError("Snapshot outside freshness window")
     if type(snapshot.evidence) is not tuple or type(req.hypotheses) is not tuple:
         raise ValueError("Invalid snapshot collections")
+    fingerprint = snapshot_fingerprint(snapshot)
+    expected = req.expected_fingerprint_sha256
+    if expected is not None:
+        if (type(expected) is not str or len(expected) != 64
+                or any(ch not in '0123456789abcdef' for ch in expected)):
+            raise ValueError('Invalid expected snapshot fingerprint')
+        if fingerprint != expected:
+            raise ValueError('Snapshot fingerprint mismatch')
     result = investigate_shadow(InvestigationInput(
         tenant_id=req.tenant_id,
         incident_id=req.incident_id,
@@ -95,7 +104,7 @@ def investigate_snapshot(req: SnapshotRequest) -> dict:
     ))
     return {
         "snapshot_id": snapshot.snapshot_id,
-        "snapshot_fingerprint_sha256": snapshot_fingerprint(snapshot),
+        "snapshot_fingerprint_sha256": fingerprint,
         "fingerprint_scope": "CALLER_DECLARED_METADATA_ONLY",
         "actor_id": req.actor_id,
         "tenant_id": req.tenant_id,
