@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.reused.shadow_evidence_intake import SnapshotRequest, investigate_snapshot
+from app.reused.shadow_evidence_intake import SnapshotRequest, investigate_snapshot, snapshot_fingerprint
 from app.reused.shadow_investigation import Hypothesis
 
 
@@ -58,6 +58,16 @@ def evaluate_snapshot_benchmark(cases: tuple[SnapshotBenchmarkCase, ...]) -> dic
             selected = None
             fingerprint = None
         else:
+            if (type(report) is not dict
+                    or report.get("snapshot_id") != case.request.snapshot.snapshot_id
+                    or report.get("tenant_id") != case.request.tenant_id
+                    or report.get("incident_id") != case.request.incident_id
+                    or report.get("actor_id") != case.request.actor_id
+                    or report.get("snapshot_fingerprint_sha256") != snapshot_fingerprint(case.request.snapshot)
+                    or report.get("fingerprint_scope") != "CALLER_DECLARED_METADATA_ONLY"
+                    or report.get("grant_origin") != "CALLER_DECLARED_SYNTHETIC"
+                    or type(report.get("investigation")) is not dict):
+                raise ValueError("Inconsistent snapshot investigation provenance")
             investigation = report["investigation"]
             if (report.get("mode") != "synthetic_shadow"
                     or investigation.get("mode") != "synthetic_shadow"
