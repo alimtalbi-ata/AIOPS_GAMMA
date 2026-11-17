@@ -42,6 +42,13 @@ def main() -> None:
     ))
     assert investigate_snapshot(duplicate)["investigation"]["state"] == "ABSTAIN"
 
+    whitespace_alias = replace(request, snapshot=replace(
+        request.snapshot, evidence=(
+            evidence[0], replace(evidence[1], source_id=" metrics "),
+        ),
+    ))
+    assert investigate_snapshot(whitespace_alias)["investigation"]["state"] == "ABSTAIN"
+
     contradiction = replace(request, snapshot=replace(
         request.snapshot, evidence=evidence + (
             Evidence("counter", "tenant-a", "inc-1", "db", "contradicts", now, True, "logs"),
@@ -79,7 +86,7 @@ def main() -> None:
     assert benchmark["correct_denials"] == 1
     assert benchmark["false_positives"] == 0
     assert benchmark["live_execution_authorized"] is False
-    print("SHADOW_RCA_STDLIB_SMOKE_OK: 7 offline assertions groups passed")
+    print("SHADOW_RCA_STDLIB_SMOKE_OK: 8 offline assertion groups passed")
 
 
 if __name__ == "__main__":
