@@ -8,7 +8,7 @@ Module : `app/reused/shadow_investigation.py`. Tests : `tests/test_shadow_invest
 
 Étapes : (1) validation stricte de l'identité, de la politique et des types ; (2) filtrage tenant/incident, source, fenêtre temporelle et hypothèse ; (3) collecte des soutiens et contradictions ; (4) évaluation de chaque hypothèse ; (5) abstention si une preuve est rejetée, si aucune hypothèse ne satisfait les critères ou si plusieurs hypothèses sont admissibles.
 
-Une unique hypothèse avec au moins deux références distinctes de soutien et aucune contradiction peut produire `REVIEW_CANDIDATE`. Les références distinctes ne démontrent **pas** l'indépendance réelle des sources : le seuil est un garde-fou minimal synthétique, pas une qualification de provenance. Toute preuve rejetée entraîne `ABSTAIN`. Le rapport expose les motifs et les références sans contenu brut.
+Une unique hypothèse avec au moins deux identités de sources déclarées distinctes de soutien et aucune contradiction peut produire `REVIEW_CANDIDATE`. Les identités de sources distinctes sont uniquement déclarées par l'appelant ; elles ne démontrent **pas** l'indépendance réelle ou l'authenticité des sources. Les références multiples d'une même source ne satisfont pas le seuil. Une identité manquante entraîne une abstention. Toute preuve rejetée entraîne `ABSTAIN`. Le rapport expose les motifs et les références sans contenu brut.
 
 ## Limites de sécurité
 
@@ -28,4 +28,4 @@ Les tests d'intégration couvrent le cas positif non autoritatif, les contradict
 
 ## Critères du prochain jalon
 
-Avant tout passage à une investigation sur sources réelles : introduire une identité de source distincte et attestée (les références uniques ne prouvent pas l'indépendance), des références de preuves immuables, une fenêtre temporelle liée à l'incident, une ACL serveur vérifiée et un benchmark avec cas ambigus, contradictoires et négatifs. Les champs `source_verified` fournis par l'appelant restent des déclarations synthétiques.
+Avant tout passage à une investigation sur sources réelles : attester indépendamment l'identité et la provenance des sources (les identifiants déclarés ne prouvent pas l'indépendance), des références de preuves immuables, une fenêtre temporelle liée à l'incident, une ACL serveur vérifiée et un benchmark avec cas ambigus, contradictoires et négatifs. Les champs `source_verified` fournis par l'appelant restent des déclarations synthétiques.
