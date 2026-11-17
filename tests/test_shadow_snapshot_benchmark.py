@@ -299,3 +299,11 @@ def test_benchmark_rejects_case_ids_with_whitespace_alias():
             SnapshotBenchmarkCase("case", req, "db"),
             SnapshotBenchmarkCase(" case ", req, "db"),
         ))
+
+
+@pytest.mark.parametrize("identifier", [" case", "case ", " case "])
+def test_benchmark_rejects_noncanonical_single_case_id(identifier):
+    with pytest.raises(ValueError, match="Invalid snapshot benchmark case"):
+        evaluate_snapshot_benchmark((
+            SnapshotBenchmarkCase(identifier, request(), "db"),
+        ))
