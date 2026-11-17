@@ -58,7 +58,6 @@ def evaluate_benchmark(cases: tuple[BenchmarkCase, ...]) -> dict:
         })
     total = len(cases)
     selections = tp + fp
-    positive_cases = tp + fp + missed  # selection correctness tracked separately
     return {
         "mode": "synthetic_shadow",
         "total": total,
