@@ -74,3 +74,20 @@ New tests:
 - `tests/test_resource_acl.py`: route-boundary denial for ungranted log service and incident evidence, and exact-grant positive-path checks.
 
 These tests do not prove that the upstream gateway actually performs actor→tenant membership lookup, strips spoofed identity headers, or derives grants from a current authoritative ACL. Those remain gateway deployment/integration requirements. No database row-level security policy is asserted here.
+
+
+## Tenant persistence isolation regression checks
+
+New `tests/test_tenant_isolation.py` checks:
+- binding writes derive `tenant_id` only from the verified Principal; request schemas reject an injected tenant field;
+- binding reads include a tenant predicate and bind the verified tenant UUID;
+- evidence reads include both tenant and incident predicates, and bind both values;
+- evidence access without the exact incident grant is denied before any DB query.
+
+Current route review:
+- Inbox deduplication reads include `tenant_id`, and writes use the principal tenant.
+- Outbox writes inherit the principal tenant; there is currently no tenant-facing outbox read route in the inspected API.
+- Evidence writes use principal tenant and exact incident grant; reads filter tenant + incident.
+- ServiceBinding writes and reads use principal tenant.
+
+Important remaining boundary: these are application-level predicates and route tests, not PostgreSQL Row-Level Security. The current migrations do not create RLS policies, and the DB connection does not establish a transaction-local tenant context. A future RLS rollout needs explicit policy design, migration/role testing, and a non-owner application DB role; do not claim database-enforced isolation today.
