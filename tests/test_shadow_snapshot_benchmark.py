@@ -184,3 +184,14 @@ def test_pinned_fingerprint_survives_timezone_conversion():
     pinned = replace(req, snapshot=equivalent,
                      expected_fingerprint_sha256=snapshot_fingerprint(req.snapshot))
     assert investigate_snapshot(pinned)["snapshot_fingerprint_sha256"] == pinned.expected_fingerprint_sha256
+
+
+@pytest.mark.parametrize("hypotheses", [
+    None, [], ("not-a-hypothesis",), (None,),
+])
+def test_benchmark_rejects_malformed_hypotheses_before_lookup(hypotheses):
+    req = replace(request(), hypotheses=hypotheses)
+    with pytest.raises(ValueError, match="Invalid benchmark hypotheses"):
+        evaluate_snapshot_benchmark((
+            SnapshotBenchmarkCase("malformed", req, "db"),
+        ))
