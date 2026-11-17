@@ -108,11 +108,11 @@ def test_invalid_inputs_fail_closed(overrides):
 
 def investigation(tenant="synthetic-tenant-1", incident="DEMO-INC-1", contradictory=False):
     refs = [
-        Evidence("metric", tenant, incident, "db", "supports", NOW, True),
-        Evidence("trace", tenant, incident, "db", "supports", NOW, True),
+        Evidence("metric", tenant, incident, "db", "supports", NOW, True, "metrics"),
+        Evidence("trace", tenant, incident, "db", "supports", NOW, True, "traces"),
     ]
     if contradictory:
-        refs.append(Evidence("counter", tenant, incident, "db", "contradicts", NOW, True))
+        refs.append(Evidence("counter", tenant, incident, "db", "contradicts", NOW, True, "logs"))
     return InvestigationInput(tenant, incident, (Hypothesis("db", "DB saturation"),), tuple(refs), NOW)
 
 
