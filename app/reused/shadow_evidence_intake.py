@@ -6,6 +6,8 @@ No external connectors, persistence, remote reads, or live authorization.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from hashlib import sha256
+import json
 from datetime import datetime
 
 from app.reused.shadow_investigation import Evidence, Hypothesis, InvestigationInput, investigate_shadow
@@ -30,6 +32,24 @@ class SnapshotRequest:
     hypotheses: tuple[Hypothesis, ...]
     as_of: datetime
     max_snapshot_age_seconds: int = 900
+
+
+def snapshot_fingerprint(snapshot: SyntheticSnapshot) -> str:
+    """Stable audit fingerprint of supplied metadata; NOT a provenance signature."""
+    if type(snapshot) is not SyntheticSnapshot or type(snapshot.evidence) is not tuple:
+        raise ValueError("Invalid snapshot")
+    if type(snapshot.captured_at) is not datetime or snapshot.captured_at.tzinfo is None:
+        raise ValueError("Invalid snapshot time")
+    rows = []
+    for item in snapshot.evidence:
+        if type(item) is not Evidence or type(item.observed_at) is not datetime or item.observed_at.tzinfo is None:
+            raise ValueError("Invalid evidence metadata")
+        rows.append((item.ref, item.tenant_id, item.incident_id,
+                     item.hypothesis_id, item.stance, item.observed_at.isoformat(),
+                     item.source_verified, item.source_id))
+    payload = (snapshot.snapshot_id, snapshot.tenant_id, snapshot.incident_id,
+               snapshot.captured_at.isoformat(), tuple(sorted(rows)))
+    return sha256(json.dumps(payload, ensure_ascii=True, separators=(",", ":")).encode()).hexdigest()
 
 
 def investigate_snapshot(req: SnapshotRequest) -> dict:
@@ -75,6 +95,8 @@ def investigate_snapshot(req: SnapshotRequest) -> dict:
     ))
     return {
         "snapshot_id": snapshot.snapshot_id,
+        "snapshot_fingerprint_sha256": snapshot_fingerprint(snapshot),
+        "fingerprint_scope": "CALLER_DECLARED_METADATA_ONLY",
         "actor_id": req.actor_id,
         "tenant_id": req.tenant_id,
         "incident_id": req.incident_id,
