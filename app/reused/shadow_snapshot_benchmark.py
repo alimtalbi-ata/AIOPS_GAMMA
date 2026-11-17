@@ -69,6 +69,9 @@ def evaluate_snapshot_benchmark(cases: tuple[SnapshotBenchmarkCase, ...]) -> dic
                     or type(report.get("investigation")) is not dict):
                 raise ValueError("Inconsistent snapshot investigation provenance")
             investigation = report["investigation"]
+            if (investigation.get("tenant_id") != case.request.tenant_id
+                    or investigation.get("incident_id") != case.request.incident_id):
+                raise ValueError("Inconsistent RCA investigation identity")
             if (report.get("mode") != "synthetic_shadow"
                     or investigation.get("mode") != "synthetic_shadow"
                     or any(report.get(flag) is not False for flag in (
