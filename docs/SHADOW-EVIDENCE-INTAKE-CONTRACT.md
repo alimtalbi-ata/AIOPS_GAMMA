@@ -45,3 +45,7 @@ Le benchmark refuse désormais toute cause attendue qui n'appartient pas au cata
 ## Cohérence temporelle de la capture
 
 L'ingestion rejette désormais toute preuve dont `observed_at` est strictement postérieur à `snapshot.captured_at`, même si elle se situe avant `as_of`. Les comparaisons utilisent les instants des `datetime` avec fuseau horaire, pas les chaînes d'affichage. Cette règle interdit de qualifier un instantané qui prétend contenir une observation encore inexistante au moment de sa capture. Elle ne constitue ni une horloge de confiance, ni une attestation de collecte réelle.
+
+## Canonicalisation des horodatages pour le SHA-256
+
+Les horodatages `captured_at` et `observed_at` sont convertis en UTC avant sérialisation dans l'empreinte. Deux représentations avec offsets différents du même instant donnent donc la même empreinte ; les timestamps naïfs sont rejetés. Les tests unitaires et le smoke test autonome couvrent cette invariance. Le format reste un identifiant d'intégrité de métadonnées synthétiques, pas une signature d'une source de confiance.
