@@ -115,3 +115,17 @@ def test_whitespace_source_alias_does_not_fake_independence():
     ))
     assert result["state"] == "ABSTAIN"
     assert result["hypotheses"][0]["supporting_source_ids"] == ("otel",)
+
+
+def test_trimmed_duplicate_evidence_refs_fail_closed():
+    with pytest.raises(ValueError, match="duplicate evidence"):
+        investigate_shadow(request(
+            evidence("metric", source_id="metrics"),
+            evidence(" metric ", source_id="traces"),
+        ))
+
+
+@pytest.mark.parametrize("identifier", [" database", "database ", " database "])
+def test_whitespace_padded_hypothesis_id_is_rejected(identifier):
+    with pytest.raises(ValueError, match="hypothesis"):
+        investigate_shadow(request(hypotheses=(Hypothesis(identifier, "Ambiguous"),)))
