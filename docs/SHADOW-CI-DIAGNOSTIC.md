@@ -40,3 +40,7 @@ Action d'exploitation recommandée hors du périmètre de cette branche : examin
 ## Contrôle du commit a90f947
 
 Le run RCA isolé 44182434119 était `in_progress` lors du contrôle, tandis que les runs Python 44182434013 et Deployment 44182434068 étaient `queued`. Aucun résultat de tests n'était encore attesté. Le run RCA précédent 44182307625 a conclu `failure` avec un job `shadow-contracts` sans étapes exposées. Ne pas confondre une entrée en exécution avec la réussite des contrôles.
+
+## Observation du run RCA 44182552803
+
+Le job `shadow-contracts` (134390419769) est `completed/failure`, avec `logs_url=null`, `steps=null` et une réponse `steps=[]` à la consultation détaillée. Les workflows Python (44182552687) et Deployment (44182552818) ont aussi conclu `failure`. Il n'existe donc toujours aucune trace exploitable permettant d'attribuer ces échecs aux assertions du benchmark. La branche conserve la politique `HOLD / NO_GO LIVE`.
