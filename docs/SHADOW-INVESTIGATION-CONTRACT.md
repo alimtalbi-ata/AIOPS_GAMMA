@@ -41,3 +41,7 @@ Ce benchmark de développement n'est pas un benchmark indépendant ou représent
 ## Normalisation des identifiants de source
 
 Les identifiants `source_id` sont normalisés par suppression des espaces de bord avant le calcul du nombre de sources distinctes. Ainsi `otel` et ` otel ` ne peuvent pas satisfaire le seuil de deux sources. La normalisation n'atteste **ni l'identité réelle, ni l'indépendance réelle** des systèmes déclarés. Les tests unitaires et le smoke test sans dépendance couvrent ce cas.
+
+## Identifiants RCA non ambigus
+
+Les identifiants d'hypothèse doivent être non vides et ne peuvent comporter d'espaces de bord. Les références de preuves sont comparées après suppression des espaces de bord pour détecter les doublons : `metric` et ` metric ` provoquent un rejet explicite. Le texte d'une référence valide est conservé pour le compte rendu ; ce contrôle ne certifie pas son origine. Les identifiants de source restent normalisés au comptage de l'indépendance déclarée.
