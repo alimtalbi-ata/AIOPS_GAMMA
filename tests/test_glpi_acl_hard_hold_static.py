@@ -13,11 +13,15 @@ SOURCE = Path(__file__).resolve().parents[1] / "app" / "reused" / "glpi_read.py"
 
 def assert_public_glpi_hold(source: str) -> None:
     tree = ast.parse(source)
-    function = next(
+    functions = [
         node for node in tree.body
-        if isinstance(node, ast.AsyncFunctionDef)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
         and node.name == "read_glpi_incident"
-    )
+    ]
+    # A later definition silently overrides an earlier, guarded definition.
+    assert len(functions) == 1
+    function = functions[0]
+    assert isinstance(function, ast.AsyncFunctionDef)
     # Exactly: docstring, invalid ticket check, unconditional ACL denial.
     assert len(function.body) == 3
     assert isinstance(function.body[0], ast.Expr)
@@ -283,3 +287,14 @@ def test_glpi_route_guard_rejects_later_import_shadow(tmp_path, monkeypatch):
     monkeypatch.setattr(sys.modules[__name__], "SOURCE", fake_source)
     with pytest.raises(AssertionError):
         test_glpi_http_route_cannot_bypass_public_acl_hold()
+
+
+def test_glpi_hold_guard_detects_later_public_function_override():
+    """The last Python definition wins; an earlier HOLD is not sufficient."""
+    original = SOURCE.read_text(encoding="utf-8")
+    changed = original + (
+        "\n\nasync def read_glpi_incident(tenant_id, ticket_id):\n"
+        "    return await _read_glpi_incident_unqualified(tenant_id, ticket_id)\n"
+    )
+    with pytest.raises(AssertionError):
+        assert_public_glpi_hold(changed)
