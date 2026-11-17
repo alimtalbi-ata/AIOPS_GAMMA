@@ -81,6 +81,8 @@ def evaluate_snapshot_benchmark(cases: tuple[SnapshotBenchmarkCase, ...]) -> dic
                         "authoritative", "live_execution_authorized",
                         "tools_invoked", "itsm_mutations_performed"))):
                 raise ValueError("Unsafe snapshot investigation report")
+            if "selected_hypothesis_id" not in investigation:
+                raise ValueError("Missing RCA selection field")
             selected = investigation["selected_hypothesis_id"]
             if (selected is not None
                     and (type(selected) is not str
