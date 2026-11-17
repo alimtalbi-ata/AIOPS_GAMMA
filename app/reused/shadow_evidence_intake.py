@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from hashlib import sha256
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.reused.shadow_investigation import Evidence, Hypothesis, InvestigationInput, investigate_shadow
 
@@ -39,17 +39,21 @@ def snapshot_fingerprint(snapshot: SyntheticSnapshot) -> str:
     """Stable audit fingerprint of supplied metadata; NOT a provenance signature."""
     if type(snapshot) is not SyntheticSnapshot or type(snapshot.evidence) is not tuple:
         raise ValueError("Invalid snapshot")
-    if type(snapshot.captured_at) is not datetime or snapshot.captured_at.tzinfo is None:
+    if (type(snapshot.captured_at) is not datetime
+            or snapshot.captured_at.tzinfo is None
+            or snapshot.captured_at.utcoffset() is None):
         raise ValueError("Invalid snapshot time")
     rows = []
     for item in snapshot.evidence:
-        if type(item) is not Evidence or type(item.observed_at) is not datetime or item.observed_at.tzinfo is None:
+        if (type(item) is not Evidence or type(item.observed_at) is not datetime
+                or item.observed_at.tzinfo is None
+                or item.observed_at.utcoffset() is None):
             raise ValueError("Invalid evidence metadata")
         rows.append((item.ref, item.tenant_id, item.incident_id,
-                     item.hypothesis_id, item.stance, item.observed_at.isoformat(),
+                     item.hypothesis_id, item.stance, item.observed_at.astimezone(timezone.utc).isoformat(),
                      item.source_verified, item.source_id))
     payload = (snapshot.snapshot_id, snapshot.tenant_id, snapshot.incident_id,
-               snapshot.captured_at.isoformat(), tuple(sorted(rows)))
+               snapshot.captured_at.astimezone(timezone.utc).isoformat(), tuple(sorted(rows)))
     return sha256(json.dumps(payload, ensure_ascii=True, separators=(",", ":")).encode()).hexdigest()
 
 
