@@ -6,7 +6,10 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.gateway_replay import (\n    consume_assertion_before_access, reserve_assertion_once,\n    purge_expired_assertions,\n)
+from app.gateway_replay import (
+    consume_assertion_before_access, reserve_assertion_once,
+    purge_expired_assertions,
+)
 
 
 class _Result:
