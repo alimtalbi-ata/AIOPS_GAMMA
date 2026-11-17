@@ -90,7 +90,32 @@ def test_unexpected_denial_is_detected():
      SnapshotBenchmarkCase("same", request(), "db")),
     (SnapshotBenchmarkCase("", request(), "db"),),
     (SnapshotBenchmarkCase("bad", request(), "db", True),),
+    (SnapshotBenchmarkCase("unknown-ground-truth", request(), "nonexistent"),),
 ])
 def test_invalid_benchmark_cases_fail_closed(cases):
     with pytest.raises(ValueError):
         evaluate_snapshot_benchmark(cases)
+
+
+def test_wrong_cause_is_false_positive():
+    req = request()
+    alternate = replace(req, hypotheses=(
+        *req.hypotheses, Hypothesis("net", "Network congestion"),
+    ))
+    result = evaluate_snapshot_benchmark((
+        SnapshotBenchmarkCase("wrong-cause", alternate, "net"),
+    ))
+    assert result["false_positives"] == 1
+    assert result["case_accuracy"] == 0.0
+
+
+def test_missing_cause_is_counted():
+    req = request()
+    weak = replace(req, snapshot=replace(req.snapshot, evidence=(
+        req.snapshot.evidence[0],
+    )))
+    result = evaluate_snapshot_benchmark((
+        SnapshotBenchmarkCase("missing-cause", weak, "db"),
+    ))
+    assert result["missed_causes"] == 1
+    assert result["case_accuracy"] == 0.0
