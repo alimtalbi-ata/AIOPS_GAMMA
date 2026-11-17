@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from app.reused.shadow_incident_journey import IncidentShadowInput, evaluate_incident_shadow
+from app.reused.shadow_investigation import Evidence, Hypothesis, InvestigationInput
 from app.reused.shadow_runbook import RunbookCandidate
 from app.reused.synthetic_recovery import SLIObservation
 
@@ -103,3 +104,41 @@ def test_ambiguous_runbooks_block_even_claimed_approvals():
 def test_invalid_inputs_fail_closed(overrides):
     with pytest.raises(ValueError):
         report(**overrides)
+
+
+def investigation(tenant="synthetic-tenant-1", incident="DEMO-INC-1", contradictory=False):
+    refs = [
+        Evidence("metric", tenant, incident, "db", "supports", NOW, True),
+        Evidence("trace", tenant, incident, "db", "supports", NOW, True),
+    ]
+    if contradictory:
+        refs.append(Evidence("counter", tenant, incident, "db", "contradicts", NOW, True))
+    return InvestigationInput(tenant, incident, (Hypothesis("db", "DB saturation"),), tuple(refs), NOW)
+
+
+def test_attached_investigation_never_promotes_synthetic_evidence_to_authority():
+    result = report(
+        investigation=investigation(), evidence_verified=True, topology_verified=True,
+        rca_verdict="supported", policy_approved=True, hitl_approved=True,
+    )
+    assert result["stages"]["investigation"]["state"] == "REVIEW_CANDIDATE"
+    assert result["stages"]["runbook"]["state"] == "ABSTAIN"
+    assert result["stages"]["autonomy"]["state"] == "ABSTAIN"
+    assert result["live_execution_authorized"] is False
+
+
+def test_contradictory_investigation_abstains_end_to_end():
+    result = report(investigation=investigation(contradictory=True))
+    assert result["stages"]["investigation"]["state"] == "ABSTAIN"
+    assert result["stages"]["runbook"]["state"] == "ABSTAIN"
+    assert result["stages"]["recovery"]["state"] == "UNKNOWN"
+
+
+def test_cross_tenant_investigation_rejected_before_decision():
+    with pytest.raises(ValueError, match="identity"):
+        report(investigation=investigation(tenant="other"))
+
+
+def test_cross_incident_investigation_rejected_before_decision():
+    with pytest.raises(ValueError, match="identity"):
+        report(investigation=investigation(incident="other"))
