@@ -3,7 +3,7 @@ import asyncio
 import os
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.gateway_replay import (
@@ -187,28 +187,26 @@ async def test_postgres_cleanup_preserves_live_rows_and_respects_batch_limit():
     if not database_url:
         pytest.skip("GAMMA_TEST_DATABASE_URL not configured; disposable PostgreSQL required")
 
-    from datetime import datetime, timedelta, timezone
     import hashlib
 
     engine = create_async_engine(database_url, pool_size=3, max_overflow=0)
     factory = async_sessionmaker(engine, expire_on_commit=False)
     prefix = "gamma-cleanup-integration"
     rows = {
-        "expired-1": hashlib.sha256((prefix + "\\x00expired-1").encode()).hexdigest(),
-        "expired-2": hashlib.sha256((prefix + "\\x00expired-2").encode()).hexdigest(),
-        "expired-3": hashlib.sha256((prefix + "\\x00expired-3").encode()).hexdigest(),
-        "still-live": hashlib.sha256((prefix + "\\x00still-live").encode()).hexdigest(),
+        name: hashlib.sha256((prefix + "\x00" + name).encode()).hexdigest()
+        for name in ("expired-1", "expired-2", "expired-3", "still-live")
     }
+    table_exists = False
     try:
         async with engine.begin() as connection:
-            exists = await connection.scalar(text(
+            table_exists = await connection.scalar(text(
                 "SELECT to_regclass('public.gateway_assertion_replay') IS NOT NULL"
             ))
-            if not exists:
+            if not table_exists:
                 pytest.fail("Apply Alembic migration 0002 to the disposable database first")
             await connection.execute(
                 text("DELETE FROM gateway_assertion_replay WHERE assertion_digest IN :digests")
-                .bindparams(__import__("sqlalchemy").bindparam("digests", expanding=True)),
+                .bindparams(bindparam("digests", expanding=True)),
                 {"digests": list(rows.values())},
             )
             await connection.execute(
@@ -231,7 +229,7 @@ async def test_postgres_cleanup_preserves_live_rows_and_respects_batch_limit():
         async with engine.connect() as connection:
             remaining = set((await connection.execute(
                 text("SELECT assertion_digest FROM gateway_assertion_replay WHERE assertion_digest IN :digests")
-                .bindparams(__import__("sqlalchemy").bindparam("digests", expanding=True)),
+                .bindparams(bindparam("digests", expanding=True)),
                 {"digests": list(rows.values())},
             )).scalars().all())
         assert rows["still-live"] in remaining
@@ -247,10 +245,11 @@ async def test_postgres_cleanup_preserves_live_rows_and_respects_batch_limit():
             )
         assert live_count == 1
     finally:
-        async with engine.begin() as connection:
-            await connection.execute(
-                text("DELETE FROM gateway_assertion_replay WHERE assertion_digest IN :digests")
-                .bindparams(__import__("sqlalchemy").bindparam("digests", expanding=True)),
-                {"digests": list(rows.values())},
-            )
+        if table_exists:
+            async with engine.begin() as connection:
+                await connection.execute(
+                    text("DELETE FROM gateway_assertion_replay WHERE assertion_digest IN :digests")
+                    .bindparams(bindparam("digests", expanding=True)),
+                    {"digests": list(rows.values())},
+                )
         await engine.dispose()
