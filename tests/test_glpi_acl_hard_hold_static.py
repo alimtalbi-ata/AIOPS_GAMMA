@@ -26,10 +26,14 @@ def assert_public_glpi_hold(source: str) -> None:
     ticket_check = function.body[1]
     assert len(ticket_check.body) == 1
     assert not ticket_check.orelse
+    assert ast.unparse(ticket_check.test) == "type(ticket_id) is not int or ticket_id <= 0"
     assert isinstance(ticket_check.body[0], ast.Raise)
     assert "HTTPException(422" in ast.unparse(ticket_check.body[0])
+    assert "Invalid GLPI ticket id" in ast.unparse(ticket_check.body[0])
     assert "HTTPException(503" in ast.unparse(function.body[2])
     assert "GLPI actor/tenant/resource ACL not qualified" in ast.unparse(function.body[2])
+    assert "no-store" in ast.unparse(ticket_check.body[0])
+    assert "no-store" in ast.unparse(function.body[2])
     # Neither feature flags nor transport helpers can make the public function
     # return a snapshot, call the network or perform an await before denial.
     assert not any(
@@ -57,3 +61,12 @@ def test_glpi_hold_guard_detects_fail_open_mutation(replacement):
     assert mutated != original
     with pytest.raises(AssertionError):
         assert_public_glpi_hold(mutated)
+
+
+def test_glpi_hold_guard_detects_invalid_ticket_condition_bypass():
+    original = SOURCE.read_text(encoding="utf-8")
+    target = "if type(ticket_id) is not int or ticket_id <= 0:"
+    assert target in original
+    changed = original.replace(target, "if ticket_id == 7:", 1)
+    with pytest.raises(AssertionError):
+        assert_public_glpi_hold(changed)
