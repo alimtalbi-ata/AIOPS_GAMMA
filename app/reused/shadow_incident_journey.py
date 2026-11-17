@@ -6,7 +6,6 @@ tenants, operate tools, execute runbooks or certify a real recovery.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from datetime import timedelta
 
 from app.reused.shadow_autonomy import assess_shadow_autonomy
 from app.reused.shadow_runbook import RunbookCandidate, plan_shadow_runbook
@@ -27,6 +26,7 @@ class IncidentShadowInput:
     catalog: tuple[RunbookCandidate, ...]
     policy_approved: bool = False
     hitl_approved: bool = False
+    simulated_action_performed: bool = False
     before: SLIObservation | None = None
     after: SLIObservation | None = None
     sli_max_value: float = 250.0
@@ -55,8 +55,11 @@ def evaluate_incident_shadow(req: IncidentShadowInput) -> dict:
         policy_approved=req.policy_approved,
         hitl_approved=req.hitl_approved,
     )
+    if type(req.simulated_action_performed) is not bool:
+        raise ValueError("Invalid synthetic action flag")
     recovery = assess_synthetic_recovery(
-        before=req.before, after=req.after,
+        before=req.before if req.simulated_action_performed else None,
+        after=req.after if req.simulated_action_performed else None,
         max_acceptable_value=req.sli_max_value,
     )
     # Even caller-supplied 'approved' booleans do not constitute a real
@@ -71,7 +74,7 @@ def evaluate_incident_shadow(req: IncidentShadowInput) -> dict:
             "autonomy": asdict(autonomy),
             "recovery": asdict(recovery),
         },
-        "execution_state": "NOT_EXECUTED",
+        "execution_state": "SYNTHETIC_ACTION_ONLY" if req.simulated_action_performed else "NOT_EXECUTED",
         "itsm_mutations_performed": False,
         "authoritative": False,
         "live_execution_authorized": False,
