@@ -84,6 +84,22 @@ def test_glpi_http_route_cannot_bypass_public_acl_hold():
     assert [(alias.name, alias.asname) for alias in imports[0].names] == [
         ("read_glpi_incident", None)
     ]
+    # Any second import binding this name can silently replace the guarded
+    # adapter even while its original import remains unchanged.
+    for node in tree.body:
+        if isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                assert (alias.asname or alias.name) != "read_glpi_incident" or (
+                    node is imports[0]
+                    and alias.name == "read_glpi_incident"
+                    and alias.asname is None
+                )
+        elif isinstance(node, ast.Import):
+            assert all(
+                alias.asname != "read_glpi_incident" and
+                (alias.asname is not None or alias.name != "read_glpi_incident")
+                for alias in node.names
+            )
     assert not any(
         isinstance(node, (ast.Assign, ast.AnnAssign, ast.FunctionDef,
                           ast.AsyncFunctionDef, ast.ClassDef))
@@ -236,6 +252,29 @@ def test_glpi_route_guard_rejects_unprotected_registration(
     route_source = original[route_start:route_end]
     assert old in route_source
     changed = original[:route_start] + route_source.replace(old, new, 1) + original[route_end:]
+    source_dir = tmp_path / "app" / "reused"
+    source_dir.mkdir(parents=True)
+    fake_source = source_dir / "glpi_read.py"
+    fake_source.write_text("", encoding="utf-8")
+    (tmp_path / "app" / "main.py").write_text(changed, encoding="utf-8")
+    monkeypatch.setattr(sys.modules[__name__], "SOURCE", fake_source)
+    with pytest.raises(AssertionError):
+        test_glpi_http_route_cannot_bypass_public_acl_hold()
+
+
+def test_glpi_route_guard_rejects_later_import_shadow(tmp_path, monkeypatch):
+    """A later same-name import must not replace the public HOLD adapter."""
+    import sys
+
+    original = (SOURCE.parents[1] / "main.py").read_text(encoding="utf-8")
+    target = "from app.reused.glpi_read import read_glpi_incident"
+    assert target in original
+    changed = original.replace(
+        target,
+        target + "\nfrom app.reused.glpi_read import "
+        "_read_glpi_incident_unqualified as read_glpi_incident",
+        1,
+    )
     source_dir = tmp_path / "app" / "reused"
     source_dir.mkdir(parents=True)
     fake_source = source_dir / "glpi_read.py"
