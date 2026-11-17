@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.gateway_replay import consume_assertion_before_access, reserve_assertion_once
+from app.gateway_replay import (\n    consume_assertion_before_access, reserve_assertion_once,\n    purge_expired_assertions,\n)
 
 
 class _Result:
@@ -130,3 +130,48 @@ async def test_replay_reservation_is_atomic_across_independent_postgres_sessions
                 {"digest": digest},
             )
         await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_cleanup_deletes_bounded_batch_with_grace_and_commits():
+    session = _Session()
+    session.execute = async_execute = _cleanup_execute(session, rowcount=17)
+    assert await purge_expired_assertions(session, batch_size=100, grace_seconds=300) == 17
+    assert "FOR UPDATE SKIP LOCKED" in session.statement
+    assert "NOW()" in session.statement
+    assert session.params == {"grace_seconds": 300, "batch_size": 100}
+    assert session.commits == 1
+    assert session.rollbacks == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("batch_size,grace", [
+    (0, 120), (-1, 120), (10001, 120), (True, 120),
+    (10, 0), (10, 59), (10, 86401), (10, True),
+])
+async def test_cleanup_rejects_unsafe_policy_before_database(batch_size, grace):
+    session = _Session()
+    with pytest.raises(ValueError, match="invalid replay cleanup policy"):
+        await purge_expired_assertions(session, batch_size=batch_size, grace_seconds=grace)
+    assert session.commits == 0
+    assert session.statement is None
+
+
+@pytest.mark.asyncio
+async def test_cleanup_rolls_back_and_propagates_database_error():
+    session = _Session()
+    async def fail(statement, params):
+        raise RuntimeError("database unavailable")
+    session.execute = fail
+    with pytest.raises(RuntimeError, match="database unavailable"):
+        await purge_expired_assertions(session)
+    assert session.rollbacks == 1
+    assert session.commits == 0
+
+
+def _cleanup_execute(session, *, rowcount):
+    async def execute(statement, params):
+        session.statement = str(statement)
+        session.params = params
+        return _Result(rowcount=rowcount)
+    return execute
