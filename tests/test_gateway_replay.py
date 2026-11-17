@@ -100,16 +100,15 @@ async def test_replay_reservation_is_atomic_across_independent_postgres_sessions
     issuer = "gamma-concurrency-test"
     assertion_id = "parallel-assertion-123456"
     import hashlib
-    digest = hashlib.sha256((issuer + "\\x00" + assertion_id).encode()).hexdigest()
+    digest = hashlib.sha256((issuer + "\x00" + assertion_id).encode()).hexdigest()
 
     try:
         async with engine.begin() as connection:
-            await connection.execute(text("""
-                CREATE TABLE IF NOT EXISTS gateway_assertion_replay (
-                    assertion_digest VARCHAR(64) PRIMARY KEY,
-                    expires_at TIMESTAMPTZ NOT NULL
-                )
-            """))
+            exists = await connection.scalar(text(
+                "SELECT to_regclass('public.gateway_assertion_replay') IS NOT NULL"
+            ))
+            if not exists:
+                pytest.fail("Apply Alembic migration 0002 to the disposable database first")
             await connection.execute(
                 text("DELETE FROM gateway_assertion_replay WHERE assertion_digest=:digest"),
                 {"digest": digest},
