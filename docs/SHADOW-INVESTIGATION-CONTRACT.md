@@ -14,7 +14,7 @@ Une unique hypothèse avec au moins deux identités de sources déclarées disti
 
 Aucun LLM, outil, HTTP, source canonique, stockage, moteur d'exécution, rollback ou mutation ITSM. `authoritative=false`, `live_execution_authorized=false`, `tools_invoked=false` et `itsm_mutations_performed=false` sans exception.
 
-Ce moteur n'est pas encore câblé au parcours agrégé : l'intégration doit préserver la distinction entre preuve déclarée et preuve authentifiée. Avant toute source réelle : ACL actor→tenant→resource indépendante, provenance immuable, déduplication par source et fenêtre de validité, puis benchmark de RCA adjudiqué. Aucun verdict synthétique ne peut autoriser le LIVE.
+Le moteur est câblé au parcours agrégé en mode synthétique strictement non autoritatif ; l'intégration préserve la distinction entre preuve déclarée et preuve authentifiée. Avant toute source réelle : ACL actor→tenant→resource indépendante, provenance immuable, déduplication par source et fenêtre de validité, puis benchmark de RCA adjudiqué. Aucun verdict synthétique ne peut autoriser le LIVE.
 
 ## Qualification
 
@@ -29,3 +29,11 @@ Les tests d'intégration couvrent le cas positif non autoritatif, les contradict
 ## Critères du prochain jalon
 
 Avant tout passage à une investigation sur sources réelles : attester indépendamment l'identité et la provenance des sources (les identifiants déclarés ne prouvent pas l'indépendance), des références de preuves immuables, une fenêtre temporelle liée à l'incident, une ACL serveur vérifiée et un benchmark avec cas ambigus, contradictoires et négatifs. Les champs `source_verified` fournis par l'appelant restent des déclarations synthétiques.
+
+## Benchmark RCA synthétique
+
+`app/reused/shadow_rca_benchmark.py` et `tests/test_shadow_rca_benchmark.py` définissent un contrat d'évaluation reproductible sur fixtures étiquetées. Le jeu initial contient huit cas (positif, contradictoire, ambigu, sources dupliquées, périmé, non vérifié, inter-tenant, sans preuves). Les attentes sont définies dans les tests, et ne sont pas des observations réelles.
+
+Indicateurs : sélections correctes, faux positifs, causes manquées, abstentions correctes, taux d'abstention, précision des sélections (null si aucune sélection), exactitude par cas. Une sélection de la mauvaise cause, même sur un incident ayant une cause attendue, est comptée comme faux positif. Les cas sans cause attendue exigent l'abstention. Les doublons d'identifiants de cas et les attentes inconnues échouent fermés.
+
+Ce benchmark de développement n'est pas un benchmark indépendant ou représentatif de production : il ne mesure ni la robustesse d'un LLM, ni l'ACL, ni l'authenticité des sources, ni les actions réelles. Les tests ont été ajoutés au dépôt, sans exécution locale ou succès CI revendiqué.
