@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db import get_session
+from app.db import get_tenant_session
 from app.models import Evidence, InboxEvent, OutboxEvent, ServiceBinding
 from app.opensearch_adapter import search_logs
 from app.schemas import AlertPayload, BindingIn, EvidenceIn, LogSearchRequest
@@ -77,7 +77,7 @@ def alert_duplicate_response(previous: InboxEvent, payload: dict) -> dict:
 @app.post("/api/v1/integrations/opensearch/alerts")
 async def alerts(
     req: AlertPayload, principal: Principal = Depends(internal_principal),
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_tenant_session),
 ):
     if not settings.enable_alert_ingestion:
         raise HTTPException(503, "Alert ingestion disabled")
