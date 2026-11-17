@@ -18,3 +18,9 @@ Déclenchement manuel possible (`workflow_dispatch`) et sur PR lorsque les chemi
 2. Observer les étapes de compilation et pytest terminées avec succès, avec logs récupérables.
 3. Contrôler séparément les jobs Python, frontend et PostgreSQL de la CI générale.
 4. Conserver la PR en Draft et `HOLD / NO_GO LIVE` tant que ces vérifications et les contrôles de provenance/ACL réelles ne sont pas achevés.
+
+## Nouvelle observation et qualification de secours
+
+Le run 44181341370 du workflow isolé s'est terminé en `failure`, avec un job `shadow-contracts` dont la liste d'étapes est vide. Les runs 44181341372 (`Python checks`) et 44181341464 (`Deployment contract`) sont également en échec. Cela ne constitue pas une preuve d'échec des tests applicatifs.
+
+Un script Python sans dépendance tierce (`scripts/check_shadow_rca_stdlib.py`) permet désormais de vérifier localement des invariants de décision, refus de tenant, source dupliquée, contradiction, fraîcheur, empreinte et métriques du benchmark. Commande depuis la racine : `python scripts/check_shadow_rca_stdlib.py`. Le workflow isolé exécute ce smoke test **avant** l'installation de pytest. Ce script est une qualification partielle, pas un substitut à la suite complète. Aucun résultat d'exécution de ce script n'est revendiqué dans cette livraison.
