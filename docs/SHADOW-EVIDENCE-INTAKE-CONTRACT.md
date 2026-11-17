@@ -49,3 +49,7 @@ L'ingestion rejette désormais toute preuve dont `observed_at` est strictement p
 ## Canonicalisation des horodatages pour le SHA-256
 
 Les horodatages `captured_at` et `observed_at` sont convertis en UTC avant sérialisation dans l'empreinte. Deux représentations avec offsets différents du même instant donnent donc la même empreinte ; les timestamps naïfs sont rejetés. Les tests unitaires et le smoke test autonome couvrent cette invariance. Le format reste un identifiant d'intégrité de métadonnées synthétiques, pas une signature d'une source de confiance.
+
+## Liaison du benchmark à la requête
+
+Le benchmark de bout en bout recalcule l'empreinte de l'instantané d'entrée et exige qu'elle corresponde au rapport d'ingestion. Il vérifie également `snapshot_id`, `actor_id`, `tenant_id`, `incident_id`, `fingerprint_scope=CALLER_DECLARED_METADATA_ONLY` et `grant_origin=CALLER_DECLARED_SYNTHETIC`. Un rapport falsifié est rejeté avant notation, même si son verdict RCA paraît cohérent. Ces contrôles sont internes au chemin synthétique et ne constituent pas une attestation cryptographique de provenance.
