@@ -37,3 +37,7 @@ Les tests de `tests/test_shadow_snapshot_benchmark.py` couvrent les empreintes, 
 ## Validité du jeu de référence
 
 Le benchmark refuse désormais toute cause attendue qui n'appartient pas au catalogue d'hypothèses du cas. Les tests distinguent explicitement un faux positif (cause sélectionnée différente de l'étiquette) d'une cause manquée (abstention alors qu'une cause était attendue). Les étiquettes sont synthétiques et déclarées par l'auteur des fixtures : elles ne prouvent pas une RCA de production.
+
+## Référence d'intégrité facultative
+
+`SnapshotRequest.expected_fingerprint_sha256` accepte `None` (mode historique) ou une empreinte SHA-256 hexadécimale minuscule de 64 caractères. Après les contrôles d'identité, de grant déclaré et de fraîcheur, l'ingestion recalcule l'empreinte des métadonnées et rejette une différence par `ValueError("Snapshot fingerprint mismatch")`. Une empreinte malformée est également rejetée. La comparaison ne porte **pas** sur le contenu brut des preuves et ne vérifie pas l'auteur de la référence ; un attaquant contrôlant simultanément l'instantané et son empreinte peut les modifier ensemble. Aucun accès LIVE n'est accordé.
