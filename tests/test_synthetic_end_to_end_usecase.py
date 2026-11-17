@@ -14,6 +14,7 @@ from app.reused.investigation import EvidenceRef, Hypothesis, InvestigationPrevi
 from app.reused.itil import IncidentAssessment
 from app.reused.itsm_contract import IncidentSyncPreview, PriorityMatrix, PriorityRule, plan_incident_sync
 from app.reused.shadow_autonomy import assess_shadow_autonomy
+from app.reused.shadow_incident_journey import IncidentShadowInput, evaluate_incident_shadow
 from app.reused.shadow_runbook import RunbookCandidate, plan_shadow_runbook
 from app.reused.synthetic_recovery import assess_synthetic_recovery
 from app.reused.synthetic_postmortem import PostmortemDraftRequest, TimelineEvent, draft_postmortem, render_postmortem_markdown
@@ -123,6 +124,33 @@ def test_synthetic_incident_journey_preserves_all_authority_boundaries():
     assert recovery.rollback_proposal == "HUMAN_REVIEW_REQUIRED"
     assert recovery.rollback_executed is False
     assert recovery.live_execution_authorized is False
+
+    # Aggregate the same tenant/incident into one reviewable AIOps shadow
+    # report. No action took place; the recovery state must remain UNKNOWN.
+    journey = evaluate_incident_shadow(IncidentShadowInput(
+        tenant_id=str(TENANT),
+        incident_id=investigation["incident_id"],
+        service=group["service_name"],
+        symptom="latency",
+        evidence_verified=investigation["citations_source_verified"],
+        topology_verified=impact["canonical_cmdb_verified"],
+        rca_verdict="unknown",
+        supporting_refs=1,
+        contradicting_refs=0,
+        catalog=(RunbookCandidate(
+            runbook_id="demo-checkout-latency", version="v1",
+            service="checkout", symptom="latency",
+            approved=True, rollback_defined=True,
+            verification_sli="checkout_request_latency_p95_ms",
+        ),),
+    ))
+    assert journey["tenant_id"] == str(TENANT)
+    assert journey["incident_id"] == investigation["incident_id"]
+    assert journey["stages"]["runbook"]["state"] == "ABSTAIN"
+    assert journey["stages"]["autonomy"]["state"] == "ABSTAIN"
+    assert journey["stages"]["recovery"]["state"] == "UNKNOWN"
+    assert journey["execution_state"] == "NOT_EXECUTED"
+    assert journey["live_execution_authorized"] is False
 
     levels = ("high", "medium", "low")
     proposal = plan_incident_sync(
