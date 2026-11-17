@@ -7,6 +7,7 @@ Date: 2026-11-17
 - Added a dark-first visual theme to the existing React/Vite console.
 - Expanded Overview into a Command Center with a source-provenance strip, priority incident queue and service-impact snapshot. All entries are explicitly marked as preview/offline or synthetic.
 - Added a Signal Explorer workspace with Logs, Metrics and Traces tabs, local filtering, trace inspection, and an explicit synthetic-data disclaimer.
+- Expanded Incident Workbench with competing unconfirmed hypotheses, a fixture-derived dependency blast-radius list, evidence timeline and source citations.
 - Restyled the navigation shell, header, cards, tables, status tags, service map, incident groups, evidence panels and trace/incident drawers.
 - Preserved the existing five page flows and their current React state/interaction logic.
 - Clarified the header demo marker to **DÉMO · DONNÉES SYNTHÉTIQUES**.
@@ -25,5 +26,5 @@ This is a presentation-only increment. It does not add API calls, live polling, 
 ## Next UX increments
 
 1. Qualify source contracts, tenant authorization and provenance before replacing Signal Explorer fixtures with real logs, metrics and traces.
-2. Expand the Incident Workbench with a correlated evidence timeline and blast-radius view, without claiming unverified RCA.
+2. Replace fixture-derived blast radius and timeline with tenant-authorized, timestamped source records only after provenance and API contracts are qualified.
 3. Add Sentinel / ArgusLM KPI presentation only when trusted source measurements and coverage metadata exist.
