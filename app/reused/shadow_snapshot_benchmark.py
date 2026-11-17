@@ -32,6 +32,11 @@ def evaluate_snapshot_benchmark(cases: tuple[SnapshotBenchmarkCase, ...]) -> dic
                          or not case.expected_hypothesis_id.strip()))):
             raise ValueError("Invalid snapshot benchmark case")
         seen.add(case.case_id)
+        if (case.expected_hypothesis_id is not None
+                and case.expected_hypothesis_id not in {
+                    h.hypothesis_id for h in case.request.hypotheses
+                }):
+            raise ValueError("Unknown expected hypothesis")
         if case.expect_access_denied and case.expected_hypothesis_id is not None:
             raise ValueError("Denied case cannot expect a selected cause")
         try:
