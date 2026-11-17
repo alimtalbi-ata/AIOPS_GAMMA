@@ -225,3 +225,28 @@ def test_benchmark_rejects_malformed_hypothesis_identifier(identifier):
         evaluate_snapshot_benchmark((
             SnapshotBenchmarkCase("malformed-id", req, None),
         ))
+
+
+@pytest.mark.parametrize("mutation", [
+    {"snapshot_id": "different"},
+    {"tenant_id": "other-tenant"},
+    {"incident_id": "other-incident"},
+    {"actor_id": "other-actor"},
+    {"snapshot_fingerprint_sha256": "0" * 64},
+    {"fingerprint_scope": "AUTHENTICATED"},
+    {"grant_origin": "TRUSTED"},
+    {"investigation": None},
+])
+def test_forged_snapshot_report_provenance_fails_closed(monkeypatch, mutation):
+    import app.reused.shadow_snapshot_benchmark as benchmark
+
+    original = benchmark.investigate_snapshot
+
+    def forged(req):
+        return {**original(req), **mutation}
+
+    monkeypatch.setattr(benchmark, "investigate_snapshot", forged)
+    with pytest.raises(ValueError, match="Inconsistent snapshot investigation provenance"):
+        evaluate_snapshot_benchmark((
+            SnapshotBenchmarkCase("forged-provenance", request(), "db"),
+        ))
