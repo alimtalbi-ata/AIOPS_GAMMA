@@ -19,3 +19,13 @@ Ce moteur n'est pas encore câblé au parcours agrégé : l'intégration doit pr
 ## Qualification
 
 Tests ajoutés mais aucun résultat CI ni exécution locale attesté dans cette livraison. Conserver PR #1 en Draft ; **HOLD / NO_GO LIVE**.
+
+## Raccordement au parcours agrégé
+
+`IncidentShadowInput.investigation` est optionnel. Lorsqu'il est renseigné, `evaluate_incident_shadow` ajoute `stages.investigation` et impose l'identité tenant/incident identique. Même une RCA synthétique `REVIEW_CANDIDATE` n'active pas les décisions de runbook ou d'autonomie : `evidence_source_verified` et la RCA sont traitées comme non qualifiées. Le contrat existant reste inchangé en absence d'investigation.
+
+Les tests d'intégration couvrent le cas positif non autoritatif, les contradictions et les divergences de tenant/incident. Aucun test exécuté ou CI verte n'est revendiqué.
+
+## Critères du prochain jalon
+
+Avant tout passage à une investigation sur sources réelles : introduire une identité de source distincte et attestée (les références uniques ne prouvent pas l'indépendance), des références de preuves immuables, une fenêtre temporelle liée à l'incident, une ACL serveur vérifiée et un benchmark avec cas ambigus, contradictoires et négatifs. Les champs `source_verified` fournis par l'appelant restent des déclarations synthétiques.
