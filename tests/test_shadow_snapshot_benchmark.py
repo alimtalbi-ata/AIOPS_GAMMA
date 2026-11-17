@@ -195,3 +195,22 @@ def test_benchmark_rejects_malformed_hypotheses_before_lookup(hypotheses):
         evaluate_snapshot_benchmark((
             SnapshotBenchmarkCase("malformed", req, "db"),
         ))
+
+
+@pytest.mark.parametrize("selected", ["invented-cause", 42, "", True])
+def test_forged_selected_cause_not_in_hypotheses_is_rejected(monkeypatch, selected):
+    import app.reused.shadow_snapshot_benchmark as benchmark
+
+    original = benchmark.investigate_snapshot
+
+    def forged(req):
+        result = original(req)
+        return {**result, "investigation": {
+            **result["investigation"], "selected_hypothesis_id": selected,
+        }}
+
+    monkeypatch.setattr(benchmark, "investigate_snapshot", forged)
+    with pytest.raises(ValueError, match="Unknown selected RCA hypothesis"):
+        evaluate_snapshot_benchmark((
+            SnapshotBenchmarkCase("forged-selection", request(), "db"),
+        ))
