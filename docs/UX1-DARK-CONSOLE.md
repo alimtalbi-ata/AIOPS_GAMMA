@@ -63,3 +63,30 @@ The AI Intelligence Center now distinguishes Gamma preview APIs from Sentinel an
 5. Qualification: exact-HEAD CI, cross-tenant negative tests, source outage/timeout tests, data minimization, audit trail and human-reviewed RCA benchmark.
 
 **Decision: NO CONNECTOR ACTIVATED.** No production data has been fetched and no upstream integration is qualified.
+
+
+## UX7 — Secure Integration Gateway release gates (2026-11-17)
+
+### Gamma security implementation verified in the integration base
+
+Source inspection of `feat/observability-foundation` confirms:
+
+- `app/security.py` verifies the service credential separately from a signed HMAC gateway assertion.
+- Assertions are bound to exact HTTP method and path, issuer, audience, actor type, tenant, access attestation, issue/expiry timestamps and JTI.
+- `internal_principal` calls `consume_assertion_before_access` using an independent PostgreSQL session and commits the one-time JTI reservation before protected route execution. Duplicate assertions are denied; replay-store failures fail closed.
+- `app/reused/upstream.py` intentionally refuses canonical upstream reads until actor/tenant/resource ACL is independently qualified.
+- Deployment contract leaves gateway network selectors empty/deny-all pending platform-owner approval.
+
+These are application-side controls. They do not prove a deployed gateway/IdP, real actor membership decision, secret rotation, mTLS, NetworkPolicy enforcement, or upstream authorization.
+
+### UX7 UI increment
+
+The AI Intelligence Center now shows separate release gates for:
+- Code present: signed assertion verification and PostgreSQL-backed one-time JTI reservation.
+- Owner approval: real gateway/IdP, actor→tenant membership, header stripping and secret rotation.
+- Infrastructure review: deny-by-default ingress, workload identity/mTLS and gateway-bypass tests.
+- Upstream ACL: tenant/resource-scoped read-only Sentinel and ArgusLM APIs.
+
+### No-go remains
+
+No upstream connectors, browser API calls, credentials, polling, ingestion or remediation have been enabled. Sentinel and ArgusLM are not tenant-qualified. Keep the PR Draft until gateway-owner evidence, upstream ACLs, cross-tenant negative tests, exact-HEAD CI and deployment review are complete.
