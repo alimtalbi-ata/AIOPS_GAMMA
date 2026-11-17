@@ -1,4 +1,4 @@
-"""Transport boundary regression cases for Canonical and GLPI adapters."""
+"""Offline transport boundary cases; GLPI helper is not an authorized API entrypoint."""
 from uuid import UUID
 
 import httpx
@@ -43,7 +43,7 @@ async def test_glpi_wrong_content_type_rejected(monkeypatch):
     glpi(monkeypatch)
     stub(monkeypatch, content=b'{"id":7,"entities_id":3,"type":1}', content_type="text/html")
     with pytest.raises(HTTPException) as exc:
-        await glpi_read.read_glpi_incident(TENANT, 7)
+        await glpi_read._read_glpi_incident_unqualified(TENANT, 7)
     assert exc.value.status_code == 502
 
 
@@ -72,6 +72,6 @@ async def test_glpi_network_failure_sanitized(monkeypatch):
 
     monkeypatch.setattr(httpx, "AsyncClient", lambda *a, **kw: real_client(*a, transport=httpx.MockTransport(handler), **kw))
     with pytest.raises(HTTPException) as exc:
-        await glpi_read.read_glpi_incident(TENANT, 7)
+        await glpi_read._read_glpi_incident_unqualified(TENANT, 7)
     assert exc.value.status_code == 502
     assert "internal-secret-hostname" not in str(exc.value.detail)
