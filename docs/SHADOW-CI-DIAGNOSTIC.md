@@ -58,3 +58,7 @@ Les runs `44184122459` (RCA), `44184122315` (Python) et `44184122430` (Deploymen
 Le run RCA `44184237138` et son job `134396349691` sont `completed/failure`, avec `steps=null` et `logs_url=null`. L'API de téléchargement des journaux du job renvoie `404 BlobNotFound` depuis le stockage des logs. Les runs Python `44184237292` et Deployment `44184237135` ont aussi échoué. Ce constat documente une absence de journaux récupérables ; il ne démontre ni un défaut des tests, ni une cause unique de panne GitHub Actions.
 
 **Diagnostic à effectuer par un administrateur du dépôt** : consulter l'interface du run pour les annotations et messages d'erreur hors journaux ; vérifier l'autorisation GitHub Actions, les politiques de runners et, le cas échéant, les limites de consommation/facturation ; exécuter ensuite le workflow isolé et conserver son résultat. Ne pas assouplir les règles de fusion ni autoriser le LIVE sur la base de ce seul diagnostic.
+
+## Vérification du commit 233209f
+
+Les runs `44184362628` (RCA isolé), `44184362603` (Python) et `44184362688` (Deployment) ont tous conclu `failure`. La vérification ne fournit toujours pas de preuve de succès des tests. Les modifications ultérieures doivent rester limitées au mode synthétique et la PR doit rester en brouillon tant qu'un run exploitable n'a pas été obtenu.
