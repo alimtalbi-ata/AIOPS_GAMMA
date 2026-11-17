@@ -453,3 +453,38 @@ class _ReplaySessionContext:
 
     async def __aexit__(self, exc_type, exc, tb):
         return False
+
+
+def test_resource_grants_are_scoped_and_default_to_no_access(monkeypatch):
+    base = verify_gateway_assertion(
+        _token(monkeypatch), method="POST",
+        path="/api/v1/observability/metrics/query", now=1030,
+    )
+    assert base.log_service_grants == ()
+    assert base.evidence_incident_grants == ()
+
+    scoped = verify_gateway_assertion(
+        _token(monkeypatch, log_service_grants=["checkout-api"],
+               evidence_incident_grants=["INC-123"]),
+        method="POST", path="/api/v1/observability/metrics/query", now=1030,
+    )
+    assert scoped.log_service_grants == ("checkout-api",)
+    assert scoped.evidence_incident_grants == ("INC-123",)
+
+
+@pytest.mark.parametrize("claim,value", [
+    ("log_service_grants", ["checkout-api", "*"]),
+    ("log_service_grants", ["checkout-api", "checkout-api"]),
+    ("log_service_grants", ["bad/service"]),
+    ("evidence_incident_grants", ["*"]),
+    ("evidence_incident_grants", ["INC-1", "INC-1"]),
+    ("evidence_incident_grants", ["../other-tenant"]),
+    ("evidence_incident_grants", ["INC-1\\x00"]),
+])
+def test_malformed_or_overbroad_resource_grants_are_rejected(monkeypatch, claim, value):
+    with pytest.raises(HTTPException) as exc:
+        verify_gateway_assertion(
+            _token(monkeypatch, **{claim: value}),
+            method="POST", path="/api/v1/observability/metrics/query", now=1030,
+        )
+    assert exc.value.status_code == 401
