@@ -48,25 +48,37 @@ def test_positive_caller_flags_still_never_grant_execution():
     result = report(
         evidence_verified=True, topology_verified=True,
         rca_verdict="supported", policy_approved=True, hitl_approved=True,
+        simulated_action_performed=True,
         before=SLIObservation(NOW, 800.0, 100),
         after=SLIObservation(NOW + timedelta(minutes=2), 150.0, 100),
     )
     assert result["stages"]["runbook"]["state"] == "REVIEW_CANDIDATE"
     assert result["stages"]["autonomy"]["state"] == "REVIEW_CANDIDATE"
     assert result["stages"]["recovery"]["state"] == "RECOVERED"
-    assert result["execution_state"] == "NOT_EXECUTED"
+    assert result["execution_state"] == "SYNTHETIC_ACTION_ONLY"
     assert result["authoritative"] is False
     assert result["live_execution_authorized"] is False
 
 
 def test_failed_sli_proposes_review_not_rollback_execution():
     result = report(
+        simulated_action_performed=True,
         before=SLIObservation(NOW, 800.0, 100),
         after=SLIObservation(NOW + timedelta(minutes=2), 500.0, 100),
     )
     assert result["stages"]["recovery"]["state"] == "NOT_RECOVERED"
     assert result["stages"]["recovery"]["rollback_proposal"] == "REVIEW_ROLLBACK"
     assert result["stages"]["recovery"]["rollback_executed"] is False
+
+
+def test_no_action_cannot_claim_recovery_even_with_supplied_good_sli():
+    result = report(
+        before=SLIObservation(NOW, 800.0, 100),
+        after=SLIObservation(NOW + timedelta(minutes=2), 100.0, 100),
+    )
+    assert result["stages"]["recovery"]["state"] == "UNKNOWN"
+    assert "MISSING_MEASUREMENT" in result["stages"]["recovery"]["reasons"]
+    assert result["execution_state"] == "NOT_EXECUTED"
 
 
 def test_ambiguous_runbooks_block_even_claimed_approvals():
@@ -86,6 +98,7 @@ def test_ambiguous_runbooks_block_even_claimed_approvals():
     {"supporting_refs": -1},
     {"rca_verdict": "hallucinated"},
     {"policy_approved": "yes"},
+    {"simulated_action_performed": "yes"},
 ])
 def test_invalid_inputs_fail_closed(overrides):
     with pytest.raises(ValueError):
