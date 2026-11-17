@@ -227,7 +227,15 @@ def test_glpi_route_guard_rejects_unprotected_registration(
 
     original = (SOURCE.parents[1] / "main.py").read_text(encoding="utf-8")
     assert old in original
-    changed = original.replace(old, new, 1)
+    # Restrict the mutation to the GLPI route: the principal dependency
+    # occurs in multiple earlier handlers in app/main.py.
+    route_start = original.index(
+        '@app.get("/api/v1/itil4/glpi/incidents/{ticket_id}/snapshot")'
+    )
+    route_end = original.index("\\n\\n", original.index("return await read_glpi_incident(", route_start))
+    route_source = original[route_start:route_end]
+    assert old in route_source
+    changed = original[:route_start] + route_source.replace(old, new, 1) + original[route_end:]
     source_dir = tmp_path / "app" / "reused"
     source_dir.mkdir(parents=True)
     fake_source = source_dir / "glpi_read.py"
