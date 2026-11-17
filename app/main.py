@@ -83,7 +83,7 @@ def alert_duplicate_response(previous: InboxEvent, payload: dict) -> dict:
 @app.post("/api/v1/integrations/opensearch/alerts")
 async def alerts(
     req: AlertPayload, principal: Principal = Depends(internal_principal),
-    session: AsyncSession = Depends(get_tenant_session),
+    session: AsyncSession = Depends(tenant_session),
 ):
     if not settings.enable_alert_ingestion:
         raise HTTPException(503, "Alert ingestion disabled")
@@ -140,7 +140,7 @@ async def add_binding(
 @app.get("/api/v1/topology/bindings")
 async def list_bindings(
     principal: Principal = Depends(internal_principal),
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(tenant_session),
 ):
     rows = (await session.scalars(
         select(ServiceBinding).where(ServiceBinding.tenant_id == principal.tenant_id).limit(500)
