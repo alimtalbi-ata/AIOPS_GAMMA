@@ -119,3 +119,46 @@ def test_missing_cause_is_counted():
     ))
     assert result["missed_causes"] == 1
     assert result["case_accuracy"] == 0.0
+
+
+@pytest.mark.parametrize("mutation", [
+    {"live_execution_authorized": True},
+    {"connectors_invoked": True},
+    {"authoritative": True},
+    {"itsm_mutations_performed": True},
+    {"mode": "live"},
+])
+def test_unsafe_outer_report_fails_closed(monkeypatch, mutation):
+    import app.reused.shadow_snapshot_benchmark as benchmark
+
+    original = benchmark.investigate_snapshot
+
+    def forged(req):
+        return {**original(req), **mutation}
+
+    monkeypatch.setattr(benchmark, "investigate_snapshot", forged)
+    with pytest.raises(ValueError, match="Unsafe"):
+        evaluate_snapshot_benchmark((SnapshotBenchmarkCase("unsafe", request(), "db"),))
+
+
+@pytest.mark.parametrize("mutation", [
+    {"live_execution_authorized": True},
+    {"tools_invoked": True},
+    {"authoritative": True},
+    {"itsm_mutations_performed": True},
+    {"mode": "live"},
+    {"state": "ABSTAIN", "selected_hypothesis_id": "db"},
+    {"state": "REVIEW_CANDIDATE", "selected_hypothesis_id": None},
+])
+def test_unsafe_or_inconsistent_rca_fails_closed(monkeypatch, mutation):
+    import app.reused.shadow_snapshot_benchmark as benchmark
+
+    original = benchmark.investigate_snapshot
+
+    def forged(req):
+        result = original(req)
+        return {**result, "investigation": {**result["investigation"], **mutation}}
+
+    monkeypatch.setattr(benchmark, "investigate_snapshot", forged)
+    with pytest.raises(ValueError):
+        evaluate_snapshot_benchmark((SnapshotBenchmarkCase("unsafe-rca", request(), "db"),))
