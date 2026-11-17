@@ -153,3 +153,26 @@ def test_glpi_route_guard_rejects_transport_bypass(tmp_path, monkeypatch):
     monkeypatch.setattr(sys.modules[__name__], "SOURCE", fake_source)
     with pytest.raises(AssertionError):
         test_glpi_http_route_cannot_bypass_public_acl_hold()
+
+
+def test_glpi_route_guard_rejects_import_alias_bypass(tmp_path, monkeypatch):
+    """A same-name import from an unqualified adapter must fail the route guard."""
+    import sys
+
+    original = (SOURCE.parents[1] / "main.py").read_text(encoding="utf-8")
+    target = "from app.reused.glpi_read import read_glpi_incident"
+    assert target in original
+    changed = original.replace(
+        target,
+        "from app.reused.glpi_read import "
+        "_read_glpi_incident_unqualified as read_glpi_incident",
+        1,
+    )
+    source_dir = tmp_path / "app" / "reused"
+    source_dir.mkdir(parents=True)
+    fake_source = source_dir / "glpi_read.py"
+    fake_source.write_text("", encoding="utf-8")
+    (tmp_path / "app" / "main.py").write_text(changed, encoding="utf-8")
+    monkeypatch.setattr(sys.modules[__name__], "SOURCE", fake_source)
+    with pytest.raises(AssertionError):
+        test_glpi_http_route_cannot_bypass_public_acl_hold()
