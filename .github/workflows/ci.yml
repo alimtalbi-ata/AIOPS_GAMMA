@@ -241,3 +241,81 @@ jobs:
       - name: Remove disposable tenant database
         if: always()
         run: docker rm -f gamma-tenant-ci || true
+
+  rc01-replay-cleanup-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e '.[test]'
+      - name: Start isolated disposable PostgreSQL
+        run: |
+          docker run -d --name gamma-rc01-ci --network host \
+            -e POSTGRES_DB=gamma_rc01_test -e POSTGRES_USER=postgres \
+            -e POSTGRES_PASSWORD=ci-rc01-bootstrap-only \
+            postgres:16 -c listen_addresses=127.0.0.1
+          for attempt in $(seq 1 60); do
+            if docker exec gamma-rc01-ci pg_isready -h 127.0.0.1 -U postgres -d gamma_rc01_test; then
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
+      - name: Provision restricted application role and migrate full head
+        env:
+          DATABASE_URL: postgresql+asyncpg://postgres:ci-rc01-bootstrap-only@127.0.0.1:5432/gamma_rc01_test
+        run: |
+          docker exec gamma-rc01-ci psql -U postgres -d gamma_rc01_test -v ON_ERROR_STOP=1 -c "CREATE ROLE gamma_app LOGIN PASSWORD 'ci-rc01-app-only' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE"
+          alembic upgrade head
+          docker exec gamma-rc01-ci psql -U postgres -d gamma_rc01_test -v ON_ERROR_STOP=1 -c 'GRANT SELECT ON alembic_version TO gamma_app'
+      - name: Verify disposable target and run exact three cases
+        env:
+          GAMMA_TEST_DATABASE_URL: postgresql+asyncpg://gamma_app:ci-rc01-app-only@127.0.0.1:5432/gamma_rc01_test
+        run: |
+          mkdir -p rc01-replay
+          python - <<'PY'
+          import asyncio, os
+          from sqlalchemy import text
+          from sqlalchemy.ext.asyncio import create_async_engine
+          async def check():
+              engine = create_async_engine(os.environ["GAMMA_TEST_DATABASE_URL"])
+              try:
+                  async with engine.connect() as c:
+                      for sql, expected in [
+                          ("SELECT current_database()", "gamma_rc01_test"),
+                          ("SELECT current_user", "gamma_app"),
+                          ("SELECT host(inet_server_addr())", "127.0.0.1"),
+                          ("SELECT version_num FROM alembic_version", "0006_worker_role_guard"),
+                          ("SELECT rolsuper OR rolbypassrls OR rolcreatedb OR rolcreaterole FROM pg_roles WHERE rolname=current_user", False),
+                          ("SELECT count(*) FROM gateway_assertion_replay", 0),
+                          ("SELECT count(*) FROM pg_class WHERE relname IN ('integration_inbox','integration_outbox','telemetry_service_bindings','investigation_evidence') AND relrowsecurity AND relforcerowsecurity", 4),
+                      ]:
+                          actual = await c.scalar(text(sql))
+                          assert actual == expected, (sql, actual, expected)
+              finally:
+                  await engine.dispose()
+          asyncio.run(check())
+          PY
+          python -m pytest -v -rs --junitxml=rc01-replay/pytest.xml \
+            tests/test_gateway_replay.py::test_replay_reservation_is_atomic_across_independent_postgres_sessions \
+            tests/test_gateway_replay.py::test_postgres_cleanup_preserves_live_rows_and_respects_batch_limit \
+            tests/test_gateway_replay.py::test_two_postgres_cleanup_workers_race_with_fresh_gateway_authentication
+          python - <<'PY'
+          import xml.etree.ElementTree as ET
+          cases = ET.parse("rc01-replay/pytest.xml").findall(".//testcase")
+          assert len(cases) == 3 and all(not any(c.find(t) is not None for t in ("skipped","failure","error")) for c in cases)
+          PY
+      - name: Upload exact replay qualification
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rc01-replay-evidence
+          path: rc01-replay/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Remove disposable database
+        if: always()
+        run: docker rm -f gamma-rc01-ci || true
