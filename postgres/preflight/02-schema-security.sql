@@ -157,3 +157,103 @@ ROLLBACK;
 \echo PostgreSQL schema security audit passed
 -- Pinned expressions are PG16-specific; complete ACL review and behavioral
 -- isolation still require separate evidence.
+
+-- Replay 0009 privilege-boundary audit. This is intentionally read-only and
+-- runs after Alembic upgrade in both Compose and Helm init gates.
+DO $replay_audit$
+DECLARE
+    replay_oid oid := to_regclass('public.gateway_assertion_replay');
+    executor pg_catalog.pg_roles%ROWTYPE;
+    maintenance pg_catalog.pg_roles%ROWTYPE;
+    cleanup_oid oid := to_regprocedure('replay_maintenance.purge_expired(integer,integer)');
+BEGIN
+    IF replay_oid IS NULL OR cleanup_oid IS NULL THEN
+        RAISE EXCEPTION 'Replay audit: migration 0009 objects are missing';
+    END IF;
+    SELECT * INTO executor FROM pg_catalog.pg_roles WHERE rolname = 'gamma_replay_executor';
+    SELECT * INTO maintenance FROM pg_catalog.pg_roles WHERE rolname = 'gamma_replay_maintenance';
+    IF NOT FOUND OR executor.rolcanlogin OR executor.rolsuper OR executor.rolbypassrls
+       OR executor.rolcreatedb OR executor.rolcreaterole OR executor.rolreplication
+       OR maintenance.rolcanlogin OR maintenance.rolsuper OR maintenance.rolbypassrls
+       OR maintenance.rolcreatedb OR maintenance.rolcreaterole OR maintenance.rolreplication THEN
+        RAISE EXCEPTION 'Replay audit: unsafe executor or maintenance role attributes';
+    END IF;
+    IF EXISTS (
+        SELECT 1 FROM pg_catalog.pg_auth_members
+        WHERE roleid = executor.oid OR member = executor.oid
+    ) OR pg_has_role('gamma_app', executor.oid, 'MEMBER')
+      OR pg_has_role('gamma_replay_maintenance', executor.oid, 'MEMBER') THEN
+        RAISE EXCEPTION 'Replay audit: executor membership drift';
+    END IF;
+    IF has_table_privilege('gamma_app', replay_oid, 'SELECT,UPDATE,DELETE,TRUNCATE,TRIGGER')
+       OR has_column_privilege('gamma_app', replay_oid, 'assertion_digest', 'UPDATE')
+       OR has_column_privilege('gamma_app', replay_oid, 'expires_at', 'UPDATE') THEN
+        RAISE EXCEPTION 'Replay audit: application role has direct replay read/mutation privileges';
+    END IF;
+    IF NOT has_table_privilege(executor.rolname, replay_oid, 'SELECT,DELETE')
+       OR NOT has_column_privilege(executor.rolname, replay_oid, 'expires_at', 'UPDATE')
+       OR has_column_privilege(executor.rolname, replay_oid, 'assertion_digest', 'UPDATE') THEN
+        RAISE EXCEPTION 'Replay audit: executor table privileges drift';
+    END IF;
+    IF has_any_column_privilege(maintenance.rolname, replay_oid, 'SELECT,INSERT,UPDATE,REFERENCES')
+       OR has_table_privilege(maintenance.rolname, replay_oid, 'DELETE,TRUNCATE,TRIGGER') THEN
+        RAISE EXCEPTION 'Replay audit: maintenance has direct table access';
+    END IF;
+    IF has_schema_privilege(executor.rolname, 'replay_maintenance', 'CREATE')
+       OR has_schema_privilege(executor.rolname, 'public', 'CREATE')
+       OR has_schema_privilege(maintenance.rolname, 'replay_maintenance', 'CREATE') THEN
+        RAISE EXCEPTION 'Replay audit: unsafe schema CREATE privilege';
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_catalog.pg_proc p
+        WHERE p.oid = cleanup_oid AND p.prosecdef
+          AND p.proowner = executor.oid
+          AND p.proconfig = ARRAY['search_path=pg_catalog, pg_temp']
+          AND has_function_privilege(maintenance.rolname, p.oid, 'EXECUTE')
+          AND NOT has_function_privilege('gamma_app', p.oid, 'EXECUTE')
+          AND NOT has_function_privilege('gamma_outbox_worker', p.oid, 'EXECUTE')
+          AND btrim(regexp_replace(p.prosrc, '[[:space:]]+', ' ', 'g')) =
+            'DECLARE deleted integer; BEGIN IF batch_size IS NULL OR grace_seconds IS NULL OR batch_size NOT BETWEEN 1 AND 10000 OR grace_seconds NOT BETWEEN 60 AND 86400 THEN RAISE EXCEPTION ''Invalid replay cleanup policy'' USING ERRCODE = ''22023''; END IF; WITH expired AS ( SELECT assertion_digest FROM public.gateway_assertion_replay WHERE expires_at < statement_timestamp() - (grace_seconds * interval ''1 second'') ORDER BY expires_at, assertion_digest FOR UPDATE SKIP LOCKED LIMIT batch_size ) DELETE FROM public.gateway_assertion_replay AS replay USING expired WHERE replay.assertion_digest = expired.assertion_digest; GET DIAGNOSTICS deleted = ROW_COUNT; RETURN deleted; END;'
+    ) THEN
+        RAISE EXCEPTION 'Replay audit: SECURITY DEFINER function body, owner, search_path or grantee drift';
+    END IF;
+    IF EXISTS (
+        SELECT 1
+        FROM pg_catalog.pg_proc p
+        CROSS JOIN LATERAL aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
+        WHERE p.oid = cleanup_oid AND a.privilege_type = 'EXECUTE'
+          AND a.grantee NOT IN (p.proowner, maintenance.oid)
+    ) THEN
+        RAISE EXCEPTION 'Replay audit: unexpected cleanup EXECUTE grantee';
+    END IF;
+    IF EXISTS (
+        SELECT 1 FROM pg_catalog.pg_auth_members
+        WHERE roleid = executor.oid OR member = executor.oid
+    ) THEN
+        RAISE EXCEPTION 'Replay audit: executor role must remain isolated';
+    END IF;
+    IF EXISTS (
+        SELECT 1 FROM pg_catalog.pg_proc p
+        JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'public' AND p.prosecdef
+          AND has_function_privilege('gamma_app', p.oid, 'EXECUTE')
+    ) THEN
+        RAISE EXCEPTION 'Replay audit: application can execute public SECURITY DEFINER routine';
+    END IF;
+    IF (SELECT count(*) FROM pg_catalog.pg_trigger t
+        JOIN pg_catalog.pg_proc p ON p.oid = t.tgfoid
+        WHERE t.tgrelid = replay_oid AND t.tgname = 'replay_immutable_update'
+          AND t.tgtype = 18 AND t.tgenabled = 'A'
+          AND p.oid = 'public.reject_replay_update()'::regprocedure
+          AND NOT p.prosecdef AND p.proconfig = ARRAY['search_path=pg_catalog']) <> 1
+       OR (SELECT count(*) FROM pg_catalog.pg_trigger t
+        JOIN pg_catalog.pg_proc p ON p.oid = t.tgfoid
+        WHERE t.tgrelid = replay_oid AND t.tgname = 'replay_expiry_delete'
+          AND t.tgtype = 11 AND t.tgenabled = 'A'
+          AND p.oid = 'public.reject_live_replay_delete()'::regprocedure
+          AND NOT p.prosecdef AND p.proconfig = ARRAY['search_path=pg_catalog']) <> 1 THEN
+        RAISE EXCEPTION 'Replay audit: immutable-update or protected-delete trigger drift';
+    END IF;
+END
+$replay_audit$;
