@@ -2,6 +2,8 @@ name: Deployment contract (static + runtime smoke)
 on:
   push:
   pull_request:
+env:
+  APP_DB_PASSWORD: ci-disposable-app-password
 jobs:
   compose:
     runs-on: ubuntu-latest
