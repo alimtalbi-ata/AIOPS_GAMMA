@@ -163,8 +163,7 @@ async def test_cleanup_deletes_bounded_batch_with_grace_and_commits():
     session = _Session()
     session.execute = _cleanup_execute(session, rowcount=17)
     assert await purge_expired_assertions(session, batch_size=100, grace_seconds=300) == 17
-    assert "FOR UPDATE SKIP LOCKED" in session.statement
-    assert "NOW()" in session.statement
+    assert "SELECT replay_maintenance.purge_expired(:batch_size, :grace_seconds)" in session.statement
     assert session.params == {"grace_seconds": 300, "batch_size": 100}
     assert session.commits == 1
     assert session.rollbacks == 0
@@ -199,7 +198,7 @@ def _cleanup_execute(session, *, rowcount):
     async def execute(statement, params):
         session.statement = str(statement)
         session.params = params
-        return _Result(rowcount=rowcount)
+        return _Result(value=rowcount)
     return execute
 
 
