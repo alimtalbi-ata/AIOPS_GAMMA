@@ -7,17 +7,11 @@ MUST deduplicate by X-Event-Id. No external endpoint is configured by default.
 import asyncio
 import ipaddress
 import logging
-import os
 import re
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 
 import httpx
-from sqlalchemy import or_, select
-
-from app.db import get_session_factory
-from app.models import OutboxEvent
-from app.reused.redaction import redact_text
 
 log = logging.getLogger(__name__)
 MAX_ATTEMPTS = 10
@@ -103,76 +97,7 @@ def receiver_retry_delay(exc: Exception, attempts: int, *, now: datetime | None 
 
 
 async def dispatch_once(client: httpx.AsyncClient, endpoint: str, token: str) -> bool:
-    # Enforce the destination boundary even when called outside main().
-    # Never query or claim an outbox row for an unsafe receiver.
-    configured_endpoint = os.getenv("CORRELATION_WEBHOOK_URL", "")
-    if (
-        not valid_receiver_configuration(
-            endpoint, token, os.getenv("CORRELATION_WEBHOOK_ALLOWED_HOST", "")
-        )
-        or endpoint != configured_endpoint
-        or token != os.getenv("CORRELATION_WEBHOOK_TOKEN", "")
-    ):
-        raise ValueError("Invalid HTTPS outbox receiver configuration")
-    async with get_session_factory()() as session:
-        async with session.begin():
-            now = datetime.now(timezone.utc)
-            stmt = (
-                select(OutboxEvent)
-                .where(
-                    OutboxEvent.published_at.is_(None),
-                    OutboxEvent.attempts < MAX_ATTEMPTS,
-                    or_(OutboxEvent.next_attempt_at.is_(None), OutboxEvent.next_attempt_at <= now),
-                )
-                .order_by(OutboxEvent.created_at, OutboxEvent.id)
-                .limit(1)
-                .with_for_update(skip_locked=True)
-            )
-            event = await session.scalar(stmt)
-            if event is None:
-                return False
-            try:
-                response = await client.post(
-                    endpoint,
-                    json={
-                        "event_id": str(event.id),
-                        "tenant_id": str(event.tenant_id),
-                        "event_type": event.event_type,
-                        "aggregate_id": event.aggregate_id,
-                        "payload": event.payload,
-                    },
-                    headers={"Authorization": f"Bearer {token}", "X-Event-Id": str(event.id)},
-                    timeout=5.0,
-                    follow_redirects=False,
-                )
-                # Redirects are not delivery acknowledgements: HTTPX does not
-                # raise_for_status() on every 3xx response in all versions.
-                # Never follow redirects with the internal bearer credential.
-                if not 200 <= response.status_code < 300:
-                    raise httpx.HTTPStatusError(
-                        f"Receiver did not acknowledge delivery (HTTP {response.status_code})",
-                        request=response.request,
-                        response=response,
-                    )
-                event.published_at = datetime.now(timezone.utc)
-                event.next_attempt_at = None
-                event.last_error = None
-            except (httpx.HTTPError, ValueError) as exc:
-                # Redirects and permanent client errors cannot be recovered by
-                # replaying the same payload. Preserve the row for inspection.
-                # 408, 425 and 429 remain transient and honor the retry budget.
-                permanent_rejection = permanent_receiver_rejection(exc)
-                event.attempts = MAX_ATTEMPTS if permanent_rejection else event.attempts + 1
-                # Once the retry budget is exhausted, keep the event for
-                # operator inspection without advertising a future retry.
-                event.next_attempt_at = (
-                    datetime.now(timezone.utc) + receiver_retry_delay(exc, event.attempts)
-                    if event.attempts < MAX_ATTEMPTS else None
-                )
-                event.last_error = (redact_text(str(exc)) or "")[:1000]
-                log.warning("Outbox delivery failed for %s (attempt %s)", event.id, event.attempts)
-            return True
-
+    raise RuntimeError("Outbox dispatch disabled pending tenant-aware RLS qualification")
 
 
 def valid_webhook_endpoint(endpoint: str) -> bool:
@@ -245,26 +170,12 @@ def valid_webhook_endpoint(endpoint: str) -> bool:
 
 
 async def main():
-    endpoint = os.getenv("CORRELATION_WEBHOOK_URL", "")
-    token = os.getenv("CORRELATION_WEBHOOK_TOKEN", "")
-    allowed_host = os.getenv("CORRELATION_WEBHOOK_ALLOWED_HOST", "")
-    if not valid_receiver_configuration(endpoint, token, allowed_host):
-        raise RuntimeError(
-            "Set HTTPS CORRELATION_WEBHOOK_URL, CORRELATION_WEBHOOK_TOKEN "
-            "and exact CORRELATION_WEBHOOK_ALLOWED_HOST"
-        )
-    # Never inherit HTTP(S)_PROXY or NETRC from the worker environment:
-    # the relay carries an internal bearer credential to a fixed receiver.
-    # Bound the connection pool: this single-worker relay needs at most one
-    # concurrent delivery and must not accumulate idle outbound sockets.
-    async with httpx.AsyncClient(
-        trust_env=False,
-        limits=httpx.Limits(max_connections=1, max_keepalive_connections=1),
-    ) as client:
-        while True:
-            worked = await dispatch_once(client, endpoint, token)
-            if not worked:
-                await asyncio.sleep(2)
+    # No qualified tenant-aware worker identity exists yet.
+    raise RuntimeError("Outbox relay disabled pending tenant-aware RLS qualification")
+
+
+async def _unqualified_relay_main():
+    raise RuntimeError("Unqualified relay disabled")
 
 
 if __name__ == "__main__":

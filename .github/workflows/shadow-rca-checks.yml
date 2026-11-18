@@ -2,6 +2,9 @@ name: Shadow RCA isolated checks
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feat/observability-foundation
   pull_request:
     paths:
       - 'app/reused/shadow_*.py'
@@ -40,3 +43,20 @@ jobs:
           tests/test_shadow_evidence_intake.py
           tests/test_shadow_rca_benchmark.py
           tests/test_shadow_snapshot_benchmark.py
+          tests/test_shadow_inbox_rca.py
+          tests/test_shadow_topology_rca.py
+          tests/test_shadow_rca_trace.py
+          tests/test_shadow_remediation_preview.py
+          tests/test_shadow_remediation_risk.py
+          tests/test_shadow_review_dossier.py
+          tests/test_shadow_review_integrity.py
+          tests/test_shadow_review_replay.py
+          tests/test_shadow_review_auth.py
+          tests/test_shadow_review_pipeline.py
+          tests/test_shadow_p2_journey.py
+          --junitxml=shadow-results.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: shadow-results
+          path: shadow-results.xml

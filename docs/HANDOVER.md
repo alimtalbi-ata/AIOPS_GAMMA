@@ -2059,3 +2059,18 @@
 - On reviewed HEAD `f3ff08a2fd9eeec7add259c69213a74939c03a3d`, GitHub Actions Python checks run `43847980974` concluded failure. Jobs `133232908634` (tenant-evidence-postgres-e2e), `133232909116` (gateway-replay-postgres), `133232909213` (test), and `133232909289` (frontend) each exposed **zero steps**. Deployment contract run `43847980843` also failed; its steps were not inspected in this checkpoint.
 - Fetching job logs for `133232908634` returned HTTP 404 with BlobNotFound. This is **not evidence of a Python assertion failure**, nor proof of a specific billing, runner or policy root cause. Administrator must inspect the workflow run UI's job setup/annotations, repository/org Actions permissions, runner availability and usage/billing, and attach concrete findings to issue #8.
 - After the runner issue is resolved, execute the **then-current reviewed HEAD**, record each actual job step and the PG16 migration/test logs; separately qualify independent gateway/IdP and actor→tenant→resource ACL (#2), real OpenSearch DLS and frontend→BFF. No merge, deployment, production DB, LIVE activation or remediation; PR #1 remains Draft **HOLD / NO_GO**.
+
+
+## Qualification P2 — 2026-11-18
+
+- HEAD vérifié avant cette mise à jour : `326584293e45281213e88e11099d0cc062e6a1bb`.
+- Chaîne synthétique Inbox/Evidence/Topologie/RCA/Runbook/Risk/dossier HITL, empreinte, HMAC et registre SQLite anti-rejeu implémentée. Aucun état synthétique ne constitue une approbation réelle.
+- Workflow shadow : 16 fichiers de tests référencés, rapport JUnit prévu, déclenchement push sur la branche de développement.
+- Aucun résultat CI PR retourné pour ce HEAD; les runs push ne sont pas couverts par cette interrogation. Aucun résultat dynamique P2 complet disponible.
+- P1 PostgreSQL/RLS et Outbox : qualification non acquise; le relais réel reste hors activation.
+- Incident #8 : blocage CI non résolu. Ne pas conclure à un succès des tests ni relancer aveuglément un ancien HEAD.
+- HOLD / NO_GO LIVE, PR draft, aucun merge, déploiement, appel upstream live ou mutation ITSM.
+
+
+### Gateway ACL métier
+Voir [contrat provisoire Gateway](GATEWAY-BUSINESS-ACL.md). Les cinq opérations tenant exigent désormais des permissions signées explicites; tests publiés, qualification CI et intégration Gateway non démontrées. Révocation immédiate et rotation multi-clé non implémentées. HOLD LIVE.

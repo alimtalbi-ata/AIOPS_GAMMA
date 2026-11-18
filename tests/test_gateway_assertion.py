@@ -347,3 +347,144 @@ def test_signed_incident_grants_reject_c1_controls(monkeypatch, resource):
         verify_gateway_assertion(token, method="POST",
             path="/api/v1/observability/metrics/query", now=1030)
     assert exc.value.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_internal_principal_consumes_jti_before_access(monkeypatch):
+    from starlette.requests import Request
+    import app.security as security
+
+    monkeypatch.setattr(settings, "internal_api_key", "service-key")
+    token = _token(monkeypatch)
+    calls = []
+    session = object()
+    monkeypatch.setattr(security, "get_session_factory", lambda: lambda: _ReplaySessionContext(session))
+
+    async def consume(session, *, issuer, assertion_id, expires_at):
+        calls.append((session, issuer, assertion_id, expires_at))
+        return True
+
+    monkeypatch.setattr(security, "consume_assertion_before_access", consume)
+    scope = {
+        "type": "http", "method": "POST",
+        "path": "/api/v1/observability/metrics/query",
+        "headers": [
+            (b"x-internal-api-key", b"service-key"),
+            (b"x-gateway-principal", token.encode()),
+        ],
+        "query_string": b"", "server": ("test", 80),
+        "client": ("127.0.0.1", 1234), "scheme": "http",
+    }
+    principal = await security.internal_principal(
+        Request(scope), "service-key", token
+    )
+    assert principal.assertion_id == "assertion-123456"
+    assert calls == [(session, "trusted-gateway", "assertion-123456", 1060)]
+
+
+@pytest.mark.asyncio
+async def test_internal_principal_rejects_replayed_jti(monkeypatch):
+    from starlette.requests import Request
+    import app.security as security
+
+    monkeypatch.setattr(settings, "internal_api_key", "service-key")
+    token = _token(monkeypatch)
+
+    session = object()
+    monkeypatch.setattr(security, "get_session_factory", lambda: lambda: _ReplaySessionContext(session))
+
+    async def duplicate(*args, **kwargs):
+        return False
+
+    monkeypatch.setattr(security, "consume_assertion_before_access", duplicate)
+    scope = {
+        "type": "http", "method": "POST",
+        "path": "/api/v1/observability/metrics/query",
+        "headers": [
+            (b"x-internal-api-key", b"service-key"),
+            (b"x-gateway-principal", token.encode()),
+        ],
+        "query_string": b"", "server": ("test", 80),
+        "client": ("127.0.0.1", 1234), "scheme": "http",
+    }
+    with pytest.raises(HTTPException) as exc:
+        await security.internal_principal(Request(scope), "service-key", token)
+    assert exc.value.status_code == 401
+    assert exc.value.detail == "Gateway assertion already used"
+
+
+@pytest.mark.asyncio
+async def test_internal_principal_fails_closed_when_replay_store_unavailable(monkeypatch):
+    from starlette.requests import Request
+    import app.security as security
+
+    monkeypatch.setattr(settings, "internal_api_key", "service-key")
+    token = _token(monkeypatch)
+
+    session = object()
+    monkeypatch.setattr(security, "get_session_factory", lambda: lambda: _ReplaySessionContext(session))
+
+    async def unavailable(*args, **kwargs):
+        raise RuntimeError("database internals must not leak")
+
+    monkeypatch.setattr(security, "consume_assertion_before_access", unavailable)
+    scope = {
+        "type": "http", "method": "POST",
+        "path": "/api/v1/observability/metrics/query",
+        "headers": [
+            (b"x-internal-api-key", b"service-key"),
+            (b"x-gateway-principal", token.encode()),
+        ],
+        "query_string": b"", "server": ("test", 80),
+        "client": ("127.0.0.1", 1234), "scheme": "http",
+    }
+    with pytest.raises(HTTPException) as exc:
+        await security.internal_principal(Request(scope), "service-key", token)
+    assert exc.value.status_code == 503
+    assert exc.value.detail == "Gateway replay protection unavailable"
+
+
+class _ReplaySessionContext:
+    def __init__(self, session):
+        self.session = session
+
+    async def __aenter__(self):
+        return self.session
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+
+def test_resource_grants_are_scoped_and_default_to_no_access(monkeypatch):
+    base = verify_gateway_assertion(
+        _token(monkeypatch), method="POST",
+        path="/api/v1/observability/metrics/query", now=1030,
+    )
+    assert base.log_service_grants == ()
+    assert base.evidence_incident_grants == ()
+
+    scoped = verify_gateway_assertion(
+        _token(monkeypatch, log_service_grants=["checkout-api"],
+               evidence_incident_grants=["INC-123"]),
+        method="POST", path="/api/v1/observability/metrics/query", now=1030,
+    )
+    assert scoped.log_service_grants == ("checkout-api",)
+    assert scoped.evidence_incident_grants == ("INC-123",)
+
+
+@pytest.mark.parametrize("claim,value", [
+    ("log_service_grants", ["checkout-api", "*"]),
+    ("log_service_grants", ["checkout-api", "checkout-api"]),
+    ("log_service_grants", ["bad/service"]),
+    ("evidence_incident_grants", ["*"]),
+    ("evidence_incident_grants", ["INC-1", "INC-1"]),
+    ("evidence_incident_grants", ["../other-tenant"]),
+    ("evidence_incident_grants", ["INC-1\\x00"]),
+])
+def test_malformed_or_overbroad_resource_grants_are_rejected(monkeypatch, claim, value):
+    with pytest.raises(HTTPException) as exc:
+        verify_gateway_assertion(
+            _token(monkeypatch, **{claim: value}),
+            method="POST", path="/api/v1/observability/metrics/query", now=1030,
+        )
+    assert exc.value.status_code == 401

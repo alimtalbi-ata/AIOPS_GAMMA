@@ -7,7 +7,7 @@ services:
     build: .
     ports: ["127.0.0.1:8000:8000"]
     environment:
-      DATABASE_URL: postgresql+asyncpg://aiops:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/aiops
+      DATABASE_URL: postgresql+asyncpg://gamma_app:${APP_DB_PASSWORD:?set APP_DB_PASSWORD}@postgres:5432/aiops
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:?set INTERNAL_API_KEY}
       GATEWAY_ASSERTION_SECRET: ${GATEWAY_ASSERTION_SECRET:-}
       GATEWAY_ASSERTION_ISSUER: ${GATEWAY_ASSERTION_ISSUER:-gamma-gateway}
@@ -40,7 +40,11 @@ services:
       POSTGRES_USER: aiops
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
       POSTGRES_DB: aiops
-    volumes: [pgdata:/var/lib/postgresql/data]
+      APP_DB_USER: gamma_app
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?set APP_DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init/01-app-role.sh:/docker-entrypoint-initdb.d/01-app-role.sh:ro
     healthcheck:
       test: ["CMD-SHELL","pg_isready -U aiops -d aiops"]
       interval: 5s
@@ -51,7 +55,7 @@ services:
     profiles: [relay]
     command: ["python", "-m", "app.outbox_relay"]
     environment:
-      DATABASE_URL: postgresql+asyncpg://aiops:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/aiops
+      DATABASE_URL: postgresql+asyncpg://gamma_app:${APP_DB_PASSWORD:?set APP_DB_PASSWORD}@postgres:5432/aiops
       CORRELATION_WEBHOOK_URL: ${CORRELATION_WEBHOOK_URL:-}
       CORRELATION_WEBHOOK_TOKEN: ${CORRELATION_WEBHOOK_TOKEN:-}
     depends_on:

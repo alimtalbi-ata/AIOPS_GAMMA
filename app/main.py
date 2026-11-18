@@ -6,14 +6,20 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db import get_session
+from app.db import get_tenant_session
 from app.models import Evidence, InboxEvent, OutboxEvent, ServiceBinding
 from app.opensearch_adapter import search_logs
 from app.schemas import AlertPayload, BindingIn, EvidenceIn, LogSearchRequest
-from app.security import Principal, internal_principal
+from app.security import Principal, internal_principal, require_business_permission
 from app.settings import settings
 
 app = FastAPI(title="AIOPS_GAMMA", version="0.1.0")
+
+async def tenant_session(principal: Principal = Depends(internal_principal)):
+    """Bind every protected tenant DB session to the verified principal."""
+    async for session in get_tenant_session(principal.tenant_id):
+        yield session
+
 
 
 @app.middleware("http")
@@ -77,8 +83,9 @@ def alert_duplicate_response(previous: InboxEvent, payload: dict) -> dict:
 @app.post("/api/v1/integrations/opensearch/alerts")
 async def alerts(
     req: AlertPayload, principal: Principal = Depends(internal_principal),
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(tenant_session),
 ):
+    require_business_permission(principal, "alerts:ingest")
     if not settings.enable_alert_ingestion:
         raise HTTPException(503, "Alert ingestion disabled")
     tenant = principal.tenant_id
@@ -106,6 +113,7 @@ async def alerts(
         return {"id": str(event.id), "duplicate": False}
     except IntegrityError:
         await session.rollback()
+        # The session after_begin hook restores the verified tenant on retry.
         previous = await session.scalar(select(InboxEvent).where(
             InboxEvent.tenant_id == tenant,
             InboxEvent.source == req.source,
@@ -119,8 +127,9 @@ async def alerts(
 @app.post("/api/v1/topology/bindings", status_code=201)
 async def add_binding(
     req: BindingIn, principal: Principal = Depends(internal_principal),
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(tenant_session),
 ):
+    require_business_permission(principal, "bindings:write")
     obj = ServiceBinding(tenant_id=principal.tenant_id, **req.model_dump())
     session.add(obj)
     try:
@@ -134,8 +143,9 @@ async def add_binding(
 @app.get("/api/v1/topology/bindings")
 async def list_bindings(
     principal: Principal = Depends(internal_principal),
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(tenant_session),
 ):
+    require_business_permission(principal, "bindings:read")
     rows = (await session.scalars(
         select(ServiceBinding).where(ServiceBinding.tenant_id == principal.tenant_id).limit(500)
     )).all()
@@ -161,8 +171,9 @@ def validate_incident_resource_id(incident_id: str) -> str:
 @app.post("/api/v1/incidents/{incident_id}/evidence", status_code=201)
 async def add_evidence(
     incident_id: str, req: EvidenceIn, principal: Principal = Depends(internal_principal),
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(tenant_session),
 ):
+    require_business_permission(principal, "evidence:write")
     validate_incident_resource_id(incident_id)
     if incident_id not in principal.evidence_incident_grants:
         raise HTTPException(403, "Incident evidence access denied", headers={"Cache-Control": "no-store"})
@@ -177,8 +188,9 @@ async def add_evidence(
 @app.get("/api/v1/incidents/{incident_id}/evidence")
 async def list_evidence(
     incident_id: str, principal: Principal = Depends(internal_principal),
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(tenant_session),
 ):
+    require_business_permission(principal, "evidence:read")
     validate_incident_resource_id(incident_id)
     if incident_id not in principal.evidence_incident_grants:
         raise HTTPException(403, "Incident evidence access denied", headers={"Cache-Control": "no-store"})
