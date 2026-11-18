@@ -21,10 +21,8 @@ TENANT_TABLES = (
 def upgrade():
     # API runtime uses a dedicated non-owner, non-superuser role.
     op.execute("GRANT SELECT, INSERT, DELETE ON gateway_assertion_replay TO gamma_app")
-    op.execute("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO gamma_app")
     for table in TENANT_TABLES:
         op.execute(f'GRANT SELECT, INSERT, UPDATE, DELETE ON "{table}" TO gamma_app')
-    op.execute("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO gamma_app")
     for table in TENANT_TABLES:
         op.execute(f'ALTER TABLE "{table}" ENABLE ROW LEVEL SECURITY')
         op.execute(f'ALTER TABLE "{table}" FORCE ROW LEVEL SECURITY')
@@ -43,7 +41,6 @@ def upgrade():
 
 def downgrade():
     op.execute("REVOKE SELECT, INSERT, DELETE ON gateway_assertion_replay FROM gamma_app")
-    op.execute("ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLES FROM gamma_app")
     for table in reversed(TENANT_TABLES):
         op.execute(f'REVOKE SELECT, INSERT, UPDATE, DELETE ON "{table}" FROM gamma_app')
         op.execute(f'DROP POLICY IF EXISTS tenant_isolation ON "{table}"')
