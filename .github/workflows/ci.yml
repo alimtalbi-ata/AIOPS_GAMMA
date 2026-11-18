@@ -114,8 +114,9 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e '.[test]'
-      - name: Apply reviewed migrations to disposable PostgreSQL
-        run: alembic upgrade head
+      - name: Apply reviewed replay migration to disposable PostgreSQL
+        # This suite exercises revision 0002 only; full head is qualified separately by RLS CI.
+        run: alembic upgrade 0002_gateway_replay
       - name: Verify replay migration downgrade and re-upgrade on disposable PostgreSQL
         run: |
           alembic downgrade 0001_initial
