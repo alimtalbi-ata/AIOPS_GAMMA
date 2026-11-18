@@ -85,7 +85,7 @@ BEGIN
                           THEN '(NOT (pg_has_role(SESSION_USER, ''gamma_app''::name, ''MEMBER''::text) AND pg_has_role(SESSION_USER, ''gamma_outbox_worker''::name, ''MEMBER''::text)))'
                           ELSE '(tenant_id = ( SELECT outbox_worker_identity.tenant_id FROM outbox_worker_identity WHERE (outbox_worker_identity.login_name = SESSION_USER)))'
                       END
-                  OR p.polqual::text IS DISTINCT FROM p.polwithcheck::text
+                  OR pg_get_expr(p.polqual, p.polrelid) IS DISTINCT FROM pg_get_expr(p.polwithcheck, p.polrelid)
               )
         ) THEN
             RAISE EXCEPTION 'Schema audit: worker predicate drift';
