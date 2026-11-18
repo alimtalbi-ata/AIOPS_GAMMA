@@ -225,7 +225,7 @@ jobs:
               try:
                   async with engine.connect() as conn:
                       assert await conn.scalar(text("select current_database()")) == "gamma_tenant_test"
-                      assert await conn.scalar(text("select version_num from alembic_version")) == "0006_worker_role_guard"
+                      assert await conn.scalar(text("select version_num from alembic_version")) == "0007_replay_lock_only"
                       assert await conn.scalar(text("select current_user")) == "gamma_app"
                       assert await conn.scalar(text("select rolbypassrls from pg_roles where rolname=current_user")) is False
                       assert await conn.scalar(text("select rolsuper from pg_roles where rolname=current_user")) is False
