@@ -1,8 +1,7 @@
-"""Static safety contract for the pending gateway replay rollout.
+"""Static safety contracts for integrated replay enforcement and rollout gates.
 
-These guards deliberately do not enable replay enforcement or prove live ACLs.
-They assert that the integration remains OFF until real PostgreSQL and Gateway
-actor-to-tenant-to-resource qualification has been recorded.
+Source checks do not prove live PostgreSQL concurrency or deployed Gateway ACLs.
+Production qualification remains separate from enforcement in the integrated code.
 """
 import ast
 from pathlib import Path
@@ -23,17 +22,57 @@ def _imports_replay(tree):
     )
 
 
-def test_authentication_still_does_not_consume_replay_reservations():
-    # Check executable imports/calls, not a comment or a documentation string.
-    security = ast.parse(_source("app/security.py"))
-    assert not _imports_replay(security)
-    assert not any(
-        isinstance(node, ast.Call)
-        and isinstance(node.func, (ast.Name, ast.Attribute))
-        and (node.func.id if isinstance(node.func, ast.Name) else node.func.attr)
-        in {"consume_assertion_before_access", "reserve_assertion_once"}
-        for node in ast.walk(security)
+def _assert_authentication_consumes_replay(source):
+    """Pin the reviewed async gate, including ordering and fail-closed paths."""
+    security = ast.parse(source)
+    assert _imports_replay(security)
+    function = next(node for node in security.body
+                    if isinstance(node, ast.AsyncFunctionDef)
+                    and node.name == "internal_principal")
+    expected = ast.parse('''
+async def gate():
+    principal = verify_gateway_assertion(
+        x_gateway_principal, method=request.method, path=request.url.path
     )
+    try:
+        async with get_session_factory()() as replay_session:
+            consumed = await consume_assertion_before_access(
+                replay_session, issuer=settings.gateway_assertion_issuer,
+                assertion_id=principal.assertion_id, expires_at=principal.expires_at,
+            )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503, detail="Gateway replay protection unavailable"
+        ) from exc
+    if not consumed:
+        raise HTTPException(status_code=401, detail="Gateway assertion already used")
+    return principal
+''').body[0].body
+    assert len(function.body) >= len(expected)
+    actual = function.body[-len(expected):]
+    assert [ast.dump(node) for node in actual] == [ast.dump(node) for node in expected]
+    assert not any(isinstance(node, ast.Return)
+                   for statement in function.body[:-len(expected)]
+                   for node in ast.walk(statement)), "Early authentication bypass"
+
+
+def test_authentication_consumes_replay_before_access():
+    _assert_authentication_consumes_replay(_source("app/security.py"))
+
+
+def test_authentication_replay_gate_mutations_are_rejected():
+    import pytest
+
+    source = _source("app/security.py")
+    for original, replacement in (
+        ("consumed = await consume_assertion_before_access(", "consumed = consume_assertion_before_access("),
+        ("if not consumed:", "if False:"),
+        ("status_code=503, detail=\"Gateway replay protection unavailable\"", "status_code=401, detail=\"Gateway replay protection unavailable\""),
+        ("    principal = verify_gateway_assertion(", "    return None\n    principal = verify_gateway_assertion("),
+    ):
+        assert original in source
+        with pytest.raises(AssertionError):
+            _assert_authentication_consumes_replay(source.replace(original, replacement, 1))
 
 
 def test_api_entrypoint_does_not_wire_replay_helper():
