@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - feat/observability-foundation
+      - feat/gamma-ux-integrated-qualification
   pull_request:
     paths:
       - 'app/reused/shadow_*.py'
