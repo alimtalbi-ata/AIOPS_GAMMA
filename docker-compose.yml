@@ -24,7 +24,18 @@ services:
       retries: 12
       start_period: 5s
     depends_on:
-      migrate:
+      postgres-preflight:
+    image: postgres:16-alpine
+    restart: "no"
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    command: ["psql", "-X", "-h", "postgres", "-U", "aiops", "-d", "aiops", "-v", "ON_ERROR_STOP=1", "-f", "/preflight/01-app-role.sql"]
+    volumes:
+      - ./postgres/preflight/01-app-role.sql:/preflight/01-app-role.sql:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+  migrate:
         condition: service_completed_successfully
   migrate:
     build: .
@@ -33,8 +44,8 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://aiops:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/aiops
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-preflight:
+        condition: service_completed_successfully
   postgres:
     image: postgres:16-alpine
     environment:
@@ -60,8 +71,8 @@ services:
       CORRELATION_WEBHOOK_URL: ${CORRELATION_WEBHOOK_URL:-}
       CORRELATION_WEBHOOK_TOKEN: ${CORRELATION_WEBHOOK_TOKEN:-}
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
   opensearch:
     image: opensearchproject/opensearch:2.19.4
     profiles: [observability-demo]
