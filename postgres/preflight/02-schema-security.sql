@@ -24,6 +24,11 @@ BEGIN
     ) OR pg_has_role('gamma_app', 'gamma_outbox_worker', 'MEMBER') THEN
         RAISE EXCEPTION 'Schema audit: unsafe worker role memberships';
     END IF;
+    -- Relay remains HOLD: no individual worker identities may be provisioned
+    -- until their full role graph and tenant bindings are separately qualified.
+    IF EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members WHERE roleid = worker.oid) THEN
+        RAISE EXCEPTION 'Schema audit: worker membership provisioning is on HOLD';
+    END IF;
     FOREACH t IN ARRAY ARRAY['integration_inbox','integration_outbox','telemetry_service_bindings','investigation_evidence']
     LOOP
         SELECT * INTO obj FROM pg_catalog.pg_class WHERE oid = to_regclass('public.' || t);
