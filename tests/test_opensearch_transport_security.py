@@ -33,6 +33,7 @@ def test_local_http_without_credentials_is_allowed_for_development(monkeypatch):
 def test_local_http_with_credentials_rejected(monkeypatch):
     monkeypatch.setattr(settings, "opensearch_url", "http://localhost:9200")
     monkeypatch.setattr(settings, "opensearch_username", "reader")
+    monkeypatch.setattr(settings, "opensearch_password", "test-secret")
     with pytest.raises(ValueError, match="TLS"):
         validate_opensearch_transport()
 
