@@ -62,13 +62,18 @@ def _unique_claims(pairs: list[tuple[str, object]]) -> dict[str, object]:
 def verify_gateway_assertion(token: str, *, method: str, path: str, now: int | None = None) -> Principal:
     if not isinstance(token, str) or len(token) > 8192:
         raise HTTPException(status_code=401, detail="Invalid gateway principal assertion")
-    secret = settings.gateway_assertion_secret
+    registry = settings.gateway_assertion_keys
     try:
-        secret_bytes = secret.encode("utf-8") if isinstance(secret, str) else b""
-    except UnicodeError as exc:
+        if registry:
+            if settings.gateway_assertion_secret:
+                raise ValueError("ambiguous signing configuration")
+            if any(not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", k)
+                   or len(v.encode("utf-8")) < 32 for k, v in registry.items()):
+                raise ValueError("invalid key registry")
+        elif len(settings.gateway_assertion_secret.encode("utf-8")) < 32:
+            raise ValueError("missing signing secret")
+    except (ValueError, TypeError, AttributeError, UnicodeError) as exc:
         raise HTTPException(status_code=503, detail="Gateway assertion verification not configured") from exc
-    if len(secret_bytes) < 32:
-        raise HTTPException(status_code=503, detail="Gateway assertion verification not configured")
     if not settings.gateway_assertion_issuer or not settings.gateway_assertion_audience:
         raise HTTPException(status_code=503, detail="Gateway assertion policy not configured")
     # A misconfigured deployment must never relax the 60-second security ceiling.
@@ -78,17 +83,24 @@ def verify_gateway_assertion(token: str, *, method: str, path: str, now: int | N
     try:
         encoded, signature = token.split(".")
         supplied_signature = _b64url_decode(signature)
-        expected_signature = hmac.new(
-            secret_bytes, encoded.encode("ascii"), hashlib.sha256
-        ).digest()
-        if not hmac.compare_digest(supplied_signature, expected_signature):
-            raise ValueError("signature mismatch")
         claims = json.loads(
             _b64url_decode(encoded), object_pairs_hook=_unique_claims,
             parse_constant=lambda value: (_ for _ in ()).throw(ValueError("nonfinite JSON constant")),
         )
         if not isinstance(claims, dict):
             raise ValueError("claims must be an object")
+        if registry:
+            kid = claims.get("kid")
+            if not isinstance(kid, str) or kid not in registry:
+                raise ValueError("unknown signing key")
+            secret_bytes = registry[kid].encode("utf-8")
+        else:
+            if "kid" in claims:
+                raise ValueError("unexpected signing key identifier")
+            secret_bytes = settings.gateway_assertion_secret.encode("utf-8")
+        expected_signature = hmac.new(secret_bytes, encoded.encode("ascii"), hashlib.sha256).digest()
+        if not hmac.compare_digest(supplied_signature, expected_signature):
+            raise ValueError("signature mismatch")
         current = int(time.time()) if now is None else now
         issued_at, expires_at = claims.get("iat"), claims.get("exp")
         if (isinstance(issued_at, bool) or not isinstance(issued_at, int)
