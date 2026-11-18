@@ -52,6 +52,26 @@ jobs:
           reject "gamma_app does not exist"
           sql "ALTER ROLE gamma_ci_saved RENAME TO gamma_app"
           preflight
+      - name: Qualify migrated schema and reject security drift
+        run: |
+          set -eu
+          docker compose run --rm -T migrate
+          audit() {
+            docker compose exec -T postgres psql -X -U aiops -d aiops -v ON_ERROR_STOP=1 < postgres/preflight/02-schema-security.sql
+          }
+          sql() {
+            docker compose exec -T postgres psql -X -U aiops -d aiops -v ON_ERROR_STOP=1 -c "$1"
+          }
+          audit
+          sql "ALTER TABLE public.integration_inbox NO FORCE ROW LEVEL SECURITY"
+          if audit > /tmp/schema-audit.log 2>&1; then exit 1; fi
+          grep -q 'missing table or forced RLS' /tmp/schema-audit.log
+          sql "ALTER TABLE public.integration_inbox FORCE ROW LEVEL SECURITY"
+          sql "GRANT TRUNCATE ON public.integration_inbox TO gamma_app"
+          if audit > /tmp/schema-audit.log 2>&1; then exit 1; fi
+          grep -q 'unsafe table privilege' /tmp/schema-audit.log
+          sql "REVOKE TRUNCATE ON public.integration_inbox FROM gamma_app"
+          audit
       - name: Verify Compose Gateway registry propagation
         run: |
           set -eu
