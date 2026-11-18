@@ -55,7 +55,7 @@ services:
     profiles: [relay]
     command: ["python", "-m", "app.outbox_relay"]
     environment:
-      DATABASE_URL: postgresql+asyncpg://aiops:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/aiops
+      DATABASE_URL: postgresql+asyncpg://gamma_app:${APP_DB_PASSWORD:?set APP_DB_PASSWORD}@postgres:5432/aiops
       CORRELATION_WEBHOOK_URL: ${CORRELATION_WEBHOOK_URL:-}
       CORRELATION_WEBHOOK_TOKEN: ${CORRELATION_WEBHOOK_TOKEN:-}
     depends_on:
