@@ -6,7 +6,7 @@ import json
 import sys
 import time
 import types
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, AsyncMock
 from uuid import uuid4
 
 import pytest
@@ -28,11 +28,15 @@ class DBModel:
     pass
 
 
-async def forbidden_db():
+async def forbidden_db(*args, **kwargs):
     raise AssertionError("No DB access permitted in HTTP isolation probe")
 
 
-stub("app.db", get_session=forbidden_db)
+def forbidden_factory():
+    raise AssertionError("Unexpected database factory access")
+
+stub("app.db", get_session=forbidden_db, get_tenant_session=forbidden_db,
+     get_session_factory=forbidden_factory)
 stub("app.models", **{name: DBModel for name in ("Evidence", "InboxEvent", "OutboxEvent", "ServiceBinding")})
 stub("app.opensearch_adapter", search_logs=MagicMock())
 stub("app.schemas", **{name: Empty for name in ("AlertPayload", "BindingIn", "EvidenceIn", "LogSearchRequest")})
@@ -54,6 +58,21 @@ from app.settings import settings
 
 @pytest.fixture(autouse=True)
 def config(monkeypatch):
+    import app.security as security
+    context = MagicMock()
+    context.__aenter__ = AsyncMock(return_value=object())
+    context.__aexit__ = AsyncMock(return_value=False)
+    seen = set()
+    async def reserve(session, *, issuer, assertion_id, expires_at):
+        key = (issuer, assertion_id)
+        if key in seen:
+            return False
+        seen.add(key)
+        return True
+    monkeypatch.setattr(security, "get_session_factory", lambda: lambda: context)
+    monkeypatch.setattr(security, "consume_assertion_before_access", reserve)
+    monkeypatch.setattr(settings, "gateway_assertion_keys", {})
+    monkeypatch.setattr(settings, "gateway_assertion_max_ttl_seconds", 60)
     monkeypatch.setattr(settings, "internal_api_key", "service-secret")
     monkeypatch.setattr(settings, "gateway_assertion_secret", "s" * 48)
     monkeypatch.setattr(settings, "gateway_assertion_issuer", "trusted-gateway")
@@ -66,7 +85,7 @@ PROTECTED = [
     for route in app.routes
     if route.path.startswith("/api/v1/") and route.path not in PUBLIC
 ]
-assert len(PROTECTED) == 18, "Explicit route inventory review required"
+assert len(PROTECTED) == 19, "Explicit route inventory review required"
 
 
 @pytest.mark.parametrize("method,path", PROTECTED)
@@ -99,7 +118,7 @@ def signed(method, path, *, issued_at=None, expires_at=None):
         "actor_type": "user", "tenant_id": str(uuid4()), "tenant_access": True,
         "iat": now if issued_at is None else issued_at,
         "exp": now + 30 if expires_at is None else expires_at,
-        "jti": "probe-assertion-123",
+        "jti": uuid4().hex,
         "method": method, "path": path,
     }
     raw = base64.urlsafe_b64encode(json.dumps(claims, separators=(",", ":")).encode()).rstrip(b"=")
