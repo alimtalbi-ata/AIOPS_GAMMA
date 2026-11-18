@@ -2070,3 +2070,7 @@
 - P1 PostgreSQL/RLS et Outbox : qualification non acquise; le relais réel reste hors activation.
 - Incident #8 : blocage CI non résolu. Ne pas conclure à un succès des tests ni relancer aveuglément un ancien HEAD.
 - HOLD / NO_GO LIVE, PR draft, aucun merge, déploiement, appel upstream live ou mutation ITSM.
+
+
+### Gateway ACL métier
+Voir [contrat provisoire Gateway](GATEWAY-BUSINESS-ACL.md). Les cinq opérations tenant exigent désormais des permissions signées explicites; tests publiés, qualification CI et intégration Gateway non démontrées. Révocation immédiate et rotation multi-clé non implémentées. HOLD LIVE.
