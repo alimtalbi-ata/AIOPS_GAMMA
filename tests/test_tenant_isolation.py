@@ -4,6 +4,7 @@ from uuid import uuid4
 import os
 
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import create_async_engine
 
 import pytest
@@ -123,10 +124,11 @@ async def test_postgres_rls_denies_cross_tenant_reads_and_writes():
             assert not is_superuser and not bypasses_rls, (
                 "RLS integration tests must use the restricted non-superuser runtime role"
             )
-            version = await connection.scalar(text(
-                "SELECT version_num FROM alembic_version"
+            policy_active = await connection.scalar(text(
+                "SELECT relrowsecurity AND relforcerowsecurity FROM pg_class "
+                "WHERE oid = to_regclass('public.telemetry_service_bindings')"
             ))
-            assert version == "0003_tenant_rls"
+            assert policy_active is True
             await connection.execute(
                 text("SELECT set_config('app.tenant_id', :tenant, true)"),
                 {"tenant": str(tenant_a)},
@@ -147,12 +149,13 @@ async def test_postgres_rls_denies_cross_tenant_reads_and_writes():
                 {"id": row_id},
             )
             assert visible == 0
-            with pytest.raises(Exception):
+            with pytest.raises(DBAPIError) as denied:
                 await connection.execute(text("""
                     INSERT INTO telemetry_service_bindings
                         (id, tenant_id, cmdb_service_id, otel_service_name, environment)
                     VALUES (:id, :tenant, :cmdb, 'gamma-rls-forged', 'test')
                 """), {"id": uuid4(), "tenant": tenant_a, "cmdb": uuid4()})
+            assert denied.value.orig.sqlstate == '42501'
     finally:
         async with engine.begin() as connection:
             await connection.execute(
