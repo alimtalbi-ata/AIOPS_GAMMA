@@ -1,3 +1,6 @@
+{{- if and .Values.api.gatewayAssertionSecret .Values.api.gatewayAssertionKeysSecret }}
+{{- fail "Configure either gatewayAssertionSecret or gatewayAssertionKeysSecret, not both" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -32,6 +35,11 @@ spec:
             - name: GATEWAY_ASSERTION_SECRET
               valueFrom:
                 secretKeyRef: {name: {{ .Values.api.gatewayAssertionSecret | quote }}, key: {{ .Values.api.gatewayAssertionSecretKey | quote }}}
+            {{- end }}
+            {{- if .Values.api.gatewayAssertionKeysSecret }}
+            - name: GATEWAY_ASSERTION_KEYS
+              valueFrom:
+                secretKeyRef: {name: {{ .Values.api.gatewayAssertionKeysSecret | quote }}, key: {{ required "gatewayAssertionKeysSecretKey is required" .Values.api.gatewayAssertionKeysSecretKey | quote }}}
             {{- end }}
             - name: DATABASE_URL
               valueFrom:
