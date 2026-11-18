@@ -57,7 +57,7 @@ jobs:
           set -eu
           docker compose run --rm -T migrate
           audit() {
-            docker compose exec -T postgres psql -X -U aiops -d aiops -v ON_ERROR_STOP=1 < postgres/preflight/02-schema-security.sql
+            docker compose run --rm --no-deps -T postgres-schema-audit
           }
           sql() {
             docker compose exec -T postgres psql -X -U aiops -d aiops -v ON_ERROR_STOP=1 -c "$1"
@@ -81,6 +81,75 @@ jobs:
           grep -q 'tenant policy drift' /tmp/schema-audit.log
           sql "ALTER POLICY tenant_isolation ON public.integration_inbox USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)"
           audit
+          sql "ALTER ROLE gamma_outbox_worker LOGIN"
+          if audit > /tmp/schema-audit.log 2>&1; then exit 1; fi
+          grep -q 'unsafe worker role attributes' /tmp/schema-audit.log
+          sql "ALTER ROLE gamma_outbox_worker NOLOGIN"
+          sql "ALTER ROLE gamma_outbox_worker BYPASSRLS"
+          if audit > /tmp/schema-audit.log 2>&1; then exit 1; fi
+          grep -q 'unsafe worker role attributes' /tmp/schema-audit.log
+          sql "ALTER ROLE gamma_outbox_worker NOBYPASSRLS"
+          sql "GRANT gamma_outbox_worker TO gamma_app"
+          if audit > /tmp/schema-audit.log 2>&1; then exit 1; fi
+          grep -q 'unsafe worker role memberships' /tmp/schema-audit.log
+          sql "REVOKE gamma_outbox_worker FROM gamma_app"
+          sql "CREATE ROLE gamma_ci_worker_bridge NOLOGIN; GRANT pg_read_all_data TO gamma_ci_worker_bridge; GRANT gamma_ci_worker_bridge TO gamma_outbox_worker"
+          if audit > /tmp/schema-audit.log 2>&1; then exit 1; fi
+          grep -q 'unsafe worker role memberships' /tmp/schema-audit.log
+          sql "REVOKE gamma_ci_worker_bridge FROM gamma_outbox_worker; DROP ROLE gamma_ci_worker_bridge"
+          audit
+          sql "ALTER POLICY worker_self ON public.outbox_worker_identity USING (true)"
+          if audit > /tmp/schema-audit.log 2>&1; then exit 1; fi
+          grep -q 'worker identity policy drift' /tmp/schema-audit.log
+          sql "ALTER POLICY worker_self ON public.outbox_worker_identity USING (login_name = session_user)"
+          sql "GRANT UPDATE (tenant_id) ON public.outbox_worker_identity TO gamma_outbox_worker"
+          if audit > /tmp/schema-audit.log 2>&1; then exit 1; fi
+          grep -q 'unsafe worker identity privileges' /tmp/schema-audit.log
+          sql "REVOKE UPDATE (tenant_id) ON public.outbox_worker_identity FROM gamma_outbox_worker"
+          sql "GRANT SELECT ON public.outbox_worker_identity TO gamma_app"
+          if audit > /tmp/schema-audit.log 2>&1; then exit 1; fi
+          grep -q 'unsafe worker identity privileges' /tmp/schema-audit.log
+          sql "REVOKE SELECT ON public.outbox_worker_identity FROM gamma_app"
+          audit
+          sql "GRANT UPDATE (tenant_id) ON public.integration_outbox TO gamma_outbox_worker"
+          if audit > /tmp/schema-audit.log 2>&1; then exit 1; fi
+          grep -q 'unsafe outbox worker column privileges' /tmp/schema-audit.log
+          sql "REVOKE UPDATE (tenant_id) ON public.integration_outbox FROM gamma_outbox_worker"
+          sql "REVOKE UPDATE (attempts) ON public.integration_outbox FROM gamma_outbox_worker"
+          if audit > /tmp/schema-audit.log 2>&1; then exit 1; fi
+          grep -q 'unsafe outbox worker column privileges' /tmp/schema-audit.log
+          sql "GRANT UPDATE (attempts) ON public.integration_outbox TO gamma_outbox_worker"
+          sql "GRANT SELECT ON public.integration_inbox TO gamma_outbox_worker"
+          if audit > /tmp/schema-audit.log 2>&1; then exit 1; fi
+          grep -q 'unexpected worker access outside outbox' /tmp/schema-audit.log
+          sql "REVOKE SELECT ON public.integration_inbox FROM gamma_outbox_worker"
+          audit
+          for policy in worker_access worker_identity; do
+            sql "ALTER POLICY $policy ON public.integration_outbox USING (true)"
+            if audit > /tmp/schema-audit.log 2>&1; then exit 1; fi
+            grep -q 'worker predicate drift' /tmp/schema-audit.log
+            sql "ALTER POLICY $policy ON public.integration_outbox USING (tenant_id = (SELECT tenant_id FROM public.outbox_worker_identity WHERE login_name = session_user))"
+          done
+          sql "ALTER POLICY worker_role_separation ON public.integration_outbox WITH CHECK (true)"
+          if audit > /tmp/schema-audit.log 2>&1; then exit 1; fi
+          grep -q 'worker predicate drift' /tmp/schema-audit.log
+          sql "ALTER POLICY worker_role_separation ON public.integration_outbox WITH CHECK (NOT (pg_has_role(session_user, 'gamma_app', 'MEMBER') AND pg_has_role(session_user, 'gamma_outbox_worker', 'MEMBER')))"
+          audit
+          sql "CREATE ROLE gamma_ci_worker_login LOGIN; GRANT gamma_outbox_worker TO gamma_ci_worker_login"
+          if audit > /tmp/schema-audit.log 2>&1; then exit 1; fi
+          grep -q 'worker membership provisioning is on HOLD' /tmp/schema-audit.log
+          sql "REVOKE gamma_outbox_worker FROM gamma_ci_worker_login; DROP ROLE gamma_ci_worker_login"
+          audit
+      - name: Verify schema gate dependency contract
+        run: |
+          docker compose config --format json > /tmp/gamma-gate.json
+          python3 - <<'PY'
+          import json
+          with open("/tmp/gamma-gate.json") as f:
+              services = json.load(f)["services"]
+          assert services["postgres-schema-audit"]["depends_on"]["migrate"]["condition"] == "service_completed_successfully"
+          assert services["api"]["depends_on"]["postgres-schema-audit"]["condition"] == "service_completed_successfully"
+          PY
       - name: Verify Compose Gateway registry propagation
         run: |
           set -eu

@@ -29,7 +29,7 @@ for id in $ids; do
   esac
   if [ "$running" != true ]; then
     case "$service" in
-      postgres-preflight|migrate)
+      postgres-preflight|postgres-schema-audit|migrate)
         state=$(docker inspect --format '{{.State.Status}}:{{.State.ExitCode}}:{{.State.OOMKilled}}' "$id")
         [ "$state" = exited:0:false ] || { echo "ONE-SHOT FAILED: $name ($state)" >&2; failed=1; }
         echo "One-shot status: $name ($state); runtime UID not observable after exit"
@@ -125,8 +125,9 @@ for id in $ids; do
           esac
         fi
         ;;
-      "$(pwd -P)/postgres/preflight/01-app-role.sql"|"$(pwd -P)/postgres/init/01-app-role.sh")
+      "$(pwd -P)/postgres/preflight/02-schema-security.sql"|"$(pwd -P)/postgres/preflight/01-app-role.sql"|"$(pwd -P)/postgres/init/01-app-role.sh")
         case "$service:$mount" in
+          postgres-schema-audit:*/postgres/preflight/02-schema-security.sql) target=/preflight/02-schema-security.sql ;;
           postgres-preflight:*/postgres/preflight/01-app-role.sql) target=/preflight/01-app-role.sql ;;
           postgres:*/postgres/init/01-app-role.sh) target=/docker-entrypoint-initdb.d/01-app-role.sh ;;
           *) target= ;;
