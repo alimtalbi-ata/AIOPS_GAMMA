@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://aiops:aiops@localhost:5432/aiops"
     internal_api_key: str = ""
     gateway_assertion_secret: str = ""
+    gateway_assertion_keys: dict[str, str] = {}
     gateway_assertion_issuer: str = "gamma-gateway"
     gateway_assertion_audience: str = "aiops-gamma"
     gateway_assertion_max_ttl_seconds: int = 60
