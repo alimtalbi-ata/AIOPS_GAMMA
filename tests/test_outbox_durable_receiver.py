@@ -46,3 +46,17 @@ def test_interruption_rolls_back_receipt_and_effect(tmp_path):
         assert conn.execute("SELECT count(*) FROM receipts").fetchone()[0] == 0
         assert conn.execute("SELECT count(*) FROM effects").fetchone()[0] == 0
     assert receive(path, tenant, event, {"value": 1}) == 200
+
+
+def test_durable_receiver_distinguishes_tenants_with_same_event_id(tmp_path):
+    path = tmp_path / "receiver.sqlite"
+    a, b, event = str(uuid4()), str(uuid4()), str(uuid4())
+    assert receive(path, a, event, {"value": 1}) == 200
+    assert receive(path, b, event, {"value": 2}) == 200
+    assert receive(path, a, event, {"value": 2}) == 409
+    assert receive(path, b, event, {"value": 2}) == 200
+    with sqlite3.connect(path) as conn:
+        assert set(conn.execute("SELECT tenant, event FROM effects")) == {
+            (a, event), (b, event)
+        }
+        assert conn.execute("SELECT count(*) FROM receipts").fetchone()[0] == 2
