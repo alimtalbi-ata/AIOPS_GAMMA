@@ -355,6 +355,7 @@ async def test_internal_principal_consumes_jti_before_access(monkeypatch):
     import app.security as security
 
     monkeypatch.setattr(settings, "internal_api_key", "service-key")
+    monkeypatch.setattr(security.time, "time", lambda: 1030)
     token = _token(monkeypatch)
     calls = []
     session = object()
@@ -388,6 +389,7 @@ async def test_internal_principal_rejects_replayed_jti(monkeypatch):
     import app.security as security
 
     monkeypatch.setattr(settings, "internal_api_key", "service-key")
+    monkeypatch.setattr(security.time, "time", lambda: 1030)
     token = _token(monkeypatch)
 
     session = object()
@@ -419,6 +421,7 @@ async def test_internal_principal_fails_closed_when_replay_store_unavailable(mon
     import app.security as security
 
     monkeypatch.setattr(settings, "internal_api_key", "service-key")
+    monkeypatch.setattr(security.time, "time", lambda: 1030)
     token = _token(monkeypatch)
 
     session = object()
