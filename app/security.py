@@ -23,6 +23,12 @@ from app.gateway_replay import consume_assertion_before_access
 from app.settings import settings
 
 
+BUSINESS_PERMISSIONS = frozenset({
+    "alerts:ingest", "bindings:read", "bindings:write",
+    "evidence:read", "evidence:write",
+})
+
+
 @dataclass(frozen=True)
 class Principal:
     tenant_id: UUID
@@ -32,6 +38,7 @@ class Principal:
     expires_at: int
     log_service_grants: tuple[str, ...] = ()
     evidence_incident_grants: tuple[str, ...] = ()
+    business_permissions: tuple[str, ...] = ()
 
 
 def _b64url_decode(value: str) -> bytes:
@@ -150,10 +157,17 @@ def verify_gateway_assertion(token: str, *, method: str, path: str, now: int | N
             or len(set(raw_incident_grants)) != len(raw_incident_grants)
         ):
             raise ValueError("invalid signed evidence incident grants")
+        permissions = claims.get("business_permissions", [])
+        if (not isinstance(permissions, list)
+                or len(permissions) > len(BUSINESS_PERMISSIONS)
+                or any(not isinstance(p, str) or p not in BUSINESS_PERMISSIONS for p in permissions)
+                or len(set(permissions)) != len(permissions)):
+            raise ValueError("invalid business permissions")
         return Principal(tenant_id=tenant, subject=subject, actor_type=actor_type,
                          assertion_id=assertion_id, expires_at=expires_at,
                          log_service_grants=tuple(raw_grants),
-                         evidence_incident_grants=tuple(raw_incident_grants))
+                         evidence_incident_grants=tuple(raw_incident_grants),
+                         business_permissions=tuple(permissions))
     except HTTPException:
         raise
     except (ValueError, TypeError, KeyError, UnicodeError, binascii.Error, json.JSONDecodeError) as exc:
@@ -204,3 +218,8 @@ async def internal_principal(
     if not consumed:
         raise HTTPException(status_code=401, detail="Gateway assertion already used")
     return principal
+
+
+def require_business_permission(principal: Principal, permission: str) -> None:
+    if permission not in BUSINESS_PERMISSIONS or permission not in principal.business_permissions:
+        raise HTTPException(status_code=403, detail="Business permission denied")
