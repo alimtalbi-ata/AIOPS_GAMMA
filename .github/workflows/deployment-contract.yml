@@ -346,3 +346,13 @@ jobs:
             exit 1
           fi
           grep -q 'gatewayAssertionKeysSecretKey is required' /tmp/gamma-invalid.err
+      - name: Verify Helm PostgreSQL security gate
+        run: |
+          set -eu
+          for sql in 01-app-role.sql 02-schema-security.sql; do
+            cmp "postgres/preflight/$sql" "deploy/helm/gamma/preflight/$sql"
+          done
+          grep -q 'name: postgres-security-gate' /tmp/gamma-rendered.yaml
+          grep -q 'mountPath: /preflight, readOnly: true' /tmp/gamma-rendered.yaml
+          grep -q 'SELECT session_user' /tmp/gamma-rendered.yaml
+          grep -q 'psql -X -v ON_ERROR_STOP=1 -f /preflight/02-schema-security.sql' /tmp/gamma-rendered.yaml

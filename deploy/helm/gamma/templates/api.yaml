@@ -16,6 +16,36 @@ spec:
     spec:
       automountServiceAccountToken: false
       securityContext: {runAsNonRoot: true, runAsUser: 10001, seccompProfile: {type: RuntimeDefault}}
+      initContainers:
+        - name: postgres-security-gate
+          image: {{ .Values.api.securityGateImage | quote }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef: {name: {{ .Values.api.databaseUrlSecret | quote }}, key: {{ .Values.api.databaseUrlSecretKey | quote }}}
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              case "$DATABASE_URL" in
+                postgresql+asyncpg://*) PGDATABASE="postgresql://${DATABASE_URL#postgresql+asyncpg://}" ;;
+                *) echo "Unsupported application database URL" >&2; exit 1 ;;
+              esac
+              export PGDATABASE
+              unset DATABASE_URL
+              export PGCONNECT_TIMEOUT=10
+              test "$(psql -X -At -v ON_ERROR_STOP=1 -c 'SELECT session_user')" = gamma_app
+              psql -X -v ON_ERROR_STOP=1 -f /preflight/01-app-role.sql
+              psql -X -v ON_ERROR_STOP=1 -f /preflight/02-schema-security.sql
+          volumeMounts:
+            - {name: postgres-security-gate, mountPath: /preflight, readOnly: true}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+      volumes:
+        - name: postgres-security-gate
+          configMap:
+            name: {{ .Release.Name }}-postgres-security-gate
       containers:
         - name: api
           image: {{ .Values.api.image | quote }}

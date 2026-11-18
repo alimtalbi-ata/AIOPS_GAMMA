@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-postgres-security-gate
+data:
+  01-app-role.sql: |
+{{ .Files.Get "preflight/01-app-role.sql" | indent 4 }}
+  02-schema-security.sql: |
+{{ .Files.Get "preflight/02-schema-security.sql" | indent 4 }}

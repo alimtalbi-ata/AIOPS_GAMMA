@@ -3,6 +3,8 @@ global:
   # Use immutable image digests in staging/production.
 api:
   image: ghcr.io/alimtalbi-ata/aiops-gamma-api:replace-with-pinned-tag
+  # PostgreSQL 16 client; pin an immutable digest for release.
+  securityGateImage: postgres:16-alpine
   replicas: 1
   port: 8000
   internalApiKeySecret: gamma-api-credentials
