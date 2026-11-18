@@ -31,11 +31,11 @@ def test_schema_and_relay_import_without_database_engine(monkeypatch):
     importlib.reload(app.db)
 
 
-def test_outbox_and_bootstrap_use_lazy_factory():
+def test_outbox_has_no_db_factory_and_bootstrap_uses_lazy_factory():
     outbox = (ROOT / "app/outbox_relay.py").read_text(encoding="utf-8")
     bootstrap = (ROOT / "app/init_db.py").read_text(encoding="utf-8")
-    assert "from app.db import get_session_factory" in outbox
-    assert "get_session_factory()()" in outbox
+    assert "from app.db import get_session_factory" not in outbox
+    assert "get_session_factory()()" not in outbox
     assert "from app.db import get_session_factory" in bootstrap
     assert "get_session_factory().kw[\"bind\"]" in bootstrap
     assert "from app.db import engine" not in bootstrap
