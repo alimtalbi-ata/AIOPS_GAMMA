@@ -25,6 +25,9 @@ case "$*" in
   *DockerRootDir*) echo "$GAMMA_HOME/docker-data" ;;
   *"ps --all -q") echo mock-postgres ;;
   *".Name"*) echo /mock-postgres ;;
+  *"com.docker.compose.service"*) echo "${MOCK_SERVICE:-postgres}" ;;
+  *".State.Status"*) echo "${MOCK_STATE:-exited:0:false}" ;;
+  *".Destination"*) printf '%s\\n' "${MOCK_DETAILS:-}" ;;
   *".State.Running"*) echo "${MOCK_RUNNING:-true}" ;;
   *".HostConfig.Privileged"*) echo "${MOCK_PRIVILEGED:-false}" ;;
   *".HostConfig.CapAdd"*) echo "${MOCK_CAP_ADD:-null}" ;;
@@ -39,10 +42,13 @@ esac
         )
         docker.chmod(0o755)
 
-    def audit(self, config_user="999:999", runtime_uid="999", privileged="false", running="true", mount=None, cap_add="null", cap_drop='["ALL"]'):
+    def audit(self, config_user="999:999", runtime_uid="999", privileged="false", running="true", mount=None, cap_add="null", cap_drop='["ALL"]', service="postgres", state="exited:0:false", details=""):
         env = dict(
             os.environ,
             GAMMA_HOME=str(self.home),
+            MOCK_SERVICE=service,
+            MOCK_STATE=state,
+            MOCK_DETAILS=details,
             MOCK_CONFIG_USER=config_user,
             MOCK_RUNTIME_UID=runtime_uid,
             MOCK_PRIVILEGED=privileged,
@@ -124,6 +130,29 @@ esac
         result = self.audit(running="false")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("NOT RUNNING", result.stderr)
+
+    def test_completed_preflight_passes(self):
+        result = self.audit(service="postgres-preflight", running="false")
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_failed_oneshot_rejected(self):
+        for state in ("exited:1:false", "exited:0:true", "created:0:false"):
+            with self.subTest(state=state):
+                result = self.audit(service="migrate", running="false", state=state)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("ONE-SHOT FAILED", result.stderr)
+
+    def test_readonly_technical_mount(self):
+        mount = str(SCRIPT.parents[2].resolve() / "postgres/preflight/01-app-role.sql")
+        for service, target, rw, expected in (
+            ("postgres-preflight", "/preflight/01-app-role.sql", "false", True),
+            ("postgres-preflight", "/preflight/01-app-role.sql", "true", False),
+            ("postgres-preflight", "/wrong", "false", False),
+            ("postgres", "/preflight/01-app-role.sql", "false", False),
+        ):
+            with self.subTest(service=service, target=target, rw=rw):
+                result = self.audit(service=service, mount=mount, details=f"{mount}|{target}|{rw}")
+                self.assertEqual(result.returncode == 0, expected, result.stderr)
 
     def test_out_of_tree_bind_rejected(self):
         result = self.audit(mount="/var/unsafe-postgres")
