@@ -109,7 +109,9 @@ def test_priority_policy_identity_accepts_normal_values():
 ])
 def test_sync_rechecks_policy_identity_after_unvalidated_model_copy(field, value):
     altered = matrix().model_copy(update={field: value})
-    req = IncidentSyncPreview(incident=incident(), matrix=altered)
+    with pytest.raises(ValidationError, match="Invalid priority policy identity"):
+        IncidentSyncPreview(incident=incident(), matrix=altered)
+    req = IncidentSyncPreview(incident=incident(), matrix=matrix()).model_copy(update={"matrix": altered})
     with pytest.raises(ValueError, match="Invalid priority policy identity"):
         plan_incident_sync(req, TENANT)
 
@@ -231,7 +233,7 @@ def test_sync_accepts_mutated_valid_evidence_list_without_side_effects():
     assert result["itsm_mutations_performed"] is False
 
 @pytest.mark.parametrize("bad_incident_id", [
-    None, 123, ["INC-123"], "", " ", "INC-123\\nforged", "I" * 129,
+    None, 123, ["INC-123"], "", " ", "INC-123\nforged", "I" * 129,
 ])
 def test_sync_rejects_mutated_invalid_incident_identifiers(bad_incident_id):
     req = IncidentSyncPreview(incident=incident(), matrix=matrix())
