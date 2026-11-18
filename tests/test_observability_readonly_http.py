@@ -212,7 +212,7 @@ def test_logs_reject_noncanonical_tenant_before_backend(monkeypatch):
     monkeypatch.setattr(main, "search_logs", unexpected_backend)
     with TestClient(main.app) as client:
         for tenant in (
-            str(TENANT_A).upper(),
+            str(UUID("abcdefab-abcd-4abc-8abc-abcdefabcdef")).upper(),
             str(TENANT_A).replace("-", ""),
             "{" + str(TENANT_A) + "}",
         ):
