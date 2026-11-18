@@ -6,6 +6,7 @@ on:
       - 'app/**'
       - 'migrations/**'
       - 'tests/test_rls_all_tables.py'
+      - 'tests/test_outbox_worker_postgres.py'
       - '.github/workflows/postgres-rls.yml'
       - 'pyproject.toml'
 permissions:
@@ -30,6 +31,9 @@ jobs:
       DATABASE_URL: postgresql+asyncpg://gamma_admin:disposable_admin@127.0.0.1:5432/gamma_test
       GAMMA_TEST_DATABASE_URL: postgresql+asyncpg://gamma_app:disposable_runtime@127.0.0.1:5432/gamma_test
       GAMMA_TEST_DISPOSABLE: "1"
+      GAMMA_WORKER_ADMIN_DSN: postgresql://gamma_admin:disposable_admin@127.0.0.1:5432/gamma_test
+      GAMMA_WORKER_A_DSN: postgresql://gamma_worker_a:disposable_a@127.0.0.1:5432/gamma_test
+      GAMMA_WORKER_B_DSN: postgresql://gamma_worker_b:disposable_b@127.0.0.1:5432/gamma_test
       INTERNAL_API_KEY: disposable-test-key-not-for-production
     steps:
       - uses: actions/checkout@v4
@@ -57,8 +61,24 @@ jobs:
           alembic upgrade head
           alembic downgrade 0002_gateway_replay
           alembic upgrade head
+      - name: Provision disposable worker identities
+        run: |
+          python - <<'PY'
+          import asyncio
+          import os
+          import asyncpg
+
+          async def main():
+              conn = await asyncpg.connect(os.environ["GAMMA_WORKER_ADMIN_DSN"])
+              try:
+                  await conn.execute("CREATE ROLE gamma_worker_a LOGIN PASSWORD 'disposable_a' NOSUPERUSER NOBYPASSRLS IN ROLE gamma_outbox_worker")
+                  await conn.execute("CREATE ROLE gamma_worker_b LOGIN PASSWORD 'disposable_b' NOSUPERUSER NOBYPASSRLS IN ROLE gamma_outbox_worker")
+              finally:
+                  await conn.close()
+          asyncio.run(main())
+          PY
       - name: Behavioral isolation
-        run: python -m pytest -q tests/test_rls_all_tables.py --junitxml=rls-results.xml
+        run: python -m pytest -q tests/test_rls_all_tables.py tests/test_outbox_worker_postgres.py --junitxml=rls-results.xml
       - uses: actions/upload-artifact@v4
         if: always()
         with:
