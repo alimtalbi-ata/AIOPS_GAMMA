@@ -182,7 +182,8 @@ def test_invalid_signed_actor_identity_fields_denied(monkeypatch, claim, value):
     assert exc.value.status_code == 401
 
 
-def test_unicode_service_key_header_denied_without_uncaught_type_error(monkeypatch):
+@pytest.mark.asyncio
+async def test_unicode_service_key_header_denied_without_uncaught_type_error(monkeypatch):
     from starlette.requests import Request
     from app.security import internal_principal
 
@@ -190,7 +191,7 @@ def test_unicode_service_key_header_denied_without_uncaught_type_error(monkeypat
     request = Request({"type": "http", "method": "POST", "path": "/probe",
                        "headers": [], "query_string": b""})
     with pytest.raises(HTTPException) as exc:
-        internal_principal(
+        await internal_principal(
             request, x_internal_api_key="clé-invalide",
             x_gateway_principal="not-a-valid-assertion",
         )
@@ -228,7 +229,8 @@ def test_nonfinite_json_constant_in_signed_claims_denied(monkeypatch, nonfinite)
 
 
 @pytest.mark.parametrize("malformed_key", ["\ud800", "prefix\udfff", "\ud800\udfff"])
-def test_malformed_unicode_service_key_header_fails_closed(monkeypatch, malformed_key):
+@pytest.mark.asyncio
+async def test_malformed_unicode_service_key_header_fails_closed(monkeypatch, malformed_key):
     from starlette.requests import Request
     from app.security import internal_principal
 
@@ -236,7 +238,7 @@ def test_malformed_unicode_service_key_header_fails_closed(monkeypatch, malforme
     request = Request({"type": "http", "method": "POST", "path": "/probe",
                        "headers": [], "query_string": b""})
     with pytest.raises(HTTPException) as exc:
-        internal_principal(request, x_internal_api_key=malformed_key,
+        await internal_principal(request, x_internal_api_key=malformed_key,
                            x_gateway_principal="not-a-valid-assertion")
     assert exc.value.status_code == 401
 
