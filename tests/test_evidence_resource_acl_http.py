@@ -10,19 +10,20 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.db import get_session
+from app.main import tenant_session
 from app.settings import settings
 
 
-def _token(method, path, grants, tenant_id=None):
+def _token(method, path, grants, tenant_id=None, *, business=True):
     now = int(time.time())
     claims = {
         "iss": "trusted-gateway", "aud": "gamma-api",
         "sub": "user:123", "actor_type": "user",
         "tenant_id": str(tenant_id or uuid4()), "tenant_access": True,
-        "iat": now, "exp": now + 30, "jti": "evidence-acl-test-123456",
+        "iat": now, "exp": now + 30, "jti": uuid4().hex,
         "method": method, "path": path,
         "evidence_incident_grants": grants,
+        "business_permissions": (["evidence:read"] if method == "GET" else ["evidence:write"]) if business else [],
     }
     encoded = base64.urlsafe_b64encode(
         json.dumps(claims, separators=(",", ":")).encode()
@@ -34,7 +35,7 @@ def _token(method, path, grants, tenant_id=None):
 
 
 @pytest.fixture
-def client(monkeypatch):
+def client(monkeypatch, replay_unit):
     monkeypatch.setattr(settings, "internal_api_key", "service-secret")
     monkeypatch.setattr(settings, "gateway_assertion_secret", "s" * 48)
     monkeypatch.setattr(settings, "gateway_assertion_issuer", "trusted-gateway")
@@ -58,12 +59,12 @@ def client(monkeypatch):
     async def forbidden_db():
         yield ForbiddenSession()
 
-    app.dependency_overrides[get_session] = forbidden_db
+    app.dependency_overrides[tenant_session] = forbidden_db
     try:
         with TestClient(app) as test_client:
             yield test_client, calls
     finally:
-        app.dependency_overrides.pop(get_session, None)
+        app.dependency_overrides.pop(tenant_session, None)
 
 
 @pytest.mark.parametrize("method", ["GET", "POST"])
@@ -348,7 +349,7 @@ def test_authorized_evidence_read_filters_by_signed_tenant_and_incident(client):
     async def inspecting_db():
         yield InspectingSession()
 
-    app.dependency_overrides[get_session] = inspecting_db
+    app.dependency_overrides[tenant_session] = inspecting_db
     try:
         response = test_client.get(path, headers={
             "X-Internal-API-Key": "service-secret",
@@ -356,7 +357,7 @@ def test_authorized_evidence_read_filters_by_signed_tenant_and_incident(client):
             "X-Tenant-ID": str(uuid4()),
         })
     finally:
-        app.dependency_overrides.pop(get_session, None)
+        app.dependency_overrides.pop(tenant_session, None)
 
     assert response.status_code == 200, response.text
     assert response.json() == []
@@ -391,7 +392,7 @@ def test_authorized_evidence_write_uses_signed_tenant_and_exact_incident(client)
     async def recording_db():
         yield RecordingSession()
 
-    app.dependency_overrides[get_session] = recording_db
+    app.dependency_overrides[tenant_session] = recording_db
     try:
         response = test_client.post(path, headers={
             "X-Internal-API-Key": "service-secret",
@@ -405,7 +406,7 @@ def test_authorized_evidence_write_uses_signed_tenant_and_exact_incident(client)
             "observed_at": "2026-11-15T12:00:00Z",
         })
     finally:
-        app.dependency_overrides.pop(get_session, None)
+        app.dependency_overrides.pop(tenant_session, None)
 
     assert response.status_code == 201, response.text
     assert len(captured) == 1 and commits == [True]
@@ -437,7 +438,7 @@ def test_authorized_evidence_response_is_never_cacheable(client, method):
     async def db():
         yield Session()
 
-    app.dependency_overrides[get_session] = db
+    app.dependency_overrides[tenant_session] = db
     try:
         headers = {
             "X-Internal-API-Key": "service-secret",
@@ -457,7 +458,7 @@ def test_authorized_evidence_response_is_never_cacheable(client, method):
             assert response.status_code == 201, response.text
         assert response.headers["cache-control"] == "no-store"
     finally:
-        app.dependency_overrides.pop(get_session, None)
+        app.dependency_overrides.pop(tenant_session, None)
 
 
 def test_e2e_two_tenants_same_incident_never_cross_read(client):
@@ -500,7 +501,7 @@ def test_e2e_two_tenants_same_incident_never_cross_read(client):
     async def fake_db():
         yield TenantAwareSession()
 
-    app.dependency_overrides[get_session] = fake_db
+    app.dependency_overrides[tenant_session] = fake_db
     try:
         for tenant, marker in ((tenant_a, "tenant-a"), (tenant_b, "tenant-b")):
             response = test_client.post(path, headers={
@@ -546,4 +547,27 @@ def test_e2e_two_tenants_same_incident_never_cross_read(client):
         assert rejected_write.headers["cache-control"] == "no-store"
         assert len(evidence) == before
     finally:
-        app.dependency_overrides.pop(get_session, None)
+        app.dependency_overrides.pop(tenant_session, None)
+
+
+@pytest.mark.parametrize("method", ["GET", "POST"])
+def test_matching_incident_without_business_permission_is_denied(client, method):
+    test_client, calls = client
+    path = "/api/v1/incidents/inc-1/evidence"
+    headers = {
+        "X-Internal-API-Key": "service-secret",
+        "X-Gateway-Principal": _token(method, path, ["inc-1"], business=False),
+    }
+    body = {
+        "investigation_id": str(uuid4()),
+        "source_type": "logs",
+        "source_ref": "synthetic",
+        "summary": "Synthetic evidence",
+        "observed_at": "2026-11-15T12:00:00Z",
+    }
+    response = (test_client.get(path, headers=headers) if method == "GET"
+                else test_client.post(path, headers=headers, json=body))
+    assert response.status_code == 403, response.text
+    assert response.json()["detail"] == "Business permission denied"
+    assert response.headers["cache-control"] == "no-store"
+    assert calls == []
