@@ -49,6 +49,22 @@ sa_async.create_async_engine = forbid_engine
 from datetime import datetime, timezone
 from fastapi.testclient import TestClient
 from app.main import app
+from app.settings import settings
+import base64, hashlib, hmac, json, time
+from uuid import uuid4
+settings.gateway_assertion_secret = "s" * 48
+settings.gateway_assertion_issuer = "test-gateway"
+settings.gateway_assertion_audience = "gamma-api"
+
+def signed_headers(path):
+    now = int(time.time())
+    claims = {"iss": "test-gateway", "aud": "gamma-api", "sub": "user:smoke",
+              "actor_type": "user", "tenant_id": "11111111-1111-4111-8111-111111111111",
+              "tenant_access": True, "iat": now, "exp": now + 30,
+              "jti": uuid4().hex, "method": "POST", "path": path}
+    raw = base64.urlsafe_b64encode(json.dumps(claims).encode()).rstrip(b"=")
+    sig = base64.urlsafe_b64encode(hmac.new(b"s" * 48, raw, hashlib.sha256).digest()).rstrip(b"=")
+    return {"X-Internal-API-Key": "isolated-test-key", "X-Gateway-Principal": (raw + b"." + sig).decode()}
 
 headers = {
     "X-Internal-API-Key": "isolated-test-key",
@@ -66,14 +82,14 @@ with TestClient(app) as client:
     assert health.status_code == 200, health.text
     correlation = client.post(
         "/api/v1/incidents/correlation/preview",
-        json={"signals": [signal]}, headers=headers,
+        json={"signals": [signal]}, headers=signed_headers("/api/v1/incidents/correlation/preview"),
     )
     assert correlation.status_code == 200, correlation.text
     assert correlation.headers["cache-control"] == "no-store"
     joined = client.post(
         "/api/v1/incidents/correlation-evidence/preview",
         json={"correlation": {"signals": [signal]}, "evidence": []},
-        headers=headers,
+        headers=signed_headers("/api/v1/incidents/correlation-evidence/preview"),
     )
     assert joined.status_code == 200, joined.text
     assert joined.json()["evidence_join_complete"] is False
