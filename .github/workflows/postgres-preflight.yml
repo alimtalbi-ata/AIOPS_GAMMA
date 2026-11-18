@@ -135,6 +135,11 @@ jobs:
           grep -q 'worker predicate drift' /tmp/schema-audit.log
           sql "ALTER POLICY worker_role_separation ON public.integration_outbox WITH CHECK (NOT (pg_has_role(session_user, 'gamma_app', 'MEMBER') AND pg_has_role(session_user, 'gamma_outbox_worker', 'MEMBER')))"
           audit
+          sql "CREATE ROLE gamma_ci_worker_login LOGIN; GRANT gamma_outbox_worker TO gamma_ci_worker_login"
+          if audit > /tmp/schema-audit.log 2>&1; then exit 1; fi
+          grep -q 'worker membership provisioning is on HOLD' /tmp/schema-audit.log
+          sql "REVOKE gamma_outbox_worker FROM gamma_ci_worker_login; DROP ROLE gamma_ci_worker_login"
+          audit
       - name: Verify schema gate dependency contract
         run: |
           docker compose config --format json > /tmp/gamma-gate.json
