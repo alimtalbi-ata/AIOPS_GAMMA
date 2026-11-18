@@ -3,7 +3,7 @@ import hashlib
 import hmac
 import json
 from datetime import datetime, timezone, timedelta
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 
 def _utc(value):
@@ -33,7 +33,23 @@ def seal_review(report, now, ttl_seconds=300):
 
 def check_review(envelope, now, expected_digest):
     now = _utc(now)
+    if type(envelope) is not dict or set(envelope) != {"body", "sha256"}:
+        raise ValueError("Invalid envelope")
     body = envelope["body"]
+    if type(body) is not dict or set(body) != {"id", "issued_at", "expires_at", "report"}:
+        raise ValueError("Invalid envelope body")
+    if type(body["id"]) is not str or str(UUID(body["id"])) != body["id"] or UUID(body["id"]).version != 4:
+        raise ValueError("Invalid dossier identity")
+    report = body["report"]
+    if (type(report) is not dict or report.get("authoritative") is not False
+            or report.get("live_execution_authorized") is not False
+            or report.get("approval_state") != "NOT_GRANTED"):
+        raise ValueError("Only unapproved synthetic reports accepted")
+    if any(type(body[k]) is not str for k in ("issued_at", "expires_at")):
+        raise ValueError("Invalid timestamps")
+    if any(type(v) is not str or len(v) != 64 or any(ch not in "0123456789abcdef" for ch in v)
+           for v in (expected_digest, envelope["sha256"])):
+        raise ValueError("Digest mismatch")
     digest = _digest(body)
     if not isinstance(expected_digest, str) or not hmac.compare_digest(digest, expected_digest) or not hmac.compare_digest(digest, envelope["sha256"]):
         raise ValueError("Digest mismatch")
