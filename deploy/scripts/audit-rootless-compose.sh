@@ -12,6 +12,7 @@ ids=$(docker compose $files ps --all -q)
 failed=0
 for id in $ids; do
   name=$(docker inspect --format '{{.Name}}' "$id")
+  service=$(docker inspect --format '{{index .Config.Labels "com.docker.compose.service"}}' "$id")
   running=$(docker inspect --format '{{.State.Running}}' "$id")
   privileged=$(docker inspect --format '{{.HostConfig.Privileged}}' "$id")
   user=$(docker inspect --format '{{.Config.User}}' "$id")
@@ -26,7 +27,16 @@ for id in $ids; do
     '["ALL"]'|'["all"]') ;;
     *) echo "CAPABILITIES NOT DROPPED: $name ($cap_drop)" >&2; failed=1 ;;
   esac
-  [ "$running" = true ] || { echo "NOT RUNNING: $name" >&2; failed=1; }
+  if [ "$running" != true ]; then
+    case "$service" in
+      postgres-preflight|migrate)
+        state=$(docker inspect --format '{{.State.Status}}:{{.State.ExitCode}}:{{.State.OOMKilled}}' "$id")
+        [ "$state" = exited:0:false ] || { echo "ONE-SHOT FAILED: $name ($state)" >&2; failed=1; }
+        echo "One-shot status: $name ($state); runtime UID not observable after exit"
+        ;;
+      *) echo "NOT RUNNING: $name" >&2; failed=1 ;;
+    esac
+  fi
   [ "$privileged" = false ] || { echo "PRIVILEGED: $name" >&2; failed=1; }
   # Docker accepts UID, UID:GID and user-name forms. A numeric UID 0
   # remains root even with a nonzero GID (0:1000, 00:1000, etc.).
@@ -113,6 +123,21 @@ for id in $ids; do
               ;;
             *) echo "BIND ESCAPES DATA ROOT: $name $mount -> $canonical" >&2; failed=1 ;;
           esac
+        fi
+        ;;
+      "$(pwd -P)/postgres/preflight/01-app-role.sql"|"$(pwd -P)/postgres/init/01-app-role.sh")
+        case "$service:$mount" in
+          postgres-preflight:*/postgres/preflight/01-app-role.sql) target=/preflight/01-app-role.sql ;;
+          postgres:*/postgres/init/01-app-role.sh) target=/docker-entrypoint-initdb.d/01-app-role.sh ;;
+          *) target= ;;
+        esac
+        # Only the exact approved source, destination and read-only bind qualify.
+        details=$(docker inspect --format '{{range .Mounts}}{{if eq .Type "bind"}}{{.Source}}|{{.Destination}}|{{.RW}}{{println}}{{end}}{{end}}' "$id")
+        if [ -z "$target" ] || [ ! -f "$mount" ] || [ "$(realpath "$mount")" != "$mount" ] ||
+           ! printf '%s\n' "$details" | grep -Fx -- "$mount|$target|false" >/dev/null ||
+           printf '%s\n' "$details" | grep -F -- "$mount|" | grep -Fvx -- "$mount|$target|false" >/dev/null; then
+          echo "UNQUALIFIED TECHNICAL BIND: $name $mount" >&2
+          failed=1
         fi
         ;;
       NAMED_VOLUME) echo "NAMED VOLUME: $name" >&2; failed=1 ;;
