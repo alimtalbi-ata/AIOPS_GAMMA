@@ -35,7 +35,7 @@ print("main import without database engine: OK")
 
 
 def test_health_and_preview_routes_do_not_create_database_engine():
-    """Exercise actual FastAPI handlers while engine creation is forbidden."""
+    """Exercise handlers without a business DB, with isolated replay storage."""
     root = Path(__file__).resolve().parents[1]
     script = """
 import os
@@ -49,8 +49,30 @@ sa_async.create_async_engine = forbid_engine
 from datetime import datetime, timezone
 from fastapi.testclient import TestClient
 from app.main import app
+import app.security as security
+from unittest.mock import MagicMock, AsyncMock
+import base64, hashlib, hmac, json, time
+from uuid import uuid4
+security.settings.gateway_assertion_keys = {}
+security.settings.gateway_assertion_secret = "s" * 48
+security.settings.gateway_assertion_issuer = "synthetic"
+security.settings.gateway_assertion_audience = "gamma"
+security.settings.gateway_assertion_max_ttl_seconds = 60
+context = MagicMock()
+context.__aenter__ = AsyncMock(return_value=object())
+context.__aexit__ = AsyncMock(return_value=False)
+security.get_session_factory = lambda: lambda: context
+security.consume_assertion_before_access = AsyncMock(return_value=True)
+def headers(path):
+    now = int(time.time())
+    claims = dict(iss="synthetic", aud="gamma", sub="synthetic-user", actor_type="user",
+                  tenant_id="11111111-1111-4111-8111-111111111111", tenant_access=True,
+                  iat=now, exp=now+30, jti=uuid4().hex, method="POST", path=path)
+    payload = base64.urlsafe_b64encode(json.dumps(claims).encode()).rstrip(b"=").decode()
+    sig = base64.urlsafe_b64encode(hmac.new(b"s"*48, payload.encode(), hashlib.sha256).digest()).rstrip(b"=").decode()
+    return {"X-Internal-API-Key": "isolated-test-key", "X-Gateway-Principal": payload+"."+sig}
 
-headers = {
+legacy_headers = {
     "X-Internal-API-Key": "isolated-test-key",
     "X-Tenant-ID": "11111111-1111-4111-8111-111111111111",
 }
@@ -66,14 +88,14 @@ with TestClient(app) as client:
     assert health.status_code == 200, health.text
     correlation = client.post(
         "/api/v1/incidents/correlation/preview",
-        json={"signals": [signal]}, headers=headers,
+        json={"signals": [signal]}, headers=headers("/api/v1/incidents/correlation/preview"),
     )
     assert correlation.status_code == 200, correlation.text
     assert correlation.headers["cache-control"] == "no-store"
     joined = client.post(
         "/api/v1/incidents/correlation-evidence/preview",
         json={"correlation": {"signals": [signal]}, "evidence": []},
-        headers=headers,
+        headers=headers("/api/v1/incidents/correlation-evidence/preview"),
     )
     assert joined.status_code == 200, joined.text
     assert joined.json()["evidence_join_complete"] is False
