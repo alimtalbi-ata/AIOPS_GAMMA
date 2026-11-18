@@ -1,6 +1,8 @@
 name: PostgreSQL RLS qualification
 on:
   workflow_dispatch:
+  push:
+    branches: [feat/observability-foundation]
   pull_request:
     paths:
       - 'app/**'
