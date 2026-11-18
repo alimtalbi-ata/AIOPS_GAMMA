@@ -32,6 +32,8 @@ spec:
                 *) echo "Unsupported application database URL" >&2; exit 1 ;;
               esac
               export PGDATABASE
+              # libpq needs an explicit default user for numeric UIDs without passwd entries.
+              export PGUSER=gamma_app
               unset DATABASE_URL
               export PGCONNECT_TIMEOUT=10
               test "$(psql -X -At -v ON_ERROR_STOP=1 -c 'SELECT session_user')" = gamma_app
