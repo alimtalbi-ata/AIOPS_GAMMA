@@ -225,7 +225,7 @@ jobs:
               try:
                   async with engine.connect() as conn:
                       assert await conn.scalar(text("select current_database()")) == "gamma_tenant_test"
-                      assert await conn.scalar(text("select version_num from alembic_version")) == "0008_replay_maintenance"
+                      assert await conn.scalar(text("select version_num from alembic_version")) == "0009_replay_bounded"
                       assert await conn.scalar(text("select current_user")) == "gamma_app"
                       assert await conn.scalar(text("select rolbypassrls from pg_roles where rolname=current_user")) is False
                       assert await conn.scalar(text("select rolsuper from pg_roles where rolname=current_user")) is False
@@ -270,7 +270,8 @@ jobs:
         run: |
           docker exec gamma-rc01-ci psql -U postgres -d gamma_rc01_test -v ON_ERROR_STOP=1 -c "CREATE ROLE gamma_app LOGIN PASSWORD 'ci-rc01-app-only' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE"
           alembic upgrade head
-          alembic downgrade 0006_worker_role_guard
+          if alembic downgrade 0008_replay_maintenance > /tmp/replay-downgrade.log 2>&1; then exit 1; fi
+          grep -q 'Replay security downgrade refused' /tmp/replay-downgrade.log
           alembic upgrade head
           docker exec gamma-rc01-ci psql -U postgres -d gamma_rc01_test -v ON_ERROR_STOP=1 -c 'GRANT SELECT ON alembic_version TO gamma_app'
           docker exec gamma-rc01-ci psql -U postgres -d gamma_rc01_test -v ON_ERROR_STOP=1 -c "CREATE ROLE gamma_replay_ci LOGIN PASSWORD 'ci-rc01-maint-only' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE; GRANT gamma_replay_maintenance TO gamma_replay_ci"
@@ -294,7 +295,7 @@ jobs:
                           ("SELECT current_database()", "gamma_rc01_test"),
                           ("SELECT current_user", "gamma_app"),
                           ("SELECT host(inet_server_addr())", "127.0.0.1"),
-                          ("SELECT version_num FROM alembic_version", "0008_replay_maintenance"),
+                          ("SELECT version_num FROM alembic_version", "0009_replay_bounded"),
                           ("SELECT rolsuper OR rolbypassrls OR rolcreatedb OR rolcreaterole FROM pg_roles WHERE rolname=current_user", False),
                           ("SELECT count(*) FROM gateway_assertion_replay", 0),
                           ("SELECT count(*) FROM pg_class WHERE relname IN ('integration_inbox','integration_outbox','telemetry_service_bindings','investigation_evidence') AND relrowsecurity AND relforcerowsecurity", 4),
@@ -351,6 +352,12 @@ jobs:
                   try:
                       async with maintenance.begin() as c:
                           assert await c.scalar(text("SELECT pg_has_role(current_user,'gamma_replay_maintenance','USAGE')"))
+                          assert not await c.scalar(text("SELECT has_any_column_privilege(current_user,'public.gateway_assertion_replay','SELECT,INSERT,UPDATE,REFERENCES') OR has_table_privilege(current_user,'public.gateway_assertion_replay','DELETE,TRUNCATE,TRIGGER')"))
+                          assert await c.scalar(text("SELECT has_function_privilege(current_user,'replay_maintenance.purge_expired(integer,integer)','EXECUTE')"))
+                          assert not await c.scalar(text("SELECT has_function_privilege('gamma_app','replay_maintenance.purge_expired(integer,integer)','EXECUTE') OR has_function_privilege('gamma_outbox_worker','replay_maintenance.purge_expired(integer,integer)','EXECUTE')"))
+                          assert await c.scalar(text("SELECT count(*) FROM pg_proc p JOIN pg_roles r ON r.oid=p.proowner WHERE p.oid='replay_maintenance.purge_expired(integer,integer)'::regprocedure AND p.prosecdef AND r.rolname='gamma_replay_executor' AND NOT r.rolcanlogin AND NOT r.rolsuper AND NOT r.rolbypassrls AND NOT pg_has_role(current_user,r.oid,'MEMBER') AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']")) == 1
+                          assert not await c.scalar(text("SELECT has_schema_privilege(current_user,'replay_maintenance','CREATE')"))
+
                           assert not await c.scalar(text("SELECT pg_has_role(current_user,'gamma_app','MEMBER') OR pg_has_role(current_user,'gamma_outbox_worker','MEMBER')"))
                           assert not await c.scalar(text("SELECT rolsuper OR rolbypassrls OR rolcreatedb OR rolcreaterole OR rolreplication FROM pg_roles WHERE rolname=current_user"))
                           assert not await c.scalar(text("SELECT has_schema_privilege(current_user,'public','CREATE')"))
@@ -380,6 +387,14 @@ jobs:
                               print("MAINTENANCE DENIED:",sql)
                           else:
                               raise AssertionError("Unexpected maintenance success")
+                      for batch, grace in [(0,60),(10001,60),(1,59),(1,86401),(None,60),(1,None)]:
+                          try:
+                              async with maintenance.begin() as c:
+                                  await c.execute(text("SELECT replay_maintenance.purge_expired(:b,:g)"),{"b":batch,"g":grace})
+                          except DBAPIError as exc:
+                              assert getattr(exc.orig,"sqlstate",None) == "22023"
+                          else:
+                              raise AssertionError("Invalid SQL policy accepted")
                   finally:
                       await maintenance.dispose()
                   import runpy
