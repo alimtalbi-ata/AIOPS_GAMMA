@@ -12,6 +12,34 @@ from app.gateway_replay import (
 )
 
 
+
+async def _reset_disposable_replay():
+    """Fixture-only reset; never use runtime or maintenance credentials."""
+    from sqlalchemy.engine import make_url
+    url = make_url(os.environ["GAMMA_REPLAY_FIXTURE_DATABASE_URL"])
+    assert (url.host, url.database, url.username) == (
+        "127.0.0.1", "gamma_rc01_test", "postgres"
+    )
+    assert os.environ.get("GAMMA_REPLAY_FIXTURE_ALLOW_RESET") == "I_UNDERSTAND_DISPOSABLE_DB"
+    engine = create_async_engine(url)
+    try:
+        async with engine.begin() as connection:
+            assert await connection.scalar(text("SELECT current_database()")) == "gamma_rc01_test"
+            assert await connection.scalar(text("SELECT current_user")) == "postgres"
+            await connection.execute(text("TRUNCATE public.gateway_assertion_replay"))
+    finally:
+        await engine.dispose()
+
+
+def _maintenance_engine():
+    from sqlalchemy.engine import make_url
+    url = make_url(os.environ["GAMMA_REPLAY_MAINTENANCE_DATABASE_URL"])
+    assert (url.host, url.database, url.username) == (
+        "127.0.0.1", "gamma_rc01_test", "gamma_replay_ci"
+    )
+    return create_async_engine(url)
+
+
 class _Result:
     def __init__(self, value=None, rowcount=0):
         self.value = value
@@ -113,10 +141,7 @@ async def test_replay_reservation_is_atomic_across_independent_postgres_sessions
             ))
             if not exists:
                 pytest.fail("Apply Alembic migration 0002 to the disposable database first")
-            await connection.execute(
-                text("DELETE FROM gateway_assertion_replay WHERE assertion_digest=:digest"),
-                {"digest": digest},
-            )
+            await _reset_disposable_replay()
 
         async def attempt():
             async with factory() as session:
@@ -129,10 +154,7 @@ async def test_replay_reservation_is_atomic_across_independent_postgres_sessions
         assert results.count(False) == 4
     finally:
         async with engine.begin() as connection:
-            await connection.execute(
-                text("DELETE FROM gateway_assertion_replay WHERE assertion_digest=:digest"),
-                {"digest": digest},
-            )
+            await _reset_disposable_replay()
         await engine.dispose()
 
 
@@ -141,8 +163,7 @@ async def test_cleanup_deletes_bounded_batch_with_grace_and_commits():
     session = _Session()
     session.execute = _cleanup_execute(session, rowcount=17)
     assert await purge_expired_assertions(session, batch_size=100, grace_seconds=300) == 17
-    assert "FOR UPDATE SKIP LOCKED" in session.statement
-    assert "NOW()" in session.statement
+    assert "SELECT replay_maintenance.purge_expired(:batch_size, :grace_seconds)" in session.statement
     assert session.params == {"grace_seconds": 300, "batch_size": 100}
     assert session.commits == 1
     assert session.rollbacks == 0
@@ -177,7 +198,7 @@ def _cleanup_execute(session, *, rowcount):
     async def execute(statement, params):
         session.statement = str(statement)
         session.params = params
-        return _Result(rowcount=rowcount)
+        return _Result(value=rowcount)
     return execute
 
 
@@ -191,6 +212,8 @@ async def test_postgres_cleanup_preserves_live_rows_and_respects_batch_limit():
 
     engine = create_async_engine(database_url, pool_size=3, max_overflow=0)
     factory = async_sessionmaker(engine, expire_on_commit=False)
+    maintenance = _maintenance_engine()
+    maintenance_factory = async_sessionmaker(maintenance, expire_on_commit=False)
     prefix = "gamma-cleanup-integration"
     rows = {
         name: hashlib.sha256((prefix + "\x00" + name).encode()).hexdigest()
@@ -204,11 +227,7 @@ async def test_postgres_cleanup_preserves_live_rows_and_respects_batch_limit():
             ))
             if not table_exists:
                 pytest.fail("Apply Alembic migration 0002 to the disposable database first")
-            await connection.execute(
-                text("DELETE FROM gateway_assertion_replay WHERE assertion_digest IN :digests")
-                .bindparams(bindparam("digests", expanding=True)),
-                {"digests": list(rows.values())},
-            )
+            await _reset_disposable_replay()
             await connection.execute(
                 text("""
                     INSERT INTO gateway_assertion_replay (assertion_digest, expires_at)
@@ -222,7 +241,7 @@ async def test_postgres_cleanup_preserves_live_rows_and_respects_batch_limit():
                  "e3": rows["expired-3"], "live": rows["still-live"]},
             )
 
-        async with factory() as session:
+        async with maintenance_factory() as session:
             deleted = await purge_expired_assertions(session, batch_size=2, grace_seconds=120)
         assert deleted == 2
 
@@ -235,7 +254,7 @@ async def test_postgres_cleanup_preserves_live_rows_and_respects_batch_limit():
         assert rows["still-live"] in remaining
         assert len(remaining.intersection({rows["expired-1"], rows["expired-2"], rows["expired-3"]})) == 1
 
-        async with factory() as session:
+        async with maintenance_factory() as session:
             deleted_second_batch = await purge_expired_assertions(session, batch_size=2, grace_seconds=120)
         assert deleted_second_batch == 1
         async with engine.connect() as connection:
@@ -247,12 +266,9 @@ async def test_postgres_cleanup_preserves_live_rows_and_respects_batch_limit():
     finally:
         if table_exists:
             async with engine.begin() as connection:
-                await connection.execute(
-                    text("DELETE FROM gateway_assertion_replay WHERE assertion_digest IN :digests")
-                    .bindparams(bindparam("digests", expanding=True)),
-                    {"digests": list(rows.values())},
-                )
+                await _reset_disposable_replay()
         await engine.dispose()
+        await maintenance.dispose()
 
 
 @pytest.mark.asyncio
@@ -265,6 +281,8 @@ async def test_two_postgres_cleanup_workers_race_with_fresh_gateway_authenticati
 
     engine = create_async_engine(database_url, pool_size=6, max_overflow=0)
     factory = async_sessionmaker(engine, expire_on_commit=False)
+    maintenance = _maintenance_engine()
+    maintenance_factory = async_sessionmaker(maintenance, expire_on_commit=False)
     prefix = "gamma-cleanup-auth-race"
     expired = [
         hashlib.sha256((prefix + "\x00expired-" + str(index)).encode()).hexdigest()
@@ -283,11 +301,7 @@ async def test_two_postgres_cleanup_workers_race_with_fresh_gateway_authenticati
             ))
             if not table_exists:
                 pytest.fail("Apply Alembic migration 0002 to the disposable database first")
-            await connection.execute(
-                text("DELETE FROM gateway_assertion_replay WHERE assertion_digest IN :digests")
-                .bindparams(bindparam("digests", expanding=True)),
-                {"digests": all_digests},
-            )
+            await _reset_disposable_replay()
             await connection.execute(
                 text("""
                     INSERT INTO gateway_assertion_replay (assertion_digest, expires_at)
@@ -301,7 +315,7 @@ async def test_two_postgres_cleanup_workers_race_with_fresh_gateway_authenticati
             )
 
         async def cleanup_worker():
-            async with factory() as session:
+            async with maintenance_factory() as session:
                 return await purge_expired_assertions(
                     session, batch_size=2, grace_seconds=120
                 )
@@ -339,9 +353,6 @@ async def test_two_postgres_cleanup_workers_race_with_fresh_gateway_authenticati
     finally:
         if table_exists:
             async with engine.begin() as connection:
-                await connection.execute(
-                    text("DELETE FROM gateway_assertion_replay WHERE assertion_digest IN :digests")
-                    .bindparams(bindparam("digests", expanding=True)),
-                    {"digests": all_digests},
-                )
+                await _reset_disposable_replay()
         await engine.dispose()
+        await maintenance.dispose()

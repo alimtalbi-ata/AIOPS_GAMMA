@@ -68,7 +68,7 @@ def database(monkeypatch):
             if (not name or not name.endswith("_tenant_test") or address is None
                     or not ip_address(str(address)).is_loopback or role is not False
                     or not 160000 <= int(version) < 170000
-                    or revision != "0006_worker_role_guard"):
+                    or revision != "0009_replay_bounded"):
                 pytest.fail("Connected PostgreSQL identity or migration is not approved")
             if await conn.scalar(text("select current_user")) != "gamma_app":
                 pytest.fail("Disposable runtime must use gamma_app")

@@ -91,21 +91,11 @@ async def purge_expired_assertions(
     try:
         result = await session.execute(
             text("""
-                WITH expired AS (
-                    SELECT assertion_digest
-                    FROM gateway_assertion_replay
-                    WHERE expires_at < NOW() - (:grace_seconds * INTERVAL '1 second')
-                    ORDER BY expires_at ASC
-                    FOR UPDATE SKIP LOCKED
-                    LIMIT :batch_size
-                )
-                DELETE FROM gateway_assertion_replay AS replay
-                USING expired
-                WHERE replay.assertion_digest = expired.assertion_digest
+                SELECT replay_maintenance.purge_expired(:batch_size, :grace_seconds)
             """),
             {"grace_seconds": grace_seconds, "batch_size": batch_size},
         )
-        deleted = result.rowcount
+        deleted = result.scalar_one_or_none()
         if type(deleted) is not int or deleted < 0 or deleted > batch_size:
             raise RuntimeError("invalid replay cleanup row count")
         await session.commit()

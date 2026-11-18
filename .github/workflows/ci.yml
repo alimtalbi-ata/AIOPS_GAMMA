@@ -223,3 +223,196 @@ jobs:
       - name: Remove disposable tenant database
         if: always()
         run: docker rm -f gamma-tenant-ci || true
+
+  rc01-replay-cleanup-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e '.[test]'
+      - name: Start isolated disposable PostgreSQL
+        run: |
+          docker run -d --name gamma-rc01-ci --network host \
+            -e POSTGRES_DB=gamma_rc01_test -e POSTGRES_USER=postgres \
+            -e POSTGRES_PASSWORD=ci-rc01-bootstrap-only \
+            postgres:16 -c listen_addresses=127.0.0.1
+          for attempt in $(seq 1 60); do
+            if docker exec gamma-rc01-ci pg_isready -h 127.0.0.1 -U postgres -d gamma_rc01_test; then
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
+      - name: Provision restricted application role and migrate full head
+        env:
+          DATABASE_URL: postgresql+asyncpg://postgres:ci-rc01-bootstrap-only@127.0.0.1:5432/gamma_rc01_test
+        run: |
+          docker exec gamma-rc01-ci psql -U postgres -d gamma_rc01_test -v ON_ERROR_STOP=1 -c "CREATE ROLE gamma_app LOGIN PASSWORD 'ci-rc01-app-only' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE"
+          alembic upgrade head
+          if alembic downgrade 0008_replay_maintenance > /tmp/replay-downgrade.log 2>&1; then exit 1; fi
+          grep -q 'Replay security downgrade refused' /tmp/replay-downgrade.log
+          alembic upgrade head
+          docker exec gamma-rc01-ci psql -U postgres -d gamma_rc01_test -v ON_ERROR_STOP=1 -c 'GRANT SELECT ON alembic_version TO gamma_app'
+          docker exec gamma-rc01-ci psql -U postgres -d gamma_rc01_test -v ON_ERROR_STOP=1 -c "CREATE ROLE gamma_replay_ci LOGIN PASSWORD 'ci-rc01-maint-only' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE; GRANT gamma_replay_maintenance TO gamma_replay_ci"
+      - name: Verify disposable target and run exact three cases
+        env:
+          GAMMA_TEST_DATABASE_URL: postgresql+asyncpg://gamma_app:ci-rc01-app-only@127.0.0.1:5432/gamma_rc01_test
+          GAMMA_REPLAY_MAINTENANCE_DATABASE_URL: postgresql+asyncpg://gamma_replay_ci:ci-rc01-maint-only@127.0.0.1:5432/gamma_rc01_test
+          GAMMA_REPLAY_FIXTURE_DATABASE_URL: postgresql+asyncpg://postgres:ci-rc01-bootstrap-only@127.0.0.1:5432/gamma_rc01_test
+          GAMMA_REPLAY_FIXTURE_ALLOW_RESET: I_UNDERSTAND_DISPOSABLE_DB
+        run: |
+          mkdir -p rc01-replay
+          python - <<'PY'
+          import asyncio, os
+          from sqlalchemy import text
+          from sqlalchemy.ext.asyncio import create_async_engine
+          async def check():
+              engine = create_async_engine(os.environ["GAMMA_TEST_DATABASE_URL"])
+              try:
+                  async with engine.connect() as c:
+                      for sql, expected in [
+                          ("SELECT current_database()", "gamma_rc01_test"),
+                          ("SELECT current_user", "gamma_app"),
+                          ("SELECT host(inet_server_addr())", "127.0.0.1"),
+                          ("SELECT version_num FROM alembic_version", "0009_replay_bounded"),
+                          ("SELECT rolsuper OR rolbypassrls OR rolcreatedb OR rolcreaterole FROM pg_roles WHERE rolname=current_user", False),
+                          ("SELECT count(*) FROM gateway_assertion_replay", 0),
+                          ("SELECT count(*) FROM pg_class WHERE relname IN ('integration_inbox','integration_outbox','telemetry_service_bindings','investigation_evidence') AND relrowsecurity AND relforcerowsecurity", 4),
+                      ]:
+                          actual = await c.scalar(text(sql))
+                          assert actual == expected, (sql, actual, expected)
+              finally:
+                  await engine.dispose()
+          asyncio.run(check())
+          PY
+          python - <<'PY'
+          import asyncio, os
+          from sqlalchemy import text
+          from sqlalchemy.exc import DBAPIError
+          from sqlalchemy.ext.asyncio import create_async_engine
+          async def check():
+              engine = create_async_engine(os.environ["GAMMA_TEST_DATABASE_URL"])
+              try:
+                  async with engine.begin() as c:
+                      assert not await c.scalar(text("SELECT has_table_privilege(current_user, 'public.gateway_assertion_replay', 'UPDATE')"))
+                      assert not await c.scalar(text("SELECT has_column_privilege(current_user, 'public.gateway_assertion_replay', 'assertion_digest', 'UPDATE')"))
+                      assert not await c.scalar(text("SELECT has_column_privilege(current_user, 'public.gateway_assertion_replay', 'expires_at', 'UPDATE')"))
+                      assert await c.scalar(text("SELECT count(*) FROM pg_trigger WHERE tgrelid='public.gateway_assertion_replay'::regclass AND tgname='replay_immutable_update' AND tgenabled='A'")) == 1
+                      assert await c.scalar(text("SELECT count(*) FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_class r ON r.oid=t.tgrelid WHERE r.oid='public.gateway_assertion_replay'::regclass AND t.tgname='replay_immutable_update' AND t.tgtype=18 AND t.tgenabled='A' AND p.oid='public.reject_replay_update()'::regprocedure AND NOT p.prosecdef AND NOT pg_has_role(current_user,p.proowner,'MEMBER') AND NOT pg_has_role(current_user,r.relowner,'MEMBER') AND p.proconfig=ARRAY['search_path=pg_catalog']")) == 1
+                      assert not await c.scalar(text("SELECT has_function_privilege(current_user,'public.reject_replay_update()','EXECUTE')"))
+                      body = await c.scalar(text("SELECT prosrc FROM pg_proc WHERE oid='public.reject_replay_update()'::regprocedure"))
+                      assert " ".join(body.split()) == "BEGIN RAISE EXCEPTION 'Replay reservations are immutable' USING ERRCODE = '42501'; END;"
+
+                      assert not await c.scalar(text("SELECT has_table_privilege(current_user,'public.gateway_assertion_replay','DELETE')"))
+                      for table in ("integration_inbox","integration_outbox","telemetry_service_bindings","investigation_evidence"):
+                          assert await c.scalar(text("SELECT count(*) FROM public."+table)) == 0
+
+                      await c.execute(text("INSERT INTO public.gateway_assertion_replay VALUES (repeat('a',64), now()+interval '10 minutes')"))
+                  for sql in [
+                      "UPDATE public.gateway_assertion_replay SET expires_at=now()",
+                      "UPDATE public.gateway_assertion_replay SET expires_at=expires_at WHERE false",
+                      "UPDATE public.gateway_assertion_replay SET assertion_digest=repeat('b',64)",
+                      "ALTER TABLE public.gateway_assertion_replay DISABLE TRIGGER replay_immutable_update",
+                      "TRUNCATE public.gateway_assertion_replay",
+                      "DELETE FROM public.gateway_assertion_replay",
+                  ]:
+                      try:
+                          async with engine.begin() as c:
+                              await c.execute(text(sql))
+                      except DBAPIError as exc:
+                          assert getattr(exc.orig, "sqlstate", None) == "42501", str(exc)
+                          print("DENIED:", sql)
+                      else:
+                          raise AssertionError("Unexpected success: "+sql)
+                  async with engine.begin() as c:
+                      assert await c.scalar(text("SELECT count(*) FROM public.gateway_assertion_replay WHERE assertion_digest=repeat('a',64) AND expires_at>now()")) == 1
+                      await c.execute(text("INSERT INTO public.gateway_assertion_replay VALUES (repeat('b',64), now()-interval '30 seconds')"))
+                  maintenance = create_async_engine(os.environ["GAMMA_REPLAY_MAINTENANCE_DATABASE_URL"])
+                  try:
+                      async with maintenance.begin() as c:
+                          assert await c.scalar(text("SELECT pg_has_role(current_user,'gamma_replay_maintenance','USAGE')"))
+                          assert not await c.scalar(text("SELECT has_any_column_privilege(current_user,'public.gateway_assertion_replay','SELECT,INSERT,UPDATE,REFERENCES') OR has_table_privilege(current_user,'public.gateway_assertion_replay','DELETE,TRUNCATE,TRIGGER')"))
+                          assert await c.scalar(text("SELECT has_function_privilege(current_user,'replay_maintenance.purge_expired(integer,integer)','EXECUTE')"))
+                          assert not await c.scalar(text("SELECT has_function_privilege('gamma_app','replay_maintenance.purge_expired(integer,integer)','EXECUTE') OR has_function_privilege('gamma_outbox_worker','replay_maintenance.purge_expired(integer,integer)','EXECUTE')"))
+                          assert await c.scalar(text("SELECT count(*) FROM pg_proc p JOIN pg_roles r ON r.oid=p.proowner WHERE p.oid='replay_maintenance.purge_expired(integer,integer)'::regprocedure AND p.prosecdef AND r.rolname='gamma_replay_executor' AND NOT r.rolcanlogin AND NOT r.rolsuper AND NOT r.rolbypassrls AND NOT pg_has_role(current_user,r.oid,'MEMBER') AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']")) == 1
+                          assert not await c.scalar(text("SELECT has_schema_privilege(current_user,'replay_maintenance','CREATE')"))
+                          body = await c.scalar(text("SELECT prosrc FROM pg_proc WHERE oid='replay_maintenance.purge_expired(integer,integer)'::regprocedure"))
+                          assert " ".join(body.split()) == "DECLARE deleted integer; BEGIN IF batch_size IS NULL OR grace_seconds IS NULL OR batch_size NOT BETWEEN 1 AND 10000 OR grace_seconds NOT BETWEEN 60 AND 86400 THEN RAISE EXCEPTION 'Invalid replay cleanup policy' USING ERRCODE = '22023'; END IF; WITH expired AS ( SELECT assertion_digest FROM public.gateway_assertion_replay WHERE expires_at < statement_timestamp() - (grace_seconds * interval '1 second') ORDER BY expires_at, assertion_digest FOR UPDATE SKIP LOCKED LIMIT batch_size ) DELETE FROM public.gateway_assertion_replay AS replay USING expired WHERE replay.assertion_digest = expired.assertion_digest; GET DIAGNOSTICS deleted = ROW_COUNT; RETURN deleted; END;"
+                          assert not await c.scalar(text("SELECT has_schema_privilege('gamma_replay_executor','replay_maintenance','CREATE') OR has_schema_privilege('gamma_replay_executor','public','CREATE')"))
+                          assert not await c.scalar(text("SELECT EXISTS (SELECT 1 FROM pg_auth_members WHERE roleid='gamma_replay_executor'::regrole OR member='gamma_replay_executor'::regrole)"))
+                          assert not await c.scalar(text("SELECT EXISTS (SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid='replay_maintenance.purge_expired(integer,integer)'::regprocedure AND a.grantee NOT IN (p.proowner,'gamma_replay_maintenance'::regrole) AND a.privilege_type='EXECUTE')"))
+                          for table in ("integration_inbox","integration_outbox","telemetry_service_bindings","investigation_evidence"):
+                              assert not await c.scalar(text("SELECT has_any_column_privilege('gamma_replay_executor',:t,'SELECT,INSERT,UPDATE,REFERENCES') OR has_table_privilege('gamma_replay_executor',:t,'DELETE,TRUNCATE,TRIGGER')"),{"t":"public."+table})
+                          assert await c.scalar(text("SELECT replay_maintenance.purge_expired(1,60)")) == 0
+
+                          assert not await c.scalar(text("SELECT pg_has_role(current_user,'gamma_app','MEMBER') OR pg_has_role(current_user,'gamma_outbox_worker','MEMBER')"))
+                          assert not await c.scalar(text("SELECT rolsuper OR rolbypassrls OR rolcreatedb OR rolcreaterole OR rolreplication FROM pg_roles WHERE rolname=current_user"))
+                          assert not await c.scalar(text("SELECT has_schema_privilege(current_user,'public','CREATE')"))
+                          assert not await c.scalar(text("SELECT has_table_privilege(current_user,'public.gateway_assertion_replay','INSERT,UPDATE,TRIGGER,TRUNCATE')"))
+                          assert not await c.scalar(text("SELECT has_column_privilege(current_user,'public.gateway_assertion_replay','assertion_digest','UPDATE')"))
+                          assert await c.scalar(text("SELECT count(*) FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_class r ON r.oid=t.tgrelid WHERE r.oid='public.gateway_assertion_replay'::regclass AND t.tgname='replay_expiry_delete' AND t.tgtype=11 AND t.tgenabled='A' AND t.tgqual IS NULL AND p.oid='public.reject_live_replay_delete()'::regprocedure AND NOT p.prosecdef AND NOT pg_has_role(current_user,p.proowner,'MEMBER') AND NOT pg_has_role(current_user,r.relowner,'MEMBER') AND p.proconfig=ARRAY['search_path=pg_catalog']")) == 1
+                          body = await c.scalar(text("SELECT prosrc FROM pg_proc WHERE oid='public.reject_live_replay_delete()'::regprocedure"))
+                          assert " ".join(body.split()) == "BEGIN IF OLD.expires_at >= statement_timestamp() - interval '60 seconds' THEN RAISE EXCEPTION 'Replay reservation still protected' USING ERRCODE = '42501'; END IF; RETURN OLD; END;"
+                          assert not await c.scalar(text("SELECT has_function_privilege(current_user,'public.reject_live_replay_delete()','EXECUTE')"))
+
+                          for table in ("integration_inbox","integration_outbox","telemetry_service_bindings","investigation_evidence"):
+                              for privilege in ("SELECT","INSERT","UPDATE","DELETE","TRUNCATE"):
+                                  assert not await c.scalar(text("SELECT has_table_privilege(current_user,:table,:privilege)"),{"table":"public."+table,"privilege":privilege})
+                      for sql in [
+                          "SELECT * FROM public.gateway_assertion_replay",
+                          "SELECT * FROM public.gateway_assertion_replay FOR UPDATE",
+                          "DELETE FROM public.gateway_assertion_replay WHERE assertion_digest=repeat('a',64)",
+                          "DELETE FROM public.gateway_assertion_replay WHERE assertion_digest=repeat('b',64)",
+                          "ALTER TABLE public.gateway_assertion_replay DISABLE TRIGGER replay_expiry_delete",
+                          "INSERT INTO public.gateway_assertion_replay VALUES (repeat('c',64), now())",
+                          "UPDATE public.gateway_assertion_replay SET expires_at=now()",
+                          "TRUNCATE public.gateway_assertion_replay",
+                      ]:
+                          try:
+                              async with maintenance.begin() as c:
+                                  await c.execute(text(sql))
+                          except DBAPIError as exc:
+                              assert getattr(exc.orig,"sqlstate",None) == "42501"
+                              print("MAINTENANCE DENIED:",sql)
+                          else:
+                              raise AssertionError("Unexpected maintenance success")
+                      for batch, grace in [(0,60),(10001,60),(1,59),(1,86401),(None,60),(1,None)]:
+                          try:
+                              async with maintenance.begin() as c:
+                                  await c.execute(text("SELECT replay_maintenance.purge_expired(:b,:g)"),{"b":batch,"g":grace})
+                          except DBAPIError as exc:
+                              assert getattr(exc.orig,"sqlstate",None) == "22023"
+                          else:
+                              raise AssertionError("Invalid SQL policy accepted")
+                          print("SQL POLICY DENIED:",batch,grace)
+                  finally:
+                      await maintenance.dispose()
+                  import runpy
+                  await runpy.run_path("tests/test_gateway_replay.py")["_reset_disposable_replay"]()
+              finally:
+                  await engine.dispose()
+          asyncio.run(check())
+          PY
+          python -m pytest -v -rs --junitxml=rc01-replay/pytest.xml \
+            tests/test_gateway_replay.py::test_replay_reservation_is_atomic_across_independent_postgres_sessions \
+            tests/test_gateway_replay.py::test_postgres_cleanup_preserves_live_rows_and_respects_batch_limit \
+            tests/test_gateway_replay.py::test_two_postgres_cleanup_workers_race_with_fresh_gateway_authentication
+          python - <<'PY'
+          import xml.etree.ElementTree as ET
+          cases = ET.parse("rc01-replay/pytest.xml").findall(".//testcase")
+          assert len(cases) == 3 and all(not any(c.find(t) is not None for t in ("skipped","failure","error")) for c in cases)
+          PY
+      - name: Upload exact replay qualification
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rc01-replay-evidence
+          path: rc01-replay/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Remove disposable database
+        if: always()
+        run: docker rm -f gamma-rc01-ci || true

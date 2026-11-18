@@ -85,8 +85,8 @@ def tenant_postgres(monkeypatch):
             if not 160000 <= int(version) < 170000:
                 pytest.fail("Disposable tenant test requires PostgreSQL 16")
             revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
-            if revision != "0006_worker_role_guard":
-                pytest.fail("Disposable tenant database must be at reviewed Alembic head 0006")
+            if revision != "0009_replay_bounded":
+                pytest.fail("Disposable tenant database must be at reviewed Alembic head 0009")
             if await connection.scalar(text("SELECT current_user")) != "gamma_app":
                 pytest.fail("Disposable runtime must use gamma_app")
             if await connection.scalar(text("SELECT rolbypassrls FROM pg_roles WHERE rolname = current_user")) is not False:
