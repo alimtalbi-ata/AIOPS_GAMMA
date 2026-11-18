@@ -31,11 +31,28 @@ def test_schema_and_relay_import_without_database_engine(monkeypatch):
     importlib.reload(app.db)
 
 
-def test_outbox_and_bootstrap_use_lazy_factory():
+def test_outbox_hold_and_bootstrap_lazy_factory():
     outbox = (ROOT / "app/outbox_relay.py").read_text(encoding="utf-8")
     bootstrap = (ROOT / "app/init_db.py").read_text(encoding="utf-8")
-    assert "from app.db import get_session_factory" in outbox
-    assert "get_session_factory()()" in outbox
+    tree = ast.parse(outbox)
+    # No engine/session imports while every relay entrypoint is on HOLD.
+    assert not any(
+        isinstance(node, ast.ImportFrom) and node.module == "app.db"
+        or isinstance(node, ast.Import) and any(alias.name == "app.db" for alias in node.names)
+        for node in ast.walk(tree)
+    )
+    for name in ("dispatch_once", "main", "_unqualified_relay_main"):
+        entry = next(node for node in tree.body
+                     if isinstance(node, ast.AsyncFunctionDef) and node.name == name)
+        assert len(entry.body) == 1
+        statement = entry.body[0]
+        assert isinstance(statement, ast.Raise)
+        assert isinstance(statement.exc, ast.Call)
+        assert isinstance(statement.exc.func, ast.Name)
+        assert statement.exc.func.id == "RuntimeError"
+        assert len(statement.exc.args) == 1
+        assert isinstance(statement.exc.args[0], ast.Constant)
+        assert "disabled" in statement.exc.args[0].value.lower()
     assert "from app.db import get_session_factory" in bootstrap
     assert "get_session_factory().kw[\"bind\"]" in bootstrap
     assert "from app.db import engine" not in bootstrap
