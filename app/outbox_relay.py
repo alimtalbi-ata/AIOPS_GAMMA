@@ -33,7 +33,7 @@ def valid_webhook_token(token: str) -> bool:
 
 
 def retry_delay(attempts: int) -> timedelta:
-    return timedelta(seconds=min(300, 2 ** min(attempts, 8)))
+    return timedelta(seconds=min(300, 2 ** min(attempts, 9)))
 
 
 def valid_receiver_configuration(endpoint: str, token: str, allowed_host: str) -> bool:
