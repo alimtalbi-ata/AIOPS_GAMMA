@@ -97,7 +97,7 @@ def test_endpoint_requires_auth(monkeypatch):
     assert response.status_code == 401
 
 
-def test_endpoint_cross_tenant_denied(monkeypatch):
+def test_endpoint_cross_tenant_denied(monkeypatch, replay_unit):
     monkeypatch.setattr(settings, "internal_api_key", "test-secret")
     tenant = uuid4()
     with TestClient(app) as client:
@@ -107,7 +107,7 @@ def test_endpoint_cross_tenant_denied(monkeypatch):
     assert response.status_code == 403
 
 
-def test_endpoint_returns_safe_projection(monkeypatch):
+def test_endpoint_returns_safe_projection(monkeypatch, replay_unit):
     monkeypatch.setattr(settings, "internal_api_key", "test-secret")
     tenant = uuid4()
     with TestClient(app) as client:
