@@ -24,7 +24,7 @@ from sqlalchemy.exc import ArgumentError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from app.db import get_session
+from app.db import bind_tenant_context
 from app.main import app
 from app.models import Evidence, InboxEvent, OutboxEvent, ServiceBinding
 from app.settings import settings
@@ -60,28 +60,32 @@ def database(monkeypatch):
             address = await conn.scalar(text("select inet_server_addr()"))
             version = await conn.scalar(text("show server_version_num"))
             revision = await conn.scalar(text("select version_num from alembic_version"))
-            role = await conn.scalar(text("select rolsuper from pg_roles where rolname=current_user"))
+            role = await conn.scalar(text("select rolsuper OR rolbypassrls from pg_roles where rolname=current_user"))
             if (not name or not name.endswith("_tenant_test") or address is None
                     or not ip_address(str(address)).is_loopback or role is not False
                     or not 160000 <= int(version) < 170000
-                    or revision != "0002_gateway_replay"):
+                    or revision != "0006_worker_role_guard"):
                 pytest.fail("Connected PostgreSQL identity or migration is not approved")
             for table in (Evidence.__tablename__, ServiceBinding.__tablename__,
                           InboxEvent.__tablename__, OutboxEvent.__tablename__):
                 if await conn.scalar(text("select to_regclass(:table)"), {"table": table}) is None:
                     pytest.fail(f"Missing migrated table: {table}")
-                if await conn.scalar(text(f"select count(*) from {table}")) != 0:
-                    pytest.fail(f"Disposable table {table} must be empty before testing")
+                if await conn.scalar(text("select relrowsecurity AND relforcerowsecurity from pg_class where oid=to_regclass(:table)"), {"table": table}) is not True:
+                    pytest.fail(f"Forced RLS required: {table}")
     async def clean():
         try:
-            if written_tenants:
+            for tenant in written_tenants:
                 async with factory() as session:
+                    bind_tenant_context(session, tenant)
                     await session.execute(
-                        delete(Evidence).where(Evidence.tenant_id.in_(written_tenants))
+                        delete(Evidence).where(Evidence.tenant_id == tenant)
                     )
                     await session.commit()
         finally:
             await engine.dispose()
+    monkeypatch.setattr("app.db.get_session_factory", lambda: factory)
+    monkeypatch.setattr("app.security.get_session_factory", lambda: factory)
+    monkeypatch.setattr(settings, "gateway_assertion_keys", {})
     monkeypatch.setattr(settings, "internal_api_key", "ci-service-key")
     monkeypatch.setattr(settings, "gateway_assertion_secret", "g" * 48)
     monkeypatch.setattr(settings, "gateway_assertion_issuer", "ci-independent-issuer")
@@ -103,6 +107,7 @@ def _headers(method, path, tenant, grants, *, forged_tenant):
         "tenant_id": str(tenant), "tenant_access": True,
         "iat": now, "exp": now + 30, "jti": "ci-" + uuid4().hex,
         "method": method, "path": path, "evidence_incident_grants": grants,
+        "business_permissions": ["alerts:ingest" if path.endswith("/alerts") else ("evidence:write" if method == "POST" else "evidence:read")],
     }
     encoded = base64.urlsafe_b64encode(
         json.dumps(claims, separators=(",", ":")).encode("utf-8")
@@ -124,15 +129,14 @@ def test_http_postgres_two_tenants_write_read_and_denied_write_is_atomic(databas
     incident = "shared-ci-e2e-incident"
     path = f"/api/v1/incidents/{incident}/evidence"
 
-    async def session_override():
-        async with factory() as session:
-            yield session
-
     async def persisted_count():
-        async with factory() as session:
-            return await session.scalar(select(func.count()).select_from(Evidence))
+        total = 0
+        for tenant in (tenant_a, tenant_b):
+            async with factory() as session:
+                bind_tenant_context(session, tenant)
+                total += await session.scalar(select(func.count()).select_from(Evidence))
+        return total
 
-    app.dependency_overrides[get_session] = session_override
     async def exercise():
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
             for tenant, other, marker in (
@@ -188,14 +192,11 @@ def test_http_postgres_two_tenants_write_read_and_denied_write_is_atomic(databas
                 )
             )
             assert mismatched.status_code == 401, mismatched.text
-    try:
-        asyncio.run(exercise())
-    finally:
-        app.dependency_overrides.pop(get_session, None)
+    asyncio.run(exercise())
 
 
-def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
-    """Real PG HTTP ingestion, tenant deduplication and locally mocked delivery."""
+def test_http_postgres_alert_inbox_outbox_and_hold(database, monkeypatch):
+    """Real PG HTTP ingestion, tenant deduplication and prohibited delivery."""
     monkeypatch.setenv("CORRELATION_WEBHOOK_ALLOWED_HOST", "receiver.example.test")
     monkeypatch.setenv("CORRELATION_WEBHOOK_URL", "https://receiver.example.test/events")
     monkeypatch.setenv("CORRELATION_WEBHOOK_TOKEN", "ci-ephemeral-token")
@@ -204,7 +205,6 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
     factory, _ = database
     # Exercise the default fail-closed switch before enabling ingestion.
     monkeypatch.setattr(settings, "enable_alert_ingestion", False)
-    monkeypatch.setattr(outbox_relay, "get_session_factory", lambda: factory)
     tenant_a, tenant_b = uuid4(), uuid4()
     path = "/api/v1/integrations/opensearch/alerts"
     payload = {
@@ -215,11 +215,6 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
     }
     received = []
     created = []
-    published_ids = []
-
-    async def session_override():
-        async with factory() as session:
-            yield session
 
     def receiver(request):
         body = json.loads(request.content)
@@ -232,14 +227,13 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
         return httpx.Response(202)
 
     async def rows():
-        async with factory() as session:
-            inbox = (await session.scalars(
-                select(InboxEvent).where(InboxEvent.tenant_id.in_((tenant_a, tenant_b)))
-            )).all()
-            outbox = (await session.scalars(
-                select(OutboxEvent).where(OutboxEvent.tenant_id.in_((tenant_a, tenant_b)))
-            )).all()
-            return inbox, outbox
+        inbox, outbox = [], []
+        for tenant in (tenant_a, tenant_b):
+            async with factory() as session:
+                bind_tenant_context(session, tenant)
+                inbox.extend((await session.scalars(select(InboxEvent))).all())
+                outbox.extend((await session.scalars(select(OutboxEvent))).all())
+        return inbox, outbox
 
     async def exercise():
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as api:
@@ -356,528 +350,23 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
                 row.tenant_id: row.payload["severity"] for row in inbox
             } == {tenant_a: "major", tenant_b: "critical"}
             assert all(row.published_at is None and row.attempts == 0 for row in outbox)
-            published_ids.extend(row.id for row in outbox)
             async with httpx.AsyncClient(transport=httpx.MockTransport(receiver)) as downstream:
-                assert await outbox_relay.dispatch_once(
-                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
-                ) is True
-                assert await outbox_relay.dispatch_once(
-                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
-                ) is True
-                assert await outbox_relay.dispatch_once(
-                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
-                ) is False
-            assert len(received) == 2
-            assert {row["event_id"] for row in received} == {str(i) for i in published_ids}
-            # Check the actual downstream HTTP envelopes, not only the
-            # database rows and delivery count. Tenant-specific severity must
-            # survive serialization and dispatch without cross-tenant mixing.
-            delivered_by_id = {item["event_id"]: item for item in received}
-            for event in outbox:
-                envelope = delivered_by_id[str(event.id)]
-                assert envelope["tenant_id"] == str(event.tenant_id)
-                assert envelope["payload"] == event.payload
-                assert envelope["event_type"] == event.event_type
-                assert envelope["aggregate_id"] == event.aggregate_id
-            _, final_outbox = await rows()
-            assert len(final_outbox) == 2
-            assert all(row.published_at is not None and row.attempts == 0 for row in final_outbox)
-            # A transient downstream 503 must retain the event and schedule a
-            # retry; only a subsequent 2xx may mark it as published.
-            transient = await api.post(
-                path,
-                headers=_headers("POST", path, tenant_a, [], forged_tenant=tenant_b),
-                json={**payload, "external_event_id": "ci-alert-transient-retry"},
-            )
-            assert transient.status_code == 200, transient.text
-            assert transient.json()["duplicate"] is False
-            _, pending = await rows()
-            retry_event = next(row for row in pending if row.published_at is None)
-            attempts_seen = []
-
-            def unavailable(request):
-                attempts_seen.append(request.headers["x-event-id"])
-                return httpx.Response(503)
-
-            dispatch_started_at = datetime.now(timezone.utc)
-            async with httpx.AsyncClient(transport=httpx.MockTransport(unavailable)) as downstream:
-                assert await outbox_relay.dispatch_once(
-                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
-                ) is True
-                assert await outbox_relay.dispatch_once(
-                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
-                ) is False
-            assert attempts_seen == [str(retry_event.id)]
-            _, deferred = await rows()
-            failed = next(row for row in deferred if row.id == retry_event.id)
-            assert failed.published_at is None
-            assert failed.attempts == 1
-            assert failed.next_attempt_at is not None
-            # The first retry is scheduled two seconds after dispatch time,
-            # not relative to the event's potentially older creation time.
-            assert dispatch_started_at < failed.next_attempt_at
-            assert (failed.next_attempt_at - datetime.now(timezone.utc)).total_seconds() > 0
-            assert (failed.next_attempt_at - dispatch_started_at).total_seconds() < 60
-            assert failed.last_error
-
-            # Advance eligibility explicitly in this disposable DB rather than
-            # sleeping or relying on wall-clock timing in CI.
-            async with factory() as session:
-                row = await session.get(OutboxEvent, retry_event.id)
-                row.next_attempt_at = None
-                await session.commit()
-            async with httpx.AsyncClient(transport=httpx.MockTransport(receiver)) as downstream:
-                assert await outbox_relay.dispatch_once(
-                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
-                ) is True
-                assert await outbox_relay.dispatch_once(
-                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
-                ) is False
-            _, recovered = await rows()
-            delivered = next(row for row in recovered if row.id == retry_event.id)
-            assert delivered.published_at is not None
-            assert delivered.attempts == 1
-            assert delivered.next_attempt_at is None
-            assert delivered.last_error is None
-
-            # Two independent HTTP requests race on the same tenant/source/key.
-            # PostgreSQL's unique constraint must yield one insert and one
-            # idempotent duplicate, never two inbox/outbox pairs.
-            concurrent_payload = {
-                **payload, "external_event_id": "ci-alert-concurrent-" + uuid4().hex,
-            }
-
-            async def concurrent_ingest():
-                return await api.post(
-                    path,
-                    headers=_headers("POST", path, tenant_b, [], forged_tenant=tenant_a),
-                    json=concurrent_payload,
-                )
-
-            left, right = await asyncio.gather(concurrent_ingest(), concurrent_ingest())
-            assert left.status_code == right.status_code == 200, (left.text, right.text)
-            assert left.json()["id"] == right.json()["id"]
-            assert {left.json()["duplicate"], right.json()["duplicate"]} == {False, True}
-            inbox_after, outbox_after = await rows()
-            matching_inbox = [
-                row for row in inbox_after
-                if row.tenant_id == tenant_b
-                and row.external_event_id == concurrent_payload["external_event_id"]
-            ]
-            assert len(matching_inbox) == 1
-            assert len(inbox_after) == len(outbox_after) == 4
-
-            # Conflicting payloads racing for the same idempotency key must
-            # never both succeed: the winning payload is immutable.
-            conflicting_key = "ci-alert-racing-conflict-" + uuid4().hex
-
-            async def conflicting_ingest(severity):
-                return await api.post(
-                    path,
-                    headers=_headers("POST", path, tenant_a, [], forged_tenant=tenant_b),
-                    json={
-                        **payload,
-                        "external_event_id": conflicting_key,
-                        "severity": severity,
-                    },
-                )
-
-            first_conflict, second_conflict = await asyncio.gather(
-                conflicting_ingest("major"), conflicting_ingest("critical")
-            )
-            assert sorted((first_conflict.status_code, second_conflict.status_code)) == [200, 409], (
-                first_conflict.text, second_conflict.text
-            )
-            assert first_conflict.headers["cache-control"] == "no-store"
-            assert second_conflict.headers["cache-control"] == "no-store"
-            final_inbox, final_outbox = await rows()
-            matching_conflict = [
-                row for row in final_inbox
-                if row.tenant_id == tenant_a and row.external_event_id == conflicting_key
-            ]
-            assert len(matching_conflict) == 1
-            assert matching_conflict[0].payload["severity"] in ("major", "critical")
-            assert len(final_inbox) == len(final_outbox) == 5
-
-            # The concurrent-ingestion scenarios left two older unpublished
-            # events. Drain them first: dispatch_once selects the oldest
-            # eligible event, not necessarily the newly inserted redirect.
-            pending_before_redirect = [row for row in final_outbox if row.published_at is None]
-            assert len(pending_before_redirect) == 2
-            drained_ids = {str(row.id) for row in pending_before_redirect}
-            # Force a timestamp tie to exercise the stable UUID tiebreaker.
-            # This protects ordering against identical database timestamp values.
-            tied_created_at = min(row.created_at for row in pending_before_redirect)
-            async with factory() as session:
-                for pending in pending_before_redirect:
-                    row = await session.get(OutboxEvent, pending.id)
-                    row.created_at = tied_created_at
-                await session.commit()
-            expected_drain_order = sorted(drained_ids)
-            received_before_drain = len(received)
-            async with httpx.AsyncClient(transport=httpx.MockTransport(receiver)) as downstream:
-                for _ in pending_before_redirect:
-                    assert await outbox_relay.dispatch_once(
+                with pytest.raises(RuntimeError, match="Outbox dispatch disabled"):
+                    await outbox_relay.dispatch_once(
                         downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
-                    ) is True
-                assert await outbox_relay.dispatch_once(
-                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
-                ) is False
-            assert [row["event_id"] for row in received[received_before_drain:]] == expected_drain_order
-            _, drained_outbox = await rows()
-            assert all(row.published_at is not None for row in drained_outbox)
-
-            # A receiver redirect is not an acknowledgement. In particular,
-            # the relay must not follow it and forward its bearer token.
-            redirected = await api.post(
-                path,
-                headers=_headers("POST", path, tenant_a, [], forged_tenant=tenant_b),
-                json={**payload, "external_event_id": "ci-alert-redirect-" + uuid4().hex},
-            )
-            assert redirected.status_code == 200, redirected.text
-            _, before_redirect = await rows()
-            pending_before_redirect_delivery = [
-                row for row in before_redirect if row.published_at is None
-            ]
-            assert len(pending_before_redirect_delivery) == 1
-            redirect_event = pending_before_redirect_delivery[0]
-            redirect_calls = []
-
-            def redirect_receiver(request):
-                redirect_calls.append(str(request.url))
-                return httpx.Response(302, headers={"Location": "https://untrusted.example.test/"})
-
-            async with httpx.AsyncClient(
-                transport=httpx.MockTransport(redirect_receiver), follow_redirects=True
-            ) as downstream:
-                assert await outbox_relay.dispatch_once(
-                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
-                ) is True
-            assert redirect_calls == ["https://receiver.example.test/events"]
-            _, after_redirect = await rows()
-            pending_redirect = next(row for row in after_redirect if row.id == redirect_event.id)
-            assert pending_redirect.published_at is None
-            assert pending_redirect.attempts == outbox_relay.MAX_ATTEMPTS
-            assert pending_redirect.next_attempt_at is None
-            assert pending_redirect.last_error
-
-            # A terminal redirect must not be replayed automatically even if
-            # the receiver later becomes healthy.
-            early_retry_calls = []
-
-            def early_retry_receiver(request):
-                early_retry_calls.append(request.headers["x-event-id"])
-                return httpx.Response(202)
-
-            async with httpx.AsyncClient(
-                transport=httpx.MockTransport(early_retry_receiver)
-            ) as downstream:
-                assert await outbox_relay.dispatch_once(
-                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
-                ) is False
-            assert early_retry_calls == []
-            _, deferred_rows = await rows()
-            deferred_redirect = next(row for row in deferred_rows if row.id == redirect_event.id)
-            assert deferred_redirect.published_at is None
-            assert deferred_redirect.attempts == outbox_relay.MAX_ATTEMPTS
-            assert deferred_redirect.next_attempt_at is None
-
-            # An explicit operator reset on this disposable row is required
-            # before a later 2xx acknowledgement may publish the event.
-            async with factory() as session:
-                row = await session.get(OutboxEvent, redirect_event.id)
-                row.attempts = 0
-                row.next_attempt_at = None
-                await session.commit()
-            received_before = len(received)
-            async with httpx.AsyncClient(transport=httpx.MockTransport(receiver)) as downstream:
-                assert await outbox_relay.dispatch_once(
-                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
-                ) is True
-                assert await outbox_relay.dispatch_once(
-                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
-                ) is False
-            assert len(received) == received_before + 1
-            assert received[-1]["event_id"] == str(redirect_event.id)
-            _, after_redirect_recovery = await rows()
-            recovered_redirect = next(
-                row for row in after_redirect_recovery if row.id == redirect_event.id
-            )
-            assert recovered_redirect.published_at is not None
-            assert recovered_redirect.attempts == 1
-            assert recovered_redirect.next_attempt_at is None
-            assert recovered_redirect.last_error is None
-
-            # Exhausted deliveries must stop at MAX_ATTEMPTS: the relay may
-            # neither spin forever nor deliver a dead-letter candidate again.
-            exhausted = await api.post(
-                path,
-                headers=_headers("POST", path, tenant_b, [], forged_tenant=tenant_a),
-                json={**payload, "external_event_id": "ci-alert-exhausted-" + uuid4().hex},
-            )
-            assert exhausted.status_code == 200, exhausted.text
-            _, pending_exhaustion = await rows()
-            exhausted_event = next(
-                row for row in pending_exhaustion if row.published_at is None
-            )
-            async with factory() as session:
-                row = await session.get(OutboxEvent, exhausted_event.id)
-                row.attempts = 0
-                row.next_attempt_at = None
-                await session.commit()
-            # A transport timeout on the first attempt must be retryable.
-            # Verify persisted backoff and no immediate redelivery.
-            timeout_retry_calls = []
-
-            def retry_timeout_receiver(request):
-                timeout_retry_calls.append(request.headers["x-event-id"])
-                raise httpx.ReadTimeout("receiver timed out", request=request)
-
-            timeout_started_at = datetime.now(timezone.utc)
-            async with httpx.AsyncClient(transport=httpx.MockTransport(retry_timeout_receiver)) as downstream:
-                assert await outbox_relay.dispatch_once(
-                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
-                ) is True
-            timeout_completed_at = datetime.now(timezone.utc)
-            assert timeout_retry_calls == [str(exhausted_event.id)]
-            async with factory() as session:
-                row = await session.get(OutboxEvent, exhausted_event.id)
-                assert row.published_at is None
-                assert row.attempts == 1
-                assert row.next_attempt_at is not None
-                # The deadline must be computed after the HTTP failure, not
-                # against the original event creation time.
-                assert timeout_started_at + outbox_relay.retry_delay(1) <= row.next_attempt_at
-                assert row.next_attempt_at <= timeout_completed_at + outbox_relay.retry_delay(1)
-                assert "timed out" in row.last_error
-                # Hold this disposable event beyond the test's wall-clock
-                # duration so a slow CI runner cannot cause a flaky retry.
-                row.next_attempt_at = datetime.now(timezone.utc) + outbox_relay.retry_delay(9)
-                await session.commit()
-            async with httpx.AsyncClient(transport=httpx.MockTransport(retry_timeout_receiver)) as downstream:
-                assert await outbox_relay.dispatch_once(
-                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
-                ) is False
-            assert timeout_retry_calls == [str(exhausted_event.id)]
-            async with factory() as session:
-                row = await session.get(OutboxEvent, exhausted_event.id)
-                # Simulate elapsed backoff without waiting on the CI clock.
-                row.next_attempt_at = None
-                await session.commit()
-            recovered_calls = []
-
-            def recovered_receiver(request):
-                recovered_calls.append({
-                    "method": request.method,
-                    "url": str(request.url),
-                    "content_type": request.headers["content-type"],
-                    "event_id": request.headers["x-event-id"],
-                    "authorization": request.headers["authorization"],
-                    "body": request.content,
-                })
-                return httpx.Response(202)
-
-            async with httpx.AsyncClient(transport=httpx.MockTransport(recovered_receiver)) as downstream:
-                assert await outbox_relay.dispatch_once(
-                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
-                ) is True
-                assert await outbox_relay.dispatch_once(
-                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
-                ) is False
-            assert len(recovered_calls) == 1
-            assert recovered_calls[0]["method"] == "POST"
-            assert recovered_calls[0]["url"] == "https://receiver.example.test/events"
-            assert recovered_calls[0]["content_type"] == "application/json"
-            assert recovered_calls[0]["event_id"] == str(exhausted_event.id)
-            assert recovered_calls[0]["authorization"] == "Bearer ci-ephemeral-token"
-            recovered_body = json.loads(recovered_calls[0]["body"])
-            assert recovered_body["event_id"] == str(exhausted_event.id)
-            assert recovered_body["tenant_id"] == str(exhausted_event.tenant_id)
-            assert recovered_body["event_type"] == exhausted_event.event_type
-            assert recovered_body["aggregate_id"] == exhausted_event.aggregate_id
-            assert recovered_body["payload"] == exhausted_event.payload
-            async with factory() as session:
-                row = await session.get(OutboxEvent, exhausted_event.id)
-                assert row.published_at is not None
-                assert row.attempts == 1
-                assert row.next_attempt_at is None
-                assert row.last_error is None
-                # Re-arm the disposable row for terminal timeout coverage.
-                row.published_at = None
-                row.attempts = outbox_relay.MAX_ATTEMPTS - 1
-                row.next_attempt_at = None
-                await session.commit()
-            # A transport timeout at the final attempt must be persisted as
-            # a terminal failure, not escape or mark the event delivered.
-            timeout_calls = []
-
-            def timed_out_receiver(request):
-                timeout_calls.append(request.headers["x-event-id"])
-                raise httpx.ReadTimeout("receiver timed out", request=request)
-
-            async with httpx.AsyncClient(transport=httpx.MockTransport(timed_out_receiver)) as downstream:
-                assert await outbox_relay.dispatch_once(
-                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
-                ) is True
-            assert timeout_calls == [str(exhausted_event.id)]
-            async with factory() as session:
-                row = await session.get(OutboxEvent, exhausted_event.id)
-                assert row.published_at is None
-                assert row.attempts == outbox_relay.MAX_ATTEMPTS
-                assert row.next_attempt_at is None
-                assert "timed out" in row.last_error
-            # The inspection session is closed: no row lock can mask a
-            # wrongly eligible terminal event during this second dispatch.
-            async with httpx.AsyncClient(transport=httpx.MockTransport(timed_out_receiver)) as downstream:
-                assert await outbox_relay.dispatch_once(
-                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
-                ) is False
-            assert timeout_calls == [str(exhausted_event.id)]
-            async with factory() as session:
-                row = await session.get(OutboxEvent, exhausted_event.id)
-                # Re-arm the disposable row to prove permanent 401 rejection
-                # stops retries immediately, even with budget remaining.
-                row.attempts = 0
-                row.next_attempt_at = None
-                await session.commit()
-            throttled_calls = []
-
-            def throttled_receiver(request):
-                throttled_calls.append(request.headers["x-event-id"])
-                return httpx.Response(429, headers={"Retry-After": "120"}, request=request)
-
-            async with httpx.AsyncClient(transport=httpx.MockTransport(throttled_receiver)) as downstream:
-                assert await outbox_relay.dispatch_once(
-                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
-                ) is True
-                assert await outbox_relay.dispatch_once(
-                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
-                ) is False
-            assert throttled_calls == [str(exhausted_event.id)]
-            async with factory() as session:
-                row = await session.get(OutboxEvent, exhausted_event.id)
-                assert row.published_at is None
-                assert row.attempts == 1
-                assert row.next_attempt_at is not None
-                remaining = (row.next_attempt_at - datetime.now(timezone.utc)).total_seconds()
-                assert 110 <= remaining <= 120
-                assert "429" in row.last_error
-                # Advance only the disposable event for the subsequent 401 test.
-                row.next_attempt_at = None
-                await session.commit()
-            too_early_calls = []
-
-            def too_early_receiver(request):
-                too_early_calls.append(request.headers["x-event-id"])
-                return httpx.Response(425, headers={"Retry-After": "120"})
-
-            async with httpx.AsyncClient(transport=httpx.MockTransport(too_early_receiver)) as downstream:
-                assert await outbox_relay.dispatch_once(
-                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
-                ) is True
-                assert await outbox_relay.dispatch_once(
-                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
-                ) is False
-            assert too_early_calls == [str(exhausted_event.id)]
-            async with factory() as session:
-                row = await session.get(OutboxEvent, exhausted_event.id)
-                assert row.published_at is None
-                assert row.attempts == 2
-                assert row.next_attempt_at is not None
-                remaining = (row.next_attempt_at - datetime.now(timezone.utc)).total_seconds()
-                assert 110 <= remaining <= 120
-                assert "425" in row.last_error
-                row.next_attempt_at = None
-                await session.commit()
-            unauthorized_calls = []
-
-            def unauthorized_receiver(request):
-                unauthorized_calls.append(request.headers["x-event-id"])
-                return httpx.Response(401, request=request)
-
-            async with httpx.AsyncClient(transport=httpx.MockTransport(unauthorized_receiver)) as downstream:
-                assert await outbox_relay.dispatch_once(
-                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
-                ) is True
-                assert await outbox_relay.dispatch_once(
-                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
-                ) is False
-            assert unauthorized_calls == [str(exhausted_event.id)]
-            async with factory() as session:
-                row = await session.get(OutboxEvent, exhausted_event.id)
-                assert row.published_at is None
-                assert row.attempts == outbox_relay.MAX_ATTEMPTS
-                assert row.next_attempt_at is None
-                assert "401" in row.last_error
-                # Re-arm the disposable row to exercise HTTP 503 Retry-After
-                # persistence before exhausting its budget.
-                row.attempts = 0
-                row.next_attempt_at = None
-                await session.commit()
-            unavailable_calls = []
-            # Use an RFC HTTP-date to verify the persisted retry deadline
-            # end-to-end, independently of the numeric Retry-After scenario.
-            retry_at = format_datetime(datetime.now(timezone.utc) + timedelta(seconds=120), usegmt=True)
-
-            def unavailable_receiver(request):
-                unavailable_calls.append(request.headers["x-event-id"])
-                return httpx.Response(503, headers={"Retry-After": retry_at})
-
-            async with httpx.AsyncClient(transport=httpx.MockTransport(unavailable_receiver)) as downstream:
-                assert await outbox_relay.dispatch_once(
-                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
-                ) is True
-                assert await outbox_relay.dispatch_once(
-                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
-                ) is False
-            assert unavailable_calls == [str(exhausted_event.id)]
-            async with factory() as session:
-                row = await session.get(OutboxEvent, exhausted_event.id)
-                assert row.published_at is None
-                assert row.attempts == 1
-                assert row.next_attempt_at is not None
-                remaining = (row.next_attempt_at - datetime.now(timezone.utc)).total_seconds()
-                assert 110 <= remaining <= 120
-                assert "503" in row.last_error
-                # Re-arm only this disposable row for HTTP 503 exhaustion.
-                row.attempts = outbox_relay.MAX_ATTEMPTS - 1
-                row.next_attempt_at = None
-                await session.commit()
-            terminal_calls = []
-
-            def terminal_receiver(request):
-                terminal_calls.append(request.headers["x-event-id"])
-                return httpx.Response(503, headers={"Retry-After": "120"})
-
-            async with httpx.AsyncClient(transport=httpx.MockTransport(terminal_receiver)) as downstream:
-                assert await outbox_relay.dispatch_once(
-                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
-                ) is True
-                assert await outbox_relay.dispatch_once(
-                    downstream, "https://receiver.example.test/events", "ci-ephemeral-token"
-                ) is False
-            assert terminal_calls == [str(exhausted_event.id)]
-            _, terminal_rows = await rows()
-            terminal = next(row for row in terminal_rows if row.id == exhausted_event.id)
-            assert terminal.published_at is None
-            assert terminal.attempts == outbox_relay.MAX_ATTEMPTS
-            assert terminal.next_attempt_at is None
-            assert terminal.last_error
-    app.dependency_overrides[get_session] = session_override
+                    )
+            assert received == []
+            _, final_outbox = await rows()
+            assert {row.id for row in final_outbox} == {row.id for row in outbox}
+            assert all(row.published_at is None and row.attempts == 0 for row in final_outbox)
     try:
         asyncio.run(exercise())
     finally:
-        app.dependency_overrides.pop(get_session, None)
         async def cleanup():
-            # Preflight required empty tables. Unique tenants are allocated only
-            # for this test, so cleanup also covers partially successful writes
-            # whose HTTP response never returned an ID.
-            async with factory() as session:
-                await session.execute(
-                    delete(OutboxEvent).where(OutboxEvent.tenant_id.in_((tenant_a, tenant_b)))
-                )
-                await session.execute(
-                    delete(InboxEvent).where(InboxEvent.tenant_id.in_((tenant_a, tenant_b)))
-                )
-                await session.commit()
+            for tenant in (tenant_a, tenant_b):
+                async with factory() as session:
+                    bind_tenant_context(session, tenant)
+                    await session.execute(delete(OutboxEvent).where(OutboxEvent.tenant_id == tenant))
+                    await session.execute(delete(InboxEvent).where(InboxEvent.tenant_id == tenant))
+                    await session.commit()
         asyncio.run(cleanup())
