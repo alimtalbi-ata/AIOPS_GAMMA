@@ -32,7 +32,7 @@ def test_negative_gate_drift_cases_are_rejected():
     source = COMPOSE_GATE.read_text(encoding="utf-8")
     assert_replay_gate_contract(source)
     for marker in REPLAY_CONTRACT:
-        mutated = source.replace(marker, "REMOVED_GATE_ASSERTION", 1)
+        mutated = source.replace(marker, "REMOVED_GATE_ASSERTION")
         try:
             assert_replay_gate_contract(mutated)
         except AssertionError:

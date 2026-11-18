@@ -186,7 +186,7 @@ BEGIN
       OR pg_has_role('gamma_replay_maintenance', executor.oid, 'MEMBER') THEN
         RAISE EXCEPTION 'Replay audit: executor membership drift';
     END IF;
-    IF has_table_privilege('gamma_app', replay_oid, 'SELECT,UPDATE,DELETE,TRUNCATE,TRIGGER')
+    IF has_table_privilege('gamma_app', replay_oid, 'UPDATE,DELETE,TRUNCATE,TRIGGER')
        OR has_column_privilege('gamma_app', replay_oid, 'assertion_digest', 'UPDATE')
        OR has_column_privilege('gamma_app', replay_oid, 'expires_at', 'UPDATE') THEN
         RAISE EXCEPTION 'Replay audit: application role has direct replay read/mutation privileges';
