@@ -2,7 +2,7 @@ from datetime import timedelta
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, HTTPException, Response
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -112,10 +112,7 @@ async def alerts(
         return {"id": str(event.id), "duplicate": False}
     except IntegrityError:
         await session.rollback()
-        await session.execute(
-            text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
-            {"tenant_id": str(tenant)},
-        )
+        # The session after_begin hook restores the verified tenant on retry.
         previous = await session.scalar(select(InboxEvent).where(
             InboxEvent.tenant_id == tenant,
             InboxEvent.source == req.source,
