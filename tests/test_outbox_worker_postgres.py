@@ -31,6 +31,10 @@ async def test_worker_identity_and_concurrent_claims():
                 VALUES ($1,$2,'test','synthetic','{}'::jsonb)
             """, row, tenant)
         async with a.transaction():
+            await a.fetchval("SELECT set_config('app.tenant_id','invalid-uuid',true)")
+            assert await a.fetchval("SELECT id FROM integration_outbox WHERE id=$1", ids[0]) == ids[0]
+            assert await a.fetchval("SELECT id FROM integration_outbox WHERE id=$1", ids[1]) is None
+        async with a.transaction():
             await a.fetchval("SELECT set_config('app.tenant_id',$1,true)", str(tenants[1]))
             assert await a.fetchval("SELECT id FROM integration_outbox WHERE id=$1", ids[1]) is None
             assert await a.fetchval("SELECT id FROM integration_outbox WHERE id=$1 FOR UPDATE SKIP LOCKED", ids[0]) == ids[0]
