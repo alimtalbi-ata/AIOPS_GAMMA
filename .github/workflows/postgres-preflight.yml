@@ -124,6 +124,17 @@ jobs:
           grep -q 'unexpected worker access outside outbox' /tmp/schema-audit.log
           sql "REVOKE SELECT ON public.integration_inbox FROM gamma_outbox_worker"
           audit
+          for policy in worker_access worker_identity; do
+            sql "ALTER POLICY $policy ON public.integration_outbox USING (true)"
+            if audit > /tmp/schema-audit.log 2>&1; then exit 1; fi
+            grep -q 'worker predicate drift' /tmp/schema-audit.log
+            sql "ALTER POLICY $policy ON public.integration_outbox USING (tenant_id = (SELECT tenant_id FROM public.outbox_worker_identity WHERE login_name = session_user))"
+          done
+          sql "ALTER POLICY worker_role_separation ON public.integration_outbox WITH CHECK (true)"
+          if audit > /tmp/schema-audit.log 2>&1; then exit 1; fi
+          grep -q 'worker predicate drift' /tmp/schema-audit.log
+          sql "ALTER POLICY worker_role_separation ON public.integration_outbox WITH CHECK (NOT (pg_has_role(session_user, 'gamma_app', 'MEMBER') AND pg_has_role(session_user, 'gamma_outbox_worker', 'MEMBER')))"
+          audit
       - name: Verify schema gate dependency contract
         run: |
           docker compose config --format json > /tmp/gamma-gate.json
