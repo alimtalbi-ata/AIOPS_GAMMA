@@ -57,11 +57,27 @@ jobs:
                   await conn.close()
           asyncio.run(main())
           PY
-      - name: Migration round trip
+      - name: Historical migration round trip and forward-only head
         run: |
+          alembic upgrade 0008_replay_maintenance
+          alembic downgrade 0002_gateway_replay
+          alembic upgrade 0008_replay_maintenance
           alembic upgrade head
           if alembic downgrade 0008_replay_maintenance > /tmp/replay-downgrade.log 2>&1; then exit 1; fi
           grep -q 'Replay security downgrade refused' /tmp/replay-downgrade.log
+          python - <<'PY'
+          import asyncio, os, asyncpg
+          async def check():
+              c = await asyncpg.connect(os.environ["GAMMA_WORKER_ADMIN_DSN"])
+              try:
+                  assert await c.fetchval("SELECT version_num FROM alembic_version") == "0009_replay_bounded"
+                  assert not await c.fetchval("SELECT has_table_privilege('gamma_app','public.gateway_assertion_replay','DELETE')")
+                  assert not await c.fetchval("SELECT has_table_privilege('gamma_replay_maintenance','public.gateway_assertion_replay','DELETE')")
+                  assert await c.fetchval("SELECT has_function_privilege('gamma_replay_maintenance','replay_maintenance.purge_expired(integer,integer)','EXECUTE')")
+              finally:
+                  await c.close()
+          asyncio.run(check())
+          PY
           alembic upgrade head
       - name: Provision disposable worker identities
         run: |
