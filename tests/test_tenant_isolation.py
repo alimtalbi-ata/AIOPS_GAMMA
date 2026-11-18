@@ -125,11 +125,14 @@ async def test_postgres_rls_denies_cross_tenant_reads_and_writes():
             assert not is_superuser and not bypasses_rls, (
                 "RLS integration tests must use the restricted non-superuser runtime role"
             )
-            policy_active = await connection.scalar(text(
-                "SELECT relrowsecurity AND relforcerowsecurity FROM pg_class "
-                "WHERE oid = to_regclass('public.telemetry_service_bindings')"
-            ))
-            assert policy_active is True
+            for table in ("integration_inbox", "integration_outbox",
+                          "telemetry_service_bindings", "investigation_evidence"):
+                policy_active = await connection.scalar(text(
+                    "SELECT relrowsecurity AND relforcerowsecurity "
+                    "AND NOT pg_has_role(current_user, relowner, 'MEMBER') "
+                    "FROM pg_class WHERE oid = to_regclass(:table)"
+                ), {"table": "public." + table})
+                assert policy_active is True, table
             await connection.execute(
                 text("SELECT set_config('app.tenant_id', :tenant, true)"),
                 {"tenant": str(tenant_a)},
