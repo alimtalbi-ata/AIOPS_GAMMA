@@ -192,6 +192,13 @@ def test_http_postgres_two_tenants_write_read_and_denied_write_is_atomic(databas
                 )
             )
             assert mismatched.status_code == 401, mismatched.text
+            replay_headers = _headers("GET", path, tenant_a, [incident], forged_tenant=tenant_b)
+            accepted = await client.get(path, headers=replay_headers)
+            replayed = await client.get(path, headers=replay_headers)
+            assert accepted.status_code == 200, accepted.text
+            assert replayed.status_code == 401, replayed.text
+            assert replayed.json()["detail"] == "Gateway assertion already used"
+            assert await persisted_count() == 2
     asyncio.run(exercise())
 
 
