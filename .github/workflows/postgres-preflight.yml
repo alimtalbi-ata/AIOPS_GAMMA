@@ -171,6 +171,7 @@ jobs:
             docker compose run --rm --no-deps -T \
               -e DATABASE_URL="$1" \
               -v /tmp/gamma-helm-gate.sh:/gate.sh:ro -v "$PWD/deploy/helm/gamma/preflight/01-app-role.sql:/preflight/01-app-role.sql:ro" \
+              -v "$PWD/deploy/helm/gamma/preflight/02-schema-security.sql:/preflight/02-schema-security.sql:ro" \
               --entrypoint /bin/sh postgres-schema-audit -ec 'sh -ec "$(cat /gate.sh)"'
           }
           app_url="postgresql+asyncpg://gamma_app:$APP_DB_PASSWORD@postgres:5432/aiops"

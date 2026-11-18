@@ -36,9 +36,9 @@ spec:
               export PGUSER=gamma_app
               unset DATABASE_URL
               export PGCONNECT_TIMEOUT=10
-              test "$(psql -X -At -v ON_ERROR_STOP=1 -c 'SELECT session_user')" = gamma_app
-              psql -X -v ON_ERROR_STOP=1 -f /preflight/01-app-role.sql
-              psql -X -v ON_ERROR_STOP=1 -f /preflight/02-schema-security.sql
+              test "$(psql -X -At -v ON_ERROR_STOP=1 --dbname="$PGDATABASE" -c 'SELECT session_user')" = gamma_app
+              psql -X -v ON_ERROR_STOP=1 --dbname="$PGDATABASE" -f /preflight/01-app-role.sql
+              psql -X -v ON_ERROR_STOP=1 --dbname="$PGDATABASE" -f /preflight/02-schema-security.sql
           volumeMounts:
             - {name: postgres-security-gate, mountPath: /preflight, readOnly: true}
           securityContext:
