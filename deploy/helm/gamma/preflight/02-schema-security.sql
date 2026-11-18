@@ -172,10 +172,11 @@ BEGIN
     END IF;
     SELECT * INTO executor FROM pg_catalog.pg_roles WHERE rolname = 'gamma_replay_executor';
     SELECT * INTO maintenance FROM pg_catalog.pg_roles WHERE rolname = 'gamma_replay_maintenance';
-    IF NOT FOUND OR executor.rolcanlogin OR executor.rolsuper OR executor.rolbypassrls
-       OR executor.rolcreatedb OR executor.rolcreaterole OR executor.rolreplication
+    IF executor.oid IS NULL OR maintenance.oid IS NULL
+       OR executor.rolcanlogin OR executor.rolsuper OR executor.rolbypassrls
+       OR executor.rolcreatedb OR executor.rolcreaterole OR executor.rolreplication OR executor.rolinherit
        OR maintenance.rolcanlogin OR maintenance.rolsuper OR maintenance.rolbypassrls
-       OR maintenance.rolcreatedb OR maintenance.rolcreaterole OR maintenance.rolreplication THEN
+       OR maintenance.rolcreatedb OR maintenance.rolcreaterole OR maintenance.rolreplication OR maintenance.rolinherit THEN
         RAISE EXCEPTION 'Replay audit: unsafe executor or maintenance role attributes';
     END IF;
     IF EXISTS (
