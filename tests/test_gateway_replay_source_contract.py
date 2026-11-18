@@ -71,7 +71,8 @@ def test_consume_commits_before_success_and_rolls_back_failure_paths():
     assert "rollback" in calls
     source = ast.get_source_segment(SOURCE.read_text(encoding="utf-8"), function)
     assert source.index("await session.commit()") < source.index("return True")
-    assert "if not reserved:" in source
+    assert "if reserved:" in source
+    assert source.rindex("await session.rollback()") < source.index("return False")
     assert "await session.rollback()" in source
 
 
@@ -87,9 +88,9 @@ def test_guard_rejects_removed_atomic_conflict_clause(monkeypatch, tmp_path):
 
 def test_guard_rejects_success_before_commit(monkeypatch, tmp_path):
     original = SOURCE.read_text(encoding="utf-8")
-    assert "await session.commit()\n        return True" in original
+    assert "await session.commit()\n            return True" in original
     altered = tmp_path / "gateway_replay.py"
-    altered.write_text(original.replace("await session.commit()\n        return True", "return True\n        await session.commit()"), encoding="utf-8")
+    altered.write_text(original.replace("await session.commit()\n            return True", "return True\n            await session.commit()"), encoding="utf-8")
     monkeypatch.setattr(sys.modules[__name__], "SOURCE", altered)
     with pytest.raises(AssertionError):
         test_consume_commits_before_success_and_rolls_back_failure_paths()
