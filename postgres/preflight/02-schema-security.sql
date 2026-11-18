@@ -75,6 +75,33 @@ BEGIN
             RAISE EXCEPTION 'Schema audit: worker policy structure drift';
         END IF;
     END LOOP;
+    SELECT * INTO obj FROM pg_catalog.pg_class
+    WHERE oid = to_regclass('public.outbox_worker_identity');
+    IF NOT FOUND OR obj.relkind <> 'r' OR NOT obj.relrowsecurity THEN
+        RAISE EXCEPTION 'Schema audit: worker identity table missing or RLS disabled';
+    END IF;
+    IF pg_has_role('gamma_app', obj.relowner, 'MEMBER') OR
+       pg_has_role('gamma_outbox_worker', obj.relowner, 'MEMBER') THEN
+        RAISE EXCEPTION 'Schema audit: runtime role reaches worker identity owner';
+    END IF;
+    IF (SELECT count(*) FROM pg_catalog.pg_policy WHERE polrelid = obj.oid) <> 1
+       OR NOT EXISTS (
+           SELECT 1 FROM pg_catalog.pg_policy p
+           WHERE p.polrelid = obj.oid AND p.polname = 'worker_self'
+             AND p.polcmd = 'r' AND p.polpermissive
+             AND p.polroles = ARRAY[worker.oid]
+             AND pg_get_expr(p.polqual, p.polrelid) = '(login_name = SESSION_USER)'
+             AND p.polwithcheck IS NULL
+       ) THEN
+        RAISE EXCEPTION 'Schema audit: worker identity policy drift';
+    END IF;
+    IF has_any_column_privilege('gamma_app', obj.oid, 'SELECT,INSERT,UPDATE,REFERENCES')
+       OR has_table_privilege('gamma_app', obj.oid, 'DELETE,TRUNCATE,TRIGGER')
+       OR has_any_column_privilege('gamma_outbox_worker', obj.oid, 'INSERT,UPDATE,REFERENCES')
+       OR has_table_privilege('gamma_outbox_worker', obj.oid, 'DELETE,TRUNCATE,TRIGGER')
+       OR NOT has_table_privilege('gamma_outbox_worker', obj.oid, 'SELECT') THEN
+        RAISE EXCEPTION 'Schema audit: unsafe worker identity privileges';
+    END IF;
     IF has_schema_privilege('gamma_app', 'public', 'CREATE') OR
        has_schema_privilege('gamma_outbox_worker', 'public', 'CREATE') THEN
         RAISE EXCEPTION 'Schema audit: runtime role can create public objects';
