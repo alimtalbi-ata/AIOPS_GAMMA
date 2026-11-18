@@ -124,7 +124,7 @@ def test_kpi_route_requires_internal_auth(monkeypatch):
     assert response.status_code == 401
 
 
-def test_kpi_route_blocks_cross_tenant(monkeypatch):
+def test_kpi_route_blocks_cross_tenant(monkeypatch, replay_unit):
     monkeypatch.setattr(settings, "internal_api_key", "test-secret")
     tenant = uuid4()
     with TestClient(app) as client:
@@ -134,7 +134,7 @@ def test_kpi_route_blocks_cross_tenant(monkeypatch):
     assert response.status_code == 422
 
 
-def test_kpi_route_success(monkeypatch):
+def test_kpi_route_success(monkeypatch, replay_unit):
     monkeypatch.setattr(settings, "internal_api_key", "test-secret")
     tenant = uuid4()
     with TestClient(app) as client:
