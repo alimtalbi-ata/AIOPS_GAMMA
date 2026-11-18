@@ -10,6 +10,7 @@ import json
 import time
 from uuid import uuid4
 
+from unittest.mock import MagicMock, AsyncMock
 import pytest
 from fastapi.testclient import TestClient
 
@@ -19,6 +20,19 @@ from app.settings import settings
 
 @pytest.fixture(autouse=True)
 def gateway_settings(monkeypatch):
+    context = MagicMock()
+    context.__aenter__ = AsyncMock(return_value=object())
+    context.__aexit__ = AsyncMock(return_value=False)
+    seen = set()
+    async def reserve(session, *, issuer, assertion_id, expires_at):
+        key = (issuer, assertion_id)
+        if key in seen:
+            return False
+        seen.add(key)
+        return True
+    monkeypatch.setattr("app.security.get_session_factory", lambda: lambda: context)
+    monkeypatch.setattr("app.security.consume_assertion_before_access", reserve)
+    monkeypatch.setattr(settings, "gateway_assertion_keys", {})
     monkeypatch.setattr(settings, "internal_api_key", "service-secret")
     monkeypatch.setattr(settings, "gateway_assertion_secret", "s" * 48)
     monkeypatch.setattr(settings, "gateway_assertion_issuer", "trusted-gateway")
@@ -37,7 +51,7 @@ def signed_headers(path, *, tenant_id=None, tenant_access=True):
         "sub": "user:123", "actor_type": "user",
         "tenant_id": str(tenant_id or uuid4()),
         "tenant_access": tenant_access, "iat": now, "exp": now + 30,
-        "jti": "canonical-probe-12345", "method": "GET", "path": path,
+        "jti": uuid4().hex, "method": "GET", "path": path,
     }
     encoded = base64.urlsafe_b64encode(
         json.dumps(claims, separators=(",", ":")).encode()
