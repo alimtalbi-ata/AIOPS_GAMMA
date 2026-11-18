@@ -24,7 +24,9 @@ services:
       retries: 12
       start_period: 5s
     depends_on:
-      postgres-preflight:
+      migrate:
+        condition: service_completed_successfully
+  postgres-preflight:
     image: postgres:16-alpine
     restart: "no"
     environment:
@@ -35,8 +37,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-  migrate:
-        condition: service_completed_successfully
   migrate:
     build: .
     command: ["alembic", "upgrade", "head"]
