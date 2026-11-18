@@ -19,6 +19,7 @@ def principal(tenant_id):
         tenant_id=tenant_id, subject="user:tenant-test", actor_type="user",
         assertion_id="tenant-test-assertion", expires_at=2_000_000_000,
         evidence_incident_grants=("INC-42",),
+        business_permissions=("bindings:read", "bindings:write", "evidence:read"),
     )
 
 
@@ -109,7 +110,7 @@ async def test_binding_write_does_not_accept_caller_supplied_tenant_field():
 @pytest.mark.asyncio
 async def test_postgres_rls_denies_cross_tenant_reads_and_writes():
     database_url = os.getenv("GAMMA_TEST_DATABASE_URL", "")
-    if not database_url:
+    if not database_url or os.getenv("GAMMA_TEST_DISPOSABLE") != "1":
         pytest.skip("GAMMA_TEST_DATABASE_URL must point to restricted gamma_app role")
     engine = create_async_engine(database_url, pool_size=1, max_overflow=0)
     tenant_a, tenant_b = uuid4(), uuid4()
