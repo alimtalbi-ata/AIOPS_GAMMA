@@ -288,13 +288,49 @@ jobs:
                           ("SELECT current_database()", "gamma_rc01_test"),
                           ("SELECT current_user", "gamma_app"),
                           ("SELECT host(inet_server_addr())", "127.0.0.1"),
-                          ("SELECT version_num FROM alembic_version", "0006_worker_role_guard"),
+                          ("SELECT version_num FROM alembic_version", "0007_replay_lock_only"),
                           ("SELECT rolsuper OR rolbypassrls OR rolcreatedb OR rolcreaterole FROM pg_roles WHERE rolname=current_user", False),
                           ("SELECT count(*) FROM gateway_assertion_replay", 0),
                           ("SELECT count(*) FROM pg_class WHERE relname IN ('integration_inbox','integration_outbox','telemetry_service_bindings','investigation_evidence') AND relrowsecurity AND relforcerowsecurity", 4),
                       ]:
                           actual = await c.scalar(text(sql))
                           assert actual == expected, (sql, actual, expected)
+              finally:
+                  await engine.dispose()
+          asyncio.run(check())
+          PY
+          python - <<'PY'
+          import asyncio, os
+          from sqlalchemy import text
+          from sqlalchemy.exc import DBAPIError
+          from sqlalchemy.ext.asyncio import create_async_engine
+          async def check():
+              engine = create_async_engine(os.environ["GAMMA_TEST_DATABASE_URL"])
+              try:
+                  async with engine.begin() as c:
+                      assert not await c.scalar(text("SELECT has_table_privilege(current_user, 'public.gateway_assertion_replay', 'UPDATE')"))
+                      assert not await c.scalar(text("SELECT has_column_privilege(current_user, 'public.gateway_assertion_replay', 'assertion_digest', 'UPDATE')"))
+                      assert await c.scalar(text("SELECT has_column_privilege(current_user, 'public.gateway_assertion_replay', 'expires_at', 'UPDATE')"))
+                      assert await c.scalar(text("SELECT count(*) FROM pg_trigger WHERE tgrelid='public.gateway_assertion_replay'::regclass AND tgname='replay_immutable_update' AND tgenabled='A'")) == 1
+                      await c.execute(text("INSERT INTO public.gateway_assertion_replay VALUES (repeat('a',64), now()+interval '10 minutes')"))
+                  for sql in [
+                      "UPDATE public.gateway_assertion_replay SET expires_at=now()",
+                      "UPDATE public.gateway_assertion_replay SET expires_at=expires_at WHERE false",
+                      "UPDATE public.gateway_assertion_replay SET assertion_digest=repeat('b',64)",
+                      "ALTER TABLE public.gateway_assertion_replay DISABLE TRIGGER replay_immutable_update",
+                      "TRUNCATE public.gateway_assertion_replay",
+                  ]:
+                      try:
+                          async with engine.begin() as c:
+                              await c.execute(text(sql))
+                      except DBAPIError as exc:
+                          assert getattr(exc.orig, "sqlstate", None) == "42501", str(exc)
+                          print("DENIED:", sql)
+                      else:
+                          raise AssertionError("Unexpected success: "+sql)
+                  async with engine.begin() as c:
+                      assert await c.scalar(text("SELECT count(*) FROM public.gateway_assertion_replay WHERE assertion_digest=repeat('a',64) AND expires_at>now()")) == 1
+                      await c.execute(text("DELETE FROM public.gateway_assertion_replay WHERE assertion_digest=repeat('a',64)"))
               finally:
                   await engine.dispose()
           asyncio.run(check())
