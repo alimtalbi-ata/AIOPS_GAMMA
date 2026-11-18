@@ -2,6 +2,7 @@ name: Deployment contract (static + runtime smoke)
 on:
   push:
   pull_request:
+  workflow_dispatch:
 env:
   APP_DB_PASSWORD: ci-disposable-app-password
 jobs:
@@ -69,9 +70,16 @@ jobs:
           home = os.environ["GAMMA_HOME"]
           for name in ("postgres", "opensearch"):
               mounts = services[name]["volumes"]
-              assert len(mounts) == 1, (name, mounts)
-              assert mounts[0]["type"] == "bind", (name, mounts)
-              assert mounts[0]["source"].startswith(home + "/data/"), (name, mounts)
+              data = [m for m in mounts if m["target"] == {"postgres": "/var/lib/postgresql/data", "opensearch": "/usr/share/opensearch/data"}[name]]
+              assert len(data) == 1 and data[0]["type"] == "bind", (name, mounts)
+              assert data[0]["source"] == home + "/data/" + name, (name, data)
+              extra = [m for m in mounts if m not in data]
+              if name == "postgres":
+                  assert len(extra) == 1, extra
+                  assert extra[0]["target"] == "/docker-entrypoint-initdb.d/01-app-role.sh", extra
+                  assert extra[0]["type"] == "bind" and extra[0]["read_only"] is True, extra
+              else:
+                  assert not extra, extra
           for name in ("api", "outbox-relay"):
               assert services[name]["user"] == "10001:10001"
           assert services["frontend"]["security_opt"] == ["no-new-privileges:true"]
@@ -163,6 +171,15 @@ jobs:
           done
           echo "API did not respond to health probe" >&2
           exit 1
+      - name: Verify migrated database and restricted application login
+        run: |
+          set -eu
+          docker compose -f docker-compose.yml -f deploy/compose/compose.yaml exec -T -e PGPASSWORD="$APP_DB_PASSWORD" postgres psql -h 127.0.0.1 -U gamma_app -d aiops -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT 1 / CASE WHEN current_user = 'gamma_app' AND session_user = 'gamma_app' THEN 1 ELSE 0 END;
+          SELECT 1 / CASE WHEN NOT (rolsuper OR rolbypassrls OR rolcreatedb OR rolcreaterole OR rolreplication) THEN 1 ELSE 0 END FROM pg_roles WHERE rolname = current_user;
+          SELECT 1 / CASE WHEN count(*) = 4 AND bool_and(relrowsecurity AND relforcerowsecurity AND NOT pg_has_role(current_user, relowner, 'MEMBER')) THEN 1 ELSE 0 END
+          FROM pg_class WHERE oid IN ('public.integration_inbox'::regclass, 'public.integration_outbox'::regclass, 'public.telemetry_service_bindings'::regclass, 'public.investigation_evidence'::regclass);
+          SQL
       - name: Inspect runtime security configuration
         run: |
           set -eu
