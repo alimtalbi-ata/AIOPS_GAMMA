@@ -270,6 +270,8 @@ jobs:
         run: |
           docker exec gamma-rc01-ci psql -U postgres -d gamma_rc01_test -v ON_ERROR_STOP=1 -c "CREATE ROLE gamma_app LOGIN PASSWORD 'ci-rc01-app-only' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE"
           alembic upgrade head
+          alembic downgrade 0006_worker_role_guard
+          alembic upgrade head
           docker exec gamma-rc01-ci psql -U postgres -d gamma_rc01_test -v ON_ERROR_STOP=1 -c 'GRANT SELECT ON alembic_version TO gamma_app'
       - name: Verify disposable target and run exact three cases
         env:
@@ -312,6 +314,12 @@ jobs:
                       assert not await c.scalar(text("SELECT has_column_privilege(current_user, 'public.gateway_assertion_replay', 'assertion_digest', 'UPDATE')"))
                       assert await c.scalar(text("SELECT has_column_privilege(current_user, 'public.gateway_assertion_replay', 'expires_at', 'UPDATE')"))
                       assert await c.scalar(text("SELECT count(*) FROM pg_trigger WHERE tgrelid='public.gateway_assertion_replay'::regclass AND tgname='replay_immutable_update' AND tgenabled='A'")) == 1
+                      assert await c.scalar(text("SELECT count(*) FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_class r ON r.oid=t.tgrelid WHERE r.oid='public.gateway_assertion_replay'::regclass AND t.tgname='replay_immutable_update' AND t.tgtype=18 AND t.tgenabled='A' AND p.oid='public.reject_replay_update()'::regprocedure AND NOT p.prosecdef AND NOT pg_has_role(current_user,p.proowner,'MEMBER') AND NOT pg_has_role(current_user,r.relowner,'MEMBER') AND p.proconfig=ARRAY['search_path=pg_catalog']")) == 1
+                      assert not await c.scalar(text("SELECT has_function_privilege(current_user,'public.reject_replay_update()','EXECUTE')"))
+                      assert await c.scalar(text("SELECT has_table_privilege(current_user,'public.gateway_assertion_replay','DELETE')"))
+                      for table in ("integration_inbox","integration_outbox","telemetry_service_bindings","investigation_evidence"):
+                          assert await c.scalar(text("SELECT count(*) FROM public."+table)) == 0
+
                       await c.execute(text("INSERT INTO public.gateway_assertion_replay VALUES (repeat('a',64), now()+interval '10 minutes')"))
                   for sql in [
                       "UPDATE public.gateway_assertion_replay SET expires_at=now()",
