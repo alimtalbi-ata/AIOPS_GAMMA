@@ -88,8 +88,9 @@ def test_disposable_postgres_ci_roundtrip_precedes_concurrency_tests():
         "SELECT to_regclass('gateway_assertion_replay')",
         "run: python -m pytest -q tests/test_gateway_replay_postgres.py",
     )
-    positions = [job.index(marker) for marker in required]
-    assert positions == sorted(positions)
+    cursor = 0
+    for marker in required:
+        cursor = job.index(marker, cursor) + len(marker)
     assert '== "gamma_replay_test"' in job
     assert '== "0002_gateway_replay"' in job
 
