@@ -111,6 +111,19 @@ jobs:
           grep -q 'unsafe worker identity privileges' /tmp/schema-audit.log
           sql "REVOKE SELECT ON public.outbox_worker_identity FROM gamma_app"
           audit
+          sql "GRANT UPDATE (tenant_id) ON public.integration_outbox TO gamma_outbox_worker"
+          if audit > /tmp/schema-audit.log 2>&1; then exit 1; fi
+          grep -q 'unsafe outbox worker column privileges' /tmp/schema-audit.log
+          sql "REVOKE UPDATE (tenant_id) ON public.integration_outbox FROM gamma_outbox_worker"
+          sql "REVOKE UPDATE (attempts) ON public.integration_outbox FROM gamma_outbox_worker"
+          if audit > /tmp/schema-audit.log 2>&1; then exit 1; fi
+          grep -q 'unsafe outbox worker column privileges' /tmp/schema-audit.log
+          sql "GRANT UPDATE (attempts) ON public.integration_outbox TO gamma_outbox_worker"
+          sql "GRANT SELECT ON public.integration_inbox TO gamma_outbox_worker"
+          if audit > /tmp/schema-audit.log 2>&1; then exit 1; fi
+          grep -q 'unexpected worker access outside outbox' /tmp/schema-audit.log
+          sql "REVOKE SELECT ON public.integration_inbox FROM gamma_outbox_worker"
+          audit
       - name: Verify schema gate dependency contract
         run: |
           docker compose config --format json > /tmp/gamma-gate.json
