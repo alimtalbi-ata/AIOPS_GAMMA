@@ -248,8 +248,7 @@ def test_http_correlation_group_ids_are_tenant_scoped(monkeypatch):
     with TestClient(app) as client:
         first = client.post(
             "/api/v1/incidents/correlation/preview", json=body,
-            headers={"X-Tenant-ID": str(TENANT),
-                     "X-Internal-API-Key": "test-secret-not-production"},
+            headers=signed_headers(monkeypatch, "/api/v1/incidents/correlation/preview", TENANT),
         )
         second = client.post(
             "/api/v1/incidents/correlation/preview", json=body,
