@@ -7,6 +7,7 @@ from uuid import uuid4
 
 import pytest
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from app.gateway_replay import consume_assertion_before_access
 from app.security import verify_gateway_assertion
@@ -53,10 +54,12 @@ async def test_concurrent_cross_key_replay(monkeypatch):
         assert sorted(results) == [False, True]
         assert not await consume(principals[0])
         assert not await consume(principals[1])
-    finally:
-        try:
+        # The disposable database is destroyed by CI. Never delete live replay
+        # reservations using runtime credentials, even for fixture teardown.
+        with pytest.raises(DBAPIError) as denied:
             async with engine.begin() as conn:
-                await conn.execute(text("DELETE FROM gateway_assertion_replay WHERE assertion_digest=:digest"),
-                                   {"digest": digest})
-        finally:
-            await engine.dispose()
+                await conn.execute(text("DELETE FROM gateway_assertion_replay WHERE assertion_digest=:digest"), {"digest": digest})
+        assert getattr(denied.value.orig, "sqlstate", None) == "42501"
+        assert not await consume(principals[0])
+    finally:
+        await engine.dispose()
