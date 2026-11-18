@@ -57,7 +57,7 @@ jobs:
           set -eu
           docker compose run --rm -T migrate
           audit() {
-            docker compose exec -T postgres psql -X -U aiops -d aiops -v ON_ERROR_STOP=1 < postgres/preflight/02-schema-security.sql
+            docker compose run --rm --no-deps -T postgres-schema-audit
           }
           sql() {
             docker compose exec -T postgres psql -X -U aiops -d aiops -v ON_ERROR_STOP=1 -c "$1"
@@ -81,6 +81,16 @@ jobs:
           grep -q 'tenant policy drift' /tmp/schema-audit.log
           sql "ALTER POLICY tenant_isolation ON public.integration_inbox USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)"
           audit
+      - name: Verify schema gate dependency contract
+        run: |
+          docker compose config --format json > /tmp/gamma-gate.json
+          python3 - <<'PY'
+          import json
+          with open("/tmp/gamma-gate.json") as f:
+              services = json.load(f)["services"]
+          assert services["postgres-schema-audit"]["depends_on"]["migrate"]["condition"] == "service_completed_successfully"
+          assert services["api"]["depends_on"]["postgres-schema-audit"]["condition"] == "service_completed_successfully"
+          PY
       - name: Verify Compose Gateway registry propagation
         run: |
           set -eu
