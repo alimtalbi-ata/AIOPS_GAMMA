@@ -21,8 +21,40 @@ BEGIN
            has_table_privilege('gamma_outbox_worker', obj.oid, 'TRUNCATE') THEN
             RAISE EXCEPTION 'Schema audit: unsafe table privilege: %', t;
         END IF;
-        IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_policy WHERE polrelid = obj.oid AND polname = 'tenant_isolation') THEN
-            RAISE EXCEPTION 'Schema audit: missing tenant policy: %', t;
+        -- PG16 policy contract: pin role scope, command, permissiveness,
+        -- and the deparsed predicate. No additional policy may widen access.
+        IF NOT EXISTS (
+            SELECT 1 FROM pg_catalog.pg_policy p
+            WHERE p.polrelid = obj.oid AND p.polname = 'tenant_isolation'
+              AND p.polcmd = '*' AND p.polpermissive
+              AND p.polroles = CASE WHEN t = 'integration_outbox'
+                    THEN ARRAY['gamma_app'::regrole::oid] ELSE ARRAY[0::oid] END
+              AND pg_get_expr(p.polqual, p.polrelid) =
+                  '(tenant_id = (NULLIF(current_setting(''app.tenant_id''::text, true), ''''::text))::uuid)'
+              AND pg_get_expr(p.polwithcheck, p.polrelid) =
+                  '(tenant_id = (NULLIF(current_setting(''app.tenant_id''::text, true), ''''::text))::uuid)'
+        ) THEN
+            RAISE EXCEPTION 'Schema audit: tenant policy drift: %', t;
+        END IF;
+        IF EXISTS (
+            SELECT 1 FROM pg_catalog.pg_policy p WHERE p.polrelid = obj.oid
+              AND p.polname <> 'tenant_isolation'
+              AND NOT (t = 'integration_outbox' AND p.polname IN
+                  ('worker_access','worker_identity','worker_role_separation'))
+        ) THEN
+            RAISE EXCEPTION 'Schema audit: unexpected policy: %', t;
+        END IF;
+        IF t = 'integration_outbox' AND (
+            SELECT count(*) FROM pg_catalog.pg_policy p WHERE p.polrelid = obj.oid
+            AND ((p.polname = 'worker_access' AND p.polpermissive
+                  AND p.polroles = ARRAY['gamma_outbox_worker'::regrole::oid])
+              OR (p.polname = 'worker_identity' AND NOT p.polpermissive
+                  AND p.polroles = ARRAY['gamma_outbox_worker'::regrole::oid])
+              OR (p.polname = 'worker_role_separation' AND NOT p.polpermissive
+                  AND p.polroles = ARRAY[0::oid]))
+            AND p.polcmd = '*' AND p.polqual IS NOT NULL AND p.polwithcheck IS NOT NULL
+        ) <> 3 THEN
+            RAISE EXCEPTION 'Schema audit: worker policy structure drift';
         END IF;
     END LOOP;
     IF has_schema_privilege('gamma_app', 'public', 'CREATE') OR
@@ -41,5 +73,5 @@ END
 $audit$;
 ROLLBACK;
 \echo PostgreSQL schema security audit passed
--- Policy presence does not prove predicate correctness or absence of other
--- permissive policies. Behavioral tenant tests and full ACL review remain required.
+-- The pinned tenant expression is PG16-specific; worker predicate semantics,
+-- complete ACL review and behavioral isolation still require separate evidence.
