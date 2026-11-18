@@ -9,6 +9,8 @@ import hmac
 import json
 import time
 from uuid import uuid4
+from unittest.mock import AsyncMock, MagicMock
+import app.security as security
 
 import pytest
 from fastapi import Depends, FastAPI
@@ -113,7 +115,19 @@ def _signed_http_assertion(monkeypatch, *, tenant_id=None, path=PATH, access=Tru
     return payload + "." + signature
 
 
-def test_http_valid_signed_assertion_reaches_disabled_metrics_preview(monkeypatch):
+@pytest.fixture
+def replay_unit(monkeypatch):
+    """Isolate persistence, not signed identity verification; PostgreSQL has its own suite."""
+    context = MagicMock()
+    context.__aenter__ = AsyncMock(return_value=object())
+    context.__aexit__ = AsyncMock(return_value=False)
+    monkeypatch.setattr(security, "get_session_factory", lambda: lambda: context)
+    consume = AsyncMock(return_value=True)
+    monkeypatch.setattr(security, "consume_assertion_before_access", consume)
+    return consume
+
+
+def test_http_valid_signed_assertion_reaches_disabled_metrics_preview(monkeypatch, replay_unit):
     monkeypatch.setattr(settings, "internal_api_key", "lab-secret")
     token = _signed_http_assertion(monkeypatch)
     with TestClient(app) as client:
@@ -121,7 +135,8 @@ def test_http_valid_signed_assertion_reaches_disabled_metrics_preview(monkeypatc
             "X-Internal-API-Key": "lab-secret", "X-Gateway-Principal": token,
         })
     # 501 proves the auth dependency accepted the signed principal;
-    # this endpoint does not read tenant data or require a DB.
+    # replay persistence is isolated in this unit test.
+    replay_unit.assert_awaited_once()
     assert response.status_code == 501
 
 
@@ -154,7 +169,7 @@ def test_http_signed_assertion_cannot_bypass_wrong_service_key(monkeypatch):
     assert response.status_code == 401
 
 
-def test_http_signed_tenant_cannot_be_overridden_by_unsigned_headers(monkeypatch):
+def test_http_signed_tenant_cannot_be_overridden_by_unsigned_headers(monkeypatch, replay_unit):
     """Probe the actual auth dependency, not just an endpoint's 501 status."""
     monkeypatch.setattr(settings, "internal_api_key", "lab-secret")
     tenant_a, tenant_b = str(uuid4()), str(uuid4())
@@ -230,7 +245,7 @@ def test_public_liveness_response_not_subject_to_tenant_cache_policy():
     assert response.headers.get("Cache-Control") != "no-store"
 
 
-def test_http_authenticated_unimplemented_metrics_is_never_cached(monkeypatch):
+def test_http_authenticated_unimplemented_metrics_is_never_cached(monkeypatch, replay_unit):
     """Authenticated 501 must be no-store, not only unauthenticated 401."""
     monkeypatch.setattr(settings, "internal_api_key", "lab-secret")
     token = _signed_http_assertion(monkeypatch)
@@ -254,3 +269,20 @@ def test_http_invalid_gateway_assertion_is_never_cached(monkeypatch):
         })
     assert response.status_code == 401
     assert response.headers["Cache-Control"] == "no-store"
+
+
+@pytest.mark.parametrize("unavailable", [False, True])
+def test_http_replay_rejection_is_fail_closed(monkeypatch, replay_unit, unavailable):
+    monkeypatch.setattr(settings, "internal_api_key", "lab-secret")
+    if unavailable:
+        replay_unit.side_effect = RuntimeError("test persistence unavailable")
+    else:
+        replay_unit.return_value = False
+    token = _signed_http_assertion(monkeypatch)
+    with TestClient(app) as client:
+        response = client.post(PATH, headers={
+            "X-Internal-API-Key": "lab-secret", "X-Gateway-Principal": token,
+        })
+    assert response.status_code == (503 if unavailable else 401)
+    assert response.headers["Cache-Control"] == "no-store"
+    replay_unit.assert_awaited_once()
