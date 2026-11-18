@@ -5,7 +5,25 @@ DO $audit$
 DECLARE
     t text;
     obj pg_catalog.pg_class%ROWTYPE;
+    worker pg_catalog.pg_roles%ROWTYPE;
 BEGIN
+    SELECT * INTO worker FROM pg_catalog.pg_roles WHERE rolname = 'gamma_outbox_worker';
+    IF NOT FOUND OR worker.rolcanlogin OR worker.rolsuper OR worker.rolbypassrls OR
+       worker.rolcreatedb OR worker.rolcreaterole OR worker.rolreplication THEN
+        RAISE EXCEPTION 'Schema audit: unsafe worker role attributes';
+    END IF;
+    IF EXISTS (
+        WITH RECURSIVE reachable(roleid) AS (
+            SELECT roleid FROM pg_catalog.pg_auth_members WHERE member = worker.oid
+            UNION
+            SELECT m.roleid FROM pg_catalog.pg_auth_members m JOIN reachable r ON m.member = r.roleid
+        )
+        SELECT 1 FROM reachable x JOIN pg_catalog.pg_roles r ON r.oid = x.roleid
+        WHERE r.rolsuper OR r.rolbypassrls OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication
+           OR r.rolname IN ('aiops', 'gamma_app') OR left(r.rolname, 3) = 'pg_'
+    ) OR pg_has_role('gamma_app', 'gamma_outbox_worker', 'MEMBER') THEN
+        RAISE EXCEPTION 'Schema audit: unsafe worker role memberships';
+    END IF;
     FOREACH t IN ARRAY ARRAY['integration_inbox','integration_outbox','telemetry_service_bindings','investigation_evidence']
     LOOP
         SELECT * INTO obj FROM pg_catalog.pg_class WHERE oid = to_regclass('public.' || t);
