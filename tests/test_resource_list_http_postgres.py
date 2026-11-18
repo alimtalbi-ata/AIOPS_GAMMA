@@ -87,8 +87,10 @@ def tenant_postgres(monkeypatch):
             revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
             if revision != "0006_worker_role_guard":
                 pytest.fail("Disposable tenant database must be at reviewed Alembic head 0006")
-            assert await connection.scalar(text("SELECT current_user")) == "gamma_app"
-            assert await connection.scalar(text("SELECT rolbypassrls FROM pg_roles WHERE rolname = current_user")) is False
+            if await connection.scalar(text("SELECT current_user")) != "gamma_app":
+                pytest.fail("Disposable runtime must use gamma_app")
+            if await connection.scalar(text("SELECT rolbypassrls FROM pg_roles WHERE rolname = current_user")) is not False:
+                pytest.fail("Disposable runtime must not bypass RLS")
             for table in ("telemetry_service_bindings", "investigation_evidence"):
                 present = await connection.scalar(text("SELECT to_regclass(:name)"), {"name": table})
                 if present is None:
