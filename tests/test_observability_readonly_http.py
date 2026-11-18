@@ -4,7 +4,15 @@ The OpenSearch network boundary is replaced by a deterministic fake; no external
 services or database are needed. This does not certify OpenSearch ACLs.
 """
 from datetime import datetime, timedelta, timezone
-from uuid import UUID
+from uuid import UUID, uuid4
+import base64
+import hashlib
+import hmac
+import json
+import time
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from fastapi.testclient import TestClient
 
@@ -28,8 +36,34 @@ def body():
     }
 
 
-def headers(tenant):
-    return {"X-Internal-API-Key": KEY, "X-Tenant-ID": str(tenant)}
+SECRET = "synthetic-observability-key-" * 2
+
+@pytest.fixture(autouse=True)
+def gateway_config(monkeypatch):
+    monkeypatch.setattr(settings, "gateway_assertion_secret", SECRET)
+    monkeypatch.setattr(settings, "gateway_assertion_keys", {})
+    monkeypatch.setattr(settings, "gateway_assertion_issuer", "synthetic")
+    monkeypatch.setattr(settings, "gateway_assertion_audience", "gamma")
+    monkeypatch.setattr(settings, "gateway_assertion_max_ttl_seconds", 60)
+    context = MagicMock()
+    context.__aenter__ = AsyncMock(return_value=object())
+    context.__aexit__ = AsyncMock(return_value=False)
+    monkeypatch.setattr("app.security.get_session_factory", lambda: lambda: context)
+    monkeypatch.setattr("app.security.consume_assertion_before_access", AsyncMock(return_value=True))
+
+
+def headers(tenant, grants=("checkout",)):
+    now = int(time.time())
+    claims = dict(iss="synthetic", aud="gamma", sub="synthetic-user",
+                  actor_type="user", tenant_id=str(tenant), tenant_access=True,
+                  iat=now, exp=now+30, jti=uuid4().hex, method="POST",
+                  path="/api/v1/observability/logs/search", log_service_grants=list(grants))
+    def encode(raw):
+        return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+    payload = encode(json.dumps(claims).encode())
+    signature = encode(hmac.new(SECRET.encode(), payload.encode(), hashlib.sha256).digest())
+    return {"X-Internal-API-Key": KEY, "X-Gateway-Principal": payload+"."+signature,
+            "X-Tenant-ID": str(TENANT_B if tenant == TENANT_A else TENANT_A)}
 
 
 def test_logs_disabled_fail_closed_without_opening_backend(monkeypatch):
@@ -117,12 +151,9 @@ def test_logs_reject_invalid_tenant_before_backend(monkeypatch):
         response = client.post(
             "/api/v1/observability/logs/search",
             json=body(),
-            headers={
-                "X-Internal-API-Key": KEY,
-                "X-Tenant-ID": "not-a-uuid",
-            },
+            headers=headers("not-a-uuid"),
         )
-    assert response.status_code == 400
+    assert response.status_code == 401
     assert response.headers["cache-control"] == "no-store"
 
 
@@ -181,7 +212,7 @@ def test_logs_unconfigured_internal_auth_fails_closed_without_backend(monkeypatc
         )
     assert response.status_code == 503
     assert response.headers["cache-control"] == "no-store"
-    assert response.json() == {"detail": "Internal authentication not configured"}
+    assert response.json() == {"detail": "Internal service authentication not configured"}
 
 
 def test_logs_reject_noncanonical_tenant_before_backend(monkeypatch):
@@ -203,7 +234,7 @@ def test_logs_reject_noncanonical_tenant_before_backend(monkeypatch):
                 json=body(),
                 headers={"X-Internal-API-Key": KEY, "X-Tenant-ID": tenant},
             )
-            assert response.status_code == 400, response.text
+            assert response.status_code == 401, response.text
             assert response.headers["cache-control"] == "no-store"
 
 
@@ -219,12 +250,9 @@ def test_logs_reject_nil_tenant_before_backend(monkeypatch):
         response = client.post(
             "/api/v1/observability/logs/search",
             json=body(),
-            headers={
-                "X-Internal-API-Key": KEY,
-                "X-Tenant-ID": "00000000-0000-0000-0000-000000000000",
-            },
+            headers=headers("00000000-0000-0000-0000-000000000000"),
         )
-    assert response.status_code == 400
+    assert response.status_code == 401
     assert response.headers["cache-control"] == "no-store"
 
 
@@ -246,3 +274,16 @@ def test_logs_reject_unsafe_severity_terms_before_backend(monkeypatch):
             )
             assert response.status_code == 422, response.text
             assert response.headers["cache-control"] == "no-store"
+
+
+def test_signed_tenant_without_service_grant_denied(monkeypatch):
+    monkeypatch.setattr(settings, "internal_api_key", KEY)
+    monkeypatch.setattr(settings, "enable_opensearch", True)
+    backend = AsyncMock()
+    monkeypatch.setattr(main, "search_logs", backend)
+    with TestClient(main.app) as client:
+        response = client.post("/api/v1/observability/logs/search",
+                               json=body(), headers=headers(TENANT_A, grants=()))
+    assert response.status_code == 403
+    assert response.headers["cache-control"] == "no-store"
+    backend.assert_not_awaited()
