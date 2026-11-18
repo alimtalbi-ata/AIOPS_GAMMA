@@ -10,6 +10,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://gamma_app:${APP_DB_PASSWORD:?set APP_DB_PASSWORD}@postgres:5432/aiops
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:?set INTERNAL_API_KEY}
       GATEWAY_ASSERTION_SECRET: ${GATEWAY_ASSERTION_SECRET:-}
+      GATEWAY_ASSERTION_KEYS:
       GATEWAY_ASSERTION_ISSUER: ${GATEWAY_ASSERTION_ISSUER:-gamma-gateway}
       GATEWAY_ASSERTION_AUDIENCE: ${GATEWAY_ASSERTION_AUDIENCE:-aiops-gamma}
       GATEWAY_ASSERTION_MAX_TTL_SECONDS: ${GATEWAY_ASSERTION_MAX_TTL_SECONDS:-60}
@@ -25,6 +26,20 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+  postgres-preflight:
+    image: postgres:16-alpine
+    user: "10001:10001"
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: "no"
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    command: ["psql", "-X", "-h", "postgres", "-U", "aiops", "-d", "aiops", "-v", "ON_ERROR_STOP=1", "-f", "/preflight/01-app-role.sql"]
+    volumes:
+      - ./postgres/preflight/01-app-role.sql:/preflight/01-app-role.sql:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
   migrate:
     build: .
     command: ["alembic", "upgrade", "head"]
@@ -32,8 +47,8 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://aiops:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/aiops
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-preflight:
+        condition: service_completed_successfully
   postgres:
     image: postgres:16-alpine
     environment:
