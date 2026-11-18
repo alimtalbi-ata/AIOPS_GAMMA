@@ -156,6 +156,38 @@ jobs:
           grep -q 'missing table or forced RLS' /tmp/gamma-app-audit.log
           sql "ALTER TABLE public.integration_inbox FORCE ROW LEVEL SECURITY"
           app_audit postgres/preflight/02-schema-security.sql
+      - name: Exercise Helm init container command against real PostgreSQL
+        run: |
+          set -eu
+          # Extract the actual shell command from the Helm template, not a copy.
+          python3 - <<'PY'
+          from pathlib import Path
+          import textwrap
+          source = Path("deploy/helm/gamma/templates/api.yaml").read_text()
+          command = source.split("          args:\n            - |\n", 1)[1].split("          volumeMounts:", 1)[0]
+          Path("/tmp/gamma-helm-gate.sh").write_text(textwrap.dedent(command))
+          PY
+          gate() {
+            docker compose run --rm --no-deps -T \
+              -e DATABASE_URL="$1" \
+              -v /tmp/gamma-helm-gate.sh:/gate.sh:ro -v "$PWD/deploy/helm/gamma/preflight/01-app-role.sql:/preflight/01-app-role.sql:ro" \
+              --entrypoint /bin/sh postgres-schema-audit -ec 'sh -ec "$(cat /gate.sh)"'
+          }
+          app_url="postgresql+asyncpg://gamma_app:$APP_DB_PASSWORD@postgres:5432/aiops"
+          gate "$app_url"
+          if gate "postgresql+asyncpg://aiops:$POSTGRES_PASSWORD@postgres:5432/aiops"; then
+            echo "Gate accepted non-application identity" >&2
+            exit 1
+          fi
+          if gate "postgresql://gamma_app:$APP_DB_PASSWORD@postgres:5432/aiops"; then
+            echo "Gate accepted unsupported URL scheme" >&2
+            exit 1
+          fi
+          docker compose exec -T postgres psql -X -U aiops -d aiops -v ON_ERROR_STOP=1 -c 'ALTER TABLE public.integration_inbox NO FORCE ROW LEVEL SECURITY'
+          if gate "$app_url" > /tmp/gamma-helm-gate.log 2>&1; then exit 1; fi
+          grep -q 'missing table or forced RLS' /tmp/gamma-helm-gate.log
+          docker compose exec -T postgres psql -X -U aiops -d aiops -v ON_ERROR_STOP=1 -c 'ALTER TABLE public.integration_inbox FORCE ROW LEVEL SECURITY'
+          gate "$app_url"
       - name: Prove API startup fails closed on schema drift
         run: |
           set -eu
