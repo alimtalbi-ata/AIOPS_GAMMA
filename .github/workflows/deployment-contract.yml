@@ -325,3 +325,24 @@ jobs:
           helm lint deploy/helm/gamma
           helm template gamma deploy/helm/gamma --namespace gamma > /tmp/gamma-rendered.yaml
           test -s /tmp/gamma-rendered.yaml
+      - name: Verify Gateway Helm signing modes
+        run: |
+          set -eu
+          chart=deploy/helm/gamma
+          helm template gamma "$chart" --set api.gatewayAssertionSecret=legacy-test > /tmp/gamma-legacy.yaml
+          grep -q 'name: GATEWAY_ASSERTION_SECRET' /tmp/gamma-legacy.yaml
+          if grep -q 'name: GATEWAY_ASSERTION_KEYS' /tmp/gamma-legacy.yaml; then exit 1; fi
+          helm template gamma "$chart" --set api.gatewayAssertionKeysSecret=registry-test > /tmp/gamma-registry.yaml
+          grep -q 'name: GATEWAY_ASSERTION_KEYS' /tmp/gamma-registry.yaml
+          grep -q 'name: "registry-test", key: "principal-hmac-keys"' /tmp/gamma-registry.yaml
+          if grep -q 'name: GATEWAY_ASSERTION_SECRET' /tmp/gamma-registry.yaml; then exit 1; fi
+          if helm template gamma "$chart" --set api.gatewayAssertionSecret=legacy-test --set api.gatewayAssertionKeysSecret=registry-test > /tmp/gamma-invalid.yaml 2>/tmp/gamma-invalid.err; then
+            echo "Ambiguous signing configuration was accepted" >&2
+            exit 1
+          fi
+          grep -q 'not both' /tmp/gamma-invalid.err
+          if helm template gamma "$chart" --set api.gatewayAssertionKeysSecret=registry-test --set-string api.gatewayAssertionKeysSecretKey= > /tmp/gamma-invalid.yaml 2>/tmp/gamma-invalid.err; then
+            echo "Missing registry secret key was accepted" >&2
+            exit 1
+          fi
+          grep -q 'gatewayAssertionKeysSecretKey is required' /tmp/gamma-invalid.err
