@@ -70,8 +70,10 @@ def database(monkeypatch):
                     or not 160000 <= int(version) < 170000
                     or revision != "0006_worker_role_guard"):
                 pytest.fail("Connected PostgreSQL identity or migration is not approved")
-            assert await conn.scalar(text("select current_user")) == "gamma_app"
-            assert await conn.scalar(text("select rolbypassrls from pg_roles where rolname=current_user")) is False
+            if await conn.scalar(text("select current_user")) != "gamma_app":
+                pytest.fail("Disposable runtime must use gamma_app")
+            if await conn.scalar(text("select rolbypassrls from pg_roles where rolname=current_user")) is not False:
+                pytest.fail("Disposable runtime must not bypass RLS")
             for table in (Evidence.__tablename__, ServiceBinding.__tablename__,
                           InboxEvent.__tablename__, OutboxEvent.__tablename__):
                 if await conn.scalar(text("select to_regclass(:table)"), {"table": table}) is None:
