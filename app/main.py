@@ -10,7 +10,7 @@ from app.db import get_tenant_session
 from app.models import Evidence, InboxEvent, OutboxEvent, ServiceBinding
 from app.opensearch_adapter import search_logs
 from app.schemas import AlertPayload, BindingIn, EvidenceIn, LogSearchRequest
-from app.security import Principal, internal_principal
+from app.security import Principal, internal_principal, require_business_permission
 from app.settings import settings
 
 app = FastAPI(title="AIOPS_GAMMA", version="0.1.0")
@@ -85,6 +85,7 @@ async def alerts(
     req: AlertPayload, principal: Principal = Depends(internal_principal),
     session: AsyncSession = Depends(tenant_session),
 ):
+    require_business_permission(principal, "alerts:ingest")
     if not settings.enable_alert_ingestion:
         raise HTTPException(503, "Alert ingestion disabled")
     tenant = principal.tenant_id
@@ -128,6 +129,7 @@ async def add_binding(
     req: BindingIn, principal: Principal = Depends(internal_principal),
     session: AsyncSession = Depends(tenant_session),
 ):
+    require_business_permission(principal, "bindings:write")
     obj = ServiceBinding(tenant_id=principal.tenant_id, **req.model_dump())
     session.add(obj)
     try:
@@ -143,6 +145,7 @@ async def list_bindings(
     principal: Principal = Depends(internal_principal),
     session: AsyncSession = Depends(tenant_session),
 ):
+    require_business_permission(principal, "bindings:read")
     rows = (await session.scalars(
         select(ServiceBinding).where(ServiceBinding.tenant_id == principal.tenant_id).limit(500)
     )).all()
@@ -170,6 +173,7 @@ async def add_evidence(
     incident_id: str, req: EvidenceIn, principal: Principal = Depends(internal_principal),
     session: AsyncSession = Depends(tenant_session),
 ):
+    require_business_permission(principal, "evidence:write")
     validate_incident_resource_id(incident_id)
     if incident_id not in principal.evidence_incident_grants:
         raise HTTPException(403, "Incident evidence access denied", headers={"Cache-Control": "no-store"})
@@ -186,6 +190,7 @@ async def list_evidence(
     incident_id: str, principal: Principal = Depends(internal_principal),
     session: AsyncSession = Depends(tenant_session),
 ):
+    require_business_permission(principal, "evidence:read")
     validate_incident_resource_id(incident_id)
     if incident_id not in principal.evidence_incident_grants:
         raise HTTPException(403, "Incident evidence access denied", headers={"Cache-Control": "no-store"})
