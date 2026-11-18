@@ -221,7 +221,7 @@ class InternalRouteDependencyGuard(unittest.TestCase):
         from unittest.mock import patch
 
         source = MAIN.read_text(encoding="utf-8")
-        original = "Depends(internal_principal)"
+        original = "async def logs(req: LogSearchRequest, response: Response, principal: Principal = Depends(internal_principal)):"
         self.assertIn(original, source)
         for changed in (
             "Depends(internal_principal, use_cache=False)",
@@ -232,7 +232,7 @@ class InternalRouteDependencyGuard(unittest.TestCase):
             with TemporaryDirectory() as directory:
                 candidate = Path(directory) / "main.py"
                 candidate.write_text(
-                    source.replace(original, changed, 1), encoding="utf-8"
+                    source.replace(original, original.replace("Depends(internal_principal)", changed), 1), encoding="utf-8"
                 )
                 with patch.dict(
                     self.test_all_non_public_http_routes_require_internal_principal.__globals__,
