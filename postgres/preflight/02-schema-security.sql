@@ -165,8 +165,15 @@ DECLARE
     replay_oid oid := to_regclass('public.gateway_assertion_replay');
     executor pg_catalog.pg_roles%ROWTYPE;
     maintenance pg_catalog.pg_roles%ROWTYPE;
-    cleanup_oid oid := to_regprocedure('replay_maintenance.purge_expired(integer,integer)');
+    cleanup_oid oid;
 BEGIN
+    SELECT p.oid INTO cleanup_oid
+    FROM pg_catalog.pg_proc p
+    JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'replay_maintenance'
+      AND p.proname = 'purge_expired'
+      AND p.pronargs = 2
+      AND p.proargtypes = '23 23'::oidvector;
     IF replay_oid IS NULL OR cleanup_oid IS NULL THEN
         RAISE EXCEPTION 'Replay audit: migration 0009 objects are missing';
     END IF;
