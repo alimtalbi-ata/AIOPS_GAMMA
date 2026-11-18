@@ -127,11 +127,25 @@ def test_slo_route_requires_signed_gateway_principal_and_prevents_caching(monkey
     import hmac
     import json
     import time
+    from unittest.mock import AsyncMock, MagicMock
 
     from fastapi.testclient import TestClient
     from app.main import app
     from app.settings import settings
 
+    context = MagicMock()
+    context.__aenter__ = AsyncMock(return_value=object())
+    context.__aexit__ = AsyncMock(return_value=False)
+    monkeypatch.setattr("app.security.get_session_factory", lambda: lambda: context)
+    seen = set()
+    async def reserve(session, *, issuer, assertion_id, expires_at):
+        key = (issuer, assertion_id)
+        if key in seen:
+            return False
+        seen.add(key)
+        return True
+    monkeypatch.setattr("app.security.consume_assertion_before_access", reserve)
+    monkeypatch.setattr(settings, "gateway_assertion_keys", {})
     monkeypatch.setattr(settings, "internal_api_key", "test-secret")
     monkeypatch.setattr(settings, "gateway_assertion_secret", "s" * 48)
     monkeypatch.setattr(settings, "gateway_assertion_issuer", "trusted-gateway")
@@ -167,6 +181,11 @@ def test_slo_route_requires_signed_gateway_principal_and_prevents_caching(monkey
                      "X-Tenant-Id": str(tenant)},
         )
         allowed = client.post(path, json=req.model_dump(mode="json"), headers=headers)
+        replay = client.post(path, json=req.model_dump(mode="json"), headers=headers)
+        claims["jti"] = uuid4().hex
+        encoded = b64(json.dumps(claims, separators=(",", ":")).encode())
+        signature = b64(hmac.new(b"s" * 48, encoded.encode(), hashlib.sha256).digest())
+        headers["X-Gateway-Principal"] = encoded + "." + signature
         forged = client.post(
             path, json=req.model_dump(mode="json"),
             headers={**headers, "X-Tenant-Id": str(uuid4())},
@@ -177,6 +196,7 @@ def test_slo_route_requires_signed_gateway_principal_and_prevents_caching(monkey
     assert allowed.headers["cache-control"] == "no-store"
     assert allowed.json()["state"] == "PASS_PREVIEW"
     # X-Tenant-ID cannot override the signed tenant identity.
+    assert replay.status_code == 401
     assert forged.status_code == 200
     assert forged.json()["tenant_id"] == str(tenant)
 
