@@ -324,7 +324,7 @@ def test_mutated_nested_problem_itsm_reference_rejected():
         preview_itil_workflow(item, problem=problem)
 
 
-@pytest.mark.parametrize("invalid_id", ["   ", "DEMO\\nINC", "DEMO\\x7fINC"])
+@pytest.mark.parametrize("invalid_id", ["   ", "DEMO\nINC", "DEMO\x7fINC"])
 def test_mutated_incident_identifier_rejected(invalid_id):
     item = incident()
     item.incident_id = invalid_id
