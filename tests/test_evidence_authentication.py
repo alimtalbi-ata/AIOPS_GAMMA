@@ -1,7 +1,7 @@
 """Authentication contract tests for evidence preview routes.
 
 Uses the actual internal_principal dependency: no bypass or mocked identity.
-No database connection should be required by these read-only routes.
+Business DB access is not required; replay storage is isolated in this suite.
 """
 from datetime import datetime, timezone
 from uuid import UUID
@@ -9,6 +9,46 @@ from uuid import UUID
 from fastapi.testclient import TestClient
 from app.main import app
 from app.settings import settings
+
+import base64, hashlib, hmac, json, time
+from uuid import uuid4
+from unittest.mock import AsyncMock, MagicMock
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def isolated_gateway(monkeypatch):
+    monkeypatch.setattr(settings, "gateway_assertion_keys", {})
+    monkeypatch.setattr(settings, "gateway_assertion_secret", "s" * 48)
+    monkeypatch.setattr(settings, "gateway_assertion_issuer", "synthetic")
+    monkeypatch.setattr(settings, "gateway_assertion_audience", "gamma")
+    monkeypatch.setattr(settings, "gateway_assertion_max_ttl_seconds", 60)
+    context = MagicMock()
+    context.__aenter__ = AsyncMock(return_value=object())
+    context.__aexit__ = AsyncMock(return_value=False)
+    seen = set()
+
+    async def reserve(session, *, issuer, assertion_id, expires_at):
+        key = (issuer, assertion_id)
+        if key in seen:
+            return False
+        seen.add(key)
+        return True
+
+    monkeypatch.setattr("app.security.get_session_factory", lambda: lambda: context)
+    monkeypatch.setattr("app.security.consume_assertion_before_access", reserve)
+
+
+def signed_headers(path, tenant, grants=()):
+    now = int(time.time())
+    claims = dict(iss="synthetic", aud="gamma", sub="synthetic-user",
+                  actor_type="user", tenant_id=str(tenant), tenant_access=True,
+                  iat=now, exp=now+30, jti=uuid4().hex, method="POST", path=path,
+                  log_service_grants=list(grants))
+    raw = base64.urlsafe_b64encode(json.dumps(claims).encode()).rstrip(b"=")
+    sig = base64.urlsafe_b64encode(hmac.new(b"s"*48, raw, hashlib.sha256).digest()).rstrip(b"=")
+    return {"X-Internal-API-Key": "test-secret-not-production", "X-Gateway-Principal": (raw+b"."+sig).decode()}
+
 
 TENANT = UUID("11111111-1111-4111-8111-111111111111")
 PATHS = (
@@ -58,13 +98,12 @@ def valid_evidence_body():
     }]}
 
 
-def test_valid_key_and_tenant_reaches_evidence_preview(monkeypatch):
+def test_signed_principal_reaches_evidence_preview(monkeypatch):
     monkeypatch.setattr(settings, "internal_api_key", "test-secret-not-production")
     with TestClient(app) as client:
         result = client.post(
             PATHS[0], json=valid_evidence_body(),
-            headers={"X-Tenant-ID": str(TENANT),
-                     "X-Internal-API-Key": "test-secret-not-production"},
+            headers=signed_headers(PATHS[0], str(TENANT)),
         )
     assert result.status_code == 200, result.text
     assert result.headers["cache-control"] == "no-store"
@@ -79,8 +118,7 @@ def test_authenticated_cross_tenant_evidence_denied(monkeypatch):
     with TestClient(app) as client:
         result = client.post(
             PATHS[0], json=body,
-            headers={"X-Tenant-ID": str(TENANT),
-                     "X-Internal-API-Key": "test-secret-not-production"},
+            headers=signed_headers(PATHS[0], str(TENANT)),
         )
     assert result.status_code == 403, result.text
 
@@ -94,7 +132,7 @@ def test_valid_key_with_invalid_tenant_header_denied(monkeypatch):
                 headers={"X-Tenant-ID": "not-a-uuid",
                          "X-Internal-API-Key": "test-secret-not-production"},
             )
-            assert result.status_code == 400, (path, result.text)
+            assert result.status_code == 401, (path, result.text)
 
 
 def valid_correlation_evidence_body():
@@ -119,8 +157,7 @@ def test_http_correlation_evidence_complete_and_consistent(monkeypatch):
     with TestClient(app) as client:
         response = client.post(
             PATHS[1], json=valid_correlation_evidence_body(),
-            headers={"X-Tenant-ID": str(TENANT),
-                     "X-Internal-API-Key": "test-secret-not-production"},
+            headers=signed_headers(PATHS[1], str(TENANT)),
         )
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
@@ -139,8 +176,7 @@ def test_http_correlation_evidence_missing_proof_not_complete(monkeypatch):
     with TestClient(app) as client:
         response = client.post(
             PATHS[1], json=body,
-            headers={"X-Tenant-ID": str(TENANT),
-                     "X-Internal-API-Key": "test-secret-not-production"},
+            headers=signed_headers(PATHS[1], str(TENANT)),
         )
     assert response.status_code == 200, response.text
     result = response.json()
@@ -156,8 +192,7 @@ def test_http_correlation_evidence_cross_tenant_denied(monkeypatch):
     with TestClient(app) as client:
         response = client.post(
             PATHS[1], json=body,
-            headers={"X-Tenant-ID": str(TENANT),
-                     "X-Internal-API-Key": "test-secret-not-production"},
+            headers=signed_headers(PATHS[1], str(TENANT)),
         )
     assert response.status_code == 403, response.text
 
@@ -180,7 +215,7 @@ def test_http_correlation_evidence_rejects_invalid_tenant_header(monkeypatch):
             headers={"X-Tenant-ID": "invalid-tenant",
                      "X-Internal-API-Key": "test-secret-not-production"},
         )
-    assert response.status_code == 400, response.text
+    assert response.status_code == 401, response.text
 
 
 def test_http_correlation_evidence_rejects_missing_server_key_configuration(monkeypatch):
@@ -201,8 +236,7 @@ def test_http_correlation_preview_disables_caching(monkeypatch):
         response = client.post(
             "/api/v1/incidents/correlation/preview",
             json=body,
-            headers={"X-Tenant-ID": str(TENANT),
-                     "X-Internal-API-Key": "test-secret-not-production"},
+            headers=signed_headers("/api/v1/incidents/correlation/preview", str(TENANT)),
         )
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
@@ -229,13 +263,11 @@ def test_http_correlation_group_ids_are_tenant_scoped(monkeypatch):
     with TestClient(app) as client:
         first = client.post(
             "/api/v1/incidents/correlation/preview", json=body,
-            headers={"X-Tenant-ID": str(TENANT),
-                     "X-Internal-API-Key": "test-secret-not-production"},
+            headers=signed_headers("/api/v1/incidents/correlation/preview", str(TENANT)),
         )
         second = client.post(
             "/api/v1/incidents/correlation/preview", json=body,
-            headers={"X-Tenant-ID": tenant_b,
-                     "X-Internal-API-Key": "test-secret-not-production"},
+            headers=signed_headers("/api/v1/incidents/correlation/preview", tenant_b),
         )
     assert first.status_code == second.status_code == 200
     assert first.json()["groups"][0]["group_id"] != second.json()["groups"][0]["group_id"]
@@ -253,8 +285,7 @@ def test_http_correlation_preview_rejects_empty_ci_id(monkeypatch):
         response = client.post(
             "/api/v1/incidents/correlation/preview",
             json=body,
-            headers={"X-Tenant-ID": str(TENANT),
-                     "X-Internal-API-Key": "test-secret-not-production"},
+            headers=signed_headers("/api/v1/incidents/correlation/preview", str(TENANT)),
         )
     assert response.status_code == 422, response.text
 
@@ -266,8 +297,7 @@ def test_http_correlation_evidence_preview_rejects_empty_ci_id(monkeypatch):
     with TestClient(app) as client:
         response = client.post(
             PATHS[1], json=body,
-            headers={"X-Tenant-ID": str(TENANT),
-                     "X-Internal-API-Key": "test-secret-not-production"},
+            headers=signed_headers(PATHS[1], str(TENANT)),
         )
     assert response.status_code == 422, response.text
 
@@ -280,8 +310,7 @@ def test_http_correlation_preview_rejects_whitespace_ci_id(monkeypatch):
         response = client.post(
             "/api/v1/incidents/correlation/preview",
             json=body,
-            headers={"X-Tenant-ID": str(TENANT),
-                     "X-Internal-API-Key": "test-secret-not-production"},
+            headers=signed_headers("/api/v1/incidents/correlation/preview", str(TENANT)),
         )
     assert response.status_code == 422, response.text
 
@@ -293,8 +322,7 @@ def test_http_correlation_evidence_preview_rejects_whitespace_ci_id(monkeypatch)
     with TestClient(app) as client:
         response = client.post(
             PATHS[1], json=body,
-            headers={"X-Tenant-ID": str(TENANT),
-                     "X-Internal-API-Key": "test-secret-not-production"},
+            headers=signed_headers(PATHS[1], str(TENANT)),
         )
     assert response.status_code == 422, response.text
 
@@ -307,8 +335,7 @@ def test_http_correlation_preview_accepts_canonical_ci_id(monkeypatch):
         response = client.post(
             "/api/v1/incidents/correlation/preview",
             json=body,
-            headers={"X-Tenant-ID": str(TENANT),
-                     "X-Internal-API-Key": "test-secret-not-production"},
+            headers=signed_headers("/api/v1/incidents/correlation/preview", str(TENANT)),
         )
     assert response.status_code == 200, response.text
     assert response.json()["groups"][0]["ci_id"] == "CI-123"
