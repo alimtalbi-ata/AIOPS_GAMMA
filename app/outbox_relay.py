@@ -27,7 +27,7 @@ def valid_webhook_token(token: str) -> bool:
 
 
 def retry_delay(attempts: int) -> timedelta:
-    return timedelta(seconds=min(300, 2 ** min(attempts, 8)))
+    return timedelta(seconds=min(300, 2 ** min(attempts, 9)))
 
 
 def valid_receiver_configuration(endpoint: str, token: str, allowed_host: str) -> bool:
@@ -42,6 +42,13 @@ def valid_receiver_configuration(endpoint: str, token: str, allowed_host: str) -
         and valid_webhook_endpoint(f"https://{allowed_host}/")
         and httpx.URL(endpoint).host == allowed_host
     )
+
+
+def validate_receiver_match(endpoint, token, *, configured_url, configured_token, allowed_host):
+    """Pure preflight contract; does not authorize or perform delivery."""
+    if (not valid_receiver_configuration(endpoint, token, allowed_host)
+            or endpoint != configured_url or token != configured_token):
+        raise ValueError("Invalid HTTPS outbox receiver")
 
 
 def permanent_receiver_rejection(exc: Exception) -> bool:
