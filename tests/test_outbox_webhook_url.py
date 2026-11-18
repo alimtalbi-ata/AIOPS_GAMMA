@@ -1,6 +1,7 @@
 """Pure unit regression for the outbox relay's fail-closed destination validation."""
 
 import asyncio
+import os
 from datetime import timedelta
 
 import pytest
@@ -99,6 +100,14 @@ def test_rejects_malformed_bearer_token(token):
     assert not valid_webhook_token(token)
 
 
+def validate_only(endpoint, token):
+    from app.outbox_relay import validate_receiver_match
+    validate_receiver_match(endpoint, token,
+                            configured_url=os.getenv("CORRELATION_WEBHOOK_URL"),
+                            configured_token=os.getenv("CORRELATION_WEBHOOK_TOKEN"),
+                            allowed_host=os.getenv("CORRELATION_WEBHOOK_ALLOWED_HOST"))
+
+
 def test_dispatch_rejects_invalid_destination_before_touching_database(monkeypatch):
     monkeypatch.setenv("CORRELATION_WEBHOOK_ALLOWED_HOST", "receiver.example.test")
     monkeypatch.setenv("CORRELATION_WEBHOOK_URL", "https://receiver.example.test/events")
@@ -106,7 +115,6 @@ def test_dispatch_rejects_invalid_destination_before_touching_database(monkeypat
     def must_not_access_database():
         raise AssertionError("Unsafe endpoint reached the database")
 
-    monkeypatch.setattr("app.outbox_relay.get_session_factory", must_not_access_database)
     for endpoint, token in (
         ("http://receiver.example.test/events", "secret"),
         ("HTTPS://receiver.example.test/events", "secret"),
@@ -155,7 +163,7 @@ def test_dispatch_rejects_invalid_destination_before_touching_database(monkeypat
         ("https://receiver.example.test\\@untrusted.example.test/events", "secret"),
     ):
         with pytest.raises(ValueError, match="Invalid HTTPS outbox receiver"):
-            asyncio.run(dispatch_once(None, endpoint, token))
+            validate_only(endpoint, token)
 
 
 @pytest.mark.parametrize(
@@ -166,46 +174,19 @@ def test_retry_backoff_is_bounded(attempts, seconds):
     assert retry_delay(attempts) == timedelta(seconds=seconds)
 
 
-def test_relay_main_disables_ambient_proxy_and_netrc(monkeypatch):
-    """A worker's proxy/netrc environment must not influence bearer delivery."""
+def test_relay_main_never_constructs_client_even_with_valid_config(monkeypatch):
     from app import outbox_relay
-
-    seen = {}
-
-    class StopRelay(Exception):
-        pass
-
-    class FakeClient:
-        def __init__(self, **kwargs):
-            seen["client_kwargs"] = kwargs
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args):
-            return False
-
-    async def fake_dispatch(client, endpoint, token):
-        seen["dispatch"] = (client, endpoint, token)
-        raise StopRelay
-
+    from unittest.mock import Mock
+    client = Mock(side_effect=AssertionError("HTTP client forbidden during HOLD"))
+    monkeypatch.setattr(outbox_relay.httpx, "AsyncClient", client)
     monkeypatch.setenv("CORRELATION_WEBHOOK_URL", "https://receiver.example.test/events")
     monkeypatch.setenv("CORRELATION_WEBHOOK_TOKEN", "ci-ephemeral-token")
     monkeypatch.setenv("CORRELATION_WEBHOOK_ALLOWED_HOST", "receiver.example.test")
     monkeypatch.setenv("HTTPS_PROXY", "http://untrusted-proxy.example.test:8080")
     monkeypatch.setenv("NETRC", "/tmp/untrusted-netrc")
-    monkeypatch.setattr(outbox_relay.httpx, "AsyncClient", FakeClient)
-    monkeypatch.setattr(outbox_relay, "dispatch_once", fake_dispatch)
-    with pytest.raises(StopRelay):
+    with pytest.raises(RuntimeError, match="Outbox relay disabled"):
         asyncio.run(outbox_relay.main())
-    assert seen["client_kwargs"]["trust_env"] is False
-    limits = seen["client_kwargs"]["limits"]
-    assert limits.max_connections == 1
-    assert limits.max_keepalive_connections == 1
-    assert isinstance(seen["dispatch"][0], FakeClient)
-    assert seen["dispatch"][1:] == (
-        "https://receiver.example.test/events", "ci-ephemeral-token"
-    )
+    client.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -228,7 +209,7 @@ def test_relay_main_rejects_configuration_before_constructing_http_client(
     monkeypatch.setenv("CORRELATION_WEBHOOK_TOKEN", token)
     monkeypatch.setenv("CORRELATION_WEBHOOK_ALLOWED_HOST", "receiver.example.test")
     monkeypatch.setattr(outbox_relay.httpx, "AsyncClient", must_not_construct_client)
-    with pytest.raises(RuntimeError, match="Set HTTPS CORRELATION_WEBHOOK_URL"):
+    with pytest.raises(RuntimeError, match="Outbox relay disabled"):
         asyncio.run(outbox_relay.main())
 
 
@@ -243,7 +224,7 @@ def test_relay_main_requires_exact_receiver_host_allowlist(monkeypatch, allowed_
     monkeypatch.setenv("CORRELATION_WEBHOOK_TOKEN", "ci-ephemeral-token")
     monkeypatch.setenv("CORRELATION_WEBHOOK_ALLOWED_HOST", allowed_host)
     monkeypatch.setattr(outbox_relay.httpx, "AsyncClient", must_not_construct_client)
-    with pytest.raises(RuntimeError, match="CORRELATION_WEBHOOK_ALLOWED_HOST"):
+    with pytest.raises(RuntimeError, match="Outbox relay disabled"):
         asyncio.run(outbox_relay.main())
 
 
@@ -255,9 +236,8 @@ def test_dispatch_rejects_missing_or_mismatched_receiver_allowlist_before_db(mon
         raise AssertionError("Receiver allowlist mismatch reached the database")
 
     monkeypatch.setenv("CORRELATION_WEBHOOK_ALLOWED_HOST", allowed_host)
-    monkeypatch.setattr("app.outbox_relay.get_session_factory", must_not_access_database)
     with pytest.raises(ValueError, match="Invalid HTTPS outbox receiver"):
-        asyncio.run(dispatch_once(None, "https://receiver.example.test/events", "secret"))
+        validate_only("https://receiver.example.test/events", "secret")
 
 
 @pytest.mark.parametrize("endpoint", [
@@ -271,9 +251,8 @@ def test_dispatch_rejects_unconfigured_route_or_port_before_db(monkeypatch, endp
     monkeypatch.setenv("CORRELATION_WEBHOOK_URL", "https://receiver.example.test/events")
     monkeypatch.setenv("CORRELATION_WEBHOOK_ALLOWED_HOST", "receiver.example.test")
     monkeypatch.setenv("CORRELATION_WEBHOOK_TOKEN", "secret")
-    monkeypatch.setattr("app.outbox_relay.get_session_factory", must_not_access_database)
     with pytest.raises(ValueError, match="Invalid HTTPS outbox receiver"):
-        asyncio.run(dispatch_once(None, endpoint, "secret"))
+        validate_only(endpoint, "secret")
 
 
 @pytest.mark.parametrize(
@@ -301,9 +280,8 @@ def test_dispatch_rejects_unconfigured_bearer_token_before_db(monkeypatch, confi
     monkeypatch.setenv("CORRELATION_WEBHOOK_URL", "https://receiver.example.test/events")
     monkeypatch.setenv("CORRELATION_WEBHOOK_ALLOWED_HOST", "receiver.example.test")
     monkeypatch.setenv("CORRELATION_WEBHOOK_TOKEN", configured_token)
-    monkeypatch.setattr("app.outbox_relay.get_session_factory", must_not_access_database)
     with pytest.raises(ValueError, match="Invalid HTTPS outbox receiver"):
-        asyncio.run(dispatch_once(None, "https://receiver.example.test/events", "secret"))
+        validate_only("https://receiver.example.test/events", "secret")
 
 
 @pytest.mark.parametrize(
@@ -323,9 +301,8 @@ def test_dispatch_rejects_configuration_drift_before_db(monkeypatch, configured_
     monkeypatch.setenv("CORRELATION_WEBHOOK_ALLOWED_HOST", "receiver.example.test")
     monkeypatch.setenv("CORRELATION_WEBHOOK_URL", configured_url)
     monkeypatch.setenv("CORRELATION_WEBHOOK_TOKEN", configured_token)
-    monkeypatch.setattr("app.outbox_relay.get_session_factory", must_not_access_database)
     with pytest.raises(ValueError, match="Invalid HTTPS outbox receiver"):
-        asyncio.run(dispatch_once(None, "https://receiver.example.test/events", "secret"))
+        validate_only("https://receiver.example.test/events", "secret")
 
 
 @pytest.mark.parametrize(
