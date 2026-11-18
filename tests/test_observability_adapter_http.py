@@ -56,7 +56,7 @@ def payload(service):
     }
 
 
-def test_http_to_adapter_scopes_each_tenant_and_service(monkeypatch):
+def test_http_to_adapter_scopes_each_tenant_and_service(monkeypatch, replay_unit):
     monkeypatch.setattr(settings, "internal_api_key", KEY)
     monkeypatch.setattr(settings, "enable_opensearch", True)
     observed = []
@@ -98,7 +98,7 @@ def test_http_to_adapter_scopes_each_tenant_and_service(monkeypatch):
         assert call["body"]["size"] == 4
 
 
-def test_http_to_adapter_backend_error_is_sanitized(monkeypatch):
+def test_http_to_adapter_backend_error_is_sanitized(monkeypatch, replay_unit):
     monkeypatch.setattr(settings, "internal_api_key", KEY)
     monkeypatch.setattr(settings, "enable_opensearch", True)
     state = {"closed": False}
@@ -130,7 +130,7 @@ def test_http_to_adapter_backend_error_is_sanitized(monkeypatch):
     assert state["closed"] is True
 
 
-def test_unauthorized_http_never_constructs_opensearch_client(monkeypatch):
+def test_unauthorized_http_never_constructs_opensearch_client(monkeypatch, replay_unit):
     monkeypatch.setattr(settings, "internal_api_key", KEY)
     monkeypatch.setattr(settings, "enable_opensearch", True)
 
@@ -154,3 +154,29 @@ def test_unauthorized_http_never_constructs_opensearch_client(monkeypatch):
                 json=payload("checkout"), headers=headers,
             )
             assert response.status_code == expected, response.text
+    replay_unit.assert_awaited_once()
+
+
+def test_replay_failure_never_constructs_opensearch_client(monkeypatch, replay_unit):
+    monkeypatch.setattr(settings, "internal_api_key", KEY)
+    monkeypatch.setattr(settings, "enable_opensearch", True)
+
+    class ForbiddenClient:
+        def __init__(self, **kwargs):
+            raise AssertionError("Replay failure reached OpenSearch")
+
+    module = ModuleType("opensearchpy")
+    module.AsyncOpenSearch = ForbiddenClient
+    monkeypatch.setitem(sys.modules, "opensearchpy", module)
+    with TestClient(main.app) as client:
+        replay_unit.return_value = False
+        duplicate = client.post("/api/v1/observability/logs/search", json=payload("checkout"),
+                                headers=signed_headers(monkeypatch, TENANTS[0]))
+        replay_unit.side_effect = RuntimeError("private database details")
+        unavailable = client.post("/api/v1/observability/logs/search", json=payload("checkout"),
+                                  headers=signed_headers(monkeypatch, TENANTS[0]))
+    assert duplicate.status_code == 401
+    assert unavailable.status_code == 503
+    assert "private database details" not in unavailable.text
+    assert duplicate.headers["cache-control"] == unavailable.headers["cache-control"] == "no-store"
+    assert replay_unit.await_count == 2
