@@ -7,7 +7,8 @@ type SignalMode = "Logs"|"Metrics"|"Traces";
 type TraceMode = "Trace Tree"|"Trace Map"|"Timeline";
 const sections: {title:string; items:{name:Page;icon:typeof LayoutDashboard}[]}[]=[
   {title:"OBSERVABILITY",items:[{name:"Overview",icon:LayoutDashboard},{name:"Services",icon:Server},{name:"Application Map",icon:Network},{name:"Signal Explorer",icon:Activity},{name:"Traces",icon:Activity}]},
-  {title:"INTELLIGENCE",items:[{name:"Incidents & RCA",icon:Sparkles},{name:"AI Intelligence Center",icon:Workflow}]},\n  {title:"RELEASE",items:[{name:"Release Readiness",icon:ShieldCheck}]}
+  {title:"INTELLIGENCE",items:[{name:"Incidents & RCA",icon:Sparkles},{name:"AI Intelligence Center",icon:Workflow}]},
+  {title:"RELEASE",items:[{name:"Release Readiness",icon:ShieldCheck}]}
 ];
 const dashboardUrl = import.meta.env.VITE_OPENSEARCH_DASHBOARDS_URL || "http://localhost:5601";
 const isSafeDashboardUrl = /^https?:\/\/[^\s/]+/.test(dashboardUrl);
