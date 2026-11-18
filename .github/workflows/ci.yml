@@ -351,12 +351,24 @@ jobs:
                   try:
                       async with maintenance.begin() as c:
                           assert await c.scalar(text("SELECT pg_has_role(current_user,'gamma_replay_maintenance','USAGE')"))
+                          assert not await c.scalar(text("SELECT pg_has_role(current_user,'gamma_app','MEMBER') OR pg_has_role(current_user,'gamma_outbox_worker','MEMBER')"))
+                          assert not await c.scalar(text("SELECT rolsuper OR rolbypassrls OR rolcreatedb OR rolcreaterole OR rolreplication FROM pg_roles WHERE rolname=current_user"))
+                          assert not await c.scalar(text("SELECT has_schema_privilege(current_user,'public','CREATE')"))
+                          assert not await c.scalar(text("SELECT has_table_privilege(current_user,'public.gateway_assertion_replay','INSERT,UPDATE,TRIGGER,TRUNCATE')"))
+                          assert not await c.scalar(text("SELECT has_column_privilege(current_user,'public.gateway_assertion_replay','assertion_digest','UPDATE')"))
+                          assert await c.scalar(text("SELECT count(*) FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_class r ON r.oid=t.tgrelid WHERE r.oid='public.gateway_assertion_replay'::regclass AND t.tgname='replay_expiry_delete' AND t.tgtype=11 AND t.tgenabled='A' AND t.tgqual IS NULL AND p.oid='public.reject_live_replay_delete()'::regprocedure AND NOT p.prosecdef AND NOT pg_has_role(current_user,p.proowner,'MEMBER') AND NOT pg_has_role(current_user,r.relowner,'MEMBER') AND p.proconfig=ARRAY['search_path=pg_catalog']")) == 1
+                          body = await c.scalar(text("SELECT prosrc FROM pg_proc WHERE oid='public.reject_live_replay_delete()'::regprocedure"))
+                          assert " ".join(body.split()) == "BEGIN IF OLD.expires_at >= statement_timestamp() - interval '60 seconds' THEN RAISE EXCEPTION 'Replay reservation still protected' USING ERRCODE = '42501'; END IF; RETURN OLD; END;"
+                          assert not await c.scalar(text("SELECT has_function_privilege(current_user,'public.reject_live_replay_delete()','EXECUTE')"))
+
                           for table in ("integration_inbox","integration_outbox","telemetry_service_bindings","investigation_evidence"):
                               for privilege in ("SELECT","INSERT","UPDATE","DELETE","TRUNCATE"):
                                   assert not await c.scalar(text("SELECT has_table_privilege(current_user,:table,:privilege)"),{"table":"public."+table,"privilege":privilege})
                       for sql in [
                           "DELETE FROM public.gateway_assertion_replay WHERE assertion_digest=repeat('a',64)",
                           "DELETE FROM public.gateway_assertion_replay WHERE assertion_digest=repeat('b',64)",
+                          "ALTER TABLE public.gateway_assertion_replay DISABLE TRIGGER replay_expiry_delete",
+                          "INSERT INTO public.gateway_assertion_replay VALUES (repeat('c',64), now())",
                           "UPDATE public.gateway_assertion_replay SET expires_at=now()",
                           "TRUNCATE public.gateway_assertion_replay",
                       ]:
