@@ -17,6 +17,7 @@ def principal(*, log_grants=(), incident_grants=()):
         assertion_id="acl-test-assertion", expires_at=2_000_000_000,
         log_service_grants=tuple(log_grants),
         evidence_incident_grants=tuple(incident_grants),
+        business_permissions=("evidence:write",),
     )
 
 
