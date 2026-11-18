@@ -28,6 +28,9 @@ services:
         condition: service_completed_successfully
   postgres-preflight:
     image: postgres:16-alpine
+    user: "10001:10001"
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
     restart: "no"
     environment:
       PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
