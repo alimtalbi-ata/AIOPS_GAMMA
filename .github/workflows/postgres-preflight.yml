@@ -8,7 +8,7 @@ permissions:
 jobs:
   role-preflight:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     env:
       COMPOSE_PROJECT_NAME: gamma-role-preflight-ci
       POSTGRES_PASSWORD: ci-disposable-bootstrap-password
@@ -140,6 +140,33 @@ jobs:
           grep -q 'worker membership provisioning is on HOLD' /tmp/schema-audit.log
           sql "REVOKE gamma_outbox_worker FROM gamma_ci_worker_login; DROP ROLE gamma_ci_worker_login"
           audit
+      - name: Prove API startup fails closed on schema drift
+        run: |
+          set -eu
+          docker compose build api
+          docker compose up -d --wait api
+          docker compose stop api
+          docker compose rm -f api postgres-schema-audit
+          sql() {
+            docker compose exec -T postgres psql -X -U aiops -d aiops -v ON_ERROR_STOP=1 -c "$1"
+          }
+          sql "ALTER TABLE public.integration_inbox NO FORCE ROW LEVEL SECURITY"
+          if docker compose up -d --wait api > /tmp/gamma-startup.log 2>&1; then
+            echo "API startup accepted unsafe schema" >&2
+            exit 1
+          fi
+          cat /tmp/gamma-startup.log
+          gate=$(docker compose ps --all -q postgres-schema-audit)
+          test -n "$gate"
+          test "$(docker inspect --format '{{.State.Status}}:{{.State.ExitCode}}' "$gate")" = exited:3
+          docker compose logs --no-color postgres-schema-audit | grep -q 'missing table or forced RLS'
+          api=$(docker compose ps --all -q api)
+          if [ -n "$api" ]; then
+            test "$(docker inspect --format '{{.State.Status}}' "$api")" = created
+          fi
+          sql "ALTER TABLE public.integration_inbox FORCE ROW LEVEL SECURITY"
+          docker compose rm -f postgres-schema-audit
+          docker compose up -d --wait api
       - name: Verify schema gate dependency contract
         run: |
           docker compose config --format json > /tmp/gamma-gate.json
