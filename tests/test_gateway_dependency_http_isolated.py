@@ -27,6 +27,7 @@ def get_probe(principal: Principal = Depends(internal_principal)):
 def configure(monkeypatch):
     monkeypatch.setattr(settings, 'internal_api_key', 'service-secret')
     monkeypatch.setattr(settings, 'gateway_assertion_secret', 's'*48)
+    monkeypatch.setattr(settings, 'gateway_assertion_keys', {})
     monkeypatch.setattr(settings, 'gateway_assertion_issuer', 'trusted-gateway')
     monkeypatch.setattr(settings, 'gateway_assertion_audience', 'gamma-api')
     monkeypatch.setattr(settings, 'gateway_assertion_max_ttl_seconds', 60)
@@ -35,7 +36,7 @@ def signed(*, method='POST', path='/api/v1/probe', tenant_access=True, overrides
     now = int(time.time())
     claims = {'iss':'trusted-gateway','aud':'gamma-api','sub':'user:123',
               'actor_type':'user','tenant_id':str(uuid4()),'tenant_access':tenant_access,
-              'iat':now,'exp':now+30,'jti':'assertion-123456', 'method':method,'path':path}
+              'iat':now,'exp':now+30,'jti':'assertion-' + uuid4().hex, 'method':method,'path':path}
     claims.update(overrides or {})
     return signed_json(json.dumps(claims, separators=(',', ':')))
 
@@ -209,3 +210,55 @@ def test_single_untrusted_tenant_header_does_not_override_signed_tenant(replay_u
         })
     assert response.status_code == 200
     assert response.json()["tenant"] == str(tenant)
+
+
+def test_http_replay_duplicate_denied_before_handler(replay_unit):
+    replay_unit.side_effect = [True, False]
+    headers = {
+        "X-Internal-API-Key": "service-secret",
+        "X-Gateway-Principal": signed(),
+    }
+    with TestClient(app) as client:
+        assert client.post("/api/v1/probe", headers=headers).status_code == 200
+        denied = client.post("/api/v1/probe", headers=headers)
+    assert denied.status_code == 401
+    assert denied.json() == {"detail": "Gateway assertion already used"}
+    assert replay_unit.await_count == 2
+    assert replay_unit.await_args_list[0].kwargs == replay_unit.await_args_list[1].kwargs
+
+
+def test_http_replay_store_failure_is_closed(replay_unit):
+    replay_unit.side_effect = RuntimeError("synthetic unavailable store")
+    with TestClient(app) as client:
+        denied = client.post("/api/v1/probe", headers={
+            "X-Internal-API-Key": "service-secret",
+            "X-Gateway-Principal": signed(),
+        })
+    assert denied.status_code == 503
+    assert denied.json() == {"detail": "Gateway replay protection unavailable"}
+    replay_unit.assert_awaited_once()
+
+
+@pytest.mark.parametrize("kind", ["unsigned", "wrong_key", "wrong_path", "wrong_tenant_access"])
+def test_invalid_http_identity_never_opens_replay_session(monkeypatch, kind):
+    import app.security as security
+    from unittest.mock import Mock
+
+    factory = Mock(side_effect=AssertionError("Invalid identity opened replay session"))
+    monkeypatch.setattr(security, "get_session_factory", factory)
+    headers = {
+        "X-Internal-API-Key": "service-secret",
+        "X-Gateway-Principal": signed(),
+    }
+    if kind == "unsigned":
+        del headers["X-Gateway-Principal"]
+    elif kind == "wrong_key":
+        headers["X-Internal-API-Key"] = "wrong"
+    elif kind == "wrong_path":
+        headers["X-Gateway-Principal"] = signed(path="/api/v1/other")
+    else:
+        headers["X-Gateway-Principal"] = signed(tenant_access=False)
+    with TestClient(app) as client:
+        denied = client.post("/api/v1/probe", headers=headers)
+    assert denied.status_code == 401
+    factory.assert_not_called()
