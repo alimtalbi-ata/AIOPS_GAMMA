@@ -2,6 +2,9 @@ name: Deployment contract (static + runtime smoke)
 on:
   push:
   pull_request:
+env:
+  # Disposable CI runtime credential; distinct from PostgreSQL bootstrap admin.
+  APP_DB_PASSWORD: ci-only-test-runtime-password
 jobs:
   compose:
     runs-on: ubuntu-latest
@@ -67,9 +70,14 @@ jobs:
           home = os.environ["GAMMA_HOME"]
           for name in ("postgres", "opensearch"):
               mounts = services[name]["volumes"]
-              assert len(mounts) == 1, (name, mounts)
-              assert mounts[0]["type"] == "bind", (name, mounts)
-              assert mounts[0]["source"].startswith(home + "/data/"), (name, mounts)
+              data_target = {"postgres": "/var/lib/postgresql/data", "opensearch": "/usr/share/opensearch/data"}[name]
+              data = [m for m in mounts if m["target"] == data_target]
+              assert len(data) == 1, (name, mounts)
+              assert data[0]["type"] == "bind", (name, data)
+              assert data[0]["source"] == home + "/data/" + name, (name, data)
+              if name == "postgres":
+                  init = [m for m in mounts if m["target"] == "/docker-entrypoint-initdb.d/01-app-role.sh"]
+                  assert len(init) == 1 and init[0]["read_only"], mounts
           for name in ("api", "outbox-relay"):
               assert services[name]["user"] == "10001:10001"
           assert services["frontend"]["security_opt"] == ["no-new-privileges:true"]
