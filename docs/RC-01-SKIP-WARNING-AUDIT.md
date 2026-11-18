@@ -21,3 +21,27 @@ Eleven Pydantic serializer warnings originate from negative regression tests; re
 ## Skip evidence pending
 Original run lacks -rs and JUnit artifact; exact 15 node IDs not established. Diagnostic branch qualify/gamma-rc01-59f3627 commit 1477d482fcb6b516e9740915ea76d77a5e805232 changes only CI reporting, retaining original exclusions and test scope. Run https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/44390727084 was queued at observation. Collect JUnit skipped cases, reasons, logs, SHA, Python version and dependency inventory; compare counts and map dedicated PostgreSQL coverage. Artifact retention 14 days. New run is a reproduction, not retroactive proof of original exact skips. Dependencies are not pinned by this change.
 RC-01 remains OPEN until actual results and individual coverage/risk decisions are reviewed. No merge, deployment or LIVE authorization.
+
+## UX15.42.2-B — reproduced skip inventory and coverage
+Diagnostic run 44390727084: 2481 passed, 15 skipped, 12 warnings, 8 subtests passed. All 5 Python jobs, 6 deployment jobs and 1 role preflight job succeeded (12 observed jobs; no new RLS qualification claimed).
+Artifact 14469330317: https://github.com/alimtalbi-ata/AIOPS_GAMMA/actions/runs/44390727084/artifacts/14469330317
+Downloaded ZIP SHA256 verified against GitHub: 148f61243a1f945cfa8bb3da9849cffb77813ea1bc83d6ae1ffe740a2fa61faf. All five files present, sha.txt matches 1477d482fcb6b516e9740915ea76d77a5e805232. Parsed JUnit exact skipped nodes below (prefix tests/).
+| Node | Skip reason | Coverage on original candidate |
+|---|---|---|
+| test_gateway_cross_key_replay.py::test_concurrent_cross_key_replay | Disposable database required | RLS suite |
+| test_gateway_replay.py::test_replay_reservation_is_atomic_across_independent_postgres_sessions | GAMMA_TEST_DATABASE_URL not configured; disposable PostgreSQL required | Related concurrent reservation test in dedicated replay suite; exact node not run |
+| test_gateway_replay.py::test_postgres_cleanup_preserves_live_rows_and_respects_batch_limit | same | gap: exact cleanup behavior not demonstrated by dedicated suite |
+| test_gateway_replay.py::test_two_postgres_cleanup_workers_race_with_fresh_gateway_authentication | same | gap: cleanup/auth race not demonstrated |
+| test_opensearch_staging_readonly.py::test_real_opensearch_tenant_and_service_isolation | Explicit staging opt-in required | staging HOLD |
+| test_outbox_role_preflight.py::test_worker_privilege_preflight[GAMMA_WORKER_A_DSN] | Disposable database required | RLS suite |
+| test_outbox_role_preflight.py::test_worker_privilege_preflight[GAMMA_WORKER_B_DSN] | Disposable database required | RLS suite |
+| test_outbox_transaction_model.py::test_delivery_rollback_then_replay | Disposable PostgreSQL required | RLS suite |
+| test_outbox_worker_postgres.py::test_worker_identity_and_concurrent_claims | Disposable database required | RLS suite |
+| test_rls_all_tables.py::test_rls_crud_isolation[InboxEvent] | Explicit disposable PostgreSQL opt-in required | RLS suite |
+| test_rls_all_tables.py::test_rls_crud_isolation[OutboxEvent] | same | RLS suite |
+| test_rls_all_tables.py::test_rls_crud_isolation[ServiceBinding] | same | RLS suite |
+| test_rls_all_tables.py::test_rls_crud_isolation[Evidence] | same | RLS suite |
+| test_tenant_isolation.py::test_postgres_rls_denies_cross_tenant_reads_and_writes | GAMMA_TEST_DATABASE_URL must point to restricted gamma_app role | RLS suite |
+| test_tenant_session_context.py::test_context_rebound_and_pool_clean | Disposable database required | RLS suite |
+
+RLS job 135047892657 on 59f3627 explicitly selects the seven relevant files and reports 60 passed, no skips. Thus 11 cases have direct suite evidence. Replay job 135047892174 selects only test_gateway_replay_postgres.py (19 passed), including concurrent reservations; not the three exact skipped nodes in test_gateway_replay.py. One related coverage case, two gaps, one staging HOLD. Do not equate related coverage with exact execution. Next: qualify three exact replay nodes with existing disposable DB restrictions on an isolated branch; obtain approved staging evidence separately. Original 15 skips have matching reproduced count but no original JUnit; no retroactive claim. RC-01 remains OPEN. Candidate PR #12 rechecked unchanged, draft, not merged. No deployment or LIVE.
