@@ -357,6 +357,14 @@ jobs:
                           assert not await c.scalar(text("SELECT has_function_privilege('gamma_app','replay_maintenance.purge_expired(integer,integer)','EXECUTE') OR has_function_privilege('gamma_outbox_worker','replay_maintenance.purge_expired(integer,integer)','EXECUTE')"))
                           assert await c.scalar(text("SELECT count(*) FROM pg_proc p JOIN pg_roles r ON r.oid=p.proowner WHERE p.oid='replay_maintenance.purge_expired(integer,integer)'::regprocedure AND p.prosecdef AND r.rolname='gamma_replay_executor' AND NOT r.rolcanlogin AND NOT r.rolsuper AND NOT r.rolbypassrls AND NOT pg_has_role(current_user,r.oid,'MEMBER') AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']")) == 1
                           assert not await c.scalar(text("SELECT has_schema_privilege(current_user,'replay_maintenance','CREATE')"))
+                          body = await c.scalar(text("SELECT prosrc FROM pg_proc WHERE oid='replay_maintenance.purge_expired(integer,integer)'::regprocedure"))
+                          assert " ".join(body.split()) == "DECLARE deleted integer; BEGIN IF batch_size IS NULL OR grace_seconds IS NULL OR batch_size NOT BETWEEN 1 AND 10000 OR grace_seconds NOT BETWEEN 60 AND 86400 THEN RAISE EXCEPTION 'Invalid replay cleanup policy' USING ERRCODE = '22023'; END IF; WITH expired AS ( SELECT assertion_digest FROM public.gateway_assertion_replay WHERE expires_at < statement_timestamp() - (grace_seconds * interval '1 second') ORDER BY expires_at, assertion_digest FOR UPDATE SKIP LOCKED LIMIT batch_size ) DELETE FROM public.gateway_assertion_replay AS replay USING expired WHERE replay.assertion_digest = expired.assertion_digest; GET DIAGNOSTICS deleted = ROW_COUNT; RETURN deleted; END;"
+                          assert not await c.scalar(text("SELECT has_schema_privilege('gamma_replay_executor','replay_maintenance','CREATE') OR has_schema_privilege('gamma_replay_executor','public','CREATE')"))
+                          assert not await c.scalar(text("SELECT EXISTS (SELECT 1 FROM pg_auth_members WHERE roleid='gamma_replay_executor'::regrole OR member='gamma_replay_executor'::regrole)"))
+                          assert not await c.scalar(text("SELECT EXISTS (SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid='replay_maintenance.purge_expired(integer,integer)'::regprocedure AND a.grantee NOT IN (p.proowner,'gamma_replay_maintenance'::regrole) AND a.privilege_type='EXECUTE')"))
+                          for table in ("integration_inbox","integration_outbox","telemetry_service_bindings","investigation_evidence"):
+                              assert not await c.scalar(text("SELECT has_any_column_privilege('gamma_replay_executor',:t,'SELECT,INSERT,UPDATE,REFERENCES') OR has_table_privilege('gamma_replay_executor',:t,'DELETE,TRUNCATE,TRIGGER')"),{"t":"public."+table})
+                          assert await c.scalar(text("SELECT replay_maintenance.purge_expired(1,60)")) == 0
 
                           assert not await c.scalar(text("SELECT pg_has_role(current_user,'gamma_app','MEMBER') OR pg_has_role(current_user,'gamma_outbox_worker','MEMBER')"))
                           assert not await c.scalar(text("SELECT rolsuper OR rolbypassrls OR rolcreatedb OR rolcreaterole OR rolreplication FROM pg_roles WHERE rolname=current_user"))
@@ -372,6 +380,8 @@ jobs:
                               for privilege in ("SELECT","INSERT","UPDATE","DELETE","TRUNCATE"):
                                   assert not await c.scalar(text("SELECT has_table_privilege(current_user,:table,:privilege)"),{"table":"public."+table,"privilege":privilege})
                       for sql in [
+                          "SELECT * FROM public.gateway_assertion_replay",
+                          "SELECT * FROM public.gateway_assertion_replay FOR UPDATE",
                           "DELETE FROM public.gateway_assertion_replay WHERE assertion_digest=repeat('a',64)",
                           "DELETE FROM public.gateway_assertion_replay WHERE assertion_digest=repeat('b',64)",
                           "ALTER TABLE public.gateway_assertion_replay DISABLE TRIGGER replay_expiry_delete",
@@ -395,6 +405,7 @@ jobs:
                               assert getattr(exc.orig,"sqlstate",None) == "22023"
                           else:
                               raise AssertionError("Invalid SQL policy accepted")
+                          print("SQL POLICY DENIED:",batch,grace)
                   finally:
                       await maintenance.dispose()
                   import runpy
