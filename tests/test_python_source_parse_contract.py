@@ -80,7 +80,8 @@ def test_disposable_postgres_preflight_never_uses_optimizable_assertions():
     for required in (
         "current_database()", "inet_server_addr()", "rolsuper",
         "server_version_num", "alembic_version", "to_regclass",
-        "SELECT count(*)", "pytest.fail",
+        "relrowsecurity AND relforcerowsecurity", "0006_worker_role_guard",
+        "rolbypassrls", "pytest.fail",
     ):
         assert required in preflight_source
 
