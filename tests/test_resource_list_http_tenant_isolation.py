@@ -15,8 +15,9 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from app.db import get_tenant_session
-from app.main import app
+from fastapi import Depends
+from app.security import Principal, internal_principal
+from app.main import app, tenant_session
 from app.models import Evidence, ServiceBinding
 from app.settings import settings
 
@@ -135,16 +136,19 @@ def test_real_http_list_routes_isolate_tenants_and_ignore_forged_headers(resourc
 
     session = TenantScopedSession(rows)
 
-    async def override_session():
+    bound_tenants = []
+
+    async def override_session(principal: Principal = Depends(internal_principal)):
+        bound_tenants.append(principal.tenant_id)
         yield session
 
-    app.dependency_overrides[get_tenant_session] = override_session
+    app.dependency_overrides[tenant_session] = override_session
     try:
         with TestClient(app) as client:
             a = client.get(path, headers=signed_headers(path, TENANT_A, claimed_tenant=TENANT_B))
             b = client.get(path, headers=signed_headers(path, TENANT_B, claimed_tenant=TENANT_A))
     finally:
-        app.dependency_overrides.pop(get_tenant_session, None)
+        app.dependency_overrides.pop(tenant_session, None)
 
     assert a.status_code == 200, a.text
     assert b.status_code == 200, b.text
@@ -153,3 +157,4 @@ def test_real_http_list_routes_isolate_tenants_and_ignore_forged_headers(resourc
     assert a.headers["Cache-Control"] == "no-store"
     assert b.headers["Cache-Control"] == "no-store"
     assert len(session.queries) == 2
+    assert bound_tenants == [TENANT_A, TENANT_B]
