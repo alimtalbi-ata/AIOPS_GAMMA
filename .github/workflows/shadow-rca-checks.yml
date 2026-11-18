@@ -2,6 +2,9 @@ name: Shadow RCA isolated checks
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feat/observability-foundation
   pull_request:
     paths:
       - 'app/reused/shadow_*.py'
