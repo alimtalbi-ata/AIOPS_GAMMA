@@ -245,6 +245,11 @@ def valid_webhook_endpoint(endpoint: str) -> bool:
 
 
 async def main():
+    # No qualified tenant-aware worker identity exists yet.
+    raise RuntimeError("Outbox relay disabled pending tenant-aware RLS qualification")
+
+
+async def _unqualified_relay_main():
     endpoint = os.getenv("CORRELATION_WEBHOOK_URL", "")
     token = os.getenv("CORRELATION_WEBHOOK_TOKEN", "")
     allowed_host = os.getenv("CORRELATION_WEBHOOK_ALLOWED_HOST", "")
