@@ -14,11 +14,12 @@ from app.schemas import BindingIn
 from app.security import Principal
 
 
-def principal(tenant_id):
+def principal(tenant_id, *permissions):
     return Principal(
         tenant_id=tenant_id, subject="user:tenant-test", actor_type="user",
         assertion_id="tenant-test-assertion", expires_at=2_000_000_000,
         evidence_incident_grants=("INC-42",),
+        business_permissions=permissions,
     )
 
 
@@ -56,7 +57,7 @@ async def test_binding_write_uses_verified_principal_tenant_not_request_data():
         cmdb_service_id=uuid4(), otel_service_name="checkout-api",
         environment="production",
     )
-    await add_binding(request, principal(tenant_a), session)
+    await add_binding(request, principal(tenant_a, "bindings:write"), session)
     assert len(session.added) == 1
     assert session.added[0].tenant_id == tenant_a
     assert session.added[0].tenant_id != tenant_b
@@ -67,7 +68,7 @@ async def test_binding_write_uses_verified_principal_tenant_not_request_data():
 async def test_binding_read_query_is_tenant_scoped():
     tenant_a = uuid4()
     session = FakeSession()
-    await list_bindings(principal(tenant_a), session)
+    await list_bindings(principal(tenant_a, "bindings:read"), session)
     compiled = session.statement.compile()
     assert "telemetry_service_bindings.tenant_id" in str(compiled)
     assert tenant_a in compiled.params.values()
@@ -77,7 +78,7 @@ async def test_binding_read_query_is_tenant_scoped():
 async def test_evidence_read_query_scopes_both_tenant_and_granted_incident():
     tenant_a = uuid4()
     session = FakeSession()
-    await list_evidence("INC-42", principal(tenant_a), session)
+    await list_evidence("INC-42", principal(tenant_a, "evidence:read"), session)
     compiled = session.statement.compile()
     assert "investigation_evidence.tenant_id" in str(compiled)
     assert "investigation_evidence.incident_id" in str(compiled)
@@ -90,7 +91,7 @@ async def test_evidence_read_denies_cross_tenant_incident_grant_before_query():
     tenant_b = uuid4()
     session = FakeSession()
     with pytest.raises(Exception) as exc:
-        await list_evidence("INC-OTHER", principal(tenant_b), session)
+        await list_evidence("INC-OTHER", principal(tenant_b, "evidence:read"), session)
     from fastapi import HTTPException
     assert isinstance(exc.value, HTTPException)
     assert exc.value.status_code == 403
@@ -197,3 +198,22 @@ async def test_postgres_rls_denies_cross_tenant_reads_and_writes():
                     )
         finally:
             await engine.dispose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operation", ["binding_write", "binding_read", "evidence_read"])
+async def test_missing_business_permission_denies_before_persistence(operation):
+    from fastapi import HTTPException
+    session = FakeSession()
+    actor = principal(uuid4())
+    with pytest.raises(HTTPException) as exc:
+        if operation == "binding_write":
+            await add_binding(BindingIn(cmdb_service_id=uuid4(), otel_service_name="checkout", environment="test"), actor, session)
+        elif operation == "binding_read":
+            await list_bindings(actor, session)
+        else:
+            await list_evidence("INC-42", actor, session)
+    assert exc.value.status_code == 403
+    assert session.statement is None
+    assert session.added == []
+    assert session.commits == 0
