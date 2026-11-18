@@ -14,7 +14,7 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from app.db import get_session
+import app.main as main_module
 from app.main import app
 from app.models import Evidence, ServiceBinding
 from app.settings import settings
@@ -26,13 +26,14 @@ INCIDENT = "incident-shared-id"
 OTHER_INCIDENT = "incident-other-id"
 
 
-def signed_headers(path, tenant, *, claimed_tenant=None, grant_incident=True):
+def signed_headers(path, tenant, *, claimed_tenant=None, grant_incident=True, grant_business=True):
     now = int(time.time())
     claims = {
         "iss": "trusted-gateway", "aud": "gamma-api", "sub": f"user:tenant-isolation-test:{tenant}",
         "actor_type": "user", "tenant_id": str(tenant), "tenant_access": True,
         "iat": now, "exp": now + 30, "jti": "isolation-test-" + uuid4().hex,
         "method": "GET", "path": path,
+        "business_permissions": (["bindings:read"] if path.endswith("/bindings") else ["evidence:read"]) if grant_business else [],
         "evidence_incident_grants": [INCIDENT] if grant_incident and path == f"/api/v1/incidents/{INCIDENT}/evidence" else [],
     }
     encoded = base64.urlsafe_b64encode(
@@ -100,7 +101,7 @@ class TenantScopedSession:
 
 
 @pytest.mark.parametrize("resource", ["bindings", "evidence"])
-def test_real_http_list_routes_isolate_tenants_and_ignore_forged_headers(resource):
+def test_real_http_list_routes_isolate_tenants_and_ignore_forged_headers(resource, monkeypatch, replay_unit):
     if resource == "bindings":
         def row(tenant, name):
             return ServiceBinding(
@@ -127,19 +128,22 @@ def test_real_http_list_routes_isolate_tenants_and_ignore_forged_headers(resourc
 
     session = TenantScopedSession(rows)
 
-    async def override_session():
+    bound_tenants = []
+
+    async def fake_tenant_session(tenant_id):
+        bound_tenants.append(tenant_id)
         yield session
 
-    app.dependency_overrides[get_session] = override_session
-    try:
-        with TestClient(app) as client:
-            a = client.get(path, headers=signed_headers(path, TENANT_A, claimed_tenant=TENANT_B))
-            b = client.get(path, headers=signed_headers(path, TENANT_B, claimed_tenant=TENANT_A))
-            if resource == "evidence":
-                denied = client.get(path, headers=signed_headers(path, TENANT_A, grant_incident=False))
-                assert denied.status_code == 403, denied.text
-    finally:
-        app.dependency_overrides.pop(get_session, None)
+    monkeypatch.setattr(main_module, "get_tenant_session", fake_tenant_session)
+    with TestClient(app) as client:
+        a = client.get(path, headers=signed_headers(path, TENANT_A, claimed_tenant=TENANT_B))
+        b = client.get(path, headers=signed_headers(path, TENANT_B, claimed_tenant=TENANT_A))
+        denied_business = client.get(path, headers=signed_headers(path, TENANT_A, grant_business=False))
+        assert denied_business.status_code == 403, denied_business.text
+        if resource == "evidence":
+            denied = client.get(path, headers=signed_headers(path, TENANT_A, grant_incident=False))
+            assert denied.status_code == 403, denied.text
+    assert bound_tenants[:2] == [TENANT_A, TENANT_B]
 
     assert a.status_code == 200, a.text
     assert b.status_code == 200, b.text
