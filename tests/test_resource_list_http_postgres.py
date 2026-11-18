@@ -1,6 +1,6 @@
 """Real HTTP tenant-isolation tests against an explicitly disposable PostgreSQL DB.
 
-Requires the reviewed Alembic head (0002_gateway_replay) on a loopback-only
+Requires the reviewed Alembic head (0006_worker_role_guard) on a loopback-only
 database named *_tenant_test. Never use staging or production credentials.
 
     GAMMA_TENANT_TEST_ALLOW_WRITE=I_UNDERSTAND_DISPOSABLE_DB \
@@ -25,7 +25,9 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from app.db import get_session
+from app.db import bind_tenant_context
+import app.db as db
+import app.security as security
 from app.main import app
 from app.models import Evidence, ServiceBinding
 from app.settings import settings
@@ -53,13 +55,15 @@ def _require_disposable_url(raw_url: str) -> str:
 
 
 @pytest.fixture
-def tenant_postgres():
+def tenant_postgres(monkeypatch):
     url = _require_disposable_url(os.environ.get("GAMMA_TENANT_TEST_DATABASE_URL", ""))
     if os.environ.get("GAMMA_TENANT_TEST_ALLOW_WRITE") != "I_UNDERSTAND_DISPOSABLE_DB":
         pytest.fail("Explicit disposable database write acknowledgement required")
 
     engine = create_async_engine(url, poolclass=NullPool)
     factory = async_sessionmaker(engine, expire_on_commit=False)
+    monkeypatch.setattr(db, "get_session_factory", lambda: factory)
+    monkeypatch.setattr(security, "get_session_factory", lambda: factory)
     binding_ids = [uuid4(), uuid4()]
     evidence_ids = [uuid4(), uuid4(), uuid4()]
     investigation_ids = [uuid4(), uuid4(), uuid4()]
@@ -81,8 +85,10 @@ def tenant_postgres():
             if not 160000 <= int(version) < 170000:
                 pytest.fail("Disposable tenant test requires PostgreSQL 16")
             revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
-            if revision != "0002_gateway_replay":
-                pytest.fail("Disposable tenant database must be at reviewed Alembic head 0002")
+            if revision != "0006_worker_role_guard":
+                pytest.fail("Disposable tenant database must be at reviewed Alembic head 0006")
+            assert await connection.scalar(text("SELECT current_user")) == "gamma_app"
+            assert await connection.scalar(text("SELECT rolbypassrls FROM pg_roles WHERE rolname = current_user")) is False
             for table in ("telemetry_service_bindings", "investigation_evidence"):
                 present = await connection.scalar(text("SELECT to_regclass(:name)"), {"name": table})
                 if present is None:
@@ -91,8 +97,7 @@ def tenant_postgres():
                 if count != 0:
                     pytest.fail(f"Disposable database must start empty; {table} contains {count} rows")
 
-        async with factory() as session:
-            session.add_all([
+        rows = [
                 ServiceBinding(
                     id=binding_ids[0], tenant_id=TENANT_A, cmdb_service_id=uuid4(),
                     otel_service_name="tenant-a-service", environment="test",
@@ -119,8 +124,12 @@ def tenant_postgres():
                     source_ref="tenant-a-other-incident", summary=None,
                     observed_at=datetime.now(timezone.utc),
                 ),
-            ])
-            await session.commit()
+        ]
+        for tenant in (TENANT_A, TENANT_B):
+            async with factory() as session:
+                bind_tenant_context(session, tenant)
+                session.add_all([row for row in rows if row.tenant_id == tenant])
+                await session.commit()
 
     prepared = False
     try:
@@ -130,10 +139,12 @@ def tenant_postgres():
     finally:
         async def cleanup():
             if prepared:
-                async with factory() as session:
-                    await session.execute(delete(Evidence).where(Evidence.id.in_(evidence_ids)))
-                    await session.execute(delete(ServiceBinding).where(ServiceBinding.id.in_(binding_ids)))
-                    await session.commit()
+                for tenant in (TENANT_A, TENANT_B):
+                    async with factory() as session:
+                        bind_tenant_context(session, tenant)
+                        await session.execute(delete(Evidence).where(Evidence.id.in_(evidence_ids)))
+                        await session.execute(delete(ServiceBinding).where(ServiceBinding.id.in_(binding_ids)))
+                        await session.commit()
             await engine.dispose()
         asyncio.run(cleanup())
 
@@ -145,6 +156,7 @@ def _signed_headers(path: str, tenant: UUID, *, forged_tenant: UUID) -> dict[str
         "actor_type": "user", "tenant_id": str(tenant), "tenant_access": True,
         "iat": now, "exp": now + 30, "jti": "pg-isolation-" + uuid4().hex,
         "method": "GET", "path": path,
+        "business_permissions": ["bindings:read" if path == "/api/v1/topology/bindings" else "evidence:read"],
         "evidence_incident_grants": [INCIDENT] if path == f"/api/v1/incidents/{INCIDENT}/evidence" else [],
     }
     encoded = base64.urlsafe_b64encode(
@@ -174,13 +186,6 @@ def gateway_config(monkeypatch):
 
 @pytest.mark.parametrize("resource", ["bindings", "evidence"])
 def test_real_http_routes_isolate_two_tenants_in_postgres(resource, tenant_postgres):
-    factory = tenant_postgres
-
-    async def override_session():
-        async with factory() as session:
-            yield session
-
-    app.dependency_overrides[get_session] = override_session
     try:
         if resource == "bindings":
             path = "/api/v1/topology/bindings"
@@ -204,18 +209,11 @@ def test_real_http_routes_isolate_two_tenants_in_postgres(resource, tenant_postg
         assert a.headers["Cache-Control"] == "no-store"
         assert b.headers["Cache-Control"] == "no-store"
     finally:
-        app.dependency_overrides.pop(get_session, None)
+        pass
 
 
 @pytest.mark.parametrize("resource", ["bindings", "evidence"])
 def test_foreign_rows_and_foreign_incident_are_not_serialized(resource, tenant_postgres):
-    factory = tenant_postgres
-
-    async def override_session():
-        async with factory() as session:
-            yield session
-
-    app.dependency_overrides[get_session] = override_session
     try:
         path = ("/api/v1/topology/bindings" if resource == "bindings"
                 else f"/api/v1/incidents/{INCIDENT}/evidence")
@@ -233,7 +231,7 @@ def test_foreign_rows_and_foreign_incident_are_not_serialized(resource, tenant_p
         assert "tenant-b-evidence" not in values
         assert "tenant-a-other-incident" not in values
     finally:
-        app.dependency_overrides.pop(get_session, None)
+        pass
 
 
 @pytest.mark.parametrize("url", [
