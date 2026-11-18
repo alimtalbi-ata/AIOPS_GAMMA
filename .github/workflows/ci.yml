@@ -102,20 +102,6 @@ jobs:
 
   gateway-replay-postgres:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_DB: gamma_replay_test
-          POSTGRES_USER: gamma
-          POSTGRES_PASSWORD: ci-disposable-replay-password
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U gamma -d gamma_replay_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 12
     env:
       DATABASE_URL: postgresql+asyncpg://gamma:ci-disposable-replay-password@127.0.0.1:5432/gamma_replay_test
       GAMMA_REPLAY_TEST_DATABASE_URL: postgresql+asyncpg://gamma:ci-disposable-replay-password@127.0.0.1:5432/gamma_replay_test
@@ -126,6 +112,19 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e '.[test]'
+      - name: Start disposable PostgreSQL on actual loopback
+        run: |
+          docker run --detach --name gamma-replay-ci --network host \
+            -e POSTGRES_DB=gamma_replay_test -e POSTGRES_USER=gamma \
+            -e POSTGRES_PASSWORD=ci-disposable-replay-password \
+            postgres:16 -c listen_addresses=127.0.0.1
+          for attempt in $(seq 1 60); do
+            if docker exec gamma-replay-ci pg_isready -h 127.0.0.1 -U gamma -d gamma_replay_test; then
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
       - name: Apply reviewed replay migration to disposable PostgreSQL
         # This suite exercises revision 0002 only; full head is qualified separately by RLS CI.
         run: alembic upgrade 0002_gateway_replay
@@ -153,6 +152,10 @@ jobs:
           PY
       - name: Exercise real PostgreSQL replay concurrency and commit behavior
         run: python -m pytest -q tests/test_gateway_replay_postgres.py
+
+      - name: Remove disposable replay database
+        if: always()
+        run: docker rm -f gamma-replay-ci || true
 
   tenant-evidence-postgres-e2e:
     runs-on: ubuntu-latest
