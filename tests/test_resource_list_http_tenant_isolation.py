@@ -8,13 +8,14 @@ import hashlib
 import hmac
 import json
 import time
+from unittest.mock import AsyncMock, MagicMock
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app.db import get_session
+from app.db import get_tenant_session
 from app.main import app
 from app.models import Evidence, ServiceBinding
 from app.settings import settings
@@ -33,6 +34,8 @@ def signed_headers(path, tenant, *, claimed_tenant=None):
         "actor_type": "user", "tenant_id": str(tenant), "tenant_access": True,
         "iat": now, "exp": now + 30, "jti": "isolation-test-" + uuid4().hex,
         "method": "GET", "path": path,
+        "business_permissions": ["bindings:read"] if path.endswith("/bindings") else ["evidence:read"],
+        "evidence_incident_grants": [INCIDENT] if path.endswith("/evidence") else [],
     }
     encoded = base64.urlsafe_b64encode(
         json.dumps(claims, separators=(",", ":")).encode()
@@ -50,6 +53,12 @@ def signed_headers(path, tenant, *, claimed_tenant=None):
 
 @pytest.fixture(autouse=True)
 def gateway_config(monkeypatch):
+    context = MagicMock()
+    context.__aenter__ = AsyncMock(return_value=object())
+    context.__aexit__ = AsyncMock(return_value=False)
+    monkeypatch.setattr('app.security.get_session_factory', lambda: lambda: context)
+    monkeypatch.setattr('app.security.consume_assertion_before_access', AsyncMock(return_value=True))
+    monkeypatch.setattr(settings, 'gateway_assertion_keys', {})
     monkeypatch.setattr(settings, "internal_api_key", "service-secret")
     monkeypatch.setattr(settings, "gateway_assertion_secret", "s" * 48)
     monkeypatch.setattr(settings, "gateway_assertion_issuer", "trusted-gateway")
@@ -129,13 +138,13 @@ def test_real_http_list_routes_isolate_tenants_and_ignore_forged_headers(resourc
     async def override_session():
         yield session
 
-    app.dependency_overrides[get_session] = override_session
+    app.dependency_overrides[get_tenant_session] = override_session
     try:
         with TestClient(app) as client:
             a = client.get(path, headers=signed_headers(path, TENANT_A, claimed_tenant=TENANT_B))
             b = client.get(path, headers=signed_headers(path, TENANT_B, claimed_tenant=TENANT_A))
     finally:
-        app.dependency_overrides.pop(get_session, None)
+        app.dependency_overrides.pop(get_tenant_session, None)
 
     assert a.status_code == 200, a.text
     assert b.status_code == 200, b.text
