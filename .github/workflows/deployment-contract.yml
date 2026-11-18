@@ -355,4 +355,4 @@ jobs:
           grep -q 'name: postgres-security-gate' /tmp/gamma-rendered.yaml
           grep -q 'mountPath: /preflight, readOnly: true' /tmp/gamma-rendered.yaml
           grep -q 'SELECT session_user' /tmp/gamma-rendered.yaml
-          grep -q 'psql -X -v ON_ERROR_STOP=1 -f /preflight/02-schema-security.sql' /tmp/gamma-rendered.yaml
+          grep -q 'psql -X --dbname="$GATE_DSN" -v ON_ERROR_STOP=1 -f /preflight/02-schema-security.sql' /tmp/gamma-rendered.yaml

@@ -28,17 +28,16 @@ spec:
           args:
             - |
               case "$DATABASE_URL" in
-                postgresql+asyncpg://*) PGDATABASE="postgresql://${DATABASE_URL#postgresql+asyncpg://}" ;;
+                postgresql+asyncpg://*) GATE_DSN="postgresql://${DATABASE_URL#postgresql+asyncpg://}" ;;
                 *) echo "Unsupported application database URL" >&2; exit 1 ;;
               esac
-              export PGDATABASE
               # libpq needs an explicit default user for numeric UIDs without passwd entries.
               export PGUSER=gamma_app
               unset DATABASE_URL
               export PGCONNECT_TIMEOUT=10
-              test "$(psql -X -At -v ON_ERROR_STOP=1 -c 'SELECT session_user')" = gamma_app
-              psql -X -v ON_ERROR_STOP=1 -f /preflight/01-app-role.sql
-              psql -X -v ON_ERROR_STOP=1 -f /preflight/02-schema-security.sql
+              test "$(psql -X --dbname="$GATE_DSN" -At -v ON_ERROR_STOP=1 -c 'SELECT session_user')" = gamma_app
+              psql -X --dbname="$GATE_DSN" -v ON_ERROR_STOP=1 -f /preflight/01-app-role.sql
+              psql -X --dbname="$GATE_DSN" -v ON_ERROR_STOP=1 -f /preflight/02-schema-security.sql
           volumeMounts:
             - {name: postgres-security-gate, mountPath: /preflight, readOnly: true}
           securityContext:
