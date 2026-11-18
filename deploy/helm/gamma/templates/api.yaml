@@ -1,3 +1,6 @@
+{{- if and .Values.api.gatewayAssertionSecret .Values.api.gatewayAssertionKeysSecret }}
+{{- fail "Configure either gatewayAssertionSecret or gatewayAssertionKeysSecret, not both" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
