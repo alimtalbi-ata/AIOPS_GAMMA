@@ -24,7 +24,9 @@ from sqlalchemy.exc import ArgumentError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from app.db import get_session
+from app.db import get_session, bind_tenant_context
+import app.db as db
+import app.security as security
 from app.main import app
 from app.models import Evidence, InboxEvent, OutboxEvent, ServiceBinding
 from app.settings import settings
@@ -53,6 +55,8 @@ def database(monkeypatch):
     raw = _disposable_database_url()
     engine = create_async_engine(raw, poolclass=NullPool)
     factory = async_sessionmaker(engine, expire_on_commit=False)
+    monkeypatch.setattr(db, "get_session_factory", lambda: factory)
+    monkeypatch.setattr(security, "get_session_factory", lambda: factory)
     written_tenants = []
     async def preflight():
         async with engine.connect() as conn:
@@ -64,8 +68,10 @@ def database(monkeypatch):
             if (not name or not name.endswith("_tenant_test") or address is None
                     or not ip_address(str(address)).is_loopback or role is not False
                     or not 160000 <= int(version) < 170000
-                    or revision != "0002_gateway_replay"):
+                    or revision != "0006_worker_role_guard"):
                 pytest.fail("Connected PostgreSQL identity or migration is not approved")
+            assert await conn.scalar(text("select current_user")) == "gamma_app"
+            assert await conn.scalar(text("select rolbypassrls from pg_roles where rolname=current_user")) is False
             for table in (Evidence.__tablename__, ServiceBinding.__tablename__,
                           InboxEvent.__tablename__, OutboxEvent.__tablename__):
                 if await conn.scalar(text("select to_regclass(:table)"), {"table": table}) is None:
@@ -74,10 +80,11 @@ def database(monkeypatch):
                     pytest.fail(f"Disposable table {table} must be empty before testing")
     async def clean():
         try:
-            if written_tenants:
+            for tenant in set(written_tenants):
                 async with factory() as session:
+                    bind_tenant_context(session, tenant)
                     await session.execute(
-                        delete(Evidence).where(Evidence.tenant_id.in_(written_tenants))
+                        delete(Evidence).where(Evidence.tenant_id == tenant)
                     )
                     await session.commit()
         finally:
@@ -103,6 +110,7 @@ def _headers(method, path, tenant, grants, *, forged_tenant):
         "tenant_id": str(tenant), "tenant_access": True,
         "iat": now, "exp": now + 30, "jti": "ci-" + uuid4().hex,
         "method": method, "path": path, "evidence_incident_grants": grants,
+        "business_permissions": ["alerts:ingest" if path.endswith("/alerts") else ("evidence:read" if method == "GET" else "evidence:write")],
     }
     encoded = base64.urlsafe_b64encode(
         json.dumps(claims, separators=(",", ":")).encode("utf-8")
@@ -124,15 +132,13 @@ def test_http_postgres_two_tenants_write_read_and_denied_write_is_atomic(databas
     incident = "shared-ci-e2e-incident"
     path = f"/api/v1/incidents/{incident}/evidence"
 
-    async def session_override():
-        async with factory() as session:
-            yield session
-
     async def persisted_count():
-        async with factory() as session:
-            return await session.scalar(select(func.count()).select_from(Evidence))
-
-    app.dependency_overrides[get_session] = session_override
+        total = 0
+        for tenant in (tenant_a, tenant_b):
+            async with factory() as session:
+                bind_tenant_context(session, tenant)
+                total += await session.scalar(select(func.count()).select_from(Evidence))
+        return total
     async def exercise():
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
             for tenant, other, marker in (
@@ -188,10 +194,7 @@ def test_http_postgres_two_tenants_write_read_and_denied_write_is_atomic(databas
                 )
             )
             assert mismatched.status_code == 401, mismatched.text
-    try:
-        asyncio.run(exercise())
-    finally:
-        app.dependency_overrides.pop(get_session, None)
+    asyncio.run(exercise())
 
 
 def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
