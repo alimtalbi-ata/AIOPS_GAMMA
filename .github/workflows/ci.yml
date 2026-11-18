@@ -159,20 +159,6 @@ jobs:
 
   tenant-evidence-postgres-e2e:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_DB: gamma_tenant_test
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: ci-root-bootstrap-only
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d gamma_tenant_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 12
     env:
       DATABASE_URL: postgresql+asyncpg://gamma_ci:ci-disposable-tenant-password@127.0.0.1:5432/gamma_tenant_test
       GAMMA_TENANT_TEST_DATABASE_URL: postgresql+asyncpg://gamma_ci:ci-disposable-tenant-password@127.0.0.1:5432/gamma_tenant_test
@@ -184,6 +170,19 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e '.[test]'
+      - name: Start disposable tenant PostgreSQL on actual loopback
+        run: |
+          docker run --detach --name gamma-tenant-ci --network host \
+            -e POSTGRES_DB=gamma_tenant_test -e POSTGRES_USER=postgres \
+            -e POSTGRES_PASSWORD=ci-root-bootstrap-only \
+            postgres:16 -c listen_addresses=127.0.0.1
+          for attempt in $(seq 1 60); do
+            if docker exec gamma-tenant-ci pg_isready -h 127.0.0.1 -U postgres -d gamma_tenant_test; then
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
       - name: Provision non-superuser PostgreSQL role for disposable E2E
         run: |
           psql -h 127.0.0.1 -U postgres -d gamma_tenant_test -v ON_ERROR_STOP=1 <<'SQL'
@@ -215,3 +214,7 @@ jobs:
           PY
       - name: Run HTTP PostgreSQL tenant isolation and evidence lifecycle
         run: python -m pytest -q -rs tests/test_resource_list_http_postgres.py tests/test_evidence_http_postgres_e2e.py
+
+      - name: Remove disposable tenant database
+        if: always()
+        run: docker rm -f gamma-tenant-ci || true
