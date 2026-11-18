@@ -26,13 +26,14 @@ INCIDENT = "incident-shared-id"
 OTHER_INCIDENT = "incident-other-id"
 
 
-def signed_headers(path, tenant, *, claimed_tenant=None):
+def signed_headers(path, tenant, *, claimed_tenant=None, grant_incident=True):
     now = int(time.time())
     claims = {
         "iss": "trusted-gateway", "aud": "gamma-api", "sub": f"user:tenant-isolation-test:{tenant}",
         "actor_type": "user", "tenant_id": str(tenant), "tenant_access": True,
         "iat": now, "exp": now + 30, "jti": "isolation-test-" + uuid4().hex,
         "method": "GET", "path": path,
+        "evidence_incident_grants": [INCIDENT] if grant_incident and path == f"/api/v1/incidents/{INCIDENT}/evidence" else [],
     }
     encoded = base64.urlsafe_b64encode(
         json.dumps(claims, separators=(",", ":")).encode()
@@ -134,6 +135,9 @@ def test_real_http_list_routes_isolate_tenants_and_ignore_forged_headers(resourc
         with TestClient(app) as client:
             a = client.get(path, headers=signed_headers(path, TENANT_A, claimed_tenant=TENANT_B))
             b = client.get(path, headers=signed_headers(path, TENANT_B, claimed_tenant=TENANT_A))
+            if resource == "evidence":
+                denied = client.get(path, headers=signed_headers(path, TENANT_A, grant_incident=False))
+                assert denied.status_code == 403, denied.text
     finally:
         app.dependency_overrides.pop(get_session, None)
 
