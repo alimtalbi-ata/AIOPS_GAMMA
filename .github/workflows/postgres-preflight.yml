@@ -98,6 +98,19 @@ jobs:
           grep -q 'unsafe worker role memberships' /tmp/schema-audit.log
           sql "REVOKE gamma_ci_worker_bridge FROM gamma_outbox_worker; DROP ROLE gamma_ci_worker_bridge"
           audit
+          sql "ALTER POLICY worker_self ON public.outbox_worker_identity USING (true)"
+          if audit > /tmp/schema-audit.log 2>&1; then exit 1; fi
+          grep -q 'worker identity policy drift' /tmp/schema-audit.log
+          sql "ALTER POLICY worker_self ON public.outbox_worker_identity USING (login_name = session_user)"
+          sql "GRANT UPDATE (tenant_id) ON public.outbox_worker_identity TO gamma_outbox_worker"
+          if audit > /tmp/schema-audit.log 2>&1; then exit 1; fi
+          grep -q 'unsafe worker identity privileges' /tmp/schema-audit.log
+          sql "REVOKE UPDATE (tenant_id) ON public.outbox_worker_identity FROM gamma_outbox_worker"
+          sql "GRANT SELECT ON public.outbox_worker_identity TO gamma_app"
+          if audit > /tmp/schema-audit.log 2>&1; then exit 1; fi
+          grep -q 'unsafe worker identity privileges' /tmp/schema-audit.log
+          sql "REVOKE SELECT ON public.outbox_worker_identity FROM gamma_app"
+          audit
       - name: Verify schema gate dependency contract
         run: |
           docker compose config --format json > /tmp/gamma-gate.json
