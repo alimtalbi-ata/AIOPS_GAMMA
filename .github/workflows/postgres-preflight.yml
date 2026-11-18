@@ -140,6 +140,22 @@ jobs:
           grep -q 'worker membership provisioning is on HOLD' /tmp/schema-audit.log
           sql "REVOKE gamma_outbox_worker FROM gamma_ci_worker_login; DROP ROLE gamma_ci_worker_login"
           audit
+      - name: Qualify least-privilege audit credentials for Kubernetes
+        run: |
+          set -eu
+          app_audit() {
+            docker compose exec -T -e PGPASSWORD="$APP_DB_PASSWORD" postgres psql -X -h 127.0.0.1 -U gamma_app -d aiops -v ON_ERROR_STOP=1 < "$1"
+          }
+          sql() {
+            docker compose exec -T postgres psql -X -U aiops -d aiops -v ON_ERROR_STOP=1 -c "$1"
+          }
+          app_audit postgres/preflight/01-app-role.sql
+          app_audit postgres/preflight/02-schema-security.sql
+          sql "ALTER TABLE public.integration_inbox NO FORCE ROW LEVEL SECURITY"
+          if app_audit postgres/preflight/02-schema-security.sql > /tmp/gamma-app-audit.log 2>&1; then exit 1; fi
+          grep -q 'missing table or forced RLS' /tmp/gamma-app-audit.log
+          sql "ALTER TABLE public.integration_inbox FORCE ROW LEVEL SECURITY"
+          app_audit postgres/preflight/02-schema-security.sql
       - name: Prove API startup fails closed on schema drift
         run: |
           set -eu
