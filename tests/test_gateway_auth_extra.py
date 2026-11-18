@@ -138,51 +138,65 @@ def request_with_headers(path="/api/v1/observability/metrics/query", headers=Non
 
 
 @pytest.mark.parametrize("supplied_key", [None, "", "wrong-service-key"])
-def test_internal_principal_rejects_missing_or_wrong_service_key(monkeypatch, supplied_key):
+@pytest.mark.asyncio
+async def test_internal_principal_rejects_missing_or_wrong_service_key(monkeypatch, supplied_key):
     monkeypatch.setattr(settings, "internal_api_key", "service-secret")
     request = request_with_headers()
     with pytest.raises(HTTPException) as exc:
-        internal_principal(request, x_internal_api_key=supplied_key,
+        await internal_principal(request, x_internal_api_key=supplied_key,
                            x_gateway_principal=signed(monkeypatch))
     assert exc.value.status_code == 401
 
 
-def test_internal_principal_fails_closed_when_service_key_unconfigured(monkeypatch):
+@pytest.mark.asyncio
+async def test_internal_principal_fails_closed_when_service_key_unconfigured(monkeypatch):
     monkeypatch.setattr(settings, "internal_api_key", "")
     with pytest.raises(HTTPException) as exc:
-        internal_principal(request_with_headers(), x_internal_api_key="anything",
+        await internal_principal(request_with_headers(), x_internal_api_key="anything",
                            x_gateway_principal=None)
     assert exc.value.status_code == 503
 
 
-def test_internal_principal_requires_gateway_assertion_after_service_auth(monkeypatch):
+@pytest.mark.asyncio
+async def test_internal_principal_requires_gateway_assertion_after_service_auth(monkeypatch):
     monkeypatch.setattr(settings, "internal_api_key", "service-secret")
     with pytest.raises(HTTPException) as exc:
-        internal_principal(request_with_headers(), x_internal_api_key="service-secret",
+        await internal_principal(request_with_headers(), x_internal_api_key="service-secret",
                            x_gateway_principal=None)
     assert exc.value.status_code == 401
 
 
-def test_internal_principal_ignores_caller_selected_tenant_header(monkeypatch):
+@pytest.mark.asyncio
+async def test_internal_principal_ignores_caller_selected_tenant_header(monkeypatch):
     monkeypatch.setattr(settings, "internal_api_key", "service-secret")
     monkeypatch.setattr("app.security.time.time", lambda: 1030)
+    from unittest.mock import AsyncMock, MagicMock
+    context = MagicMock()
+    context.__aenter__ = AsyncMock(return_value=object())
+    context.__aexit__ = AsyncMock(return_value=False)
+    monkeypatch.setattr("app.security.get_session_factory", lambda: lambda: context)
+    consume = AsyncMock(return_value=True)
+    monkeypatch.setattr("app.security.consume_assertion_before_access", consume)
     token = signed(monkeypatch)
     request = request_with_headers(headers={"X-Tenant-ID": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"})
-    principal = internal_principal(
+    principal = await internal_principal(
         request, x_internal_api_key="service-secret", x_gateway_principal=token
     )
     assert str(principal.tenant_id) == "12345678-1234-4234-8234-123456789abc"
+    consume.assert_awaited_once()
 
 
 @pytest.mark.parametrize("method,path", [
     ("GET", "/api/v1/observability/metrics/query"),
     ("POST", "/api/v1/observability/logs/search"),
 ])
-def test_internal_principal_rejects_assertion_bound_to_other_request(monkeypatch, method, path):
+@pytest.mark.asyncio
+async def test_internal_principal_rejects_assertion_bound_to_other_request(monkeypatch, method, path):
     monkeypatch.setattr(settings, "internal_api_key", "service-secret")
+    monkeypatch.setattr("app.security.time.time", lambda: 1030)
     token = signed(monkeypatch)
     with pytest.raises(HTTPException) as exc:
-        internal_principal(
+        await internal_principal(
             request_with_headers(path=path, method=method),
             x_internal_api_key="service-secret", x_gateway_principal=token,
         )
