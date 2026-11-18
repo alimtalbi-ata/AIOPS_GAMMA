@@ -74,6 +74,22 @@ BEGIN
         ) <> 3 THEN
             RAISE EXCEPTION 'Schema audit: worker policy structure drift';
         END IF;
+        IF t = 'integration_outbox' AND EXISTS (
+            SELECT 1 FROM pg_catalog.pg_policy p
+            WHERE p.polrelid = obj.oid
+              AND p.polname IN ('worker_access','worker_identity','worker_role_separation')
+              AND (
+                  regexp_replace(pg_get_expr(p.polqual, p.polrelid), '[[:space:]]+', ' ', 'g')
+                      IS DISTINCT FROM
+                      CASE WHEN p.polname = 'worker_role_separation'
+                          THEN '(NOT (pg_has_role(SESSION_USER, ''gamma_app''::name, ''MEMBER''::text) AND pg_has_role(SESSION_USER, ''gamma_outbox_worker''::name, ''MEMBER''::text)))'
+                          ELSE '(tenant_id = ( SELECT outbox_worker_identity.tenant_id FROM outbox_worker_identity WHERE (outbox_worker_identity.login_name = SESSION_USER)))'
+                      END
+                  OR p.polqual::text IS DISTINCT FROM p.polwithcheck::text
+              )
+        ) THEN
+            RAISE EXCEPTION 'Schema audit: worker predicate drift';
+        END IF;
         IF t = 'integration_outbox' THEN
             IF NOT has_table_privilege('gamma_outbox_worker', obj.oid, 'SELECT')
                OR has_any_column_privilege('gamma_outbox_worker', obj.oid, 'INSERT,REFERENCES')
@@ -134,5 +150,5 @@ END
 $audit$;
 ROLLBACK;
 \echo PostgreSQL schema security audit passed
--- The pinned tenant expression is PG16-specific; worker predicate semantics,
--- complete ACL review and behavioral isolation still require separate evidence.
+-- Pinned expressions are PG16-specific; complete ACL review and behavioral
+-- isolation still require separate evidence.
