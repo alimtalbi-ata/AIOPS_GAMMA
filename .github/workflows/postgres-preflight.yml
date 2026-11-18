@@ -72,6 +72,15 @@ jobs:
           grep -q 'unsafe table privilege' /tmp/schema-audit.log
           sql "REVOKE TRUNCATE ON public.integration_inbox FROM gamma_app"
           audit
+          sql "CREATE POLICY gamma_ci_widen ON public.integration_inbox USING (true)"
+          if audit > /tmp/schema-audit.log 2>&1; then exit 1; fi
+          grep -q 'unexpected policy' /tmp/schema-audit.log
+          sql "DROP POLICY gamma_ci_widen ON public.integration_inbox"
+          sql "ALTER POLICY tenant_isolation ON public.integration_inbox USING (true)"
+          if audit > /tmp/schema-audit.log 2>&1; then exit 1; fi
+          grep -q 'tenant policy drift' /tmp/schema-audit.log
+          sql "ALTER POLICY tenant_isolation ON public.integration_inbox USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)"
+          audit
       - name: Verify Compose Gateway registry propagation
         run: |
           set -eu
