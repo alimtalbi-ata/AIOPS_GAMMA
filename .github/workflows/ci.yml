@@ -346,6 +346,7 @@ jobs:
                           raise AssertionError("Unexpected success: "+sql)
                   async with engine.begin() as c:
                       assert await c.scalar(text("SELECT count(*) FROM public.gateway_assertion_replay WHERE assertion_digest=repeat('a',64) AND expires_at>now()")) == 1
+                      await c.execute(text("INSERT INTO public.gateway_assertion_replay VALUES (repeat('b',64), now()-interval '30 seconds')"))
                   maintenance = create_async_engine(os.environ["GAMMA_REPLAY_MAINTENANCE_DATABASE_URL"])
                   try:
                       async with maintenance.begin() as c:
@@ -354,7 +355,8 @@ jobs:
                               for privilege in ("SELECT","INSERT","UPDATE","DELETE","TRUNCATE"):
                                   assert not await c.scalar(text("SELECT has_table_privilege(current_user,:table,:privilege)"),{"table":"public."+table,"privilege":privilege})
                       for sql in [
-                          "DELETE FROM public.gateway_assertion_replay",
+                          "DELETE FROM public.gateway_assertion_replay WHERE assertion_digest=repeat('a',64)",
+                          "DELETE FROM public.gateway_assertion_replay WHERE assertion_digest=repeat('b',64)",
                           "UPDATE public.gateway_assertion_replay SET expires_at=now()",
                           "TRUNCATE public.gateway_assertion_replay",
                       ]:
@@ -368,8 +370,8 @@ jobs:
                               raise AssertionError("Unexpected maintenance success")
                   finally:
                       await maintenance.dispose()
-                  from tests.test_gateway_replay import _reset_disposable_replay
-                  await _reset_disposable_replay()
+                  import runpy
+                  await runpy.run_path("tests/test_gateway_replay.py")["_reset_disposable_replay"]()
               finally:
                   await engine.dispose()
           asyncio.run(check())
