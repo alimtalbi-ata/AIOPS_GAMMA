@@ -1,4 +1,6 @@
-FROM node:22-alpine AS build
+# Use glibc for the build stage to match the Linux CI build environment.
+# The final unprivileged nginx image remains Alpine.
+FROM node:22-bookworm-slim AS build
 WORKDIR /usr/src/app
 COPY package.json ./
 RUN npm install --no-audit --no-fund

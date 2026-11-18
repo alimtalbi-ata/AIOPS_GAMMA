@@ -28,8 +28,29 @@ def body():
     }
 
 
-def headers(tenant):
-    return {"X-Internal-API-Key": KEY, "X-Tenant-ID": str(tenant)}
+def signed_headers(monkeypatch, tenant, service="checkout"):
+    import base64
+    import hashlib
+    import hmac
+    import json
+    import time
+    from uuid import uuid4
+
+    secret = "s" * 48
+    monkeypatch.setattr(settings, "gateway_assertion_secret", secret)
+    monkeypatch.setattr(settings, "gateway_assertion_issuer", "test-gateway")
+    monkeypatch.setattr(settings, "gateway_assertion_audience", "gamma-api")
+    monkeypatch.setattr(settings, "gateway_assertion_max_ttl_seconds", 60)
+    now = int(time.time())
+    claims = {"iss": "test-gateway", "aud": "gamma-api", "sub": "user:logs-test",
+              "actor_type": "user", "tenant_id": str(tenant), "tenant_access": True,
+              "iat": now, "exp": now + 30, "jti": uuid4().hex,
+              "method": "POST", "path": "/api/v1/observability/logs/search",
+              "log_service_grants": [service]}
+    encoded = base64.urlsafe_b64encode(json.dumps(claims).encode()).rstrip(b"=")
+    sig = base64.urlsafe_b64encode(hmac.new(secret.encode(), encoded, hashlib.sha256).digest()).rstrip(b"=")
+    return {"X-Internal-API-Key": KEY, "X-Gateway-Principal": (encoded + b"." + sig).decode()}
+
 
 
 def test_logs_disabled_fail_closed_without_opening_backend(monkeypatch):
@@ -42,7 +63,7 @@ def test_logs_disabled_fail_closed_without_opening_backend(monkeypatch):
     monkeypatch.setattr(main, "search_logs", unexpected_backend)
     with TestClient(main.app) as client:
         response = client.post("/api/v1/observability/logs/search",
-                               json=body(), headers=headers(TENANT_A))
+                               json=body(), headers=signed_headers(monkeypatch, TENANT_A))
     assert response.status_code == 503
     assert response.headers["cache-control"] == "no-store"
 
@@ -60,7 +81,7 @@ def test_logs_forward_only_authenticated_tenant_to_backend(monkeypatch):
     with TestClient(main.app) as client:
         for tenant in (TENANT_A, TENANT_B):
             response = client.post("/api/v1/observability/logs/search",
-                                   json=body(), headers=headers(tenant))
+                                   json=body(), headers=signed_headers(monkeypatch, tenant))
             assert response.status_code == 200, response.text
             assert response.headers["cache-control"] == "no-store"
             assert response.json() == {"hits": {"hits": []}}
@@ -100,7 +121,7 @@ def test_logs_reject_oversized_time_window_before_backend(monkeypatch):
     ).isoformat()
     with TestClient(main.app) as client:
         response = client.post("/api/v1/observability/logs/search",
-                               json=payload, headers=headers(TENANT_A))
+                               json=payload, headers=signed_headers(monkeypatch, TENANT_A))
     assert response.status_code == 422
     assert response.headers["cache-control"] == "no-store"
 
@@ -117,12 +138,9 @@ def test_logs_reject_invalid_tenant_before_backend(monkeypatch):
         response = client.post(
             "/api/v1/observability/logs/search",
             json=body(),
-            headers={
-                "X-Internal-API-Key": KEY,
-                "X-Tenant-ID": "not-a-uuid",
-            },
+            headers=signed_headers(monkeypatch, "not-a-uuid"),
         )
-    assert response.status_code == 400
+    assert response.status_code == 401
     assert response.headers["cache-control"] == "no-store"
 
 
@@ -137,7 +155,7 @@ def test_logs_backend_failure_is_sanitized_and_not_cached(monkeypatch):
     with TestClient(main.app) as client:
         response = client.post(
             "/api/v1/observability/logs/search",
-            json=body(), headers=headers(TENANT_A),
+            json=body(), headers=signed_headers(monkeypatch, TENANT_A),
         )
     assert response.status_code == 502
     assert response.headers["cache-control"] == "no-store"
@@ -159,7 +177,7 @@ def test_logs_reject_invalid_request_without_cache(monkeypatch):
     with TestClient(main.app) as client:
         response = client.post(
             "/api/v1/observability/logs/search",
-            json=payload, headers=headers(TENANT_A),
+            json=payload, headers=signed_headers(monkeypatch, TENANT_A),
         )
     assert response.status_code == 422
     assert response.headers["cache-control"] == "no-store"
@@ -181,7 +199,7 @@ def test_logs_unconfigured_internal_auth_fails_closed_without_backend(monkeypatc
         )
     assert response.status_code == 503
     assert response.headers["cache-control"] == "no-store"
-    assert response.json() == {"detail": "Internal authentication not configured"}
+    assert response.json() == {"detail": "Internal service authentication not configured"}
 
 
 def test_logs_reject_noncanonical_tenant_before_backend(monkeypatch):
@@ -194,16 +212,16 @@ def test_logs_reject_noncanonical_tenant_before_backend(monkeypatch):
     monkeypatch.setattr(main, "search_logs", unexpected_backend)
     with TestClient(main.app) as client:
         for tenant in (
-            str(TENANT_A).upper(),
+            str(UUID("abcdefab-abcd-4abc-8abc-abcdefabcdef")).upper(),
             str(TENANT_A).replace("-", ""),
             "{" + str(TENANT_A) + "}",
         ):
             response = client.post(
                 "/api/v1/observability/logs/search",
                 json=body(),
-                headers={"X-Internal-API-Key": KEY, "X-Tenant-ID": tenant},
+                headers=signed_headers(monkeypatch, tenant),
             )
-            assert response.status_code == 400, response.text
+            assert response.status_code == 401, response.text
             assert response.headers["cache-control"] == "no-store"
 
 
@@ -219,12 +237,9 @@ def test_logs_reject_nil_tenant_before_backend(monkeypatch):
         response = client.post(
             "/api/v1/observability/logs/search",
             json=body(),
-            headers={
-                "X-Internal-API-Key": KEY,
-                "X-Tenant-ID": "00000000-0000-0000-0000-000000000000",
-            },
+            headers=signed_headers(monkeypatch, "00000000-0000-0000-0000-000000000000"),
         )
-    assert response.status_code == 400
+    assert response.status_code == 401
     assert response.headers["cache-control"] == "no-store"
 
 
@@ -242,7 +257,7 @@ def test_logs_reject_unsafe_severity_terms_before_backend(monkeypatch):
             payload["severity"] = severity
             response = client.post(
                 "/api/v1/observability/logs/search",
-                json=payload, headers=headers(TENANT_A),
+                json=payload, headers=signed_headers(monkeypatch, TENANT_A),
             )
             assert response.status_code == 422, response.text
             assert response.headers["cache-control"] == "no-store"

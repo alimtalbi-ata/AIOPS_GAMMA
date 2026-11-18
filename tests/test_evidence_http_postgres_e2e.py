@@ -604,7 +604,8 @@ def test_http_postgres_alert_inbox_outbox_and_relay(database, monkeypatch):
                 row for row in after_redirect_recovery if row.id == redirect_event.id
             )
             assert recovered_redirect.published_at is not None
-            assert recovered_redirect.attempts == 1
+            # attempts counts failed deliveries since the explicit reset, not successes.
+            assert recovered_redirect.attempts == 0
             assert recovered_redirect.next_attempt_at is None
             assert recovered_redirect.last_error is None
 

@@ -66,7 +66,28 @@ PROTECTED = [
     for route in app.routes
     if route.path.startswith("/api/v1/") and route.path not in PUBLIC
 ]
-assert len(PROTECTED) == 18, "Explicit route inventory review required"
+EXPECTED_PROTECTED = {
+    ("POST", "/api/v1/observability/logs/search"),
+    ("POST", "/api/v1/observability/metrics/query"),
+    ("POST", "/api/v1/integrations/opensearch/alerts"),
+    ("POST", "/api/v1/topology/bindings"),
+    ("GET", "/api/v1/topology/bindings"),
+    ("POST", "/api/v1/incidents/{incident_id}/evidence"),
+    ("GET", "/api/v1/incidents/{incident_id}/evidence"),
+    ("POST", "/api/v1/topology/impact/estimate"),
+    ("POST", "/api/v1/policy/remediation/preview"),
+    ("POST", "/api/v1/incidents/correlation/preview"),
+    ("GET", "/api/v1/canonical/{resource}/snapshot"),
+    ("POST", "/api/v1/itil4/workflow/preview"),
+    ("POST", "/api/v1/itil4/incidents/sync-preview"),
+    ("GET", "/api/v1/itil4/glpi/incidents/{ticket_id}/snapshot"),
+    ("POST", "/api/v1/observability/llm/kpis/preview"),
+    ("POST", "/api/v1/observability/llm/slo/preview"),
+    ("POST", "/api/v1/incidents/investigation/preview"),
+    ("POST", "/api/v1/incidents/evidence/preview"),
+    ("POST", "/api/v1/incidents/correlation-evidence/preview"),
+}
+assert set(PROTECTED) == EXPECTED_PROTECTED, "Explicit route inventory review required"
 
 
 @pytest.mark.parametrize("method,path", PROTECTED)

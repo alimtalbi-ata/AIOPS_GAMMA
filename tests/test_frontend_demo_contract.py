@@ -144,7 +144,13 @@ def test_ui_image_smoke_does_not_require_api_dns_or_proxy():
 def test_frontend_app_has_no_network_fetch_or_api_route_dependency():
     app = (ROOT / "frontend/src/App.tsx").read_text(encoding="utf-8")
     assert "fetch(" not in app
-    assert "/api/" not in app
+    # API paths may be displayed as documentation or synthetic log text.
+    # They must not become network requests or navigable API links.
+    assert 'href="/api/' not in app
+    assert "href='/api/" not in app
+    assert "axios" not in app
+    assert "EventSource(" not in app
+    assert "sendBeacon(" not in app
     assert "XMLHttpRequest" not in app
     assert "WebSocket(" not in app
 

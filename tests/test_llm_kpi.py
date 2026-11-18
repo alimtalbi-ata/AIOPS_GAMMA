@@ -11,6 +11,30 @@ from app.reused.llm_kpi import LLMKPIRequest, calculate_llm_kpis
 from app.settings import settings
 
 
+def signed_preview_headers(monkeypatch, tenant):
+    import base64
+    import hashlib
+    import hmac
+    import json
+    import time
+
+    secret = "s" * 48
+    monkeypatch.setattr(settings, "gateway_assertion_secret", secret)
+    monkeypatch.setattr(settings, "gateway_assertion_issuer", "test-gateway")
+    monkeypatch.setattr(settings, "gateway_assertion_audience", "gamma-api")
+    monkeypatch.setattr(settings, "gateway_assertion_max_ttl_seconds", 60)
+    now = int(time.time())
+    claims = {"iss": "test-gateway", "aud": "gamma-api", "sub": "user:preview-test",
+              "actor_type": "user", "tenant_id": str(tenant), "tenant_access": True,
+              "iat": now, "exp": now + 30, "jti": uuid4().hex,
+              "method": "POST", "path": "/api/v1/observability/llm/kpis/preview"}
+    encoded = base64.urlsafe_b64encode(json.dumps(claims).encode()).rstrip(b"=")
+    signature = base64.urlsafe_b64encode(hmac.new(secret.encode(), encoded, hashlib.sha256).digest()).rstrip(b"=")
+    return {"X-Internal-Api-Key": "test-secret",
+            "X-Gateway-Principal": (encoded + b"." + signature).decode()}
+
+
+
 def request(tenant, **overrides):
     values = {
         "tenant_id": tenant,
@@ -106,8 +130,7 @@ def test_kpi_route_blocks_cross_tenant(monkeypatch):
     with TestClient(app) as client:
         response = client.post("/api/v1/observability/llm/kpis/preview",
                                json=request(tenant).model_dump(mode="json"),
-                               headers={"X-Internal-Api-Key": "test-secret",
-                                        "X-Tenant-Id": str(uuid4())})
+                               headers=signed_preview_headers(monkeypatch, uuid4()))
     assert response.status_code == 422
 
 
@@ -117,8 +140,7 @@ def test_kpi_route_success(monkeypatch):
     with TestClient(app) as client:
         response = client.post("/api/v1/observability/llm/kpis/preview",
                                json=request(tenant).model_dump(mode="json"),
-                               headers={"X-Internal-Api-Key": "test-secret",
-                                        "X-Tenant-Id": str(tenant)})
+                               headers=signed_preview_headers(monkeypatch, tenant))
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-store"
     assert response.json()["data_source"] == "caller_supplied_preview"

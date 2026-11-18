@@ -105,7 +105,7 @@ def test_mixed_verified_unverified_and_duplicate_observations():
     inc = _incident(tenant)
     inc.affected_cis.append(inc.affected_cis[0].model_copy())
     inc.affected_cis.append(inc.affected_cis[0].model_copy(update={"verified_against_cmdb": False}))
-    inc.affected_cis.append(inc.affected_cis[0].model_copy(update={"cmdb_ci_id": None}))
+    inc.affected_cis.append(inc.affected_cis[0].model_copy(update={"cmdb_ci_id": None, "verified_against_cmdb": False}))
     result = preview_itil_workflow(inc, change=_change(tenant))
     counts = result["service_configuration_management"]
     assert counts["observed_cis"] == 4
@@ -179,14 +179,11 @@ def test_preview_does_not_trust_unvalidated_whitespace_cmdb_binding():
     incident.affected_cis[0] = incident.affected_cis[0].model_copy(
         update={"cmdb_ci_id": "   "},
     )
-    result = preview_itil_workflow(incident)
-    counts = result["service_configuration_management"]
-    assert counts["observed_cis"] == 1
-    assert counts["verified_cis"] == 0
-    assert counts["unverified_cis"] == 1
-    assert result["execution"]["live_remediation_authorized"] is False
-    with pytest.raises(ValueError, match="verified CMDB"):
-        preview_itil_workflow(incident, change=_change(tenant, ci_id="   "))
+    with pytest.raises(ValidationError):
+        preview_itil_workflow(incident)
+    with pytest.raises(ValidationError):
+        preview_itil_workflow(incident, change=_change(tenant))
+
 
 
 @pytest.mark.parametrize("incident_id", [" ", "\t", "\n", "INC\nforged", "INC\rforged", "INC\x7f"])
@@ -208,20 +205,15 @@ def test_preview_does_not_trust_nonboolean_cmdb_verification(unvalidated_verifie
     inc.affected_cis[0] = inc.affected_cis[0].model_copy(
         update={"verified_against_cmdb": unvalidated_verified_flag},
     )
-    preview = preview_itil_workflow(inc)
-    counts = preview["service_configuration_management"]
-    assert counts["verified_cis"] == 0
-    assert counts["unverified_cis"] == 1
-    with pytest.raises(ValueError, match="verified CMDB"):
+    with pytest.raises(ValidationError):
+        preview_itil_workflow(inc)
+    with pytest.raises(ValidationError):
         preview_itil_workflow(inc, change=_change(tenant))
-
-
 def test_preview_does_not_crash_on_unvalidated_nonstring_cmdb_id():
     tenant = uuid4()
     inc = _incident(tenant)
     inc.affected_cis[0] = inc.affected_cis[0].model_copy(update={"cmdb_ci_id": 123})
-    counts = preview_itil_workflow(inc)["service_configuration_management"]
-    assert counts["verified_cis"] == 0
-    assert counts["unverified_cis"] == 1
-    with pytest.raises(ValueError, match="verified CMDB"):
+    with pytest.raises(ValidationError):
+        preview_itil_workflow(inc)
+    with pytest.raises(ValidationError):
         preview_itil_workflow(inc, change=_change(tenant, ci_id="123"))

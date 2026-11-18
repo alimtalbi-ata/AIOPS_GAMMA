@@ -10,6 +10,30 @@ from app.reused.investigation import InvestigationPreview, evaluate_investigatio
 from app.settings import settings
 
 
+def signed_preview_headers(monkeypatch, tenant):
+    import base64
+    import hashlib
+    import hmac
+    import json
+    import time
+
+    secret = "s" * 48
+    monkeypatch.setattr(settings, "gateway_assertion_secret", secret)
+    monkeypatch.setattr(settings, "gateway_assertion_issuer", "test-gateway")
+    monkeypatch.setattr(settings, "gateway_assertion_audience", "gamma-api")
+    monkeypatch.setattr(settings, "gateway_assertion_max_ttl_seconds", 60)
+    now = int(time.time())
+    claims = {"iss": "test-gateway", "aud": "gamma-api", "sub": "user:preview-test",
+              "actor_type": "user", "tenant_id": str(tenant), "tenant_access": True,
+              "iat": now, "exp": now + 30, "jti": uuid4().hex,
+              "method": "POST", "path": "/api/v1/incidents/investigation/preview"}
+    encoded = base64.urlsafe_b64encode(json.dumps(claims).encode()).rstrip(b"=")
+    signature = base64.urlsafe_b64encode(hmac.new(secret.encode(), encoded, hashlib.sha256).digest()).rstrip(b"=")
+    return {"X-Internal-Api-Key": "test-secret",
+            "X-Gateway-Principal": (encoded + b"." + signature).decode()}
+
+
+
 def sample(tenant, **kwargs):
     data = {
         "tenant_id": tenant,
@@ -79,8 +103,7 @@ def test_endpoint_cross_tenant_denied(monkeypatch):
     with TestClient(app) as client:
         response = client.post("/api/v1/incidents/investigation/preview",
                                json=sample(tenant).model_dump(mode="json"),
-                               headers={"X-Internal-Api-Key": "test-secret",
-                                        "X-Tenant-Id": str(uuid4())})
+                               headers=signed_preview_headers(monkeypatch, uuid4()))
     assert response.status_code == 403
 
 
@@ -90,7 +113,6 @@ def test_endpoint_returns_safe_projection(monkeypatch):
     with TestClient(app) as client:
         response = client.post("/api/v1/incidents/investigation/preview",
                                json=sample(tenant).model_dump(mode="json"),
-                               headers={"X-Internal-Api-Key": "test-secret",
-                                        "X-Tenant-Id": str(tenant)})
+                               headers=signed_preview_headers(monkeypatch, tenant))
     assert response.status_code == 200
     assert response.json()["data_source"] == "caller_supplied_preview"
