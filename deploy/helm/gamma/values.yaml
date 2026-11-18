@@ -10,6 +10,10 @@ api:
   # Leave empty until the trusted gateway contract and secret are provisioned.
   gatewayAssertionSecret: ""
   gatewayAssertionSecretKey: principal-hmac-key
+  # Existing Kubernetes Secret containing a JSON map of key IDs to HMAC keys.
+  # Empty name disables injection; never store actual keys in values.yaml.
+  gatewayAssertionKeysSecret: ""
+  gatewayAssertionKeysSecretKey: principal-hmac-keys
   gatewayAssertionIssuer: gamma-gateway
   gatewayAssertionAudience: aiops-gamma
   gatewayAssertionMaxTtlSeconds: 60
