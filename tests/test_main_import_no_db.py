@@ -55,6 +55,21 @@ from uuid import uuid4
 settings.gateway_assertion_secret = "s" * 48
 settings.gateway_assertion_issuer = "test-gateway"
 settings.gateway_assertion_audience = "gamma-api"
+settings.gateway_assertion_keys = {}
+settings.gateway_assertion_max_ttl_seconds = 60
+
+# Keep the actual authentication dependency, HMAC checks and transaction
+# helper. Only substitute the database session at the replay boundary.
+from unittest.mock import AsyncMock, MagicMock
+import app.security as security
+import app.db as db
+replay = AsyncMock()
+replay.execute.return_value = MagicMock(scalar_one_or_none=lambda: "reserved")
+replay_context = MagicMock()
+replay_context.__aenter__ = AsyncMock(return_value=replay)
+replay_context.__aexit__ = AsyncMock(return_value=False)
+security.get_session_factory = lambda: lambda: replay_context
+db.get_session_factory = forbid_engine
 
 def signed_headers(path):
     now = int(time.time())
@@ -93,7 +108,11 @@ with TestClient(app) as client:
     )
     assert joined.status_code == 200, joined.text
     assert joined.json()["evidence_join_complete"] is False
-print("real HTTP preview routes without DB engine: OK")
+assert replay.execute.await_count == 2
+assert replay.commit.await_count == 2
+assert replay.rollback.await_count == 0
+assert replay_context.__aenter__.await_count == 2
+print("real HTTP preview routes with synthetic replay transaction and without DB engine: OK")
 """
     result = subprocess.run(
         [sys.executable, "-c", script],
