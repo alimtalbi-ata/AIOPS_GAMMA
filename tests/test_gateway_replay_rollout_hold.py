@@ -1,9 +1,4 @@
-"""Static safety contract for the pending gateway replay rollout.
-
-These guards deliberately do not enable replay enforcement or prove live ACLs.
-They assert that the integration remains OFF until real PostgreSQL and Gateway
-actor-to-tenant-to-resource qualification has been recorded.
-"""
+"""Static replay wiring contract; not evidence of live authorization."""
 import ast
 from pathlib import Path
 
@@ -23,11 +18,17 @@ def _imports_replay(tree):
     )
 
 
-def test_authentication_still_does_not_consume_replay_reservations():
+def test_authentication_awaits_replay_reservation():
     # Check executable imports/calls, not a comment or a documentation string.
     security = ast.parse(_source("app/security.py"))
-    assert not _imports_replay(security)
-    assert not any(
+    assert _imports_replay(security)
+    assert any(
+        isinstance(node, ast.Await) and isinstance(node.value, ast.Call)
+        and isinstance(node.value.func, ast.Name)
+        and node.value.func.id == 'consume_assertion_before_access'
+        for node in ast.walk(security)
+    )
+    assert any(
         isinstance(node, ast.Call)
         and isinstance(node.func, (ast.Name, ast.Attribute))
         and (node.func.id if isinstance(node.func, ast.Name) else node.func.attr)
@@ -57,9 +58,9 @@ def test_disposable_postgres_job_keeps_explicit_safety_gates():
     assert "POSTGRES_DB: gamma_replay_test" in job
     assert "127.0.0.1:5432/gamma_replay_test" in job
     assert "GAMMA_REPLAY_TEST_ALLOW_WRITE: I_UNDERSTAND_DISPOSABLE_DB" in job
-    assert "run: alembic upgrade head" in job
+    assert "run: alembic upgrade 0002_gateway_replay" in job
     assert "run: python -m pytest -q tests/test_gateway_replay_postgres.py" in job
-    assert job.index("run: alembic upgrade head") < job.index(
+    assert job.index("run: alembic upgrade 0002_gateway_replay") < job.index(
         "run: python -m pytest -q tests/test_gateway_replay_postgres.py"
     )
 
@@ -79,7 +80,7 @@ def test_disposable_postgres_ci_roundtrip_precedes_concurrency_tests():
     workflow = _source(".github/workflows/ci.yml")
     job = workflow.split("  gateway-replay-postgres:", 1)[1]
     required = (
-        "run: alembic upgrade head",
+        "run: alembic upgrade 0002_gateway_replay",
         "alembic downgrade 0001_initial",
         "alembic upgrade 0002_gateway_replay",
         'SELECT current_database()',
