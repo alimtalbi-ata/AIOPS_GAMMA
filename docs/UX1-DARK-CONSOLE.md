@@ -90,3 +90,7 @@ The AI Intelligence Center now shows separate release gates for:
 ### No-go remains
 
 No upstream connectors, browser API calls, credentials, polling, ingestion or remediation have been enabled. Sentinel and ArgusLM are not tenant-qualified. Keep the PR Draft until gateway-owner evidence, upstream ACLs, cross-tenant negative tests, exact-HEAD CI and deployment review are complete.
+
+## UX8 — Unified telemetry preview
+
+Added `app/reused/unified_telemetry.py` and `tests/test_unified_telemetry.py`. The offline contract accepts explicit Sentinel counters and ArgusLM latency/availability observations, rejects mismatched tenant/resource grants, invalid timestamps and conflicting duplicates, and labels fresh records UNVERIFIED and older records STALE. Grants must be supplied by trusted server policy. The metric mapping is a proposed Gamma contract, not an authenticated upstream schema. No HTTP route, network connector, persistence, correlation adapter or RCA integration is activated. Tests are added but execution and review remain required. Existing evidence normalization and correlation should be reused in the next increment after metric semantics and upstream ACL qualification.
