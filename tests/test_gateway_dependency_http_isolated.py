@@ -65,7 +65,7 @@ def test_signed_tenant_access_false_rejected():
         r=client.post('/api/v1/probe',headers={'X-Internal-API-Key':'service-secret','X-Gateway-Principal':signed(tenant_access=False)})
     assert r.status_code == 401
 
-def test_valid_signed_principal_accepted():
+def test_valid_signed_principal_accepted(replay_unit):
     with TestClient(app) as client:
         r=client.post('/api/v1/probe',headers={'X-Internal-API-Key':'service-secret','X-Gateway-Principal':signed()})
     assert r.status_code == 200 and r.json()['subject']=='user:123'
@@ -149,7 +149,7 @@ def test_tampered_assertion_signature_is_rejected():
         })
     assert response.status_code == 401
 
-def test_signed_tenant_wins_over_untrusted_tenant_header():
+def test_signed_tenant_wins_over_untrusted_tenant_header(replay_unit):
     signed_tenant = uuid4()
     forged_tenant = uuid4()
     token = signed(overrides={'tenant_id': str(signed_tenant)})
@@ -198,7 +198,7 @@ def test_duplicate_identity_headers_are_rejected_before_principal_selection(dupl
     assert response.status_code == 401
 
 
-def test_single_untrusted_tenant_header_does_not_override_signed_tenant():
+def test_single_untrusted_tenant_header_does_not_override_signed_tenant(replay_unit):
     tenant = uuid4()
     token = signed(overrides={"tenant_id": str(tenant)})
     with TestClient(app) as client:
