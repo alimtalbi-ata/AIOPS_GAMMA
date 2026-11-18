@@ -160,8 +160,8 @@ jobs:
   tenant-evidence-postgres-e2e:
     runs-on: ubuntu-latest
     env:
-      DATABASE_URL: postgresql+asyncpg://gamma_ci:ci-disposable-tenant-password@127.0.0.1:5432/gamma_tenant_test
-      GAMMA_TENANT_TEST_DATABASE_URL: postgresql+asyncpg://gamma_ci:ci-disposable-tenant-password@127.0.0.1:5432/gamma_tenant_test
+      DATABASE_URL: postgresql+asyncpg://gamma_app:ci-disposable-tenant-password@127.0.0.1:5432/gamma_tenant_test
+      GAMMA_TENANT_TEST_DATABASE_URL: postgresql+asyncpg://gamma_app:ci-disposable-tenant-password@127.0.0.1:5432/gamma_tenant_test
       GAMMA_TENANT_TEST_ALLOW_WRITE: I_UNDERSTAND_DISPOSABLE_DB
       PGPASSWORD: ci-root-bootstrap-only
     steps:
@@ -186,11 +186,14 @@ jobs:
       - name: Provision non-superuser PostgreSQL role for disposable E2E
         run: |
           psql -h 127.0.0.1 -U postgres -d gamma_tenant_test -v ON_ERROR_STOP=1 <<'SQL'
-          CREATE ROLE gamma_ci LOGIN PASSWORD 'ci-disposable-tenant-password';
-          GRANT ALL ON SCHEMA public TO gamma_ci;
+          CREATE ROLE gamma_app LOGIN PASSWORD 'ci-disposable-tenant-password' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
           SQL
-      - name: Apply reviewed Alembic migrations as unprivileged role
+      - name: Apply reviewed Alembic migrations as disposable migration administrator
+        env:
+          DATABASE_URL: postgresql+asyncpg://postgres:ci-root-bootstrap-only@127.0.0.1:5432/gamma_tenant_test
         run: alembic upgrade head
+      - name: Grant read-only migration metadata to disposable runtime
+        run: psql -h 127.0.0.1 -U postgres -d gamma_tenant_test -v ON_ERROR_STOP=1 -c 'GRANT SELECT ON alembic_version TO gamma_app'
       - name: Verify exact PostgreSQL database and migration before E2E
         run: |
           python - <<'PY'
@@ -204,7 +207,9 @@ jobs:
               try:
                   async with engine.connect() as conn:
                       assert await conn.scalar(text("select current_database()")) == "gamma_tenant_test"
-                      assert await conn.scalar(text("select version_num from alembic_version")) == "0002_gateway_replay"
+                      assert await conn.scalar(text("select version_num from alembic_version")) == "0006_worker_role_guard"
+                      assert await conn.scalar(text("select current_user")) == "gamma_app"
+                      assert await conn.scalar(text("select rolbypassrls from pg_roles where rolname=current_user")) is False
                       assert await conn.scalar(text("select rolsuper from pg_roles where rolname=current_user")) is False
                       assert await conn.scalar(text("select to_regclass('investigation_evidence')")) is not None
               finally:
