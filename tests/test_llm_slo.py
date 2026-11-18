@@ -121,7 +121,7 @@ def test_p95_threshold_uses_unrounded_measurement():
     assert result["checks"]["latency_p95_ms"]["value"] > 100.0003
 
 
-def test_slo_route_requires_signed_gateway_principal_and_prevents_caching(monkeypatch):
+def test_slo_route_requires_signed_gateway_principal_and_prevents_caching(monkeypatch, replay_unit):
     import base64
     import hashlib
     import hmac
