@@ -53,9 +53,11 @@ def test_disposable_postgres_job_keeps_explicit_safety_gates():
     workflow = _source(".github/workflows/ci.yml")
     # This is a narrow fail-safe source guard, not a general YAML validator.
     assert "gateway-replay-postgres:" in workflow
-    job = workflow.split("  gateway-replay-postgres:", 1)[1]
-    assert "image: postgres:16" in job
-    assert "POSTGRES_DB: gamma_replay_test" in job
+    job = workflow.split("  gateway-replay-postgres:", 1)[1].split("\n  tenant-evidence-postgres-e2e:", 1)[0]
+    assert "postgres:16 -c listen_addresses=127.0.0.1" in job
+    assert "-e POSTGRES_DB=gamma_replay_test" in job
+    assert "--network host" in job
+    assert "docker rm -f gamma-replay-ci" in job
     assert "127.0.0.1:5432/gamma_replay_test" in job
     assert "GAMMA_REPLAY_TEST_ALLOW_WRITE: I_UNDERSTAND_DISPOSABLE_DB" in job
     assert "run: alembic upgrade 0002_gateway_replay" in job
@@ -71,14 +73,14 @@ def test_postgres_integration_fixture_refuses_non_disposable_urls():
     assert 'parsed.database.endswith("_replay_test")' in test_source
     assert '"127.0.0.1"' in test_source
     assert 'SELECT current_database()' in test_source
-    assert 'revision == "0002_gateway_replay"' in test_source
+    assert 'revision != "0002_gateway_replay"' in test_source
 
 
 
 def test_disposable_postgres_ci_roundtrip_precedes_concurrency_tests():
     """Guard migration rollback/reapply coverage without claiming it ran."""
     workflow = _source(".github/workflows/ci.yml")
-    job = workflow.split("  gateway-replay-postgres:", 1)[1]
+    job = workflow.split("  gateway-replay-postgres:", 1)[1].split("\n  tenant-evidence-postgres-e2e:", 1)[0]
     required = (
         "run: alembic upgrade 0002_gateway_replay",
         "alembic downgrade 0001_initial",
