@@ -1,6 +1,6 @@
 """Atomic, shared replay reservation contract for signed gateway assertions.
 
-Not wired to authentication until reviewed migration and gateway integration.
+Used by gateway authentication before protected access; deployment qualification remains required.
 Never replace this with a process-local set: replicas must share replay state.
 """
 import asyncio
@@ -55,7 +55,7 @@ async def consume_assertion_before_access(
 
     False means duplicate assertion. A failed commit raises; never grant access.
     Use a dedicated short-lived session, not the handler's business transaction.
-    This helper is NOT wired to authentication until DB migration is qualified.
+    Authentication uses this helper; unavailable storage must deny protected access.
     """
     try:
         reserved = await reserve_assertion_once(
