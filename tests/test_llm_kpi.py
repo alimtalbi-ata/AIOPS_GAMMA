@@ -91,6 +91,32 @@ def test_reject_invalid_sentinel_counters():
                 sentinel_events_processed_total=20)
 
 
+def preview_headers(monkeypatch, path, tenant):
+    import base64
+    import hashlib
+    import hmac
+    import json
+    import time
+    from unittest.mock import AsyncMock, MagicMock
+    monkeypatch.setattr(settings, "gateway_assertion_keys", {})
+    monkeypatch.setattr(settings, "gateway_assertion_secret", "s" * 48)
+    monkeypatch.setattr(settings, "gateway_assertion_issuer", "synthetic")
+    monkeypatch.setattr(settings, "gateway_assertion_audience", "gamma")
+    monkeypatch.setattr(settings, "gateway_assertion_max_ttl_seconds", 60)
+    context = MagicMock()
+    context.__aenter__ = AsyncMock(return_value=object())
+    context.__aexit__ = AsyncMock(return_value=False)
+    monkeypatch.setattr("app.security.get_session_factory", lambda: lambda: context)
+    monkeypatch.setattr("app.security.consume_assertion_before_access", AsyncMock(return_value=True))
+    now = int(time.time())
+    claims = dict(iss="synthetic", aud="gamma", sub="synthetic-user",
+                  actor_type="user", tenant_id=str(tenant), tenant_access=True,
+                  iat=now, exp=now+30, jti=uuid4().hex, method="POST", path=path)
+    encoded = base64.urlsafe_b64encode(json.dumps(claims).encode()).rstrip(b"=").decode()
+    signature = base64.urlsafe_b64encode(hmac.new(b"s"*48, encoded.encode(), hashlib.sha256).digest()).rstrip(b"=").decode()
+    return {"X-Internal-Api-Key": "test-secret", "X-Gateway-Principal": encoded+"."+signature}
+
+
 def test_kpi_route_requires_internal_auth(monkeypatch):
     monkeypatch.setattr(settings, "internal_api_key", "test-secret")
     tenant = uuid4()
@@ -106,8 +132,7 @@ def test_kpi_route_blocks_cross_tenant(monkeypatch):
     with TestClient(app) as client:
         response = client.post("/api/v1/observability/llm/kpis/preview",
                                json=request(tenant).model_dump(mode="json"),
-                               headers={"X-Internal-Api-Key": "test-secret",
-                                        "X-Tenant-Id": str(uuid4())})
+                               headers=preview_headers(monkeypatch, "/api/v1/observability/llm/kpis/preview", uuid4()))
     assert response.status_code == 422
 
 
@@ -117,8 +142,7 @@ def test_kpi_route_success(monkeypatch):
     with TestClient(app) as client:
         response = client.post("/api/v1/observability/llm/kpis/preview",
                                json=request(tenant).model_dump(mode="json"),
-                               headers={"X-Internal-Api-Key": "test-secret",
-                                        "X-Tenant-Id": str(tenant)})
+                               headers=preview_headers(monkeypatch, "/api/v1/observability/llm/kpis/preview", tenant))
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-store"
     assert response.json()["data_source"] == "caller_supplied_preview"
