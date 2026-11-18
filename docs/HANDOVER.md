@@ -2074,3 +2074,16 @@
 
 ### Gateway ACL métier
 Voir [contrat provisoire Gateway](GATEWAY-BUSINESS-ACL.md). Les cinq opérations tenant exigent désormais des permissions signées explicites; tests publiés, qualification CI et intégration Gateway non démontrées. Révocation immédiate et rotation multi-clé non implémentées. HOLD LIVE.
+
+
+## Qualification corrective — état de la branche (18 novembre 2026)
+
+- PR #1 : brouillon; aucun merge ni déploiement autorisé.
+- Référence historique Python : 2346 réussis, 115 échecs, 15 ignorés. Cette référence ne qualifie pas les commits correctifs ultérieurs.
+- Référence historique RLS : 50 réussis, 3 échecs de fixtures ACL; corrections publiées, nouvelle exécution non attestée.
+- Correctifs HTTP/Gateway, permissions métier, fixtures PostgreSQL 0006, Outbox HOLD et replay HTTP réel publiés jusqu'au commit e07a9e9.
+- Les tests HTTP isolés simulent seulement le stockage de rejeu; les suites PostgreSQL dédiées doivent confirmer la persistance et le refus des doubles usages.
+- Les résultats Shadow RCA historiques ne constituent ni une autorisation humaine ni une qualification LIVE.
+- Blocage de preuve : la consultation des workflows par commit via le connecteur ne couvre que les exécutions pull_request retournées; aucun résultat récent n'a été obtenu. Un run absent de cette vue n'est pas une preuve d'absence de CI.
+- Critères avant revue : exécutions Python, PostgreSQL RLS, tenant HTTP E2E, deployment contract et Shadow RCA au même SHA; artefacts JUnit et journaux; analyse des échecs et absence de contournement de sécurité.
+- HOLD / NO_GO LIVE : aucun dispatch Outbox, aucune mutation ITSM, aucun accès upstream réel, aucune remédiation réelle.
