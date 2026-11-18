@@ -14,7 +14,25 @@ jobs:
       - name: Compile application and tests before importing pytest
         run: python -m compileall -q app tests scripts migrations deploy/scripts
       - name: Run Python tests (excluding opt-in PostgreSQL suites)
-        run: python -m pytest -q --ignore=tests/test_gateway_replay_postgres.py --ignore=tests/test_resource_list_http_postgres.py --ignore=tests/test_evidence_http_postgres_e2e.py
+        run: |
+          mkdir -p rc01-evidence
+          python -m pytest -q -rs --junitxml=rc01-evidence/pytest.xml --ignore=tests/test_gateway_replay_postgres.py --ignore=tests/test_resource_list_http_postgres.py --ignore=tests/test_evidence_http_postgres_e2e.py 2>&1 | tee rc01-evidence/pytest.log
+        shell: bash
+      - name: Record qualification provenance
+        if: always()
+        run: |
+          mkdir -p rc01-evidence
+          git rev-parse HEAD > rc01-evidence/sha.txt
+          python --version > rc01-evidence/python.txt
+          python -m pip freeze > rc01-evidence/dependencies.txt
+      - name: Upload RC-01 diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rc01-pytest-evidence
+          path: rc01-evidence/
+          retention-days: 14
+          if-no-files-found: error
 
   intelligence-preview:
     runs-on: ubuntu-latest
