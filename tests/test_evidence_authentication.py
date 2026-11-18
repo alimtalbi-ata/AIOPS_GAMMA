@@ -1,7 +1,7 @@
 """Authentication contract tests for evidence preview routes.
 
 Uses the actual internal_principal dependency: no bypass or mocked identity.
-These tests exercise the signed-principal contract on the UX branch.
+Signed HTTP scenarios explicitly simulate the replay store only.
 """
 from datetime import datetime, timezone
 from uuid import UUID
@@ -83,7 +83,7 @@ def valid_evidence_body():
     }]}
 
 
-def test_signed_principal_reaches_evidence_preview(monkeypatch):
+def test_signed_principal_reaches_evidence_preview(monkeypatch, replay_unit):
     monkeypatch.setattr(settings, "internal_api_key", "test-secret-not-production")
     with TestClient(app) as client:
         result = client.post(
@@ -96,7 +96,7 @@ def test_signed_principal_reaches_evidence_preview(monkeypatch):
     assert result.json()["live_remediation_authorized"] is False
 
 
-def test_authenticated_cross_tenant_evidence_denied(monkeypatch):
+def test_authenticated_cross_tenant_evidence_denied(monkeypatch, replay_unit):
     monkeypatch.setattr(settings, "internal_api_key", "test-secret-not-production")
     body = valid_evidence_body()
     body["items"][0]["tenant_id"] = "22222222-2222-4222-8222-222222222222"
@@ -137,7 +137,7 @@ def valid_correlation_evidence_body():
     }
 
 
-def test_http_correlation_evidence_complete_and_consistent(monkeypatch):
+def test_http_correlation_evidence_complete_and_consistent(monkeypatch, replay_unit):
     monkeypatch.setattr(settings, "internal_api_key", "test-secret-not-production")
     with TestClient(app) as client:
         response = client.post(
@@ -154,7 +154,7 @@ def test_http_correlation_evidence_complete_and_consistent(monkeypatch):
     assert result["live_remediation_authorized"] is False
 
 
-def test_http_correlation_evidence_missing_proof_not_complete(monkeypatch):
+def test_http_correlation_evidence_missing_proof_not_complete(monkeypatch, replay_unit):
     monkeypatch.setattr(settings, "internal_api_key", "test-secret-not-production")
     body = valid_correlation_evidence_body()
     body["evidence"] = []
@@ -170,7 +170,7 @@ def test_http_correlation_evidence_missing_proof_not_complete(monkeypatch):
     assert result["groups"][0]["evidence_state"] == "UNKNOWN"
 
 
-def test_http_correlation_evidence_cross_tenant_denied(monkeypatch):
+def test_http_correlation_evidence_cross_tenant_denied(monkeypatch, replay_unit):
     monkeypatch.setattr(settings, "internal_api_key", "test-secret-not-production")
     body = valid_correlation_evidence_body()
     body["evidence"][0]["tenant_id"] = "22222222-2222-4222-8222-222222222222"
@@ -214,7 +214,7 @@ def test_http_correlation_evidence_rejects_missing_server_key_configuration(monk
     assert response.status_code == 503, response.text
 
 
-def test_http_correlation_preview_disables_caching(monkeypatch):
+def test_http_correlation_preview_disables_caching(monkeypatch, replay_unit):
     monkeypatch.setattr(settings, "internal_api_key", "test-secret-not-production")
     body = valid_correlation_evidence_body()["correlation"]
     with TestClient(app) as client:
@@ -241,7 +241,7 @@ def test_http_correlation_preview_requires_authentication(monkeypatch):
     assert response.status_code == 401, response.text
 
 
-def test_http_correlation_group_ids_are_tenant_scoped(monkeypatch):
+def test_http_correlation_group_ids_are_tenant_scoped(monkeypatch, replay_unit):
     monkeypatch.setattr(settings, "internal_api_key", "test-secret-not-production")
     body = valid_correlation_evidence_body()["correlation"]
     tenant_b = "22222222-2222-4222-8222-222222222222"
@@ -262,7 +262,7 @@ def test_http_correlation_group_ids_are_tenant_scoped(monkeypatch):
     assert second.json()["live_remediation_authorized"] is False
 
 
-def test_http_correlation_preview_rejects_empty_ci_id(monkeypatch):
+def test_http_correlation_preview_rejects_empty_ci_id(monkeypatch, replay_unit):
     monkeypatch.setattr(settings, "internal_api_key", "test-secret-not-production")
     body = valid_correlation_evidence_body()["correlation"]
     body["signals"][0]["ci_id"] = ""
@@ -275,7 +275,7 @@ def test_http_correlation_preview_rejects_empty_ci_id(monkeypatch):
     assert response.status_code == 422, response.text
 
 
-def test_http_correlation_evidence_preview_rejects_empty_ci_id(monkeypatch):
+def test_http_correlation_evidence_preview_rejects_empty_ci_id(monkeypatch, replay_unit):
     monkeypatch.setattr(settings, "internal_api_key", "test-secret-not-production")
     body = valid_correlation_evidence_body()
     body["correlation"]["signals"][0]["ci_id"] = ""
@@ -287,7 +287,7 @@ def test_http_correlation_evidence_preview_rejects_empty_ci_id(monkeypatch):
     assert response.status_code == 422, response.text
 
 
-def test_http_correlation_preview_rejects_whitespace_ci_id(monkeypatch):
+def test_http_correlation_preview_rejects_whitespace_ci_id(monkeypatch, replay_unit):
     monkeypatch.setattr(settings, "internal_api_key", "test-secret-not-production")
     body = valid_correlation_evidence_body()["correlation"]
     body["signals"][0]["ci_id"] = "  "
@@ -300,7 +300,7 @@ def test_http_correlation_preview_rejects_whitespace_ci_id(monkeypatch):
     assert response.status_code == 422, response.text
 
 
-def test_http_correlation_evidence_preview_rejects_whitespace_ci_id(monkeypatch):
+def test_http_correlation_evidence_preview_rejects_whitespace_ci_id(monkeypatch, replay_unit):
     monkeypatch.setattr(settings, "internal_api_key", "test-secret-not-production")
     body = valid_correlation_evidence_body()
     body["correlation"]["signals"][0]["ci_id"] = " CI-123 "
@@ -312,7 +312,7 @@ def test_http_correlation_evidence_preview_rejects_whitespace_ci_id(monkeypatch)
     assert response.status_code == 422, response.text
 
 
-def test_http_correlation_preview_accepts_canonical_ci_id(monkeypatch):
+def test_http_correlation_preview_accepts_canonical_ci_id(monkeypatch, replay_unit):
     monkeypatch.setattr(settings, "internal_api_key", "test-secret-not-production")
     body = valid_correlation_evidence_body()["correlation"]
     body["signals"][0]["ci_id"] = "CI-123"
