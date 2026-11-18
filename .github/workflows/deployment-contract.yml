@@ -204,9 +204,10 @@ jobs:
           docker exec "$id" pg_isready -U aiops -d aiops
           docker exec "$id" psql -v ON_ERROR_STOP=1 -U aiops -d aiops -c 'CREATE TABLE gamma_nonroot_ci (id integer PRIMARY KEY); INSERT INTO gamma_nonroot_ci VALUES (1);'
           # Confirm PostgreSQL made a private PGDATA directory despite the
-          # disposable permissive parent (not a rootless host permission test).
-          test "$(stat -c %a "$GAMMA_HOME/data/postgres/pgdata")" = 700
-          test "$(stat -c %u "$GAMMA_HOME/data/postgres/pgdata")" = 10001
+          # disposable private parent (not a rootless host permission test).
+          # Only the host metadata probe needs sudo to traverse the mode-0700 bind.
+          test "$(sudo stat -c %a "$GAMMA_HOME/data/postgres/pgdata")" = 700
+          test "$(sudo stat -c %u "$GAMMA_HOME/data/postgres/pgdata")" = 10001
           # Recreate the container, retaining the same bind mount.
           compose="docker compose -f docker-compose.yml -f deploy/compose/compose.yaml -f deploy/compose/compose.rootless.yaml -f deploy/compose/compose.postgres-nonroot.experimental.yaml"
           $compose stop postgres
