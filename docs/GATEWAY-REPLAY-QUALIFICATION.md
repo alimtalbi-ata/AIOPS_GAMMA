@@ -113,3 +113,8 @@ The earlier statement above that no RLS policies exist is historical and is supe
 The existing outbox relay is a background worker and does not have a verified request Principal. Under forced RLS, an unscoped relay session will see no tenant rows. This is intentionally fail-closed; the relay must not be switched to the bootstrap/superuser role. Before enabling the relay, design a separate narrowly scoped worker model (for example, per-tenant claims with audited tenant context) and add tests. The same rule applies to future background workers.
 
 The API container's restricted role is created only on first initialization of a fresh Postgres volume. Existing deployments require a controlled administrative role-bootstrap and grant procedure; never drop or recreate a data volume as a shortcut. Verify the role has neither SUPERUSER nor BYPASSRLS and does not own tenant tables before rollout.
+
+
+### RLS correction batch
+
+Relay startup is explicitly disabled until a tenant-aware worker is qualified; Compose no longer supplies bootstrap credentials to the relay. Migration 0003 grants only named tables, not future-table default privileges. Inbox duplicate recovery restores the verified tenant context after rollback. The integration test checks forced RLS via pg_class rather than requiring access to alembic_version, and expects PostgreSQL SQLSTATE 42501 for the denied insert. These changes remain unexecuted against PostgreSQL. A custom tenant GUC is defense against omitted predicates, not against arbitrary SQL execution by a compromised runtime role.
