@@ -316,6 +316,9 @@ jobs:
                       assert await c.scalar(text("SELECT count(*) FROM pg_trigger WHERE tgrelid='public.gateway_assertion_replay'::regclass AND tgname='replay_immutable_update' AND tgenabled='A'")) == 1
                       assert await c.scalar(text("SELECT count(*) FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid JOIN pg_class r ON r.oid=t.tgrelid WHERE r.oid='public.gateway_assertion_replay'::regclass AND t.tgname='replay_immutable_update' AND t.tgtype=18 AND t.tgenabled='A' AND p.oid='public.reject_replay_update()'::regprocedure AND NOT p.prosecdef AND NOT pg_has_role(current_user,p.proowner,'MEMBER') AND NOT pg_has_role(current_user,r.relowner,'MEMBER') AND p.proconfig=ARRAY['search_path=pg_catalog']")) == 1
                       assert not await c.scalar(text("SELECT has_function_privilege(current_user,'public.reject_replay_update()','EXECUTE')"))
+                      body = await c.scalar(text("SELECT prosrc FROM pg_proc WHERE oid='public.reject_replay_update()'::regprocedure"))
+                      assert " ".join(body.split()) == "BEGIN RAISE EXCEPTION 'Replay reservations are immutable' USING ERRCODE = '42501'; END;"
+
                       assert await c.scalar(text("SELECT has_table_privilege(current_user,'public.gateway_assertion_replay','DELETE')"))
                       for table in ("integration_inbox","integration_outbox","telemetry_service_bindings","investigation_evidence"):
                           assert await c.scalar(text("SELECT count(*) FROM public."+table)) == 0
