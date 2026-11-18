@@ -52,7 +52,7 @@ def signed_headers(path, *, tenant_id=None, tenant_access=True):
 
 
 @pytest.mark.parametrize("resource", ["core", "evidence", "twin"])
-def test_signed_gateway_cannot_enable_unqualified_canonical_read(monkeypatch, resource):
+def test_signed_gateway_cannot_enable_unqualified_canonical_read(monkeypatch, resource, replay_unit):
     path = f"/api/v1/canonical/{resource}/snapshot"
     def forbidden(*args, **kwargs):
         raise AssertionError("unqualified canonical upstream network request")
@@ -80,7 +80,7 @@ def test_unsigned_or_unattested_gateway_cannot_reach_canonical_read(resource):
     assert denied.headers["Cache-Control"] == "no-store"
 
 
-def test_signed_gateway_unknown_canonical_resource_is_404():
+def test_signed_gateway_unknown_canonical_resource_is_404(replay_unit):
     path = "/api/v1/canonical/not-a-resource/snapshot"
     with TestClient(app) as client:
         response = client.get(path, headers=signed_headers(path))
