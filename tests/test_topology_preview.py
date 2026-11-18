@@ -621,7 +621,7 @@ def test_mixed_cycle_and_missing_edge_flags_are_permutation_invariant(reverse):
 @pytest.mark.parametrize("reverse", [False, True])
 def test_reachable_missing_edge_without_cycle_stays_unknown(reverse):
     call = preview_upstream_dependents if reverse else preview
-    edges = [("root", "app")]
+    edges = [("app", "root")] if reverse else [("root", "app")]
     edges.append(("missing", "app") if reverse else ("app", "missing"))
     result = call("root", ["root", "app"], edges)
     assert result["cycle_detected"] is False
