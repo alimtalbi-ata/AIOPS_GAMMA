@@ -18,13 +18,14 @@ def encode(data):
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
 
 
-def sign(claims):
+def sign(claims, secret=SECRET):
     body = encode(json.dumps(claims).encode())
-    return body + "." + encode(hmac.new(SECRET.encode(), body.encode(), hashlib.sha256).digest())
+    return body + "." + encode(hmac.new(secret.encode(), body.encode(), hashlib.sha256).digest())
 
 
 @pytest.fixture
 def claims(monkeypatch):
+    monkeypatch.setattr(settings, "gateway_assertion_keys", {})
     monkeypatch.setattr(settings, "gateway_assertion_secret", SECRET)
     monkeypatch.setattr(settings, "gateway_assertion_issuer", "synthetic")
     monkeypatch.setattr(settings, "gateway_assertion_audience", "gamma")
@@ -62,3 +63,29 @@ def test_signed_permission_and_tampering(claims):
     with pytest.raises(HTTPException) as exc:
         verify(forged)
     assert exc.value.status_code == 401
+
+
+def test_rotation_overlap_and_retirement(claims, monkeypatch):
+    second = "synthetic-second-key-" * 3
+    monkeypatch.setattr(settings, "gateway_assertion_secret", "")
+    monkeypatch.setattr(settings, "gateway_assertion_keys", {"K1": SECRET, "K2": second})
+    old = sign(dict(claims, kid="K1"))
+    new = sign(dict(claims, kid="K2"), second)
+    assert verify(old).assertion_id == verify(new).assertion_id
+    for token in (sign(claims), sign(dict(claims, kid="K3")),
+                  sign(dict(claims, kid="K2"))):
+        with pytest.raises(HTTPException) as exc:
+            verify(token)
+        assert exc.value.status_code == 401
+    monkeypatch.setattr(settings, "gateway_assertion_keys", {"K2": second})
+    with pytest.raises(HTTPException) as exc:
+        verify(old)
+    assert exc.value.status_code == 401
+    verify(new)
+
+
+def test_ambiguous_rotation_configuration(claims, monkeypatch):
+    monkeypatch.setattr(settings, "gateway_assertion_keys", {"K1": SECRET})
+    with pytest.raises(HTTPException) as exc:
+        verify(sign(dict(claims, kid="K1")))
+    assert exc.value.status_code == 503
