@@ -66,7 +66,10 @@ def tenant_postgres(monkeypatch):
     evidence_ids = [uuid4(), uuid4(), uuid4()]
     investigation_ids = [uuid4(), uuid4(), uuid4()]
 
+    validated = False
+
     async def prepare():
+        nonlocal validated
         async with engine.connect() as connection:
             db_name = await connection.scalar(text("SELECT current_database()"))
             if not db_name or not db_name.endswith("_tenant_test"):
@@ -89,9 +92,17 @@ def tenant_postgres(monkeypatch):
                 present = await connection.scalar(text("SELECT to_regclass(:name)"), {"name": table})
                 if present is None:
                     pytest.fail(f"Required migrated table missing: {table}")
-                count = await connection.scalar(text(f"SELECT count(*) FROM {table}"))
-                if count != 0:
-                    pytest.fail(f"Disposable database must start empty; {table} contains {count} rows")
+                forced = await connection.scalar(text("SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid=to_regclass(:name)"), {"name": table})
+                if forced is not True:
+                    pytest.fail(f"Forced RLS required: {table}")
+        validated = True
+        for tenant in (TENANT_A, TENANT_B):
+            async with factory() as session:
+                bind_tenant_context(session, tenant)
+                for table in ("telemetry_service_bindings", "investigation_evidence"):
+                    count = await session.scalar(text(f"SELECT count(*) FROM {table}"))
+                    if count != 0:
+                        pytest.fail(f"Fixture tenant must start empty: {table}")
 
         async with factory() as session:
             rows = [
@@ -128,14 +139,12 @@ def tenant_postgres(monkeypatch):
                 session.add_all([row for row in rows if row.tenant_id == tenant])
                 await session.commit()
 
-    prepared = False
     try:
-        prepared = True
         asyncio.run(prepare())
         yield factory
     finally:
         async def cleanup():
-            if prepared:
+            if validated:
                 for tenant in (TENANT_A, TENANT_B):
                     async with factory() as session:
                         bind_tenant_context(session, tenant)
