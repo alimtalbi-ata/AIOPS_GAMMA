@@ -185,6 +185,8 @@ jobs:
         env:
           DATABASE_URL: postgresql+asyncpg://postgres:ci-root-bootstrap-only@127.0.0.1:5432/gamma_tenant_test
         run: alembic upgrade head
+      - name: Grant read-only migration metadata to disposable runtime
+        run: psql -h 127.0.0.1 -U postgres -d gamma_tenant_test -v ON_ERROR_STOP=1 -c 'GRANT SELECT ON TABLE public.alembic_version TO gamma_app'
       - name: Verify exact PostgreSQL database and migration before E2E
         run: |
           python - <<'PY'
