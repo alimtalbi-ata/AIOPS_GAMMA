@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import json
 import time
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
@@ -25,6 +26,20 @@ def get_probe(principal: Principal = Depends(internal_principal)):
 
 @pytest.fixture(autouse=True)
 def configure(monkeypatch):
+    context = MagicMock()
+    context.__aenter__ = AsyncMock(return_value=object())
+    context.__aexit__ = AsyncMock(return_value=False)
+    monkeypatch.setattr('app.security.get_session_factory', lambda: lambda: context)
+    seen = set()
+
+    async def reserve(session, *, issuer, assertion_id, expires_at):
+        key = (issuer, assertion_id)
+        if key in seen:
+            return False
+        seen.add(key)
+        return True
+
+    monkeypatch.setattr('app.security.consume_assertion_before_access', reserve)
     monkeypatch.setattr(settings, 'internal_api_key', 'service-secret')
     monkeypatch.setattr(settings, 'gateway_assertion_secret', 's'*48)
     monkeypatch.setattr(settings, 'gateway_assertion_issuer', 'trusted-gateway')
@@ -209,3 +224,18 @@ def test_single_untrusted_tenant_header_does_not_override_signed_tenant():
         })
     assert response.status_code == 200
     assert response.json()["tenant"] == str(tenant)
+
+
+def test_http_replay_rejected():
+    headers = {'X-Internal-API-Key': 'service-secret', 'X-Gateway-Principal': signed()}
+    with TestClient(app) as client:
+        assert client.post('/api/v1/probe', headers=headers).status_code == 200
+        assert client.post('/api/v1/probe', headers=headers).status_code == 401
+
+
+def test_http_replay_store_unavailable(monkeypatch):
+    monkeypatch.setattr('app.security.consume_assertion_before_access', AsyncMock(side_effect=RuntimeError('synthetic failure')))
+    with TestClient(app) as client:
+        response = client.post('/api/v1/probe', headers={'X-Internal-API-Key': 'service-secret', 'X-Gateway-Principal': signed()})
+    assert response.status_code == 503
+    assert response.json()['detail'] == 'Gateway replay protection unavailable'
