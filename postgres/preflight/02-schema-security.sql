@@ -74,6 +74,22 @@ BEGIN
         ) <> 3 THEN
             RAISE EXCEPTION 'Schema audit: worker policy structure drift';
         END IF;
+        IF t = 'integration_outbox' THEN
+            IF NOT has_table_privilege('gamma_outbox_worker', obj.oid, 'SELECT')
+               OR has_any_column_privilege('gamma_outbox_worker', obj.oid, 'INSERT,REFERENCES')
+               OR has_table_privilege('gamma_outbox_worker', obj.oid, 'DELETE,TRUNCATE,TRIGGER,UPDATE')
+               OR EXISTS (
+                   SELECT 1 FROM pg_catalog.pg_attribute a
+                   WHERE a.attrelid = obj.oid AND a.attnum > 0 AND NOT a.attisdropped
+                     AND has_column_privilege('gamma_outbox_worker', obj.oid, a.attnum, 'UPDATE')
+                         IS DISTINCT FROM (a.attname IN ('published_at','attempts','next_attempt_at','last_error'))
+               ) THEN
+                RAISE EXCEPTION 'Schema audit: unsafe outbox worker column privileges';
+            END IF;
+        ELSIF has_any_column_privilege('gamma_outbox_worker', obj.oid, 'SELECT,INSERT,UPDATE,REFERENCES')
+           OR has_table_privilege('gamma_outbox_worker', obj.oid, 'DELETE,TRUNCATE,TRIGGER') THEN
+            RAISE EXCEPTION 'Schema audit: unexpected worker access outside outbox: %', t;
+        END IF;
     END LOOP;
     SELECT * INTO obj FROM pg_catalog.pg_class
     WHERE oid = to_regclass('public.outbox_worker_identity');
