@@ -69,6 +69,7 @@ async def test_existing_conflicting_alert_never_writes_to_inbox_or_outbox(monkey
     principal = Principal(
         tenant_id=tenant, subject="user:test", actor_type="user",
         assertion_id="assertion-test-123", expires_at=2000000000,
+        business_permissions=("alerts:ingest",),
     )
     with pytest.raises(HTTPException) as exc:
         await alerts(payload, principal, session)
@@ -105,6 +106,7 @@ async def test_exact_duplicate_alert_never_creates_another_outbox_event(monkeypa
     principal = Principal(
         tenant_id=uuid4(), subject="user:test", actor_type="user",
         assertion_id="assertion-test-123", expires_at=2000000000,
+        business_permissions=("alerts:ingest",),
     )
     assert await alerts(payload, principal, Session()) == {
         "id": str(event_id), "duplicate": True,
@@ -163,6 +165,7 @@ async def test_concurrent_duplicate_insert_uses_rollback_and_rechecks_payload(mo
     principal = Principal(
         tenant_id=uuid4(), subject="user:test", actor_type="user",
         assertion_id="assertion-test-123", expires_at=2000000000,
+        business_permissions=("alerts:ingest",),
     )
     if conflict:
         with pytest.raises(HTTPException) as exc:
@@ -221,6 +224,7 @@ async def test_new_alert_creates_tenant_scoped_inbox_and_outbox_in_one_commit(mo
     principal = Principal(
         tenant_id=tenant, subject="user:test", actor_type="user",
         assertion_id="assertion-test-123", expires_at=2000000000,
+        business_permissions=("alerts:ingest",),
     )
     result = await alerts(payload, principal, session)
     assert result["duplicate"] is False
@@ -280,6 +284,7 @@ async def test_duplicate_lookup_is_scoped_to_authenticated_tenant_and_source(mon
     principal = Principal(
         tenant_id=tenant, subject="user:test", actor_type="user",
         assertion_id="assertion-test-123", expires_at=2000000000,
+        business_permissions=("alerts:ingest",),
     )
     assert await alerts(payload, principal, Session()) == {
         "id": str(event_id), "duplicate": True,
