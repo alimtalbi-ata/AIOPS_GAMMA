@@ -60,7 +60,8 @@ jobs:
       - name: Migration round trip
         run: |
           alembic upgrade head
-          alembic downgrade 0002_gateway_replay
+          if alembic downgrade 0008_replay_maintenance > /tmp/replay-downgrade.log 2>&1; then exit 1; fi
+          grep -q 'Replay security downgrade refused' /tmp/replay-downgrade.log
           alembic upgrade head
       - name: Provision disposable worker identities
         run: |
