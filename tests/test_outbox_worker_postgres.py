@@ -50,6 +50,19 @@ async def test_worker_identity_and_concurrent_claims():
             with pytest.raises(asyncpg.InsufficientPrivilegeError):
                 await a.execute(statement, ids[0])
         assert await a.execute("UPDATE integration_outbox SET attempts=1 WHERE id=$1", ids[0]) == "UPDATE 1"
+        # Only disposable CI roles may be modified by this test.
+        assert names[0] == "gamma_worker_a"
+        await admin.execute("GRANT gamma_app TO gamma_worker_a")
+        try:
+            async with a.transaction():
+                await a.fetchval("SELECT set_config('app.tenant_id',$1,true)", str(tenants[0]))
+                assert await a.fetchval("SELECT id FROM integration_outbox WHERE id=$1", ids[0]) is None
+                await a.execute("SET LOCAL ROLE gamma_app")
+                assert await a.fetchval("SELECT id FROM integration_outbox WHERE id=$1", ids[0]) is None
+            assert await b.fetchval("SELECT id FROM integration_outbox WHERE id=$1", ids[1]) == ids[1]
+        finally:
+            await admin.execute("REVOKE gamma_app FROM gamma_worker_a")
+
     finally:
         for c in connections:
             await c.close()
