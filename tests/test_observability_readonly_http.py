@@ -225,14 +225,14 @@ def test_logs_reject_noncanonical_tenant_before_backend(monkeypatch):
     monkeypatch.setattr(main, "search_logs", unexpected_backend)
     with TestClient(main.app) as client:
         for tenant in (
-            str(TENANT_A).upper(),
+            "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa".upper(),
             str(TENANT_A).replace("-", ""),
             "{" + str(TENANT_A) + "}",
         ):
             response = client.post(
                 "/api/v1/observability/logs/search",
                 json=body(),
-                headers={"X-Internal-API-Key": KEY, "X-Tenant-ID": tenant},
+                headers=headers(tenant),
             )
             assert response.status_code == 401, response.text
             assert response.headers["cache-control"] == "no-store"
