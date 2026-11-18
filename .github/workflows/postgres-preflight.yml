@@ -1,0 +1,71 @@
+name: PostgreSQL application role preflight
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  role-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      COMPOSE_PROJECT_NAME: gamma-role-preflight-ci
+      POSTGRES_PASSWORD: ci-disposable-bootstrap-password
+      APP_DB_PASSWORD: ci-disposable-application-password
+      INTERNAL_API_KEY: ci-disposable-internal-key
+    steps:
+      - uses: actions/checkout@v4
+      - name: Qualify fresh and existing PostgreSQL volume
+        run: |
+          set -eu
+          docker compose up -d --wait postgres
+          sql() {
+            docker compose exec -T postgres psql -X -U aiops -d aiops -v ON_ERROR_STOP=1 -c "$1"
+          }
+          preflight() {
+            docker compose run --rm --no-deps -T postgres-preflight
+          }
+          reject() {
+            if preflight > /tmp/gamma-role-preflight.log 2>&1; then
+              echo "Unsafe configuration accepted" >&2
+              exit 1
+            fi
+            cat /tmp/gamma-role-preflight.log
+            grep -q "Preflight failed: $1" /tmp/gamma-role-preflight.log
+          }
+          preflight
+          sql "ALTER ROLE gamma_app BYPASSRLS"
+          reject "unsafe gamma_app attributes"
+          sql "ALTER ROLE gamma_app NOBYPASSRLS"
+          sql "CREATE ROLE gamma_ci_bridge NOLOGIN; GRANT pg_read_all_data TO gamma_ci_bridge; GRANT gamma_ci_bridge TO gamma_app"
+          reject "privileged role memberships"
+          sql "REVOKE gamma_ci_bridge FROM gamma_app; DROP ROLE gamma_ci_bridge"
+          sql "GRANT aiops TO gamma_app"
+          reject "privileged role memberships"
+          sql "REVOKE aiops FROM gamma_app"
+          preflight
+          sql "ALTER ROLE gamma_app RENAME TO gamma_ci_saved"
+          docker compose stop postgres
+          docker compose rm -f postgres
+          docker compose up -d --wait postgres
+          reject "gamma_app does not exist"
+          sql "ALTER ROLE gamma_ci_saved RENAME TO gamma_app"
+          preflight
+      - name: Verify Compose Gateway registry propagation
+        run: |
+          set -eu
+          unset GATEWAY_ASSERTION_KEYS
+          docker compose config --format json > /tmp/gamma-default.json
+          GATEWAY_ASSERTION_KEYS='{"ci-key":"disposable-test-value-not-a-real-secret"}' docker compose config --format json > /tmp/gamma-keys.json
+          python3 - <<'PY'
+          import json
+          def env(path):
+              with open(path) as f:
+                  return json.load(f)["services"]["api"]["environment"]
+          assert env("/tmp/gamma-default.json").get("GATEWAY_ASSERTION_KEYS") in (None, "{}")
+          assert json.loads(env("/tmp/gamma-keys.json")["GATEWAY_ASSERTION_KEYS"]) == {"ci-key": "disposable-test-value-not-a-real-secret"}
+          PY
+      - name: Remove disposable CI project
+        if: always()
+        run: docker compose down --volumes --remove-orphans
