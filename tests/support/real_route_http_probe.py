@@ -3,50 +3,24 @@ import base64
 import hashlib
 import hmac
 import json
-import sys
 import time
-import types
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from pydantic import BaseModel
 
 
-def stub(name, **values):
-    module = types.ModuleType(name)
-    module.__dict__.update(values)
-    sys.modules[name] = module
+# This probe runs in a fresh interpreter. Import real application modules
+# rather than replacing their schemas or DB module in sys.modules.
+import sqlalchemy.ext.asyncio as sa_async
 
 
-class Empty(BaseModel):
-    pass
+def forbidden_engine(*args, **kwargs):
+    raise AssertionError("HTTP isolation probe attempted real DB engine creation")
 
 
-class DBModel:
-    pass
-
-
-async def forbidden_db():
-    raise AssertionError("No DB access permitted in HTTP isolation probe")
-
-
-stub("app.db", get_session=forbidden_db)
-stub("app.models", **{name: DBModel for name in ("Evidence", "InboxEvent", "OutboxEvent", "ServiceBinding")})
-stub("app.opensearch_adapter", search_logs=MagicMock())
-stub("app.schemas", **{name: Empty for name in ("AlertPayload", "BindingIn", "EvidenceIn", "LogSearchRequest")})
-stub("app.reused.impact", estimate_impact=MagicMock())
-stub("app.reused.policy", RemediationProposal=Empty, evaluate=MagicMock())
-stub("app.reused.correlation", CorrelationPreview=Empty, correlate=MagicMock())
-stub("app.reused.itil", ITILPreviewRequest=Empty, preview_itil_workflow=MagicMock())
-stub("app.reused.itsm_contract", IncidentSyncPreview=Empty, plan_incident_sync=MagicMock())
-stub("app.reused.glpi_read", read_glpi_incident=MagicMock())
-stub("app.reused.llm_kpi", LLMKPIRequest=Empty, calculate_llm_kpis=MagicMock())
-stub("app.reused.investigation", InvestigationPreview=Empty, evaluate_investigation=MagicMock())
-stub("app.reused.correlation_evidence", CorrelationEvidencePreview=Empty, preview=MagicMock())
-stub("app.demo", synthetic_correlation_demo=lambda: {"mode": "synthetic_demo"},
-     synthetic_investigation_demo=lambda: {"mode": "synthetic_demo"})
+sa_async.create_async_engine = forbidden_engine
 
 from app.main import app
 from app.settings import settings
@@ -58,6 +32,38 @@ def config(monkeypatch):
     monkeypatch.setattr(settings, "gateway_assertion_secret", "s" * 48)
     monkeypatch.setattr(settings, "gateway_assertion_issuer", "trusted-gateway")
     monkeypatch.setattr(settings, "gateway_assertion_audience", "gamma-api")
+    monkeypatch.setattr(settings, "gateway_assertion_keys", {})
+    monkeypatch.setattr(settings, "gateway_assertion_max_ttl_seconds", 60)
+    import app.security as security
+    import app.db as db
+    import app.main as main_module
+
+    # Retain real HMAC and replay transaction code. Model only the database
+    # execution result, with an independent context for each reservation.
+    seen = set()
+
+    async def reserve(statement, params):
+        digest = params["digest"]
+        result = MagicMock()
+        result.scalar_one_or_none.return_value = None if digest in seen else digest
+        seen.add(digest)
+        return result
+
+    def session_context():
+        session = AsyncMock()
+        session.execute.side_effect = reserve
+        context = MagicMock()
+        context.__aenter__ = AsyncMock(return_value=session)
+        context.__aexit__ = AsyncMock(return_value=False)
+        return context
+
+    async def forbidden_tenant_session(tenant_id):
+        raise AssertionError("HTTP isolation probe accessed tenant DB")
+        yield  # Keep the async generator dependency shape.
+
+    monkeypatch.setattr(security, "get_session_factory", lambda: session_context)
+    monkeypatch.setattr(db, "get_session_factory", forbidden_engine)
+    monkeypatch.setattr(main_module, "get_tenant_session", forbidden_tenant_session)
 
 
 PUBLIC = {"/api/v1/health/live", "/api/v1/demo/correlation", "/api/v1/demo/investigation"}
@@ -120,7 +126,7 @@ def signed(method, path, *, issued_at=None, expires_at=None):
         "actor_type": "user", "tenant_id": str(uuid4()), "tenant_access": True,
         "iat": now if issued_at is None else issued_at,
         "exp": now + 30 if expires_at is None else expires_at,
-        "jti": "probe-assertion-123",
+        "jti": "probe-" + uuid4().hex,
         "method": method, "path": path,
     }
     raw = base64.urlsafe_b64encode(json.dumps(claims, separators=(",", ":")).encode()).rstrip(b"=")
