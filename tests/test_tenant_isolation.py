@@ -111,9 +111,10 @@ async def test_postgres_rls_denies_cross_tenant_reads_and_writes():
     database_url = os.getenv("GAMMA_TEST_DATABASE_URL", "")
     if not database_url:
         pytest.skip("GAMMA_TEST_DATABASE_URL must point to restricted gamma_app role")
-    engine = create_async_engine(database_url)
+    engine = create_async_engine(database_url, pool_size=1, max_overflow=0)
     tenant_a, tenant_b = uuid4(), uuid4()
     row_id = uuid4()
+    seeded = False
     try:
         async with engine.begin() as connection:
             role = await connection.execute(text("""
@@ -139,6 +140,15 @@ async def test_postgres_rls_denies_cross_tenant_reads_and_writes():
                 VALUES (:id, :tenant, :cmdb, 'gamma-rls-test', 'test')
             """), {"id": row_id, "tenant": tenant_a, "cmdb": uuid4()})
 
+        seeded = True
+        async with engine.begin() as connection:
+            assert await connection.scalar(text(
+                "SELECT NULLIF(current_setting('app.tenant_id', true), '') IS NULL"
+            )) is True
+            assert await connection.scalar(text(
+                "SELECT count(*) FROM telemetry_service_bindings WHERE id=:id"
+            ), {"id": row_id}) == 0
+
         async with engine.begin() as connection:
             await connection.execute(
                 text("SELECT set_config('app.tenant_id', :tenant, true)"),
@@ -149,21 +159,38 @@ async def test_postgres_rls_denies_cross_tenant_reads_and_writes():
                 {"id": row_id},
             )
             assert visible == 0
+            for statement in (
+                "UPDATE telemetry_service_bindings SET environment='forged' WHERE id=:id",
+                "DELETE FROM telemetry_service_bindings WHERE id=:id",
+            ):
+                result = await connection.execute(text(statement), {"id": row_id})
+                assert result.rowcount == 0
             with pytest.raises(DBAPIError) as denied:
-                await connection.execute(text("""
-                    INSERT INTO telemetry_service_bindings
-                        (id, tenant_id, cmdb_service_id, otel_service_name, environment)
-                    VALUES (:id, :tenant, :cmdb, 'gamma-rls-forged', 'test')
-                """), {"id": uuid4(), "tenant": tenant_a, "cmdb": uuid4()})
+                async with connection.begin_nested():
+                    await connection.execute(text("""
+                        INSERT INTO telemetry_service_bindings
+                            (id, tenant_id, cmdb_service_id, otel_service_name, environment)
+                        VALUES (:id, :tenant, :cmdb, 'gamma-rls-forged', 'test')
+                    """), {"id": uuid4(), "tenant": tenant_a, "cmdb": uuid4()})
             assert denied.value.orig.sqlstate == '42501'
-    finally:
         async with engine.begin() as connection:
-            await connection.execute(
-                text("SELECT set_config('app.tenant_id', :tenant, true)"),
-                {"tenant": str(tenant_a)},
-            )
-            await connection.execute(
-                text("DELETE FROM telemetry_service_bindings WHERE id=:id"),
-                {"id": row_id},
-            )
-        await engine.dispose()
+            await connection.execute(text("SELECT set_config('app.tenant_id', :tenant, true)"),
+                                     {"tenant": str(tenant_a)})
+            assert await connection.scalar(text(
+                "SELECT environment FROM telemetry_service_bindings WHERE id=:id"
+            ), {"id": row_id}) == "test"
+
+    finally:
+        try:
+            if seeded:
+                async with engine.begin() as connection:
+                    await connection.execute(
+                        text("SELECT set_config('app.tenant_id', :tenant, true)"),
+                        {"tenant": str(tenant_a)},
+                    )
+                    await connection.execute(
+                        text("DELETE FROM telemetry_service_bindings WHERE id=:id"),
+                        {"id": row_id},
+                    )
+        finally:
+            await engine.dispose()
