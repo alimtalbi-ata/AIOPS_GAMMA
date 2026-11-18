@@ -10,6 +10,8 @@ import json
 import time
 from uuid import uuid4
 
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
@@ -91,8 +93,21 @@ def test_http_forged_actor_headers_must_not_grant_principal(monkeypatch):
     assert response.status_code == 401
 
 
+@pytest.fixture
+def isolated_replay(monkeypatch):
+    context = MagicMock()
+    context.__aenter__ = AsyncMock(return_value=object())
+    context.__aexit__ = AsyncMock(return_value=False)
+    monkeypatch.setattr("app.security.get_session_factory", lambda: lambda: context)
+    consume = AsyncMock(return_value=True)
+    monkeypatch.setattr("app.security.consume_assertion_before_access", consume)
+    yield consume
+    consume.assert_awaited_once()
+
+
 def _signed_http_assertion(monkeypatch, *, tenant_id=None, path=PATH, access=True):
     """Sign a deterministic-shape assertion for the HTTP dependency boundary."""
+    monkeypatch.setattr(settings, "gateway_assertion_keys", {})
     monkeypatch.setattr(settings, "gateway_assertion_secret", "g" * 48)
     monkeypatch.setattr(settings, "gateway_assertion_issuer", "test-gateway")
     monkeypatch.setattr(settings, "gateway_assertion_audience", "gamma-api")
@@ -113,7 +128,7 @@ def _signed_http_assertion(monkeypatch, *, tenant_id=None, path=PATH, access=Tru
     return payload + "." + signature
 
 
-def test_http_valid_signed_assertion_reaches_disabled_metrics_preview(monkeypatch):
+def test_http_valid_signed_assertion_reaches_disabled_metrics_preview(monkeypatch, isolated_replay):
     monkeypatch.setattr(settings, "internal_api_key", "lab-secret")
     token = _signed_http_assertion(monkeypatch)
     with TestClient(app) as client:
@@ -154,7 +169,7 @@ def test_http_signed_assertion_cannot_bypass_wrong_service_key(monkeypatch):
     assert response.status_code == 401
 
 
-def test_http_signed_tenant_cannot_be_overridden_by_unsigned_headers(monkeypatch):
+def test_http_signed_tenant_cannot_be_overridden_by_unsigned_headers(monkeypatch, isolated_replay):
     """Probe the actual auth dependency, not just an endpoint's 501 status."""
     monkeypatch.setattr(settings, "internal_api_key", "lab-secret")
     tenant_a, tenant_b = str(uuid4()), str(uuid4())
@@ -230,7 +245,7 @@ def test_public_liveness_response_not_subject_to_tenant_cache_policy():
     assert response.headers.get("Cache-Control") != "no-store"
 
 
-def test_http_authenticated_unimplemented_metrics_is_never_cached(monkeypatch):
+def test_http_authenticated_unimplemented_metrics_is_never_cached(monkeypatch, isolated_replay):
     """Authenticated 501 must be no-store, not only unauthenticated 401."""
     monkeypatch.setattr(settings, "internal_api_key", "lab-secret")
     token = _signed_http_assertion(monkeypatch)
