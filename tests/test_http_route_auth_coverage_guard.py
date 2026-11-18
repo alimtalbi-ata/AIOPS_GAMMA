@@ -221,8 +221,9 @@ class InternalRouteDependencyGuard(unittest.TestCase):
         from unittest.mock import patch
 
         source = MAIN.read_text(encoding="utf-8")
-        original = "Depends(internal_principal)"
-        self.assertIn(original, source)
+        # Mutate a reviewed route, not the earlier tenant_session dependency.
+        original = "async def metrics(principal: Principal = Depends(internal_principal)):"
+        self.assertEqual(source.count(original), 1)
         for changed in (
             "Depends(internal_principal, use_cache=False)",
             "Depends(internal_principal, scope='read')",
@@ -232,7 +233,7 @@ class InternalRouteDependencyGuard(unittest.TestCase):
             with TemporaryDirectory() as directory:
                 candidate = Path(directory) / "main.py"
                 candidate.write_text(
-                    source.replace(original, changed, 1), encoding="utf-8"
+                    source.replace(original, original.replace("Depends(internal_principal)", changed), 1), encoding="utf-8"
                 )
                 with patch.dict(
                     self.test_all_non_public_http_routes_require_internal_principal.__globals__,
@@ -242,6 +243,33 @@ class InternalRouteDependencyGuard(unittest.TestCase):
                         AssertionError, "Route missing internal service auth dependency"
                     ):
                         self.test_all_non_public_http_routes_require_internal_principal()
+
+    def test_tenant_session_uses_verified_principal_and_scoped_factory(self):
+        """The shared DB dependency must not bypass cached gateway authentication."""
+        tree = ast.parse(MAIN.read_text(encoding="utf-8"))
+        expected = ast.parse(
+            "async def tenant_session(principal: Principal = Depends(internal_principal)):\n"
+            "    async for session in get_tenant_session(principal.tenant_id):\n"
+            "        yield session\n"
+        ).body[0]
+        actual = [node for node in tree.body
+                  if isinstance(node, ast.AsyncFunctionDef)
+                  and node.name == "tenant_session"]
+        self.assertEqual(len(actual), 1)
+        node = actual[0]
+        if ast.get_docstring(node) is not None:
+            node.body = node.body[1:]
+        self.assertEqual(ast.dump(node), ast.dump(expected))
+        for route in tree.body:
+            if not isinstance(route, ast.AsyncFunctionDef):
+                continue
+            if route.name not in {"alerts", "add_binding", "list_bindings", "add_evidence", "list_evidence"}:
+                continue
+            defaults = [*route.args.defaults, *route.args.kw_defaults]
+            self.assertTrue(any(
+                value is not None and ast.dump(value) == ast.dump(ast.parse("Depends(tenant_session)", mode="eval").body)
+                for value in defaults
+            ), f"{route.name} must use scoped tenant_session")
 
     def test_middleware_decorator_options_require_review(self):
         """Middleware registration changes must not bypass route guard review."""
