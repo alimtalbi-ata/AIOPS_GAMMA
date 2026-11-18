@@ -53,7 +53,7 @@ def signed_headers(monkeypatch, tenant, service="checkout"):
 
 
 
-def test_logs_disabled_fail_closed_without_opening_backend(monkeypatch):
+def test_logs_disabled_fail_closed_without_opening_backend(monkeypatch, replay_unit):
     monkeypatch.setattr(settings, "internal_api_key", KEY)
     monkeypatch.setattr(settings, "enable_opensearch", False)
 
@@ -68,7 +68,7 @@ def test_logs_disabled_fail_closed_without_opening_backend(monkeypatch):
     assert response.headers["cache-control"] == "no-store"
 
 
-def test_logs_forward_only_authenticated_tenant_to_backend(monkeypatch):
+def test_logs_forward_only_authenticated_tenant_to_backend(monkeypatch, replay_unit):
     monkeypatch.setattr(settings, "internal_api_key", KEY)
     monkeypatch.setattr(settings, "enable_opensearch", True)
     observed = []
@@ -106,7 +106,7 @@ def test_logs_reject_bad_auth_before_backend(monkeypatch):
     assert response.headers["cache-control"] == "no-store"
 
 
-def test_logs_reject_oversized_time_window_before_backend(monkeypatch):
+def test_logs_reject_oversized_time_window_before_backend(monkeypatch, replay_unit):
     monkeypatch.setattr(settings, "internal_api_key", KEY)
     monkeypatch.setattr(settings, "enable_opensearch", True)
     monkeypatch.setattr(settings, "max_query_hours", 1)
@@ -144,7 +144,7 @@ def test_logs_reject_invalid_tenant_before_backend(monkeypatch):
     assert response.headers["cache-control"] == "no-store"
 
 
-def test_logs_backend_failure_is_sanitized_and_not_cached(monkeypatch):
+def test_logs_backend_failure_is_sanitized_and_not_cached(monkeypatch, replay_unit):
     monkeypatch.setattr(settings, "internal_api_key", KEY)
     monkeypatch.setattr(settings, "enable_opensearch", True)
 
@@ -164,7 +164,7 @@ def test_logs_backend_failure_is_sanitized_and_not_cached(monkeypatch):
     assert "private-index" not in response.text
 
 
-def test_logs_reject_invalid_request_without_cache(monkeypatch):
+def test_logs_reject_invalid_request_without_cache(monkeypatch, replay_unit):
     monkeypatch.setattr(settings, "internal_api_key", KEY)
     monkeypatch.setattr(settings, "enable_opensearch", True)
 
@@ -243,7 +243,7 @@ def test_logs_reject_nil_tenant_before_backend(monkeypatch):
     assert response.headers["cache-control"] == "no-store"
 
 
-def test_logs_reject_unsafe_severity_terms_before_backend(monkeypatch):
+def test_logs_reject_unsafe_severity_terms_before_backend(monkeypatch, replay_unit):
     monkeypatch.setattr(settings, "internal_api_key", KEY)
     monkeypatch.setattr(settings, "enable_opensearch", True)
 
