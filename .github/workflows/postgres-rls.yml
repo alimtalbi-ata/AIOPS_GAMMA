@@ -2,7 +2,7 @@ name: PostgreSQL RLS qualification
 on:
   workflow_dispatch:
   push:
-    branches: [feat/observability-foundation]
+    branches: [feat/observability-foundation, feat/gamma-ux-integrated-qualification]
   pull_request:
     paths:
       - 'app/**'
